@@ -24,7 +24,7 @@ authenticated product workflows:
 - independent climate-observation review with immutable verified/rejected decisions;
 - a tenant-scoped research dataset registry with data dictionaries and collection metadata;
 - dataset access classifications, submission workflow, correction/resubmission and append-only review history;
-- Alembic migrations `0004_platform_domain` through `0007_dataset_review_history`.
+- Alembic migrations `0004_platform_domain` through `0008_research_dataset_files`.
 
 Climate observations enter the system as pending and cannot be verified by their
 submitter. Only organisation administrators and programme managers can review
