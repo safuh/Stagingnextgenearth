@@ -101,10 +101,12 @@ async def create_dataset_file_upload_intent(
     if membership.role not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     dataset = await session.scalar(
-        select(ResearchDataset).where(
+        select(ResearchDataset)
+        .where(
             ResearchDataset.id == dataset_id,
             ResearchDataset.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
@@ -219,8 +221,9 @@ async def complete_dataset_file_upload(
         raise HTTPException(status.HTTP_409_CONFLICT, "Uploaded object was not found")
     if stored.size_bytes != record.size_bytes or stored.content_type != record.media_type:
         record.status = "rejected"
-        record.scan_status = "rejected"
-        record.scanned_at = datetime.now(UTC)
+        # Metadata validation is not a malware scan; keep scan state pending.
+        record.scan_status = "pending"
+        record.scanned_at = None
         await session.commit()
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
