@@ -44,10 +44,10 @@ async def scan_pending_dataset_files(
 ) -> DatasetScanBatchResult:
     """Scan a bounded batch of quarantined uploads and release only clean files.
 
-    The database row lock coordinates multiple worker processes on PostgreSQL.
-    Each completed file is committed independently so a later failure cannot
-    roll back earlier verdicts. Infrastructure failures leave the current file
-    quarantined with a pending scan state for a subsequent poll.
+    Each iteration claims one row with FOR UPDATE SKIP LOCKED. The row lock is
+    held while the object is read and scanned, then released by that file's
+    commit. This prevents two PostgreSQL workers from scanning the same file.
+    Infrastructure failures leave the current file quarantined for a later poll.
     """
     if not 1 <= batch_size <= 100:
         raise ValueError("batch_size must be between 1 and 100")
@@ -56,19 +56,21 @@ async def scan_pending_dataset_files(
     rejected = 0
     failed = 0
     async with session_factory() as session:
-        records = await session.scalars(
-            select(ResearchDatasetFile)
-            .where(
-                ResearchDatasetFile.status == "quarantined",
-                ResearchDatasetFile.scan_status == "pending",
-                ResearchDatasetFile.uploaded_at.is_not(None),
+        for _ in range(batch_size):
+            record = await session.scalar(
+                select(ResearchDatasetFile)
+                .where(
+                    ResearchDatasetFile.status == "quarantined",
+                    ResearchDatasetFile.scan_status == "pending",
+                    ResearchDatasetFile.uploaded_at.is_not(None),
+                )
+                .order_by(ResearchDatasetFile.created_at, ResearchDatasetFile.id)
+                .limit(1)
+                .with_for_update(skip_locked=True)
             )
-            .order_by(ResearchDatasetFile.created_at, ResearchDatasetFile.id)
-            .limit(batch_size)
-            .with_for_update(skip_locked=True)
-        )
-        file_records = list(records.all())
-        for record in file_records:
+            if record is None:
+                break
+
             try:
                 content = await asyncio.to_thread(
                     storage.get_object,
@@ -95,7 +97,6 @@ async def scan_pending_dataset_files(
             except Exception:
                 await session.rollback()
                 failed += 1
-                # Avoid immediately retrying the same failing row in this poll.
                 break
 
     return DatasetScanBatchResult(scanned=scanned, rejected=rejected, failed=failed)
