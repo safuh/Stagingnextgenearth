@@ -330,6 +330,31 @@ def test_openalex_lookup_requires_exactly_one_valid_identifier(
         response = client.get(f"{base}/metadata/lookup", headers=headers, params=params)
         assert response.status_code == 422
 
+    def mismatched_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": "https://openalex.org/W1111111111",
+                "title": "A different publication",
+                "type": "article",
+                "doi": "https://doi.org/10.9999/different",
+            },
+        )
+
+    async def override_client():
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(mismatched_handler)
+        ) as mock_client:
+            yield mock_client
+
+    client.app.dependency_overrides[get_openalex_client] = override_client
+    mismatch = client.get(
+        f"{base}/metadata/lookup",
+        headers=headers,
+        params={"doi": "10.1234/requested"},
+    )
+    assert mismatch.status_code == 502
+
 
 
 def test_openalex_import_creates_publication_with_provenance(
