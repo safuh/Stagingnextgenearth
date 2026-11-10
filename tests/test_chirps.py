@@ -293,3 +293,22 @@ async def test_chirps_rejects_raster_larger_than_download_limit() -> None:
 def test_chirps_rejects_non_positive_raster_download_limit() -> None:
     with pytest.raises(ValueError, match="request limits must be positive"):
         CHIRPSProvider(max_raster_bytes=0)
+
+
+@pytest.mark.asyncio
+async def test_chirps_rejects_declared_content_length_before_reading_body() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"Content-Length": "100"},
+            content=b"x",
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = CHIRPSProvider(client=client, max_raster_bytes=10)
+        with pytest.raises(ValueError, match="download-size limit"):
+            await anext(
+                provider.fetch(
+                    _request(point=ClimatePoint(latitude=-1.26, longitude=36.76))
+                )
+            )
