@@ -1,6 +1,6 @@
 """Provider-neutral contracts for climate data ingestion.
 
-Provider adapters must translate source-specific payloads into these validated
+Provider adapters translate source-specific payloads into these validated
 measurement and request types before persistence. Fetching a measurement does
 not imply that it has passed platform quality review.
 """
@@ -12,8 +12,19 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
 
+class ClimatePoint(BaseModel):
+    """WGS84 point location expressed as latitude and longitude."""
+
+    model_config = ConfigDict(frozen=True)
+
+    latitude: FiniteFloat = Field(ge=-90, le=90)
+    longitude: FiniteFloat = Field(ge=-180, le=180)
+
+
 class ClimateBoundingBox(BaseModel):
     """WGS84 bounding box expressed as west, south, east, north."""
+
+    model_config = ConfigDict(frozen=True)
 
     west: FiniteFloat = Field(ge=-180, le=180)
     south: FiniteFloat = Field(ge=-90, le=90)
@@ -36,6 +47,7 @@ class ClimateProviderRequest(BaseModel):
 
     start: datetime
     end: datetime
+    point: ClimatePoint | None = None
     area: ClimateBoundingBox | None = None
 
     @field_validator("start", "end")
@@ -49,6 +61,8 @@ class ClimateProviderRequest(BaseModel):
     def validate_period(self) -> "ClimateProviderRequest":
         if self.end <= self.start:
             raise ValueError("end must be later than start")
+        if self.point is not None and self.area is not None:
+            raise ValueError("request cannot specify both a point and a bounding box")
         return self
 
 
@@ -83,7 +97,7 @@ class ClimateMeasurement(BaseModel):
 
 
 class ClimateProvider(Protocol):
-    """Adapter interface implemented by NASA POWER, CHIRPS, Copernicus, etc."""
+    """Interface implemented by climate data provider adapters."""
 
     provider_id: str
     source_name: str
