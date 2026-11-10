@@ -5,7 +5,7 @@ from pathlib import PurePath
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,13 +69,7 @@ class DatasetFileRead(BaseModel):
     uploaded_at: datetime | None
 
 
-class DatasetFileUploadComplete(BaseModel):
-    """Client assertion checked against provider-side object metadata."""
-
-    sha256_hex: str = Field(pattern=r"^[a-fA-F0-9]{64}$")
-
-
-def _storage(request: object) -> ObjectStorage:
+def _storage(request: Request) -> ObjectStorage:
     """Resolve configured storage without leaking provider configuration."""
     app = getattr(request, "app")
     adapter = getattr(app.state, "object_storage", None)
@@ -96,7 +90,7 @@ async def create_dataset_file_upload_intent(
     organization_id: str,
     dataset_id: str,
     body: DatasetFileUploadIntent,
-    request: object,
+    request: Request,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -126,6 +120,7 @@ async def create_dataset_file_upload_intent(
         not filename
         or filename != body.filename
         or filename in {".", ".."}
+        or "\\" in filename
         or any(ord(character) < 32 for character in filename)
         or not filename.lower().endswith(_ALLOWED_TYPES[body.media_type])
     ):
@@ -228,7 +223,7 @@ async def complete_dataset_file_upload(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Uploaded object metadata does not match the upload intent",
         )
-    record.sha256_hex = body.sha256_hex.lower()
+    # A trusted scanner will compute the checksum from object bytes.
     record.uploaded_at = datetime.now(UTC)
     record.status = "quarantined"
     await session.commit()
