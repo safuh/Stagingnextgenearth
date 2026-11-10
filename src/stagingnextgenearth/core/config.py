@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     object_storage_endpoint_url: str | None = None
     object_storage_access_key_id: SecretStr | None = None
     object_storage_secret_access_key: SecretStr | None = None
+    malware_scanning_enabled: bool = False
+    clamav_host: str | None = None
+    clamav_port: int = Field(default=3310, ge=1, le=65535)
+    clamav_timeout_seconds: float = Field(default=30, gt=0, le=300)
     cors_origins: list[str] = Field(default_factory=list)
     cors_allow_credentials: bool = False
     cors_allow_methods: list[str] = Field(
@@ -83,6 +87,10 @@ class Settings(BaseSettings):
             or self.object_storage_secret_access_key is None
         ):
             raise ValueError("S3-compatible storage requires explicit access credentials")
+        if self.malware_scanning_enabled and not self.object_storage_enabled:
+            raise ValueError("Malware scanning requires object storage to be enabled")
+        if self.malware_scanning_enabled and not self.clamav_host:
+            raise ValueError("CLAMAV_HOST is required when malware scanning is enabled")
         if self.environment is Environment.TEST:
             self.debug = False
         return self
