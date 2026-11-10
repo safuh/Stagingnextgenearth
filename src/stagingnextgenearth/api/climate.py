@@ -1,6 +1,6 @@
 """Provenance-aware climate observation submission, query, and quality review."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -194,7 +194,7 @@ async def review_climate_observation(
         )
     observation.quality_status = body.decision
     observation.reviewed_by = principal.user_id
-    observation.reviewed_at = datetime.now(timezone.utc)
+    observation.reviewed_at = datetime.now(UTC)
     observation.review_note = body.note.strip() if body.note else None
     await session.commit()
     await session.refresh(observation)
