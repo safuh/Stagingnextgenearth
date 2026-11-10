@@ -388,7 +388,7 @@ async def record_attendance(
     await _course(session, organization_id, course_id)
     enrolled = await session.scalar(select(LearningEnrollment.id).where(
         LearningEnrollment.course_id == course_id, LearningEnrollment.learner_id == body.learner_id,
-        LearningEnrollment.status == "approved",
+        LearningEnrollment.status.in_({"approved", "completed"}),
     ))
     if enrolled is None:
         raise HTTPException(422, "Attendance requires an approved learner")
