@@ -721,7 +721,8 @@ class ResearchPublication(Base):
     __tablename__ = "research_publications"
     __table_args__ = (
         CheckConstraint(
-            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', 'report', 'preprint', 'other')",
+            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', "
+            "'report', 'preprint', 'other')",
             name="ck_research_publication_type",
         ),
         UniqueConstraint("study_id", "doi", name="uq_research_publication_study_doi"),
