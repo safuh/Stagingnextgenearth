@@ -23,6 +23,7 @@ from stagingnextgenearth.platform.models import (
     LearningResource,
     Membership,
 )
+
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
@@ -461,8 +462,13 @@ async def update_progress(
         required = await session.scalars(select(LearningAssessment).where(
             LearningAssessment.course_id == course_id))
         assessments = required.all()
-        passed_ids = {a.assessment_id for a in scored if a.score is not None and
-                      a.score >= next((x.pass_mark for x in assessments if x.id == a.assessment_id), 101)}
+        pass_marks = {assessment.id: assessment.pass_mark for assessment in assessments}
+        passed_ids = {
+            attempt.assessment_id
+            for attempt in scored
+            if attempt.score is not None
+            and attempt.score >= pass_marks.get(attempt.assessment_id, 101)
+        }
         if any(a.id not in passed_ids for a in assessments):
             raise HTTPException(
                 409,
