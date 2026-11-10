@@ -93,7 +93,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Study publication registry with validated DOI, ORCID and OpenAlex identifiers.
 - [x] OpenAlex metadata lookup preview with bounded HTTP requests and identifier validation.
 - [x] Explicit OpenAlex import with append-only provider provenance and metadata snapshot hash.
-- [ ] Controlled publication metadata refresh with field-level preview, explicit selection and protection for researcher-edited values.
+- [x] Controlled publication metadata refresh with field-level preview, explicit selection and protection for researcher-edited values.
 - [x] Private object-storage adapter, constrained upload intents and authorised download grants.
 - [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
 - [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
@@ -160,7 +160,6 @@ These foundation checks must continue passing as product code is added.
 - Treat climate observations as provenance-bearing measurements; ingestion does not imply verification.
 - Do not claim environmental outcomes from activity counts alone.
 - Run migrations as explicit release operations, never in every API worker.
-
 
 ### Dataset file storage increment
 
