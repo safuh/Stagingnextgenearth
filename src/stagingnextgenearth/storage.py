@@ -188,7 +188,6 @@ class S3ObjectStorage:
                 return None
             raise
 
-
     def get_object(self, *, key: str, max_bytes: int) -> bytes:
         """Fetch a private object with a hard response-size limit."""
         now = datetime.now(UTC)
