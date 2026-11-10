@@ -316,7 +316,10 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
     doi_value = record.get("doi")
     doi = doi_value.removeprefix("https://doi.org/").lower() if isinstance(doi_value, str) else None
     work_type = record.get("type")
-    type_map = {
+    PublicationType = Literal[
+        "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
+    ]
+    type_map: dict[str, PublicationType] = {
         "article": "article",
         "book": "book",
         "book-chapter": "chapter",
@@ -324,7 +327,7 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
         "report": "report",
         "preprint": "preprint",
     }
-    publication_type = type_map.get(str(work_type), "other")
+    publication_type: PublicationType = type_map.get(str(work_type), "other")
     published_value = record.get("publication_date")
     published_on = None
     if isinstance(published_value, str):
