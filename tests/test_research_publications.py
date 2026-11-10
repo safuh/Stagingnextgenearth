@@ -442,3 +442,81 @@ def test_openalex_import_creates_publication_with_provenance(
         json={"openalex_id": "W9876543210"},
     )
     assert duplicate.status_code == 409
+
+
+
+def test_publication_metadata_refresh_is_selective_and_audited(
+    client: TestClient,
+) -> None:
+    headers = _register(client, "publication-refresh@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "Refresh Lab", "slug": "refresh-lab"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=headers,
+        json={"title": "Forest restoration evidence"},
+    ).json()
+    base = (
+        f"/api/organizations/{organization['id']}/research-studies/{study['id']}/publications"
+    )
+    provider_record = {
+        "id": "https://openalex.org/W2468101214",
+        "title": "Forest restoration baseline",
+        "type": "article",
+        "doi": "https://doi.org/10.2468/forest.2026",
+        "publication_date": "2026-03-14",
+        "authorships": [{"author": {"display_name": "A. Researcher", "orcid": None}}],
+        "primary_location": {"source": {"display_name": "Ecology Review"}},
+        "landing_page_url": "https://example.org/forest",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=provider_record)
+
+    async def override_client():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as mock_client:
+            yield mock_client
+
+    client.app.dependency_overrides[get_openalex_client] = override_client
+    imported = client.post(
+        f"{base}/metadata/import",
+        headers=headers,
+        json={"openalex_id": "W2468101214"},
+    )
+    assert imported.status_code == 201
+    publication = imported.json()
+
+    provider_record["title"] = "Updated forest restoration evidence"
+    preview = client.get(
+        f"{base}/{publication['id']}/metadata/refresh-preview",
+        headers=headers,
+    )
+    assert preview.status_code == 200
+    changes = preview.json()["changes"]
+    title_change = next(change for change in changes if change["field"] == "title")
+    assert title_change["current_value"] == "Forest restoration baseline"
+    assert title_change["provider_value"] == "Updated forest restoration evidence"
+    assert title_change["safe_to_apply"] is True
+
+    refreshed = client.post(
+        f"{base}/{publication['id']}/metadata/refresh",
+        headers=headers,
+        json={"fields": ["title"]},
+    )
+    assert refreshed.status_code == 200
+    assert refreshed.json()["title"] == "Updated forest restoration evidence"
+    # Unselected fields are not silently overwritten.
+    assert refreshed.json()["journal_or_venue"] == "Ecology Review"
+
+    sources = client.get(
+        f"{base}/{publication['id']}/metadata/sources",
+        headers=headers,
+    )
+    assert sources.status_code == 200
+    assert len(sources.json()) == 2
+    latest = sources.json()[0]
+    assert latest["imported_fields"] == ["title"]
+    assert latest["metadata_snapshot"]["title"] == "Updated forest restoration evidence"
