@@ -1,7 +1,7 @@
-"""Provenance-aware climate observation submission and query endpoints."""
+"""Provenance-aware climate observation submission, query, and quality review."""
 
-from datetime import datetime
-from typing import Annotated
+from datetime import datetime, timezone
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator
@@ -22,6 +22,7 @@ router = APIRouter(
     tags=["climate"],
 )
 _WRITE_ROLES = {"admin", "researcher", "youth_volunteer"}
+_REVIEW_ROLES = {"admin", "programme_manager"}
 
 
 class ClimateObservationCreate(BaseModel):
@@ -46,8 +47,15 @@ class ClimateObservationCreate(BaseModel):
         return value
 
 
+class ClimateObservationReview(BaseModel):
+    """Independent quality decision for a pending observation."""
+
+    decision: Literal["verified", "rejected"]
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class ClimateObservationRead(BaseModel):
-    """Climate measurement including provenance and quality state."""
+    """Climate measurement including provenance and quality-review audit fields."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +71,9 @@ class ClimateObservationRead(BaseModel):
     longitude: float
     source: str
     quality_status: str
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    review_note: str | None
     metadata_json: dict[str, object] | None
 
 
@@ -74,7 +85,7 @@ async def create_climate_observation(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ClimateObservationRead:
-    """Persist a measurement as pending; only a separate review can verify it."""
+    """Persist a measurement as pending; verification is a separate workflow."""
     if membership.role not in _WRITE_ROLES:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Climate observation submission is not permitted"
@@ -128,11 +139,12 @@ async def list_climate_observations(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
     variable: str | None = Query(default=None, min_length=2, max_length=80),
+    quality_status: Literal["pending", "verified", "rejected"] | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[ClimateObservationRead]:
-    """Query observations within the caller's organisation and optional time range."""
+    """Query observations within the caller's organisation and optional filters."""
     if start and end and end < start:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "end must not precede start")
     statement = select(ClimateObservation).where(
@@ -140,6 +152,8 @@ async def list_climate_observations(
     )
     if variable is not None:
         statement = statement.where(ClimateObservation.variable == variable)
+    if quality_status is not None:
+        statement = statement.where(ClimateObservation.quality_status == quality_status)
     if start is not None:
         statement = statement.where(ClimateObservation.observed_at >= start)
     if end is not None:
@@ -148,3 +162,40 @@ async def list_climate_observations(
         statement.order_by(ClimateObservation.observed_at.desc()).limit(limit)
     )
     return [ClimateObservationRead.model_validate(item) for item in result.all()]
+
+
+@router.post("/{observation_id}/review", response_model=ClimateObservationRead)
+async def review_climate_observation(
+    organization_id: str,
+    observation_id: str,
+    body: ClimateObservationReview,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ClimateObservationRead:
+    """Record one independent review decision; decisions are immutable."""
+    if membership.role not in _REVIEW_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate quality reviewer role required")
+    observation = await session.scalar(
+        select(ClimateObservation).where(
+            ClimateObservation.id == observation_id,
+            ClimateObservation.organization_id == organization_id,
+        )
+    )
+    if observation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Climate observation not found")
+    if observation.created_by == principal.user_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Submitters cannot review their own observations"
+        )
+    if observation.quality_status != "pending":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Only pending observations can be reviewed"
+        )
+    observation.quality_status = body.decision
+    observation.reviewed_by = principal.user_id
+    observation.reviewed_at = datetime.now(timezone.utc)
+    observation.review_note = body.note.strip() if body.note else None
+    await session.commit()
+    await session.refresh(observation)
+    return ClimateObservationRead.model_validate(observation)
