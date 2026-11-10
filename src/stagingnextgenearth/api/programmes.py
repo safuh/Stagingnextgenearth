@@ -91,3 +91,43 @@ async def list_programmes(
         .order_by(Programme.created_at.desc())
     )
     return [ProgrammeRead.model_validate(item) for item in result.all()]
+
+
+class ProgrammeStatusUpdate(BaseModel):
+    """Explicit programme lifecycle transition."""
+
+    status: str = Field(pattern=r"^(planned|active|completed|archived)$")
+
+
+@router.post("/{programme_id}/status", response_model=ProgrammeRead)
+async def update_programme_status(
+    organization_id: str,
+    programme_id: str,
+    body: ProgrammeStatusUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProgrammeRead:
+    """Apply a guarded lifecycle transition to an organisation's programme."""
+    if membership.role not in {"admin", "programme_manager"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.id == programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    allowed = {
+        "draft": {"planned", "archived"},
+        "planned": {"active", "archived"},
+        "active": {"completed", "archived"},
+        "completed": {"archived"},
+        "archived": set(),
+    }
+    if body.status not in allowed.get(programme.status, set()):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Invalid programme status transition")
+    programme.status = body.status
+    await session.commit()
+    await session.refresh(programme)
+    return ProgrammeRead.model_validate(programme)
