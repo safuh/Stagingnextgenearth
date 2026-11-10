@@ -167,6 +167,52 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert len(versions.json()) == 1
     assert versions.json()[0]["status"] == "approved"
 
+    second_version = client.post(
+        f"{base_url}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Rainfall adaptation protocol revision",
+            "objectives": "Assess seasonal rainfall patterns and community adaptation outcomes.",
+            "methodology": (
+                "Combine station observations with structured community interviews "
+                "and documented statistical analysis."
+            ),
+        },
+    )
+    assert second_version.status_code == 201
+    assert second_version.json()["version_number"] == 2
+    second_id = second_version.json()["id"]
+    second_submission = client.post(
+        f"{base_url}/protocol-versions/{second_id}/submit",
+        headers=lead_headers,
+    )
+    assert second_submission.status_code == 200
+    revision_decision = client.post(
+        f"{base_url}/protocol-versions/{second_id}/reviews",
+        headers=reviewer_headers,
+        json={"decision": "revisions_required", "note": "Clarify participant recruitment."},
+    )
+    assert revision_decision.status_code == 201
+    resubmit_same_version = client.post(
+        f"{base_url}/protocol-versions/{second_id}/submit",
+        headers=lead_headers,
+    )
+    assert resubmit_same_version.status_code == 409
+    third_version = client.post(
+        f"{base_url}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Rainfall adaptation protocol revised",
+            "objectives": "Assess seasonal rainfall patterns and community adaptation outcomes.",
+            "methodology": (
+                "Combine station observations with structured community interviews "
+                "and documented statistical analysis."
+            ),
+        },
+    )
+    assert third_version.status_code == 201
+    assert third_version.json()["version_number"] == 3
+
 
 def test_ethics_review_cannot_reference_unapproved_or_foreign_protocol(
     client: TestClient,
