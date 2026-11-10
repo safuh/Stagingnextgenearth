@@ -233,6 +233,17 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert verified.status_code == 200
         assert verified.json()["valid"] is True
+        revoked = client.post(
+            f"{base}/certificates/{premature.json()['certificate_id']}/revoke",
+            headers=admin_headers,
+        )
+        assert revoked.status_code == 200
+        assert revoked.json()["status"] == "revoked"
+        revoked_verification = client.get(
+            f"{base}/certificates/verify/{premature.json()['verification_code']}"
+        )
+        assert revoked_verification.status_code == 200
+        assert revoked_verification.json()["valid"] is False
 
         attendance = client.post(
             f"{base}/courses/{course_id}/attendance",
