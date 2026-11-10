@@ -18,9 +18,9 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "research_publication_metadata_sources",
-        sa.Column("metadata_snapshot", sa.JSON(), nullable=True),
+        sa.Column("metadata_baseline", sa.JSON(), nullable=True),
     )
 
 
 def downgrade() -> None:
-    op.drop_column("research_publication_metadata_sources", "metadata_snapshot")
+    op.drop_column("research_publication_metadata_sources", "metadata_baseline")
