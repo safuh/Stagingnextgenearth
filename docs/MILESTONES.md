@@ -103,7 +103,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Executable scanner worker process with configurable polling and batch size.
 - [x] Dedicated worker container/deployment manifest and production operational runbook (production Compose profiles validated in CI; operational runbook added).
 - [x] Dataset file download access audit events.
-- [ ] Research exports and reproducible analysis hand-off.
+- [x] Research exports and reproducible analysis hand-off.
 
 ## M5 — Climate and geospatial intelligence
 
@@ -175,3 +175,21 @@ These foundation checks must continue passing as product code is added.
 - [x] Dedicated worker deployment manifest and production operational runbook (production Compose profiles validated in CI; operational runbook added).
 - [x] Five-minute authorised download URLs restricted to clean files and permitted organisation members.
 - [x] Append-only audit event for each download URL issuance.
+
+### Research hand-off verification
+
+- [x] Approved dataset export manifests with stable SHA-256 fingerprints.
+- [x] Immutable analysis-run provenance for exact clean input file versions,
+      software/configuration/parameters/seed and output checksum metadata.
+- [x] Regression coverage for manifest reproducibility and analysis lineage.
+
+### Learning management MVP
+
+- [x] Tenant-scoped course catalogue, draft/publish lifecycle, modules and lessons.
+- [x] Learner applications, approval and registration.
+- [x] Quiz/assignment/evaluation definitions, submissions and staff evaluation.
+- [x] Mentor/mentee assignment and workshop attendance records.
+- [x] Course learning-resource metadata with private-storage references.
+- [x] Progress reporting and verifiable completion certificates.
+- [ ] Automated quiz execution, learner notifications, certificate PDF rendering,
+      safeguarding/guardian consent workflows and accessible learner portal UI.
