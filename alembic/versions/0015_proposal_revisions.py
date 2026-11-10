@@ -26,7 +26,7 @@ def upgrade() -> None:
         "research_study_proposals",
         ["supersedes_proposal_id"],
         ["id"],
-        ondelete="RESTRICT",
+        ondelete="CASCADE",
     )
     op.create_unique_constraint(
         "uq_research_proposal_study_version",
