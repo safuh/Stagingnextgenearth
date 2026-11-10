@@ -24,14 +24,13 @@ authenticated product workflows:
 - independent climate-observation review with immutable verified/rejected decisions;
 - a tenant-scoped research dataset registry with data dictionaries and collection metadata;
 - dataset access classifications, submission workflow, correction/resubmission and append-only review history;
-- Alembic migrations `0004_platform_domain` through `0008_research_dataset_files`.
+- Alembic migrations `0004_platform_domain` through `0009_dataset_file_access_audit`.
 
 Climate observations enter the system as pending and cannot be verified by their
 submitter. Only organisation administrators and programme managers can review
 observations, and a review decision cannot be overwritten through the API. Dataset
 registration stores governed metadata and supports private file upload intents when
-S3-compatible object storage is configured. Completed files remain quarantined until a
-trusted scanning workflow is implemented; downloads are not yet available. Restricted
+S3-compatible object storage is configured. Completed files remain quarantined unless optional ClamAV scanning returns a clean verdict. Authorised download grants are issued as short-lived signed URLs and recorded in an access audit table. Restricted
 dataset metadata is visible only to its owner and organisation administrators. A public
 classification does not publish data to the internet.
 Do not expose domain tables through unrestricted generic CRUD endpoints.
@@ -107,8 +106,11 @@ returns a clean verdict. Infected files are rejected. Scanner or storage errors 
 closed and leave files quarantined; the uploader or an organisation admin can retry
 the completion request. Without a configured scanner, files remain quarantined.
 
-There is not yet a download endpoint, so even clean files cannot be downloaded through
-the application. Configure the bucket with public access blocked and encryption enabled.
+The authorised download endpoint issues a five-minute presigned GET URL only to eligible
+organisation members for clean, available files. Restricted datasets remain owner/admin
+only. Each URL issuance is recorded in an append-only access event table. The application
+does not proxy file bytes, and the URL can be used until it expires; configure the bucket
+with public access blocked and encryption enabled.
 The current scanner path buffers each file in application memory (up to 100 MiB); a
 streaming worker queue is a production scaling improvement still to be implemented.
 Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
