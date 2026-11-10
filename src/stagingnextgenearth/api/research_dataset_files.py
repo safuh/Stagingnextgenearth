@@ -113,8 +113,6 @@ async def create_dataset_file_upload_intent(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DatasetFileUploadIntentRead:
     """Reserve a file version and issue a short-lived constrained upload form."""
-    if membership.role not in _WRITE_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     dataset = await session.scalar(
         select(ResearchDataset)
         .where(
@@ -125,8 +123,17 @@ async def create_dataset_file_upload_intent(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
-    if dataset.owner_user_id != principal.user_id and membership.role != "admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the dataset owner can upload files")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _WRITE_ROLES and study_role not in {"editor", "contributor"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
+    if (
+        dataset.owner_user_id != principal.user_id
+        and membership.role != "admin"
+        and study_role not in {"editor", "contributor"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study collaborator required")
     if dataset.status not in {"draft", "rejected"}:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -206,8 +213,6 @@ async def complete_dataset_file_upload(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DatasetFileRead:
     """Verify, quarantine, and scan a completed upload when a scanner is configured."""
-    if membership.role not in _WRITE_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     record = await session.scalar(
         select(ResearchDatasetFile)
         .join(ResearchDataset, ResearchDataset.id == ResearchDatasetFile.dataset_id)
@@ -220,8 +225,25 @@ async def complete_dataset_file_upload(
     )
     if record is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
-    if record.created_by != principal.user_id and membership.role != "admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the uploader can complete this upload")
+    dataset = await session.scalar(
+        select(ResearchDataset).where(
+            ResearchDataset.id == dataset_id,
+            ResearchDataset.organization_id == organization_id,
+        )
+    )
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _WRITE_ROLES and study_role not in {"editor", "contributor"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
+    if (
+        record.created_by != principal.user_id
+        and membership.role != "admin"
+        and study_role not in {"editor", "contributor"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Uploader or study collaborator required")
     if record.status not in {"upload_pending", "quarantined"}:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
