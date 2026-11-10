@@ -725,3 +725,102 @@ def test_dataset_file_upload_rejects_storage_size_mismatch(client: TestClient) -
     assert files.json()[0]["status"] == "rejected"
     assert files.json()[0]["scan_status"] == "pending"
     assert files.json()[0]["sha256_hex"] is None
+
+
+
+def test_dataset_file_scanner_controls_release_and_records_checksum(
+    client: TestClient,
+) -> None:
+    import hashlib
+    from types import SimpleNamespace
+
+    class FakeStorage:
+        def __init__(self) -> None:
+            self.objects: dict[str, bytes] = {}
+
+        def create_upload_form(
+            self, *, key: str, content_type: str, max_bytes: int, expires_seconds: int
+        ) -> SimpleNamespace:
+            content = b"trusted research data"
+            self.objects[key] = content
+            return SimpleNamespace(
+                url="https://storage.example.test/upload",
+                fields={"key": key, "Content-Type": content_type},
+            )
+
+        def inspect(self, *, key: str) -> SimpleNamespace | None:
+            content = self.objects.get(key)
+            if content is None:
+                return None
+            return SimpleNamespace(size_bytes=len(content), content_type="text/csv")
+
+        def get_object(self, *, key: str, max_bytes: int) -> bytes:
+            content = self.objects[key]
+            assert len(content) <= max_bytes
+            return content
+
+    class FakeScanner:
+        def __init__(self) -> None:
+            self.clean = True
+            self.scanned: list[bytes] = []
+
+        def scan(self, content: bytes) -> bool:
+            self.scanned.append(content)
+            return self.clean
+
+    token = register_and_login(client, "file-scanner@example.org")
+    headers = {"Authorization": f"Bearer {token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "Scanning Lab", "slug": "scanning-lab"},
+    ).json()
+    organization_id = organization["id"]
+    dataset = client.post(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=headers,
+        json={
+            "title": "Scanned rainfall data",
+            "format": "CSV",
+            "source": "Field station",
+        },
+    ).json()
+
+    storage = FakeStorage()
+    scanner = FakeScanner()
+    client.app.state.object_storage = storage
+    client.app.state.dataset_file_scanner = scanner
+    base = f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}"
+
+    clean_intent = client.post(
+        f"{base}/files/upload-intents",
+        headers=headers,
+        json={"filename": "clean.csv", "media_type": "text/csv", "size_bytes": 21},
+    )
+    assert clean_intent.status_code == 201
+    clean_result = client.post(
+        f"{base}/files/{clean_intent.json()['file_id']}/complete",
+        headers=headers,
+    )
+    assert clean_result.status_code == 200
+    assert clean_result.json()["status"] == "available"
+    assert clean_result.json()["scan_status"] == "clean"
+    assert clean_result.json()["sha256_hex"] == hashlib.sha256(
+        b"trusted research data"
+    ).hexdigest()
+
+    scanner.clean = False
+    infected_intent = client.post(
+        f"{base}/files/upload-intents",
+        headers=headers,
+        json={"filename": "rejected.csv", "media_type": "text/csv", "size_bytes": 21},
+    )
+    assert infected_intent.status_code == 201
+    infected_result = client.post(
+        f"{base}/files/{infected_intent.json()['file_id']}/complete",
+        headers=headers,
+    )
+    assert infected_result.status_code == 200
+    assert infected_result.json()["status"] == "rejected"
+    assert infected_result.json()["scan_status"] == "rejected"
+    assert len(scanner.scanned) == 2
