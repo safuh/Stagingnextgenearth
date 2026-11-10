@@ -126,13 +126,23 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     assert history.status_code == 200
     assert len(history.json()) == 1
 
+    invalid_assignment = client.post(
+        f"{base}/milestones",
+        headers=lead_headers,
+        json={
+            "title": "Invalid assignment test",
+            "assigned_to": "00000000-0000-0000-0000-000000000000",
+        },
+    )
+    assert invalid_assignment.status_code == 422
+
     milestone = client.post(
         f"{base}/milestones",
         headers=lead_headers,
         json={
             "title": "Complete baseline field survey",
             "description": "Collect and quality-check the initial field observations.",
-            "assigned_to": invitation.json()["user_id"] if "user_id" in invitation.json() else None,
+            "assigned_to": None,
             "due_date": date(2027, 3, 31).isoformat(),
         },
     )
