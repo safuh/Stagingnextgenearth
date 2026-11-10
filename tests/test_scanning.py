@@ -28,7 +28,7 @@ class FakeConnection:
 
 
 def test_clamav_scanner_streams_content_and_accepts_clean_verdict(monkeypatch) -> None:
-    connection = FakeConnection(b"stream: OK\\0")
+    connection = FakeConnection(b"stream: OK\0")
     monkeypatch.setattr(
         "stagingnextgenearth.scanning.socket.create_connection",
         lambda address, timeout: connection,
@@ -36,13 +36,13 @@ def test_clamav_scanner_streams_content_and_accepts_clean_verdict(monkeypatch) -
     scanner = ClamAVScanner(host="127.0.0.1")
 
     assert scanner.scan(b"sample") is True
-    assert connection.sent.startswith(b"zINSTREAM\\0")
+    assert connection.sent.startswith(b"zINSTREAM\0")
     assert connection.sent.endswith(struct.pack("!I", 0))
     assert connection.timeout == 30
 
 
 def test_clamav_scanner_rejects_found_verdict(monkeypatch) -> None:
-    connection = FakeConnection(b"stream: Eicar-Test-Signature FOUND\\0")
+    connection = FakeConnection(b"stream: Eicar-Test-Signature FOUND\0")
     monkeypatch.setattr(
         "stagingnextgenearth.scanning.socket.create_connection",
         lambda address, timeout: connection,
