@@ -13,7 +13,6 @@ from starlette.types import ExceptionHandler
 
 from .api.router import api_router
 from .auth.application import AuthenticationApplication
-
 from .core.config import Settings, get_settings
 from .core.errors import (
     BackboneError,
