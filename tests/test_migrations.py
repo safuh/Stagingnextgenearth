@@ -44,6 +44,14 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "reviewed_at",
             "review_note",
         },
+        "research_dataset_review_events": {
+            "id",
+            "dataset_id",
+            "reviewer_user_id",
+            "decision",
+            "note",
+            "reviewed_at",
+        },
         "climate_observations": {
             "id",
             "organization_id",
