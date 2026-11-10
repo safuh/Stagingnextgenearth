@@ -159,37 +159,62 @@ async def test_worker_keeps_file_quarantined_when_scanner_fails(tmp_path) -> Non
             )
             session.add_all([user, organization, dataset])
             await session.flush()
-            session.add(
-                ResearchDatasetFile(
-                    id="file-1",
-                    dataset_id=dataset.id,
-                    version=1,
-                    original_filename="pending.csv",
-                    media_type="text/csv",
-                    size_bytes=5,
-                    storage_key="missing-key",
-                    status="quarantined",
-                    scan_status="pending",
-                    uploaded_at=datetime.now(UTC),
-                    created_by=user.id,
-                )
+            session.add_all(
+                [
+                    ResearchDatasetFile(
+                        id="file-1",
+                        dataset_id=dataset.id,
+                        version=1,
+                        original_filename="pending.csv",
+                        media_type="text/csv",
+                        size_bytes=3,
+                        storage_key="broken-key",
+                        status="quarantined",
+                        scan_status="pending",
+                        uploaded_at=datetime.now(UTC),
+                        created_by=user.id,
+                    ),
+                    ResearchDatasetFile(
+                        id="file-2",
+                        dataset_id=dataset.id,
+                        version=2,
+                        original_filename="good.csv",
+                        media_type="text/csv",
+                        size_bytes=5,
+                        storage_key="good-key",
+                        status="quarantined",
+                        scan_status="pending",
+                        uploaded_at=datetime.now(UTC),
+                        created_by=user.id,
+                    ),
+                ]
             )
             await session.commit()
 
-        class BrokenScanner:
+        class IntermittentScanner:
             def scan_chunks(self, chunks) -> bool:
-                raise RuntimeError("scanner unavailable")
+                content = b"".join(chunks)
+                if content == b"bad":
+                    raise RuntimeError("scanner unavailable")
+                return True
 
         result = await scan_pending_dataset_files(
-            factory, FakeStorage({"missing-key": b"clean"}), BrokenScanner()
+            factory,
+            FakeStorage({"broken-key": b"bad", "good-key": b"clean"}),
+            IntermittentScanner(),
+            batch_size=5,
         )
         assert result.failed == 1
-        assert result.scanned == 0
+        assert result.scanned == 1
         async with factory() as session:
-            record = await session.get(ResearchDatasetFile, "file-1")
-            assert record is not None
-            assert record.status == "quarantined"
-            assert record.scan_status == "pending"
-            assert record.sha256_hex is None
+            failed_record = await session.get(ResearchDatasetFile, "file-1")
+            clean_record = await session.get(ResearchDatasetFile, "file-2")
+            assert failed_record is not None
+            assert failed_record.status == "quarantined"
+            assert failed_record.scan_status == "pending"
+            assert failed_record.sha256_hex is None
+            assert clean_record is not None
+            assert clean_record.status == "available"
+            assert clean_record.scan_status == "clean"
     finally:
         await engine.dispose()
