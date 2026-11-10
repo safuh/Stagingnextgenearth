@@ -16,6 +16,7 @@ from stagingnextgenearth.platform.models import (
     Membership,
     ResearchDataset,
     ResearchDatasetFile,
+    ResearchDatasetFileAccessEvent,
 )
 from stagingnextgenearth.storage import ObjectStorage
 
@@ -35,6 +36,8 @@ _ALLOWED_TYPES = {
 }
 _MAX_FILE_BYTES = 100 * 1024 * 1024
 _UPLOAD_EXPIRY_SECONDS = 600
+_DOWNLOAD_EXPIRY_SECONDS = 300
+_READ_ROLES = _WRITE_ROLES | {"institutional_partner"}
 
 
 class DatasetFileUploadIntent(BaseModel):
@@ -57,7 +60,15 @@ class DatasetFileUploadIntentRead(BaseModel):
     expires_in_seconds: int
 
 
-class DatasetFileRead(BaseModel):
+
+
+class DatasetFileDownloadRead(BaseModel):
+    """Short-lived download location and its durable audit reference."""
+
+    download_url: str
+    expires_in_seconds: int
+    access_event_id: str
+\nclass DatasetFileRead(BaseModel):
     """Safe file metadata; storage keys and provider details are never exposed."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -278,7 +289,71 @@ async def complete_dataset_file_upload(
     return DatasetFileRead.model_validate(record)
 
 
-@router.get("/{dataset_id}/files", response_model=list[DatasetFileRead])
+
+
+@router.post(
+    "/{dataset_id}/files/{file_id}/download",
+    response_model=DatasetFileDownloadRead,
+)
+async def create_dataset_file_download(
+    organization_id: str,
+    dataset_id: str,
+    file_id: str,
+    request: Request,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> DatasetFileDownloadRead:
+    """Issue a short-lived URL only for clean files and record the access grant."""
+    if membership.role not in _READ_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset file access is not permitted")
+    result = await session.execute(
+        select(ResearchDatasetFile, ResearchDataset)
+        .join(ResearchDataset, ResearchDataset.id == ResearchDatasetFile.dataset_id)
+        .where(
+            ResearchDatasetFile.id == file_id,
+            ResearchDatasetFile.dataset_id == dataset_id,
+            ResearchDataset.organization_id == organization_id,
+        )
+    )
+    record, dataset = result.one_or_none() or (None, None)
+    if record is None or dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
+    if (
+        dataset.access_classification == "restricted"
+        and dataset.owner_user_id != principal.user_id
+        and membership.role != "admin"
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
+    if record.status != "available" or record.scan_status != "clean" or not record.sha256_hex:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Dataset file is not available for download",
+        )
+    try:
+        download_url = _storage(request).create_download_url(
+            key=record.storage_key,
+            expires_seconds=_DOWNLOAD_EXPIRY_SECONDS,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Unable to create authorised download",
+        ) from exc
+
+    event = ResearchDatasetFileAccessEvent(
+        dataset_file_id=record.id,
+        user_id=principal.user_id,
+        action="download_url_issued",
+    )
+    session.add(event)
+    await session.commit()
+    return DatasetFileDownloadRead(
+        download_url=download_url,
+        expires_in_seconds=_DOWNLOAD_EXPIRY_SECONDS,
+        access_event_id=event.id,
+    )
+\n\n@router.get("/{dataset_id}/files", response_model=list[DatasetFileRead])
 async def list_dataset_files(
     organization_id: str,
     dataset_id: str,
