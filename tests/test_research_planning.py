@@ -87,7 +87,9 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
             "title": "Restoration field study",
             "rationale": "Document restoration outcomes across participating communities.",
             "objectives": "Measure ecological recovery and community participation outcomes.",
-            "proposed_methods": "Use repeat field observations and structured community interviews.",
+            "proposed_methods": (
+                "Use repeat field observations and structured community interviews."
+            ),
             "expected_outcomes": "A reproducible baseline and follow-up dataset.",
         },
     )
