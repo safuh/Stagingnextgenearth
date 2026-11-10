@@ -9,6 +9,9 @@ from .models import (
     Project,
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
+    ResearchEthicsReviewEvent,
+    ResearchProtocolReviewEvent,
+    ResearchProtocolVersion,
     ResearchStudy,
     ResearchStudyCollaborator,
 )
@@ -22,6 +25,9 @@ __all__ = [
     "Project",
     "ResearchDatasetFile",
     "ResearchDatasetFileAccessEvent",
+    "ResearchEthicsReviewEvent",
+    "ResearchProtocolReviewEvent",
+    "ResearchProtocolVersion",
     "ResearchStudy",
     "ResearchStudyCollaborator",
 ]
