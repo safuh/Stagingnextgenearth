@@ -25,6 +25,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     ResearchProtocolReviewEvent,
     ResearchProtocolVersion,
     ResearchPublication,
+    ResearchPublicationMetadataSource,
     ResearchStudy,
     ResearchStudyCollaborator,
     ResearchStudyProposal,
