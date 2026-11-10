@@ -133,7 +133,27 @@ are rejected rather than silently treated as point data. Parameter units are
 preserved from the provider response, and the adapter does not assert a licence
 where the applicable terms have not yet been verified.
 
-This adapter is a daily observational data source, not a forecast or a
-spatially complete raster product. CHIRPS, Copernicus, area-based ingestion,
-unit harmonisation, quality assessment and spatial/temporal query APIs remain
-separate planned work.
+The second adapter, `CHIRPSProvider`, reads CHIRPS v3 daily GeoTIFF
+rasters from the Climate Hazards Center archive. It supports both point
+extraction (the containing raster cell) and bounding-box extraction (each
+selected cell centre), emits precipitation in `mm/day`, and records the
+CHIRPS variant, grid resolution, extraction method, citation and licence.
+The default `rnl` variant partitions pentad totals into daily amounts using
+ERA5; `sat` uses IMERG. The daily date is a consistent product label and
+must not be interpreted as a uniform gauge observation window. CHIRPS v3 is
+a 0.05-degree gridded product covering 60°S–60°N.
+
+CHIRPS raster decoding uses the optional `rasterio` package (which installs
+NumPy). Install it in deployments that enable this adapter with
+`uv pip install rasterio`. The core application and CI test suite do not
+install the geospatial binary dependency by default. The adapter limits
+requests to 366 days and bounding-box extraction to 10,000 cells per day;
+larger jobs should be partitioned into smaller requests. Each requested day
+is downloaded separately, so missing or not-yet-published source rasters
+fail explicitly rather than being silently skipped.
+
+CHIRPS is a gridded rainfall estimate, not a direct gauge observation or a
+sub-daily rainfall intensity product. The adapter does not aggregate an area
+to a single mean or total: it emits one observation per selected raster cell.
+Copernicus adapters, unit harmonisation, quality assessment and
+spatial/temporal query APIs remain planned work.
