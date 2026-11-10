@@ -1,41 +1,73 @@
-# Stagingnextgenearth
+# NextGen for Earth Platform
 
-A backend service generated from [FastApiBackbone](https://github.com/safuh/FastApiBackbone).
+A full organisational digital platform for NextGen for Earth, built on the
+FastAPI foundation generated from [FastApiBackbone](https://github.com/safuh/FastApiBackbone).
 
-**Stack:** FastAPI · Pydantic · SQLAlchemy 2.x · Alembic · PostgreSQL
+The product direction is a research-first programme and impact platform with
+dedicated experiences for researchers, youth and volunteers, administrators,
+and institutional partners.
+
+**Backend:** FastAPI · Pydantic v2 · SQLAlchemy 2.x · Alembic · PostgreSQL  
+**Geospatial and analytics:** PostGIS · Pandas · NumPy · Xarray · GeoPandas  
+**Web application:** Next.js · TypeScript · responsive portal experiences
+
+## Current implementation
+
+The repository currently contains the reusable backend foundation and the first
+product-domain persistence increment:
+
+- organisation and membership boundaries;
+- portal role vocabulary;
+- programme and project records;
+- research study records;
+- sourced, georeferenced climate observations;
+- Alembic migration `0004_platform_domain`.
+
+The initial product-domain increment establishes persistence contracts. Authenticated
+business workflows, policy enforcement, integrations, analytics pipelines, and
+frontend portals are implemented in subsequent milestones. Do not expose domain
+tables through unrestricted generic CRUD endpoints.
 
 ## Quick start
 
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and Docker if you use
-the container workflow.
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and Docker for the
+PostgreSQL workflow.
 
-```bash
+~~~bash
 uv sync --extra dev
 cp .env.example .env
 make check
 make run
-```
+~~~
 
 The API documentation is available at http://127.0.0.1:8000/docs.
 
 ## Database
 
-SQLite is configured for local development. Configure `DATABASE_URL` in `.env`
-for PostgreSQL, then run:
+SQLite is available for lightweight local development. PostgreSQL is the target
+for shared development and production. Apply migrations explicitly:
 
-```bash
+~~~bash
 make migrate-up
-```
+~~~
 
-## Deployment
+Do not run migrations automatically in API workers.
 
-Docker assets are included.
-Kubernetes/Kustomize manifests are not included.
+## Project documentation
 
-## Architecture
+- [Architecture](docs/architecture/README.md)
+- [Platform domain](docs/modules/platform/README.md)
+- [Milestones](docs/MILESTONES.md)
+- [Security](docs/SECURITY.md)
 
-The project includes a FastAPI application factory, Pydantic Settings, async SQLAlchemy persistence,
-Alembic migrations, health/readiness endpoints, structured logging, authentication primitives,
-and tests. Review the security documentation before enabling authentication in production.
+## Development checks
 
-This project is an independent copy. It does not retain the source repository's Git history.
+~~~bash
+make lint
+make typecheck
+make test
+make check
+~~~
+
+The project is an independent application repository and does not retain the
+source FastApiBackbone Git history.
