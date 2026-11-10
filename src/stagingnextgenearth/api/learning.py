@@ -11,9 +11,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
-    LearningAssessment, LearningAssessmentAttempt, LearningAttendance, LearningCertificate,
-    LearningCourse, LearningEnrollment, LearningLesson, LearningMentorship, LearningModule,
-    LearningResource, Membership,
+    LearningAssessment,
+    LearningAssessmentAttempt,
+    LearningAttendance,
+    LearningCertificate,
+    LearningCourse,
+    LearningEnrollment,
+    LearningLesson,
+    LearningMentorship,
+    LearningModule,
+    LearningResource,
+    Membership,
 )
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -456,7 +464,10 @@ async def update_progress(
         passed_ids = {a.assessment_id for a in scored if a.score is not None and
                       a.score >= next((x.pass_mark for x in assessments if x.id == a.assessment_id), 101)}
         if any(a.id not in passed_ids for a in assessments):
-            raise HTTPException(409, "Complete and pass every course assessment before certification")
+            raise HTTPException(
+                409,
+                "Complete and pass every course assessment before certification",
+            )
         enrollment.status = "completed"
         existing = await session.scalar(select(LearningCertificate).where(
             LearningCertificate.enrollment_id == enrollment.id))

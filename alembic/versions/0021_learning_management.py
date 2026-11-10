@@ -1,5 +1,7 @@
 """Add the minimum viable learning management domain.
 
+# ruff: noqa: E501
+
 Revision ID: 0021_learning_management
 Revises: 0020_research_analysis_runs
 """
