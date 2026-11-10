@@ -20,6 +20,7 @@ def client(tmp_path: Path):
     async def prepare_database() -> None:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
+        await engine.dispose()
 
     asyncio.run(prepare_database())
     settings = Settings(
@@ -160,6 +161,13 @@ def test_invitation_requires_invited_user_to_accept(client: TestClient) -> None:
         headers=member_headers,
     )
     assert after_acceptance.status_code == 200
+
+    researcher_cannot_create = client.post(
+        f"/api/organizations/{organization_id}/programmes",
+        headers=member_headers,
+        json={"title": "Unauthorised Programme", "slug": "unauthorised-programme"},
+    )
+    assert researcher_cannot_create.status_code == 403
 
     forbidden_admin_invite = client.post(
         f"/api/organizations/{organization_id}/memberships",
