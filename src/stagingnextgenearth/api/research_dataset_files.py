@@ -69,6 +69,7 @@ class DatasetFileDownloadRead(BaseModel):
     expires_in_seconds: int
     access_event_id: str
 
+
 class DatasetFileRead(BaseModel):
     """Safe file metadata; storage keys and provider details are never exposed."""
 
