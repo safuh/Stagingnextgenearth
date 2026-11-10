@@ -41,7 +41,7 @@ class ClamAVScanner:
             (self._host, self._port), timeout=self._timeout
         ) as connection:
             connection.settimeout(self._timeout)
-            connection.sendall(b"zINSTREAM\\0")
+            connection.sendall(b"zINSTREAM\0")
             for chunk in chunks:
                 if not chunk:
                     continue
@@ -52,14 +52,14 @@ class ClamAVScanner:
                     connection.sendall(part)
             connection.sendall(struct.pack("!I", 0))
             response = bytearray()
-            while not response.endswith(b"\\0"):
+            while not response.endswith(b"\0"):
                 chunk = connection.recv(4096)
                 if not chunk:
                     raise RuntimeError("ClamAV closed the connection without a verdict")
                 response.extend(chunk)
                 if len(response) > 4096:
                     raise RuntimeError("ClamAV response exceeded the protocol limit")
-        verdict = response.decode("utf-8", errors="replace").strip("\\0")
+        verdict = response.decode("utf-8", errors="replace").strip("\0")
         if verdict.endswith(": OK"):
             return True
         if verdict.endswith(" FOUND"):
