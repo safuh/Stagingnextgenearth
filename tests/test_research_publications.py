@@ -539,8 +539,8 @@ def test_publication_metadata_refresh_is_selective_and_audited(
     assert len(sources.json()) == 3
     latest = sources.json()[0]
     assert latest["imported_fields"] == ["journal_or_venue"]
-    assert latest["metadata_snapshot"]["title"] == "Updated forest restoration evidence"
-    assert latest["metadata_snapshot"]["journal_or_venue"] == "Updated Ecology Review"
+    assert latest["metadata_baseline"]["title"] == "Updated forest restoration evidence"
+    assert latest["metadata_baseline"]["journal_or_venue"] == "Updated Ecology Review"
 
     async def edit_publication_locally() -> None:
         engine = create_async_engine(client.app.state.settings.database_url)
