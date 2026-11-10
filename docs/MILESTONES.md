@@ -143,3 +143,13 @@ These foundation checks must continue passing as product code is added.
 - Treat climate observations as provenance-bearing measurements; ingestion does not imply verification.
 - Do not claim environmental outcomes from activity counts alone.
 - Run migrations as explicit release operations, never in every API worker.
+
+
+### Dataset file storage increment
+
+- [x] S3-compatible private storage adapter with constrained, expiring upload forms.
+- [x] Tenant- and owner-scoped upload-intent and completion endpoints.
+- [x] Verify uploaded object size and media type against the upload intent.
+- [x] Quarantine accepted uploads; file metadata endpoints do not disclose object keys.
+- [ ] Malware scanner integration, trusted checksum calculation and clean-state transition.
+- [ ] Short-lived authorised download workflow and access audit events.
