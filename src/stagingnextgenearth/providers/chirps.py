@@ -28,6 +28,7 @@ CHIRPS_V3_CITATION = (
 )
 CHIRPS_V3_LICENSE = "CC-BY-4.0"
 CHIRPS_V3_RESOLUTION_DEGREES = 0.05
+_VARIANT_START_DATES = {"rnl": date(1981, 1, 1), "sat": date(1998, 1, 1)}
 _MISSING_VALUES = {-9999.0, -999.0}
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
@@ -88,6 +89,11 @@ class CHIRPSProvider:
             raise ValueError("request must cover at least one calendar day")
         if day_count > self.max_days:
             raise ValueError(f"CHIRPS request exceeds the {self.max_days}-day limit")
+        earliest_date = _VARIANT_START_DATES[self.variant]
+        if first_date < earliest_date:
+            raise ValueError(
+                f"CHIRPS v3 {self.variant} data starts on {earliest_date.isoformat()}"
+            )
 
         if self._client is not None:
             for day_offset in range(day_count):
