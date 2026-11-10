@@ -282,3 +282,84 @@ def test_climate_observation_rejects_timezone_naive_timestamps(client: TestClien
         },
     )
     assert response.status_code == 422
+
+
+
+def test_climate_observation_requires_independent_quality_review(client: TestClient) -> None:
+    admin_token = register_and_login(client, "climate-admin@example.org")
+    reviewer_token = register_and_login(client, "climate-reviewer@example.org")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    reviewer_headers = {"Authorization": f"Bearer {reviewer_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=admin_headers,
+        json={"name": "Climate Review Lab", "slug": "climate-review-lab"},
+    ).json()
+    organization_id = organization["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=admin_headers,
+        json={"identifier": "climate-reviewer@example.org", "role": "programme_manager"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+        headers=reviewer_headers,
+    )
+    assert accepted.status_code == 200
+
+    submitted = client.post(
+        f"/api/organizations/{organization_id}/climate-observations",
+        headers=admin_headers,
+        json={
+            "observed_at": "2026-10-10T09:00:00Z",
+            "variable": "precipitation",
+            "value": 18.4,
+            "unit": "mm",
+            "latitude": -0.6773,
+            "longitude": 34.7796,
+            "source": "field-gauge-01",
+        },
+    )
+    assert submitted.status_code == 201
+    observation_id = submitted.json()["id"]
+
+    self_review = client.post(
+        f"/api/organizations/{organization_id}/climate-observations/{observation_id}/review",
+        headers=admin_headers,
+        json={"decision": "verified", "note": "Self-review must be blocked"},
+    )
+    assert self_review.status_code == 403
+
+    reviewed = client.post(
+        f"/api/organizations/{organization_id}/climate-observations/{observation_id}/review",
+        headers=reviewer_headers,
+        json={"decision": "verified", "note": "Source and measurement checked"},
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["quality_status"] == "verified"
+    assert reviewed.json()["reviewed_by"]
+    assert reviewed.json()["reviewed_at"]
+    assert reviewed.json()["review_note"] == "Source and measurement checked"
+
+    duplicate_review = client.post(
+        f"/api/organizations/{organization_id}/climate-observations/{observation_id}/review",
+        headers=reviewer_headers,
+        json={"decision": "rejected"},
+    )
+    assert duplicate_review.status_code == 409
+
+    verified = client.get(
+        f"/api/organizations/{organization_id}/climate-observations?quality_status=verified",
+        headers=reviewer_headers,
+    )
+    pending = client.get(
+        f"/api/organizations/{organization_id}/climate-observations?quality_status=pending",
+        headers=reviewer_headers,
+    )
+    assert verified.status_code == 200
+    assert len(verified.json()) == 1
+    assert pending.status_code == 200
+    assert pending.json() == []
