@@ -106,30 +106,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert application.status_code == 201
+        from stagingnextgenearth.auth import TokenService
+
+        learner_login = client.post(
+            "/api/auth/login",
+            json={
+                "identifier": "learning-learner@example.org",
+                "password": "correct horse battery staple",
+            },
+        )
+        assert learner_login.status_code == 200
+        learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
+            learner_login.json()["access_token"], expected_type="access"
+        )["sub"]
         decision = client.post(
-            f"{base}/courses/{course_id}/enrollments/"
-            f"{invitation.json()['user_id']}/decision",
+            f"{base}/courses/{course_id}/enrollments/{learner_id}/decision",
             headers=admin_headers,
             json={"decision": "approved"},
         )
-        if decision.status_code == 404:
-            # The invitation response is intentionally not required to expose a user ID.
-            learner_login = client.post(
-                "/api/auth/login",
-                json={
-                    "identifier": "learning-learner@example.org",
-                    "password": "correct horse battery staple",
-                },
-            )
-            assert learner_login.status_code == 200
-            from jose import jwt  # type: ignore[import-not-found]  # pragma: no cover
-
-            learner_id = jwt.get_unverified_claims(learner_login.json()["access_token"])["sub"]
-            decision = client.post(
-                f"{base}/courses/{course_id}/enrollments/{learner_id}/decision",
-                headers=admin_headers,
-                json={"decision": "approved"},
-            )
         assert decision.status_code == 200
 
         assessment = client.post(
@@ -164,11 +158,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert learner_login.status_code == 200
-        from stagingnextgenearth.auth import TokenService
-
-        learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
-            learner_login.json()["access_token"], expected_type="access"
-        )["sub"]
         progress = client.post(
             f"{base}/courses/{course_id}/enrollments/{learner_id}/progress",
             headers=learner_headers,
