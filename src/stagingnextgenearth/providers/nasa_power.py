@@ -78,9 +78,11 @@ class NASAPowerProvider:
     ) -> AsyncIterator[ClimateMeasurement]:
         """Yield UTC daily measurements for a point request."""
         point = self._require_point(request)
-        start_date = request.start.date()
+        start_utc = request.start.astimezone(UTC)
+        end_utc = request.end.astimezone(UTC)
+        start_date = start_utc.date()
         # The provider contract uses an exclusive end; POWER's API end date is inclusive.
-        end_date = (request.end - timedelta(microseconds=1)).date()
+        end_date = (end_utc - timedelta(microseconds=1)).date()
         if end_date < start_date:
             raise ValueError("request must cover at least one calendar day")
 
