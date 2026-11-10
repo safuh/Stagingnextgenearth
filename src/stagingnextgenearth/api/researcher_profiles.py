@@ -9,10 +9,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import ResearcherProfile
+from stagingnextgenearth.platform.models import Membership
 
-from .dependencies import Principal, get_current_principal, get_session
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    require_membership,
+)
 
 router = APIRouter(prefix="/me/researcher-profile", tags=["researcher-profiles"])
+directory_router = APIRouter(tags=["researcher-profiles"])
 
 
 class ResearcherProfileUpsert(BaseModel):
@@ -119,3 +126,35 @@ async def upsert_my_researcher_profile(
             "The supplied ORCID is already associated with another profile",
         ) from exc
     return ResearcherProfileRead.model_validate(profile)
+
+
+
+@directory_router.get(
+    "/organizations/{organization_id}/researcher-profiles",
+    response_model=list[ResearcherProfileRead],
+)
+async def list_organisation_researcher_profiles(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = 100,
+) -> list[ResearcherProfileRead]:
+    """List only profiles explicitly shared with active members of this organisation."""
+    del membership  # The dependency enforces active membership in this tenant.
+    if limit < 1 or limit > 200:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "limit must be between 1 and 200",
+        )
+    result = await session.scalars(
+        select(ResearcherProfile)
+        .join(Membership, Membership.user_id == ResearcherProfile.user_id)
+        .where(
+            Membership.organization_id == organization_id,
+            Membership.status == "active",
+            ResearcherProfile.visibility == "organization",
+        )
+        .order_by(ResearcherProfile.display_name, ResearcherProfile.id)
+        .limit(limit)
+    )
+    return [ResearcherProfileRead.model_validate(profile) for profile in result.all()]
