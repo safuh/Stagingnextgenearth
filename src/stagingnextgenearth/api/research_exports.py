@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
     Membership,
+    ResearchAnalysisRun,
     ResearchDataset,
     ResearchDatasetFile,
-    ResearchAnalysisRun,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
