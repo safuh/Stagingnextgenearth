@@ -307,18 +307,24 @@ async def create_analysis_run(
         )
     files_by_id = {item.id: item for item in files}
     ordered_files = [files_by_id[file_id] for file_id in body.file_ids]
-    input_snapshot = [
-        {
-            "file_id": item.id,
-            "version": item.version,
-            "filename": item.original_filename,
-            "media_type": item.media_type,
-            "size_bytes": item.size_bytes,
-            "sha256": item.sha256_hex,
-            "uploaded_at": item.uploaded_at.isoformat(),
-        }
-        for item in ordered_files
-    ]
+    input_snapshot: list[dict[str, object]] = []
+    for item in ordered_files:
+        if item.sha256_hex is None or item.uploaded_at is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Every input must have a trusted checksum and upload timestamp",
+            )
+        input_snapshot.append(
+            {
+                "file_id": item.id,
+                "version": item.version,
+                "filename": item.original_filename,
+                "media_type": item.media_type,
+                "size_bytes": item.size_bytes,
+                "sha256": item.sha256_hex,
+                "uploaded_at": item.uploaded_at.isoformat(),
+            }
+        )
     canonical = json.dumps(
         input_snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
