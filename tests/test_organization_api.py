@@ -759,6 +759,10 @@ def test_dataset_file_scanner_controls_release_and_records_checksum(
             assert len(content) <= max_bytes
             return content
 
+        def create_download_url(self, *, key: str, expires_seconds: int) -> str:
+            assert key in self.objects
+            return f"https://storage.example.test/download?expires={expires_seconds}"
+
     class FakeScanner:
         def __init__(self) -> None:
             self.clean = True
@@ -809,6 +813,15 @@ def test_dataset_file_scanner_controls_release_and_records_checksum(
         b"trusted research data"
     ).hexdigest()
 
+    download = client.post(
+        f"{base}/files/{clean_intent.json()['file_id']}/download",
+        headers=headers,
+    )
+    assert download.status_code == 200
+    assert download.json()["expires_in_seconds"] == 300
+    assert download.json()["download_url"].startswith("https://storage.example.test/")
+    assert download.json()["access_event_id"]
+
     scanner.clean = False
     infected_intent = client.post(
         f"{base}/files/upload-intents",
@@ -823,4 +836,9 @@ def test_dataset_file_scanner_controls_release_and_records_checksum(
     assert infected_result.status_code == 200
     assert infected_result.json()["status"] == "rejected"
     assert infected_result.json()["scan_status"] == "rejected"
+    denied_download = client.post(
+        f"{base}/files/{infected_intent.json()['file_id']}/download",
+        headers=headers,
+    )
+    assert denied_download.status_code == 409
     assert len(scanner.scanned) == 2
