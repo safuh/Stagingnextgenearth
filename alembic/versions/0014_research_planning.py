@@ -66,8 +66,14 @@ def upgrade() -> None:
         ),
         sa.Column("decision", sa.String(24), nullable=False),
         sa.Column("note", sa.Text(), nullable=False),
-        sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.CheckConstraint("decision IN ('approved', 'revisions_required', 'rejected')", name="ck_proposal_review_decision"),
+        sa.Column(
+            "reviewed_at", sa.DateTime(timezone=True),
+            nullable=False, server_default=sa.func.now(),
+        ),
+        sa.CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected')",
+            name="ck_proposal_review_decision",
+        ),
     )
     op.create_index(
         "ix_proposal_review_events_proposal_time",
@@ -76,7 +82,10 @@ def upgrade() -> None:
     op.create_table(
         "research_milestones",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("study_id", sa.String(36), sa.ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "study_id", sa.String(36),
+            sa.ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False,
+        ),
         sa.Column("title", sa.String(240), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column(
@@ -86,9 +95,18 @@ def upgrade() -> None:
         sa.Column("due_date", sa.Date(), nullable=True),
         sa.Column("status", sa.String(16), nullable=False, server_default="planned"),
         sa.Column("progress_percent", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_by", sa.String(36),
+            sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True),
+            nullable=False, server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True),
+            nullable=False, server_default=sa.func.now(),
+        ),
         sa.CheckConstraint(
             "status IN ('planned', 'in_progress', 'blocked', 'completed', 'cancelled')",
             name="ck_research_milestone_status",
