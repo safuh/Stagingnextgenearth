@@ -723,3 +723,5 @@ def test_dataset_file_upload_rejects_storage_size_mismatch(client: TestClient) -
     files = client.get(f"{base}/files", headers=headers)
     assert files.status_code == 200
     assert files.json()[0]["status"] == "rejected"
+    assert files.json()[0]["scan_status"] == "pending"
+    assert files.json()[0]["sha256_hex"] is None
