@@ -1,6 +1,6 @@
 """Record provenance for externally imported publication metadata.
 
-Revision ID: 0018_publication_metadata_provenance
+Revision ID: 0018_pub_meta_prov
 Revises: 0017_research_publications
 """
 
@@ -9,7 +9,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0018_publication_metadata_provenance"
+revision: str = "0018_pub_meta_prov"
 down_revision: str | None = "0017_research_publications"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
