@@ -101,7 +101,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] PostGIS deployment and spatial migrations.
 - [x] Provider-neutral climate ingestion contract, point/area request validation and provenance tracking.
 - [x] NASA POWER daily point adapter for precipitation and 2 m air temperature, with UTC normalization and missing-value filtering.
-- [ ] CHIRPS precipitation adapter.
+- [x] CHIRPS v3 daily GeoTIFF adapter for point and bounding-box cell extraction, with variant, date-label, licence and raster provenance.
 - [ ] Copernicus climate-data adapters.
 - [ ] Administrative boundaries and geocoding strategy.
 - [ ] Spatial and temporal query APIs.
