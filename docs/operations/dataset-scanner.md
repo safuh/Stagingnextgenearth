@@ -49,11 +49,11 @@ in the image.
 From the repository root, after configuring the deployment environment:
 
 ```bash
-docker compose -f docker/compose.production.yml config
-docker compose -f docker/compose.production.yml build api dataset-scanner
-docker compose -f docker/compose.production.yml run --rm api alembic upgrade head
-docker compose -f docker/compose.production.yml up -d api dataset-scanner
-docker compose -f docker/compose.production.yml ps
+docker compose --profile scanning -f docker/compose.production.yml config
+docker compose --profile scanning -f docker/compose.production.yml build api dataset-scanner
+docker compose --profile scanning -f docker/compose.production.yml run --rm api alembic upgrade head
+docker compose --profile scanning -f docker/compose.production.yml up -d api dataset-scanner
+docker compose --profile scanning -f docker/compose.production.yml ps
 ```
 
 Migrations are an explicit release step; they are not run automatically by
@@ -63,12 +63,12 @@ versions that depend on them.
 Inspect worker activity and failures:
 
 ```bash
-docker compose -f docker/compose.production.yml logs --tail=200 dataset-scanner
-docker compose -f docker/compose.production.yml logs -f dataset-scanner
-docker compose -f docker/compose.production.yml restart dataset-scanner
+docker compose --profile scanning -f docker/compose.production.yml logs --tail=200 dataset-scanner
+docker compose --profile scanning -f docker/compose.production.yml logs -f dataset-scanner
+docker compose --profile scanning -f docker/compose.production.yml restart dataset-scanner
 ```
 
-The process logs batch totals for scanned, rejected and failed files. A file
+The scanner service is in the opt-in `scanning` Compose profile, so a standard production `up` does not start a worker when malware scanning is not configured. Activate the profile only after configuring object storage and ClamAV. The process logs batch totals for scanned, rejected and failed files. A file
 that cannot be retrieved or scanned remains quarantined; infrastructure errors
 must not be interpreted as a clean verdict. Investigate persistent failures
 through worker logs, database state and object-storage/ClamAV health. Do not
