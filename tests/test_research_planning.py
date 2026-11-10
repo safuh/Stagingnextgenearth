@@ -1,10 +1,52 @@
 """Tests for research proposal governance and milestone tracking."""
 
+import asyncio
 from datetime import date
+from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from .test_research_governance import _register
+from stagingnextgenearth.app import create_app
+from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.database import Base
+
+
+@pytest.fixture
+def client(tmp_path: Path):
+    database_url = "sqlite+aiosqlite:///" + str(tmp_path / "research-planning.db")
+    engine = create_async_engine(database_url)
+
+    async def prepare_database() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(prepare_database())
+    settings = Settings(
+        environment=Environment.TEST,
+        database_url=database_url,
+        jwt_secret_key="test-only-signing-secret-that-is-long-enough",
+    )
+    with TestClient(create_app(settings)) as test_client:
+        yield test_client
+
+
+def _register(client: TestClient, identifier: str) -> dict[str, str]:
+    response = client.post(
+        "/api/auth/register",
+        json={"identifier": identifier, "password": "correct horse battery staple"},
+    )
+    assert response.status_code == 201
+    login = client.post(
+        "/api/auth/login",
+        json={"identifier": identifier, "password": "correct horse battery staple"},
+    )
+    assert login.status_code == 200
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
 
 
 def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
