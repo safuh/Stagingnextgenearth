@@ -510,6 +510,42 @@ class ResearchDatasetFile(Base):
 
 
 
+class ResearchAnalysisRun(Base):
+    """Immutable provenance record for one reproducible analysis execution."""
+
+    __tablename__ = "research_analysis_runs"
+    __table_args__ = (
+        Index("ix_research_analysis_runs_dataset_created", "dataset_id", "created_at"),
+        Index("ix_research_analysis_runs_study_created", "study_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="RESTRICT"), nullable=False
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="SET NULL"), nullable=True
+    )
+    input_manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_file_versions: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    analysis_configuration: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    software_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    software_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    code_revision: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    parameters: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    random_seed: Mapped[int | None] = mapped_column(nullable=True)
+    output_artifacts: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ResearchDatasetFileAccessEvent(Base):
     """Append-only audit record for issuing an authorised dataset file download URL."""
 
