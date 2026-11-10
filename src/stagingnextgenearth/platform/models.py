@@ -785,6 +785,7 @@ class ResearchPublicationMetadataSource(Base):
     provider_work_id: Mapped[str] = mapped_column(String(32), nullable=False)
     source_url: Mapped[str] = mapped_column(String(500), nullable=False)
     metadata_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    metadata_snapshot: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     imported_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     imported_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
