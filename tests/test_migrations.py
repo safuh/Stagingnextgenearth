@@ -110,7 +110,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "created_at",
             "updated_at",
         },
-        "research_study_collaborators": {
+        "research_publications": {\n            "id", "study_id", "title", "authors", "author_orcids",\n            "publication_type", "journal_or_venue", "publisher", "published_on",\n            "doi", "openalex_id", "url", "abstract", "created_by", "created_at",\n        },\n        "research_study_collaborators": {
             "id",
             "study_id",
             "organization_id",
