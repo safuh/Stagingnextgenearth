@@ -587,3 +587,139 @@ def test_research_dataset_rejects_cross_tenant_study_and_invalid_dates(
         },
     )
     assert invalid_dates.status_code == 422
+
+
+def test_dataset_file_upload_is_private_and_quarantined_until_scanned(
+    client: TestClient,
+) -> None:
+    from types import SimpleNamespace
+
+    class FakeStorage:
+        def __init__(self) -> None:
+            self.objects: dict[str, SimpleNamespace] = {}
+
+        def create_upload_form(
+            self, *, key: str, content_type: str, max_bytes: int, expires_seconds: int
+        ) -> SimpleNamespace:
+            self.objects[key] = SimpleNamespace(
+                size_bytes=24, content_type=content_type
+            )
+            return SimpleNamespace(
+                url="https://storage.example.test/private-upload",
+                fields={"key": key, "Content-Type": content_type},
+            )
+
+        def inspect(self, *, key: str) -> SimpleNamespace | None:
+            return self.objects.get(key)
+
+    token = register_and_login(client, "file-owner@example.org")
+    headers = {"Authorization": f"Bearer {token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "File Governance Lab", "slug": "file-governance-lab"},
+    ).json()
+    organization_id = organization["id"]
+    dataset = client.post(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=headers,
+        json={
+            "title": "Field rainfall observations",
+            "format": "CSV",
+            "source": "Field station network",
+            "access_classification": "organization",
+        },
+    )
+    assert dataset.status_code == 201
+
+    fake_storage = FakeStorage()
+    client.app.state.object_storage = fake_storage
+    base = f"/api/organizations/{organization_id}/research-datasets/{dataset.json()['id']}"
+    intent = client.post(
+        f"{base}/files/upload-intents",
+        headers=headers,
+        json={
+            "filename": "rainfall.csv",
+            "media_type": "text/csv",
+            "size_bytes": 24,
+        },
+    )
+    assert intent.status_code == 201
+    assert intent.json()["upload_method"] == "POST"
+    assert intent.json()["expires_in_seconds"] == 600
+    assert intent.json()["status"] == "upload_pending"
+
+    completed = client.post(
+        f"{base}/files/{intent.json()['file_id']}/complete",
+        headers=headers,
+    )
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "quarantined"
+    assert completed.json()["scan_status"] == "pending"
+    assert completed.json()["sha256_hex"] is None
+
+    listed = client.get(f"{base}/files", headers=headers)
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+    assert listed.json()[0]["status"] == "quarantined"
+    assert "storage_key" not in listed.json()[0]
+    assert "upload_url" not in listed.json()[0]
+
+    invalid_type = client.post(
+        f"{base}/files/upload-intents",
+        headers=headers,
+        json={
+            "filename": "payload.exe",
+            "media_type": "application/octet-stream",
+            "size_bytes": 24,
+        },
+    )
+    assert invalid_type.status_code == 415
+
+
+def test_dataset_file_upload_rejects_storage_size_mismatch(client: TestClient) -> None:
+    from types import SimpleNamespace
+
+    class MismatchStorage:
+        def create_upload_form(
+            self, *, key: str, content_type: str, max_bytes: int, expires_seconds: int
+        ) -> SimpleNamespace:
+            return SimpleNamespace(url="https://storage.example.test/upload", fields={"key": key})
+
+        def inspect(self, *, key: str) -> SimpleNamespace:
+            return SimpleNamespace(size_bytes=999, content_type="text/csv")
+
+    token = register_and_login(client, "file-mismatch@example.org")
+    headers = {"Authorization": f"Bearer {token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "File QA Lab", "slug": "file-qa-lab"},
+    ).json()
+    organization_id = organization["id"]
+    dataset = client.post(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=headers,
+        json={
+            "title": "Station dataset",
+            "format": "CSV",
+            "source": "Field station",
+        },
+    ).json()
+    client.app.state.object_storage = MismatchStorage()
+    base = f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}"
+    intent = client.post(
+        f"{base}/files/upload-intents",
+        headers=headers,
+        json={"filename": "stations.csv", "media_type": "text/csv", "size_bytes": 24},
+    )
+    assert intent.status_code == 201
+
+    completed = client.post(
+        f"{base}/files/{intent.json()['file_id']}/complete",
+        headers=headers,
+    )
+    assert completed.status_code == 422
+    files = client.get(f"{base}/files", headers=headers)
+    assert files.status_code == 200
+    assert files.json()[0]["status"] == "rejected"
