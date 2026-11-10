@@ -6,6 +6,7 @@ from .models import (
     Organization,
     Programme,
     Project,
+    ResearchDatasetFile,
     ResearchStudy,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "Organization",
     "Programme",
     "Project",
+    "ResearchDatasetFile",
     "ResearchStudy",
 ]
