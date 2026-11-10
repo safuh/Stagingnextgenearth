@@ -91,8 +91,8 @@ source FastApiBackbone Git history.
 Private file upload intents are available when S3-compatible object storage is configured.
 Set `OBJECT_STORAGE_ENABLED=true`, `OBJECT_STORAGE_BUCKET`, and optionally
 `OBJECT_STORAGE_REGION`, `OBJECT_STORAGE_ENDPOINT_URL`, `OBJECT_STORAGE_ACCESS_KEY_ID`,
-and `OBJECT_STORAGE_SECRET_ACCESS_KEY`. In production, prefer workload/IAM credentials
-instead of long-lived static keys.
+and `OBJECT_STORAGE_SECRET_ACCESS_KEY`. Provide an access key and secret through the deployment secret manager; this adapter currently
+uses explicit static credentials and does not yet support workload/IAM role credential discovery.
 
 The API issues a short-lived presigned POST (10 minutes), restricts accepted media types
 and upload size (100 MiB maximum), verifies the stored object's size and media type at
