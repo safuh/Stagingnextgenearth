@@ -768,13 +768,6 @@ class ResearchPublicationMetadataSource(Base):
             "publication_id",
             "fetched_at",
         ),
-        UniqueConstraint(
-            "publication_id",
-            "provider",
-            "provider_work_id",
-            "metadata_sha256",
-            name="uq_publication_metadata_source_snapshot",
-        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
