@@ -1,7 +1,7 @@
 """Store publication metadata baselines for safe refreshes.
 
-Revision ID: 0019_publication_metadata_snapshot
-Revises: 0018_publication_metadata_provenance
+Revision ID: 0019_pub_meta_snap
+Revises: 0018_pub_meta_prov
 """
 
 from collections.abc import Sequence
@@ -9,8 +9,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0019_publication_metadata_snapshot"
-down_revision: str | None = "0018_publication_metadata_provenance"
+revision: str = "0019_pub_meta_snap"
+down_revision: str | None = "0018_pub_meta_prov"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
