@@ -136,3 +136,26 @@ The MVP stores resource references and assessment submissions; it does not
 currently provide a media transcoder, quiz runtime, PDF certificate renderer,
 learner notification service, or guardian-consent workflow. Those remain
 separate delivery increments rather than implied capabilities.
+
+
+## Programme deliverable operations
+
+Programme managers and organisation administrators can create and list
+programme deliverables through:
+
+- `POST /api/organizations/{organization_id}/programmes/{programme_id}/deliverables`
+- `GET /api/organizations/{organization_id}/programmes/{programme_id}/deliverables`
+- `POST .../deliverables/{deliverable_id}/submit`
+- `POST .../deliverables/{deliverable_id}/decision`
+
+Deliverables may be linked to a project in the same programme and assigned
+only to an active organisation member. The assignee or a manager can submit
+an HTTPS evidence reference. Managers can accept the evidence or request
+revisions. State transitions are guarded: only submitted deliverables can be
+reviewed, and accepted outputs cannot be resubmitted through the normal
+submission workflow.
+
+The current evidence field is a URL reference, not an uploaded file. For
+sensitive documents, integrate the existing private object-storage and
+authorised download-grant workflows rather than exposing public storage URLs.
+The schema is introduced by migration `0021_programme_deliverables`.
