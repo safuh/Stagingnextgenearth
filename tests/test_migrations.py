@@ -52,6 +52,18 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "note",
             "reviewed_at",
         },
+        "research_study_collaborators": {
+            "id",
+            "study_id",
+            "organization_id",
+            "user_id",
+            "role",
+            "status",
+            "invited_by",
+            "created_at",
+            "accepted_at",
+            "revoked_at",
+        },
         "research_dataset_files": {
             "id",
             "dataset_id",
