@@ -90,7 +90,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Versioned research protocols and independent protocol review.
 - [x] Append-only ethics committee decisions linked to approved protocol versions.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
-- [ ] Publication records and DOI/ORCID/OpenAlex integrations.
+- [x] Study publication registry with validated DOI, ORCID and OpenAlex identifiers.\n- [ ] External publication metadata import/synchronisation and source provenance.
 - [x] Private object-storage adapter, constrained upload intents and authorised download grants.
 - [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
 - [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
