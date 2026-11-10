@@ -20,6 +20,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
     ResearchStudy,
+    ResearchStudyCollaborator,
 )
 
 config = context.config
