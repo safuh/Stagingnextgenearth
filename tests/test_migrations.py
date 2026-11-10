@@ -39,6 +39,9 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "longitude",
             "source",
             "quality_status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
         },
     }
 
