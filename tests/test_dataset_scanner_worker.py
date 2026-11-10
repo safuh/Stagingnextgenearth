@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from stagingnextgenearth.core.config import Settings
 from stagingnextgenearth.core.database import Base, create_engine, create_session_factory
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import Organization, ResearchDataset, ResearchDatasetFile
@@ -15,23 +16,11 @@ class FakeStorage:
     def __init__(self, objects: dict[str, bytes]) -> None:
         self.objects = objects
 
-    def create_upload_form(self, **kwargs):
-        raise NotImplementedError
-
-    def inspect(self, *, key: str):
-        content = self.objects.get(key)
-        return None if content is None else SimpleNamespace(
-            size_bytes=len(content), content_type="text/csv"
-        )
-
     def get_object(self, *, key: str, max_bytes: int) -> bytes:
         content = self.objects[key]
         if len(content) > max_bytes:
             raise ValueError("object too large")
         return content
-
-    def create_download_url(self, **kwargs):
-        raise NotImplementedError
 
 
 class FakeScanner:
@@ -41,11 +30,10 @@ class FakeScanner:
 
 @pytest.mark.asyncio
 async def test_worker_releases_clean_files_and_rejects_infected_files(tmp_path) -> None:
-    engine = create_engine(
-        __import__("stagingnextgenearth.core.config", fromlist=["Settings"])
-        .Settings.for_profile("test")
-        .model_copy(update={"database_url": f"sqlite+aiosqlite:///{tmp_path / 'worker.db'}"})
+    settings = Settings.for_profile("test").model_copy(
+        update={"database_url": f"sqlite+aiosqlite:///{tmp_path / 'worker.db'}"}
     )
+    engine = create_engine(settings)
     factory = create_session_factory(engine)
     try:
         async with engine.begin() as connection:
@@ -133,11 +121,10 @@ async def test_worker_releases_clean_files_and_rejects_infected_files(tmp_path) 
 
 @pytest.mark.asyncio
 async def test_worker_keeps_file_quarantined_when_scanner_fails(tmp_path) -> None:
-    engine = create_engine(
-        __import__("stagingnextgenearth.core.config", fromlist=["Settings"])
-        .Settings.for_profile("test")
-        .model_copy(update={"database_url": f"sqlite+aiosqlite:///{tmp_path / 'worker-fail.db'}"})
+    settings = Settings.for_profile("test").model_copy(
+        update={"database_url": f"sqlite+aiosqlite:///{tmp_path / 'worker-fail.db'}"}
     )
+    engine = create_engine(settings)
     factory = create_session_factory(engine)
     try:
         async with engine.begin() as connection:
