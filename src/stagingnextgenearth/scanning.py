@@ -2,6 +2,7 @@
 
 import socket
 import struct
+from collections.abc import Iterable
 from typing import Protocol
 
 
@@ -9,6 +10,8 @@ class FileScanner(Protocol):
     """Contract for a scanner that returns True only for a clean file."""
 
     def scan(self, content: bytes) -> bool: ...
+
+    def scan_chunks(self, chunks: Iterable[bytes]) -> bool: ...
 
 
 class ClamAVScanner:
@@ -26,26 +29,37 @@ class ClamAVScanner:
         self._timeout = timeout_seconds
 
     def scan(self, content: bytes) -> bool:
-        """Send bytes using INSTREAM and return False only for a FOUND verdict."""
+        """Scan an in-memory payload using the streaming protocol implementation."""
+        return self.scan_chunks(
+            content[offset : offset + 64 * 1024]
+            for offset in range(0, len(content), 64 * 1024)
+        )
+
+    def scan_chunks(self, chunks: Iterable[bytes]) -> bool:
+        """Stream chunks to ClamAV INSTREAM without joining them in memory."""
         with socket.create_connection(
             (self._host, self._port), timeout=self._timeout
         ) as connection:
             connection.settimeout(self._timeout)
-            connection.sendall(b"zINSTREAM\0")
-            for offset in range(0, len(content), 64 * 1024):
-                chunk = content[offset : offset + 64 * 1024]
-                connection.sendall(struct.pack("!I", len(chunk)))
-                connection.sendall(chunk)
+            connection.sendall(b"zINSTREAM\\0")
+            for chunk in chunks:
+                if not chunk:
+                    continue
+                view = memoryview(chunk)
+                for offset in range(0, len(view), 64 * 1024):
+                    part = view[offset : offset + 64 * 1024]
+                    connection.sendall(struct.pack("!I", len(part)))
+                    connection.sendall(part)
             connection.sendall(struct.pack("!I", 0))
             response = bytearray()
-            while not response.endswith(b"\0"):
+            while not response.endswith(b"\\0"):
                 chunk = connection.recv(4096)
                 if not chunk:
                     raise RuntimeError("ClamAV closed the connection without a verdict")
                 response.extend(chunk)
                 if len(response) > 4096:
                     raise RuntimeError("ClamAV response exceeded the protocol limit")
-        verdict = response.decode("utf-8", errors="replace").strip("\0")
+        verdict = response.decode("utf-8", errors="replace").strip("\\0")
         if verdict.endswith(": OK"):
             return True
         if verdict.endswith(" FOUND"):
