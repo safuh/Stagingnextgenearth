@@ -68,7 +68,8 @@ class DatasetFileDownloadRead(BaseModel):
     download_url: str
     expires_in_seconds: int
     access_event_id: str
-\nclass DatasetFileRead(BaseModel):
+
+class DatasetFileRead(BaseModel):
     """Safe file metadata; storage keys and provider details are never exposed."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -353,7 +354,9 @@ async def create_dataset_file_download(
         expires_in_seconds=_DOWNLOAD_EXPIRY_SECONDS,
         access_event_id=event.id,
     )
-\n\n@router.get("/{dataset_id}/files", response_model=list[DatasetFileRead])
+
+
+@router.get("/{dataset_id}/files", response_model=list[DatasetFileRead])
 async def list_dataset_files(
     organization_id: str,
     dataset_id: str,
