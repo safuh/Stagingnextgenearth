@@ -47,6 +47,10 @@ class ResearchDatasetCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_collection_dates(self) -> "ResearchDatasetCreate":
+        if not self.title.strip() or not self.version.strip():
+            raise ValueError("title and version cannot be blank")
+        if not self.format.strip() or not self.source.strip():
+            raise ValueError("format and source cannot be blank")
         if (
             self.collection_start is not None
             and self.collection_end is not None
