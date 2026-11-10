@@ -117,7 +117,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
         },
         "research_publication_metadata_sources": {
             "id", "publication_id", "provider", "provider_work_id", "source_url",
-            "metadata_sha256", "imported_fields", "imported_by", "fetched_at",
+            "metadata_sha256", "metadata_snapshot", "imported_fields", "imported_by", "fetched_at",
         },
         "research_study_collaborators": {
             "id",
