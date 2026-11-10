@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import ResearcherProfile
@@ -111,7 +112,10 @@ async def upsert_my_researcher_profile(
     try:
         await session.commit()
         await session.refresh(profile)
-    except Exception:
+    except IntegrityError as exc:
         await session.rollback()
-        raise
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The supplied ORCID is already associated with another profile",
+        ) from exc
     return ResearcherProfileRead.model_validate(profile)
