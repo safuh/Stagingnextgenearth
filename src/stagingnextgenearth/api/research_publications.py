@@ -273,6 +273,21 @@ class PublicationMetadataImport(BaseModel):
         return self
 
 
+
+class PublicationMetadataSourceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    publication_id: str
+    provider: str
+    provider_work_id: str
+    source_url: str
+    metadata_sha256: str
+    imported_fields: list[str]
+    imported_by: str
+    fetched_at: datetime
+
+
 async def get_openalex_client() -> AsyncIterator[httpx.AsyncClient]:
     """Provide a bounded-timeout client without following external redirects."""
     async with httpx.AsyncClient(
@@ -572,3 +587,35 @@ async def import_publication_metadata(
         raise
     await session.refresh(publication)
     return PublicationRead.model_validate(publication)
+
+
+
+@router.get(
+    "/{publication_id}/metadata/sources",
+    response_model=list[PublicationMetadataSourceRead],
+)
+async def list_publication_metadata_sources(
+    organization_id: str,
+    study_id: str,
+    publication_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicationMetadataSourceRead]:
+    """Return immutable provider-import provenance for an accessible publication."""
+    study = await _study(session, organization_id, study_id)
+    await _study_role(session, study, principal, membership)
+    publication = await session.scalar(
+        select(ResearchPublication).where(
+            ResearchPublication.id == publication_id,
+            ResearchPublication.study_id == study_id,
+        )
+    )
+    if publication is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Publication not found")
+    result = await session.scalars(
+        select(ResearchPublicationMetadataSource)
+        .where(ResearchPublicationMetadataSource.publication_id == publication_id)
+        .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
+    )
+    return [PublicationMetadataSourceRead.model_validate(item) for item in result.all()]
