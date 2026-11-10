@@ -16,6 +16,7 @@ from .research_datasets import router as research_datasets_router
 from .research_governance import router as research_governance_router
 from .research_planning import router as research_planning_router
 from .research_publications import router as research_publications_router
+from .research_exports import router as research_exports_router
 from .researcher_profiles import directory_router as researcher_profile_directory_router
 from .researcher_profiles import router as researcher_profiles_router
 
@@ -35,4 +36,5 @@ api_router.include_router(research_planning_router)
 api_router.include_router(research_publications_router)
 api_router.include_router(research_datasets_router)
 api_router.include_router(research_dataset_files_router)
+api_router.include_router(research_exports_router)
 api_router.include_router(climate_router)
