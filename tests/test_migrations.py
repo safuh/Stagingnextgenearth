@@ -115,6 +115,10 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "publication_type", "journal_or_venue", "publisher", "published_on",
             "doi", "openalex_id", "url", "abstract", "created_by", "created_at",
         },
+        "research_publication_metadata_sources": {
+            "id", "publication_id", "provider", "provider_work_id", "source_url",
+            "metadata_sha256", "imported_fields", "imported_by", "fetched_at",
+        },
         "research_study_collaborators": {
             "id",
             "study_id",
