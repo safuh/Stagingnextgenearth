@@ -186,6 +186,46 @@ class ResearchStudy(Base):
     )
 
 
+class ClimateIngestionRun(Base):
+    """Auditable execution record for one provider data retrieval."""
+
+    __tablename__ = "climate_ingestion_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'completed', 'failed')",
+            name="ck_climate_ingestion_run_status",
+        ),
+        CheckConstraint(
+            "records_received >= 0 AND records_inserted >= 0 AND records_skipped >= 0",
+            name="ck_climate_ingestion_run_counts",
+        ),
+        Index("ix_climate_ingestion_runs_org_started", "organization_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    provider_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    licence: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    requested_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_area: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    records_received: Mapped[int] = mapped_column(nullable=False, default=0)
+    records_inserted: Mapped[int] = mapped_column(nullable=False, default=0)
+    records_skipped: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ClimateObservation(Base):
     """A sourced, timestamped climate observation linked to a project or study."""
 
@@ -200,6 +240,10 @@ class ClimateObservation(Base):
         Index("ix_climate_observations_org_time", "organization_id", "observed_at"),
         Index("ix_climate_observations_variable_time", "variable", "observed_at"),
         Index("ix_climate_observations_study_id", "study_id"),
+        UniqueConstraint(
+            "organization_id", "provider_id", "provider_record_id",
+            name="uq_climate_observation_provider_record",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -219,6 +263,11 @@ class ClimateObservation(Base):
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     source: Mapped[str] = mapped_column(String(160), nullable=False)
+    ingestion_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("climate_ingestion_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    provider_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider_record_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     quality_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="pending"
     )
