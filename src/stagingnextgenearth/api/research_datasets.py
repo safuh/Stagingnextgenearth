@@ -210,6 +210,8 @@ async def review_research_dataset(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    if dataset.access_classification == "restricted" and membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Restricted datasets require an administrator reviewer")
     if dataset.owner_user_id == principal.user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owners cannot review their own data")
     if dataset.status != "submitted":
