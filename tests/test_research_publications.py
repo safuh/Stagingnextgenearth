@@ -329,3 +329,67 @@ def test_openalex_lookup_requires_exactly_one_valid_identifier(
     ):
         response = client.get(f"{base}/metadata/lookup", headers=headers, params=params)
         assert response.status_code == 422
+
+
+
+def test_openalex_import_creates_publication_with_provenance(
+    client: TestClient,
+) -> None:
+    headers = _register(client, "openalex-import@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "OpenAlex Import Lab", "slug": "openalex-import-lab"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=headers,
+        json={"title": "Mangrove restoration research"},
+    ).json()
+    base = (
+        f"/api/organizations/{organization['id']}/research-studies/{study['id']}/publications"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": "https://openalex.org/W9876543210",
+                "title": "Mangrove restoration and coastal resilience",
+                "type": "article",
+                "doi": "https://doi.org/10.5555/MANGROVE.2026",
+                "publication_date": "2026-04-03",
+                "authorships": [
+                    {"author": {"display_name": "C. Researcher", "orcid": None}}
+                ],
+                "primary_location": {
+                    "source": {"display_name": "Coastal Ecology", "host_organization_name": None}
+                },
+                "landing_page_url": "https://example.org/mangrove-paper",
+                "abstract_inverted_index": {"Mangroves": [0], "protect": [1], "coasts": [2]},
+            },
+        )
+
+    async def override_client():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as mock_client:
+            yield mock_client
+
+    client.app.dependency_overrides[get_openalex_client] = override_client
+    imported = client.post(
+        f"{base}/metadata/import",
+        headers=headers,
+        json={"doi": "10.5555/mangrove.2026"},
+    )
+    assert imported.status_code == 201
+    publication = imported.json()
+    assert publication["title"] == "Mangrove restoration and coastal resilience"
+    assert publication["doi"] == "10.5555/mangrove.2026"
+    assert publication["openalex_id"] == "W9876543210"
+    assert client.get(base, headers=headers).json()[0]["id"] == publication["id"]
+
+    duplicate = client.post(
+        f"{base}/metadata/import",
+        headers=headers,
+        json={"openalex_id": "W9876543210"},
+    )
+    assert duplicate.status_code == 409
