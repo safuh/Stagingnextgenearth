@@ -1,5 +1,6 @@
 """Controlled upload-intent and quarantine workflow for dataset file versions."""
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import PurePath
 from typing import Annotated
@@ -207,7 +208,9 @@ async def complete_dataset_file_upload(
     if record.status != "upload_pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Upload is not pending")
     try:
-        stored = _storage(request).inspect(key=record.storage_key)
+        stored = await asyncio.to_thread(
+            _storage(request).inspect, key=record.storage_key
+        )
     except Exception as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
