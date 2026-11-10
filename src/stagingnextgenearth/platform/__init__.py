@@ -7,6 +7,7 @@ from .models import (
     Programme,
     Project,
     ResearchDatasetFile,
+    ResearchDatasetFileAccessEvent,
     ResearchStudy,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "Programme",
     "Project",
     "ResearchDatasetFile",
+    "ResearchDatasetFileAccessEvent",
     "ResearchStudy",
 ]
