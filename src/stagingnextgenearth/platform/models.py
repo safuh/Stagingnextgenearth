@@ -320,3 +320,50 @@ class ResearchDatasetReviewEvent(Base):
     reviewed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ResearchDatasetFile(Base):
+    """Private object-storage reference and scan state for one dataset file version."""
+
+    __tablename__ = "research_dataset_files"
+    __table_args__ = (
+        CheckConstraint("size_bytes > 0", name="ck_research_dataset_file_size"),
+        CheckConstraint(
+            "scan_status IN ('pending', 'clean', 'rejected')",
+            name="ck_research_dataset_file_scan_status",
+        ),
+        CheckConstraint(
+            "status IN ('upload_pending', 'quarantined', 'available', 'rejected', 'deleted')",
+            name="ck_research_dataset_file_status",
+        ),
+        UniqueConstraint("storage_key", name="uq_research_dataset_file_storage_key"),
+        UniqueConstraint(
+            "dataset_id", "version", name="uq_research_dataset_file_dataset_version"
+        ),
+        Index("ix_research_dataset_files_dataset_status", "dataset_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256_hex: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="upload_pending"
+    )
+    scan_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
