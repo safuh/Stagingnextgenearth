@@ -450,6 +450,7 @@ async def create_milestone(
             actor_user_id=principal.user_id,
             event_type="created",
             changes={key: {"old": None, "new": value} for key, value in initial_values.items()},
+            created_at=datetime.now(UTC),
         )
     )
     await session.commit()
@@ -534,6 +535,7 @@ async def update_milestone(
                 actor_user_id=principal.user_id,
                 event_type="updated",
                 changes=audit_changes,
+                created_at=datetime.now(UTC),
             )
         )
     await session.commit()
