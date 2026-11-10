@@ -20,6 +20,7 @@ from stagingnextgenearth.platform.models import (
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .research_collaborators import study_access_role
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
@@ -142,7 +143,10 @@ async def create_research_dataset(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchDatasetRead:
     """Register metadata; new datasets remain drafts until submitted for review."""
-    if membership.role not in _CREATE_ROLES:
+    study_role = await study_access_role(
+        session, organization_id, body.study_id, principal, membership
+    )
+    if membership.role not in _CREATE_ROLES and study_role not in {"editor", "contributor"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registration is not permitted")
     if body.study_id is not None:
         study = await session.scalar(
@@ -187,22 +191,36 @@ async def list_research_datasets(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[ResearchDatasetRead]:
     """List registry metadata; restricted entries are visible only to owner/admin."""
-    if membership.role not in _REGISTRY_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
-    statement = select(ResearchDataset).where(
-        ResearchDataset.organization_id == organization_id
-    )
-    if membership.role != "admin":
-        statement = statement.where(
-            (ResearchDataset.access_classification != "restricted")
-            | (ResearchDataset.owner_user_id == principal.user_id)
-        )
-    if dataset_status is not None:
-        statement = statement.where(ResearchDataset.status == dataset_status)
+    has_registry_access = membership.role in _REGISTRY_ROLES
     result = await session.scalars(
-        statement.order_by(ResearchDataset.created_at.desc()).limit(limit)
+        select(ResearchDataset)
+        .where(ResearchDataset.organization_id == organization_id)
+        .where(
+            ResearchDataset.status == dataset_status
+            if dataset_status is not None
+            else True
+        )
+        .order_by(ResearchDataset.created_at.desc())
+        .limit(limit)
     )
-    return [ResearchDatasetRead.model_validate(item) for item in result.all()]
+    visible: list[ResearchDatasetRead] = []
+    for item in result.all():
+        study_role = await study_access_role(
+            session, organization_id, item.study_id, principal, membership
+        )
+        if not has_registry_access and study_role is None:
+            continue
+        if (
+            item.access_classification == "restricted"
+            and item.owner_user_id != principal.user_id
+            and membership.role != "admin"
+            and study_role is None
+        ):
+            continue
+        visible.append(ResearchDatasetRead.model_validate(item))
+    if not has_registry_access and not visible:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
+    return visible
 
 
 @router.patch("/{dataset_id}", response_model=ResearchDatasetRead)
@@ -215,8 +233,6 @@ async def update_research_dataset(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchDatasetRead:
     """Correct an owned draft or rejected submission before resubmitting it."""
-    if membership.role not in _CREATE_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset editing is not permitted")
     dataset = await session.scalar(
         select(ResearchDataset).where(
             ResearchDataset.id == dataset_id,
@@ -225,8 +241,17 @@ async def update_research_dataset(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
-    if dataset.owner_user_id != principal.user_id and membership.role != "admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the dataset owner can edit it")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _CREATE_ROLES and study_role not in {"editor", "contributor"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset editing is not permitted")
+    if (
+        dataset.owner_user_id != principal.user_id
+        and membership.role != "admin"
+        and study_role not in {"editor", "contributor"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
     if dataset.status not in {"draft", "rejected"}:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -250,6 +275,11 @@ async def update_research_dataset(
             "Required dataset metadata fields cannot be null",
         )
     if "study_id" in changes and changes["study_id"] is not None:
+        target_role = await study_access_role(
+            session, organization_id, changes["study_id"], principal, membership
+        )
+        if membership.role not in _CREATE_ROLES and target_role not in {"editor", "contributor"}:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Target study access required")
         study = await session.scalar(
             select(ResearchStudy.id).where(
                 ResearchStudy.id == changes["study_id"],
@@ -301,8 +331,6 @@ async def list_research_dataset_reviews(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ResearchDatasetReviewEventRead]:
     """Read immutable review history subject to the dataset's metadata visibility."""
-    if membership.role not in _REGISTRY_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
     dataset = await session.scalar(
         select(ResearchDataset).where(
             ResearchDataset.id == dataset_id,
@@ -311,10 +339,16 @@ async def list_research_dataset_reviews(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _REGISTRY_ROLES and study_role is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
         and membership.role != "admin"
+        and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
     result = await session.scalars(
@@ -334,8 +368,6 @@ async def submit_research_dataset(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchDatasetRead:
     """Submit an owned draft for independent governance review."""
-    if membership.role not in _CREATE_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset submission is not permitted")
     dataset = await session.scalar(
         select(ResearchDataset).where(
             ResearchDataset.id == dataset_id,
@@ -344,8 +376,17 @@ async def submit_research_dataset(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
-    if dataset.owner_user_id != principal.user_id and membership.role != "admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the dataset owner can submit it")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _CREATE_ROLES and study_role != "editor":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset submission is not permitted")
+    if (
+        dataset.owner_user_id != principal.user_id
+        and membership.role != "admin"
+        and study_role != "editor"
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
     if dataset.status != "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only draft datasets can be submitted")
     dataset.status = "submitted"
