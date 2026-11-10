@@ -6,10 +6,10 @@ import hmac
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
-from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)
