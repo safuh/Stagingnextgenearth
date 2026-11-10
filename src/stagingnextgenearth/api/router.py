@@ -8,8 +8,8 @@ from .health import router as health_router
 from .learning import router as learning_router
 from .memberships import router as memberships_router
 from .organizations import router as organizations_router
-from .programmes import router as programmes_router
 from .programme_deliverables import router as programme_deliverables_router
+from .programmes import router as programmes_router
 from .projects import router as projects_router
 from .research import router as research_router
 from .research_collaborators import router as research_collaborators_router
