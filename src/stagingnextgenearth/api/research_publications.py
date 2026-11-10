@@ -369,9 +369,13 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
     landing_page_value = record.get("landing_page_url")
     landing_page = None
     if isinstance(landing_page_value, str):
-        parsed_landing_page = urlparse(landing_page_value)
+        try:
+            parsed_landing_page = urlparse(landing_page_value)
+        except ValueError:
+            parsed_landing_page = None
         if (
-            parsed_landing_page.scheme in {"http", "https"}
+            parsed_landing_page is not None
+            and parsed_landing_page.scheme in {"http", "https"}
             and parsed_landing_page.hostname
             and parsed_landing_page.username is None
             and parsed_landing_page.password is None
@@ -392,6 +396,24 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
         url=landing_page,
         abstract=_abstract_from_inverted_index(record.get("abstract_inverted_index")),
     )
+
+
+
+def _validate_openalex_match(
+    preview: PublicationMetadataPreview, requested_identifier: str
+) -> None:
+    if requested_identifier.startswith("https://doi.org/"):
+        requested_doi = requested_identifier.removeprefix("https://doi.org/").lower()
+        if preview.doi != requested_doi:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                "OpenAlex response does not match the requested DOI",
+            )
+    elif preview.openalex_id != requested_identifier:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "OpenAlex response does not match the requested work ID",
+        )
 
 
 async def _read_openalex_response(
@@ -476,7 +498,9 @@ async def lookup_publication_metadata(
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid OpenAlex work ID")
         identifier = normalized
     record = await _read_openalex_response(client, identifier)
-    return _openalex_preview(record)
+    preview = _openalex_preview(record)
+    _validate_openalex_match(preview, identifier)
+    return preview
 
 
 
@@ -516,6 +540,7 @@ async def import_publication_metadata(
 
     record = await _read_openalex_response(client, identifier)
     preview = _openalex_preview(record)
+    _validate_openalex_match(preview, identifier)
     duplicate_filters = [ResearchPublication.openalex_id == preview.openalex_id]
     if preview.doi is not None:
         duplicate_filters.append(ResearchPublication.doi == preview.doi)
