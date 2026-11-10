@@ -1,12 +1,17 @@
 """Tests for asynchronous research dataset file scanning."""
 
 from datetime import UTC, datetime
+
 import pytest
 
 from stagingnextgenearth.core.config import Settings
 from stagingnextgenearth.core.database import Base, create_engine, create_session_factory
 from stagingnextgenearth.identity.models import User
-from stagingnextgenearth.platform.models import Organization, ResearchDataset, ResearchDatasetFile
+from stagingnextgenearth.platform.models import (
+    Organization,
+    ResearchDataset,
+    ResearchDatasetFile,
+)
 from stagingnextgenearth.workers.dataset_scanner import scan_pending_dataset_files
 
 
