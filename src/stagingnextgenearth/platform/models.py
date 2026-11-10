@@ -234,3 +234,63 @@ class ClimateObservation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ResearchDataset(Base):
+    """Registry metadata and governance state for an organisation research dataset."""
+
+    __tablename__ = "research_datasets"
+    __table_args__ = (
+        CheckConstraint(
+            "access_classification IN ('public', 'organization', 'restricted')",
+            name="ck_research_dataset_access",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'rejected', 'archived')",
+            name="ck_research_dataset_status",
+        ),
+        CheckConstraint(
+            "collection_end IS NULL OR collection_start IS NULL "
+            "OR collection_end >= collection_start",
+            name="ck_research_dataset_collection_dates",
+        ),
+        Index("ix_research_datasets_org_status", "organization_id", "status"),
+        Index("ix_research_datasets_study_id", "study_id"),
+        Index("ix_research_datasets_owner_id", "owner_user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(40), nullable=False, default="1.0")
+    format: Mapped[str] = mapped_column(String(40), nullable=False)
+    source: Mapped[str] = mapped_column(String(200), nullable=False)
+    license: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    access_classification: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="organization"
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    data_dictionary: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    collection_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    collection_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
