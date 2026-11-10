@@ -10,6 +10,7 @@ from .organizations import router as organizations_router
 from .programmes import router as programmes_router
 from .projects import router as projects_router
 from .research import router as research_router
+from .research_dataset_files import router as research_dataset_files_router
 from .research_datasets import router as research_datasets_router
 
 api_router = APIRouter()
@@ -21,4 +22,5 @@ api_router.include_router(programmes_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
 api_router.include_router(research_datasets_router)
+api_router.include_router(research_dataset_files_router)
 api_router.include_router(climate_router)
