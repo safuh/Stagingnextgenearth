@@ -1,111 +1,132 @@
-# MVP Acceptance Tracker
+# NextGen for Earth Platform — Delivery Milestones
 
-This tracker describes the supported Stagingnextgenearth MVP. A checkbox means the criterion has been verified; implementation alone is not verification.
+A checkbox means the acceptance criterion has been implemented and verified.
+Do not mark work complete solely because code has been written.
 
 ## Product scope
 
-**Included:** FastAPI, Pydantic/Pydantic Settings, SQLAlchemy 2.x, Alembic, PostgreSQL, optional JWT identity, Docker, Docker Compose, Kubernetes/Kustomize.
+Build a complete organisational digital platform with four dedicated portal
+experiences:
 
-**Excluded:** PydanticAI, AI agents/providers, Flutter/mobile clients, frontend, project generator/CLI, and product-specific business modules.
+1. researchers;
+2. youth and volunteers;
+3. administrators; and
+4. institutional partners.
 
-## M1 — Application foundation
+Research and climate intelligence are the leading product priority, supported by
+programme/project management, learning and mentorship, community operations,
+environmental monitoring, and institutional reporting.
 
-**Status: complete and verified.**
+The platform is a modular monolith initially. FastAPI owns the application API,
+PostgreSQL/PostGIS owns transactional and geospatial persistence, and Next.js
+provides the public website and authenticated portal experiences.
 
-- [x] Python src-layout package and application factory.
-- [x] Development, test, and production configuration profiles.
-- [x] Pydantic Settings validation and environment overrides.
-- [x] FastAPI exception handling and stable error envelope.
-- [x] Request correlation IDs in middleware and response headers.
-- [x] Structured logging.
-- [x] Explicit CORS configuration.
-- [x] Liveness and database-backed readiness endpoints.
-- [x] Deterministic application lifespan and engine disposal.
+## Foundation — inherited and retained
 
-## M2 — Persistence and migrations
+**Status: inherited from the backend foundation; previously verified.**
 
-**Status: complete and verified.**
+- [x] FastAPI application factory and Pydantic Settings.
+- [x] Async SQLAlchemy 2.x persistence and Alembic.
+- [x] PostgreSQL and SQLite development support.
+- [x] Optional password/JWT authentication primitives and refresh-token rotation.
+- [x] Docker and explicit migration deployment contract.
+- [x] Existing lint, type-check and test workflows.
 
-- [x] Async SQLAlchemy 2.x engine and session factory.
-- [x] PostgreSQL/asyncpg production driver.
-- [x] SQLite/aiosqlite development and test driver.
-- [x] Transaction-scoped session helper.
-- [x] Explicit Unit of Work transaction boundary.
-- [x] Async Alembic environment.
-- [x] Versioned foundation and identity migrations.
-- [x] Migration upgrade/downgrade integration tests.
-- [x] PostgreSQL integration test in CI.
-- [x] Explicit migration-before-rollout deployment contract.
+These foundation checks must continue passing as product code is added.
 
-## M3 — Optional identity and JWT
+## M1 — Product data foundation
 
-**Status: implemented and verified; consumers must explicitly configure it.**
+**Status: implemented on feature branch; verification pending.**
 
-- [x] Password hashing with Argon2.
-- [x] Generic invalid-credential behavior.
-- [x] Signed JWT access and refresh tokens.
-- [x] Token expiration, subject, and token-type validation.
-- [x] Refresh-token persistence, rotation, replay rejection, and revocation.
-- [x] Registration, login, refresh, and logout HTTP endpoints.
-- [x] Structured authentication audit events.
-- [x] SQLAlchemy identity repositories and composition helper.
-- [x] Security regression and integration tests.
-- [ ] RBAC/OAuth2 scopes — intentionally excluded from MVP.
-- [ ] Built-in rate limiting — intentionally excluded; apply at the edge or in the consuming application.
+- [x] Organisation and tenant ownership model.
+- [x] Organisation-scoped memberships and initial portal role vocabulary.
+- [x] Programme lifecycle model.
+- [x] Project model with programme linkage and geography.
+- [x] Research study model with lead researcher and ethics reference.
+- [x] Climate observation model with source, unit, timestamp, coordinates and quality status.
+- [x] Alembic migration for the initial product domain.
+- [x] Model persistence test.
+- [ ] Run formatting, lint, type checks and full tests.
+- [ ] Verify migration upgrade/downgrade against PostgreSQL.
+- [ ] Review tenant-boundary and role-policy design before exposing endpoints.
 
-Authentication remains optional at the composition root. Production applications must provide high-entropy signing secrets and deliberate token lifetimes.
+## M2 — Identity, access control and organisation workflows
 
-## M4 — Docker and local development
+- [ ] Connect login/registration composition to runtime settings.
+- [ ] Access-token authentication dependency.
+- [ ] Role-based access control with organisation-scoped policy checks.
+- [ ] Organisation creation and membership invitation/acceptance.
+- [ ] Account lifecycle, audit events and privileged-action logging.
+- [ ] Rate limiting and abuse protection at the application or edge.
+- [ ] Security tests for cross-organisation access and role escalation.
 
-**Status: complete and verified.**
+## M3 — Programme and project operations
 
-- [x] Locked dependency installation using uv.lock.
-- [x] Non-root runtime container.
-- [x] Production Dockerfile.
-- [x] PostgreSQL-backed development Compose stack.
-- [x] Container health check.
-- [x] Production Compose definition with external database credentials.
-- [x] Explicit one-shot Alembic migration before API startup.
-- [x] Docker smoke-test script.
-- [x] Docker smoke test passes on the release branch.
+- [ ] Programme and project APIs with explicit service/repository boundaries.
+- [ ] Goals, milestones, activities, deliverables and assignments.
+- [ ] Volunteer and ambassador registration and allocation.
+- [ ] School and community participation records.
+- [ ] Evidence uploads and approval workflow.
+- [ ] Programme indicators and progress reporting.
 
-## M5 — Kubernetes deployment
+## M4 — Research workspace
 
-**Status: complete and verified.**
+- [ ] Researcher profiles and collaborator access.
+- [ ] Study proposals, protocols, ethics approvals and milestones.
+- [ ] Dataset registry, metadata, data dictionaries and access classifications.
+- [ ] Publication records and DOI/ORCID/OpenAlex integrations.
+- [ ] Controlled file storage and dataset access audit.
+- [ ] Research exports and reproducible analysis hand-off.
 
-- [x] Canonical Kustomize base under k8s/base.
-- [x] API Deployment and ClusterIP Service.
-- [x] ConfigMap and non-committed Secret example.
-- [x] Liveness and readiness probes.
-- [x] Resource requests and limits.
-- [x] Explicit migration Job.
-- [x] Production overlay and migration overlay.
-- [x] Optional Ingress example.
-- [x] Optional HPA overlay.
-- [x] Rollout and rollback instructions.
-- [x] Production, migration, and HPA overlays render successfully in CI.
+## M5 — Climate and geospatial intelligence
 
-## M6 — Release verification
+- [ ] PostGIS deployment and spatial migrations.
+- [ ] Climate data ingestion contracts and provenance tracking.
+- [ ] NASA POWER, CHIRPS and Copernicus adapters.
+- [ ] Administrative boundaries and geocoding strategy.
+- [ ] Spatial and temporal query APIs.
+- [ ] Quality assurance, missing-data handling and unit normalisation.
+- [ ] Research-grade statistical and geospatial analysis pipelines.
+- [ ] Interactive map and climate research dashboards.
+- [ ] Uncertainty, model limitations and data lineage shown in outputs.
 
-**Status: complete and verified on the release candidate commit.**
+## M6 — Public website and four portals
 
-- [x] Ruff passes.
-- [x] Mypy passes with no application errors.
-- [x] Full test suite passes on Python 3.11, 3.12, and 3.13.
-- [x] PostgreSQL integration and migration tests pass.
-- [x] Package build and Twine validation pass.
-- [x] Docker smoke test passes.
-- [x] Production, migration, and HPA Kustomize overlays render successfully.
-- [x] Secret scanning and dependency security workflows pass.
-- [x] Documentation commands match the actual repository.
-- [x] No PydanticAI, Flutter, or stale duplicate Kubernetes implementation remains.
+- [ ] Next.js public website and content management workflow.
+- [ ] Researcher portal.
+- [ ] Youth and volunteer portal.
+- [ ] Administrator portal.
+- [ ] Institutional partner portal.
+- [ ] Shared design system, responsive layouts and accessible navigation.
+- [ ] Role-aware navigation driven by server-authorised memberships.
+- [ ] API client, typed contracts, error states and session handling.
 
-## MVP release definition
+## M7 — Integrations and organisational intelligence
 
-The MVP is ready for release when every M6 gate is green on the release commit. The release candidate CI run passed all test matrices, package checks, Docker smoke, Kubernetes rendering, secret scanning, and dependency audit.
+- [ ] KoboToolbox/ODK field data integration.
+- [ ] Email and calendar notifications.
+- [ ] Zoom/meeting integration where required.
+- [ ] M-Pesa and approved international donation providers.
+- [ ] Grant, budget and donor reporting.
+- [ ] Impact verification and indicator dashboards.
+- [ ] CSV/XLSX/PDF exports with access controls.
 
-The MVP does not promise that every consuming application is automatically production-secure. Applications must still configure secrets, TLS, database access, CORS, backups, monitoring, rate limits, and authorization policy for their deployment environment.
+## M8 — Production readiness
 
-## Change control
+- [ ] PostgreSQL/PostGIS integration and migration CI.
+- [ ] Automated API and frontend test suites.
+- [ ] Security review, privacy impact assessment and safeguarding review.
+- [ ] Backups, restore drills, retention and deletion policies.
+- [ ] Observability, alerting and operational runbooks.
+- [ ] Deployment environments, secrets management and disaster recovery.
+- [ ] Stakeholder acceptance testing with representative portal users.
 
-Keep this project backend-focused. New features must not expand the MVP silently. PydanticAI, Flutter, frontend work, generators, RBAC, and observability extensions require a separate decision and acceptance criteria.
+## Architectural constraints
+
+- Keep a modular monolith until independently scaling or deploying a module is justified.
+- Every tenant-owned record must be authorised by organisation membership in the backend.
+- Frontend visibility is not an access-control boundary.
+- Do not store participant-level health or child data in public datasets.
+- Treat climate observations as provenance-bearing measurements; ingestion does not imply verification.
+- Do not claim environmental outcomes from activity counts alone.
+- Run migrations as explicit release operations, never in every API worker.
