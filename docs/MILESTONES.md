@@ -81,8 +81,11 @@ These foundation checks must continue passing as product code is added.
 - [x] Dataset submission and independent approval/rejection workflow with audit fields.
 - [x] Owner correction and resubmission workflow for rejected datasets.
 - [x] Append-only dataset review history retained across resubmissions.
-- [ ] Researcher profile and collaborator access workflows (implementation in progress; awaiting CI verification).
-- [ ] Study proposals, protocols, ethics approvals and milestones.
+- [x] Researcher profiles with private-by-default visibility and organisation-scoped sharing.
+- [x] Study collaborator invitations, acceptance, revocation and role-scoped dataset access.
+- [ ] Study proposals and milestones.
+- [ ] Versioned research protocols and independent protocol review (implemented; awaiting CI verification).
+- [ ] Append-only ethics committee decisions linked to approved protocol versions (implemented; awaiting CI verification).
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
 - [x] Private object-storage adapter, constrained upload intents and authorised download grants.
