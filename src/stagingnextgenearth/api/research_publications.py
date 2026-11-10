@@ -1,5 +1,7 @@
 """Study publication registry with DOI, ORCID and OpenAlex identifiers."""
 
+import hashlib
+import json
 import re
 from collections.abc import AsyncIterator
 from datetime import date, datetime
@@ -8,14 +10,15 @@ from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
     Membership,
     ResearchPublication,
+    ResearchPublicationMetadataSource,
     ResearchStudy,
     ResearchStudyCollaborator,
 )
@@ -256,6 +259,20 @@ class PublicationMetadataPreview(BaseModel):
     source: Literal["OpenAlex"] = "OpenAlex"
 
 
+
+class PublicationMetadataImport(BaseModel):
+    """Explicit import command; lookup remains a separate read-only operation."""
+
+    doi: str | None = Field(default=None, min_length=5, max_length=255)
+    openalex_id: str | None = Field(default=None, min_length=2, max_length=32)
+
+    @model_validator(mode="after")
+    def require_one_identifier(self) -> "PublicationMetadataImport":
+        if (self.doi is None) == (self.openalex_id is None):
+            raise ValueError("Supply exactly one of doi or openalex_id")
+        return self
+
+
 async def get_openalex_client() -> AsyncIterator[httpx.AsyncClient]:
     """Provide a bounded-timeout client without following external redirects."""
     async with httpx.AsyncClient(
@@ -445,3 +462,111 @@ async def lookup_publication_metadata(
         identifier = normalized
     record = await _read_openalex_response(client, identifier)
     return _openalex_preview(record)
+
+
+
+@router.post("/metadata/import", response_model=PublicationRead, status_code=status.HTTP_201_CREATED)
+async def import_publication_metadata(
+    organization_id: str,
+    study_id: str,
+    body: PublicationMetadataImport,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[httpx.AsyncClient, Depends(get_openalex_client)],
+) -> PublicationRead:
+    """Create a publication from a fresh provider response and record its provenance."""
+    study = await _study(session, organization_id, study_id)
+    if await _study_role(session, study, principal, membership) not in _WRITE_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Publication authoring permission required")
+
+    if body.doi is not None:
+        normalized = body.doi.strip()
+        for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+            if normalized.lower().startswith(prefix):
+                normalized = normalized[len(prefix):]
+                break
+        if not _DOI_PATTERN.fullmatch(normalized):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid DOI")
+        identifier = "https://doi.org/" + normalized
+    else:
+        normalized = (body.openalex_id or "").strip().removeprefix("https://openalex.org/")
+        if not _OPENALEX_PATTERN.fullmatch(normalized):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid OpenAlex work ID")
+        identifier = normalized
+
+    record = await _read_openalex_response(client, identifier)
+    preview = _openalex_preview(record)
+    duplicate_filters = [ResearchPublication.openalex_id == preview.openalex_id]
+    if preview.doi is not None:
+        duplicate_filters.append(ResearchPublication.doi == preview.doi)
+    existing = await session.scalar(
+        select(ResearchPublication).where(
+            ResearchPublication.study_id == study_id,
+            or_(*duplicate_filters),
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This OpenAlex work or DOI is already registered for the study",
+        )
+
+    publication = ResearchPublication(
+        study_id=study_id,
+        title=preview.title,
+        authors=preview.authors,
+        author_orcids=preview.author_orcids,
+        publication_type=preview.publication_type,
+        journal_or_venue=preview.journal_or_venue,
+        publisher=preview.publisher,
+        published_on=preview.published_on,
+        doi=preview.doi,
+        openalex_id=preview.openalex_id,
+        url=preview.url,
+        abstract=preview.abstract,
+        created_by=principal.user_id,
+    )
+    serialized = json.dumps(
+        preview.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    ).encode()
+    provenance = ResearchPublicationMetadataSource(
+        publication_id=publication.id,
+        provider="openalex",
+        provider_work_id=preview.openalex_id,
+        source_url=f"https://openalex.org/{preview.openalex_id}",
+        metadata_sha256=hashlib.sha256(serialized).hexdigest(),
+        imported_fields=[
+            "title",
+            "authors",
+            "author_orcids",
+            "publication_type",
+            "journal_or_venue",
+            "publisher",
+            "published_on",
+            "doi",
+            "openalex_id",
+            "url",
+            "abstract",
+        ],
+        imported_by=principal.user_id,
+    )
+    session.add_all([publication, provenance])
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        original_error = exc.orig
+        constraint_name = getattr(getattr(original_error, "diag", None), "constraint_name", None)
+        sqlite_duplicate = (
+            "UNIQUE constraint failed: research_publications.study_id, research_publications.doi"
+            in str(original_error)
+        )
+        if constraint_name == "uq_research_publication_study_doi" or sqlite_duplicate:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "A publication with this DOI is already registered for the study",
+            ) from exc
+        raise
+    await session.refresh(publication)
+    return PublicationRead.model_validate(publication)
