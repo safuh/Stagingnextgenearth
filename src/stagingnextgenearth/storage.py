@@ -39,6 +39,8 @@ class ObjectStorage(Protocol):
 
     def get_object(self, *, key: str, max_bytes: int) -> bytes: ...
 
+    def create_download_url(self, *, key: str, expires_seconds: int) -> str: ...
+
 
 class S3ObjectStorage:
     """S3-compatible private bucket adapter using AWS Signature Version 4."""
@@ -250,3 +252,62 @@ class S3ObjectStorage:
         if len(content) > max_bytes:
             raise ValueError("Stored object exceeds the permitted scan size")
         return content
+
+
+    def create_download_url(self, *, key: str, expires_seconds: int) -> str:
+        """Create a short-lived SigV4 presigned GET URL for a private object."""
+        if not 1 <= expires_seconds <= 900:
+            raise ValueError("Download URL expiry must be between 1 and 900 seconds")
+        now = datetime.now(UTC)
+        date_stamp = now.strftime("%Y%m%d")
+        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+        scope = f"{date_stamp}/{self._region}/s3/aws4_request"
+        credential = f"{self._access_key}/{scope}"
+        endpoint = urlsplit(self._endpoint)
+        encoded_key = quote(key, safe="/")
+        if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
+            host = f"{self._bucket}.{endpoint.netloc}"
+            path = f"/{encoded_key}"
+            base_url = f"https://{host}{path}"
+        else:
+            host = endpoint.netloc
+            path = (
+                f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/"
+                f"{encoded_key}"
+            )
+            base_url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{encoded_key}"
+        query_parameters = {
+            "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+            "X-Amz-Credential": credential,
+            "X-Amz-Date": amz_date,
+            "X-Amz-Expires": str(expires_seconds),
+            "X-Amz-SignedHeaders": "host",
+        }
+        canonical_query = "&".join(
+            f"{quote(name, safe='')}={quote(value, safe='~-._')}"
+            for name, value in sorted(query_parameters.items())
+        )
+        canonical_request = "\\n".join(
+            [
+                "GET",
+                path,
+                canonical_query,
+                f"host:{host}\\n",
+                "host",
+                "UNSIGNED-PAYLOAD",
+            ]
+        )
+        string_to_sign = "\\n".join(
+            [
+                "AWS4-HMAC-SHA256",
+                amz_date,
+                scope,
+                hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+            ]
+        )
+        signature = hmac.new(
+            self._signing_key(date_stamp),
+            string_to_sign.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{base_url}?{canonical_query}&X-Amz-Signature={signature}"
