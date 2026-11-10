@@ -89,7 +89,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
 - [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
 - [x] Trusted SHA-256 calculation from stored object bytes and clean/rejected state transition.
-- [ ] Streaming background scanner worker and dataset access audit.
+- [ ] Streaming background scanner worker for large files.
+- [x] Dataset file download access audit events.
 - [ ] Research exports and reproducible analysis hand-off.
 
 ## M5 — Climate and geospatial intelligence
