@@ -52,7 +52,7 @@ def test_clamav_scanner_rejects_found_verdict(monkeypatch) -> None:
 
 
 def test_clamav_scanner_accepts_multiple_stream_chunks(monkeypatch) -> None:
-    connection = FakeConnection(b"stream: OK\\0")
+    connection = FakeConnection(b"stream: OK\0")
     monkeypatch.setattr(
         "stagingnextgenearth.scanning.socket.create_connection",
         lambda address, timeout: connection,
@@ -60,8 +60,8 @@ def test_clamav_scanner_accepts_multiple_stream_chunks(monkeypatch) -> None:
 
     assert ClamAVScanner(host="127.0.0.1").scan_chunks([b"first", b"", b"second"])
     payload = bytes(connection.sent)
-    assert payload.startswith(b"zINSTREAM\\0")
-    offset = len(b"zINSTREAM\\0")
+    assert payload.startswith(b"zINSTREAM\0")
+    offset = len(b"zINSTREAM\0")
     for expected in (b"first", b"second"):
         chunk_length = struct.unpack("!I", payload[offset : offset + 4])[0]
         offset += 4
