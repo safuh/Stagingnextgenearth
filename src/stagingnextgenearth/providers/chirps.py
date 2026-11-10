@@ -56,6 +56,7 @@ class CHIRPSProvider:
         max_retries: int = 2,
         max_days: int = 366,
         max_area_cells: int = 10_000,
+        max_raster_bytes: int = 256 * 1024 * 1024,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         if variant not in {"rnl", "sat"}:
@@ -64,13 +65,14 @@ class CHIRPSProvider:
             raise ValueError("timeout_seconds must be positive")
         if not 0 <= max_retries <= 5:
             raise ValueError("max_retries must be between 0 and 5")
-        if max_days < 1 or max_area_cells < 1:
+        if max_days < 1 or max_area_cells < 1 or max_raster_bytes < 1:
             raise ValueError("request limits must be positive")
         self.variant = variant
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.max_days = max_days
         self.max_area_cells = max_area_cells
+        self.max_raster_bytes = max_raster_bytes
         self._client = client
 
     async def fetch(
@@ -132,37 +134,49 @@ class CHIRPSProvider:
             f"chirps-v3.0.{self.variant}.{date_text}.tif"
         )
         for attempt in range(self.max_retries + 1):
+            retry_delay: float | None = None
             try:
-                response = await client.get(url)
+                async with client.stream("GET", url) as response:
+                    if response.status_code in _RETRYABLE_STATUS_CODES:
+                        if attempt >= self.max_retries:
+                            response.raise_for_status()
+                        retry_after = response.headers.get("Retry-After")
+                        try:
+                            retry_delay = (
+                                min(max(float(retry_after), 0.0), 5.0)
+                                if retry_after
+                                else 0.5 * (2**attempt)
+                            )
+                        except ValueError:
+                            retry_delay = 0.5 * (2**attempt)
+                    elif response.status_code == 404:
+                        raise ValueError(
+                            f"CHIRPS v3 {self.variant} raster is unavailable for {observed_date}"
+                        )
+                    else:
+                        response.raise_for_status()
+                        content = bytearray()
+                        async for chunk in response.aiter_bytes():
+                            if len(content) + len(chunk) > self.max_raster_bytes:
+                                raise ValueError(
+                                    "CHIRPS raster exceeds the configured download-size "
+                                    f"limit ({self.max_raster_bytes} bytes)"
+                                )
+                            content.extend(chunk)
+                        if not content:
+                            raise ValueError(
+                                f"CHIRPS returned an empty raster for {observed_date}"
+                            )
+                        return bytes(content)
             except httpx.TransportError:
                 if attempt >= self.max_retries:
                     raise
                 await asyncio.sleep(0.5 * (2**attempt))
                 continue
-            if response.status_code in _RETRYABLE_STATUS_CODES:
-                if attempt >= self.max_retries:
-                    response.raise_for_status()
-                retry_after = response.headers.get("Retry-After")
-                try:
-                    delay = (
-                        min(max(float(retry_after), 0.0), 5.0)
-                        if retry_after
-                        else 0.5 * (2**attempt)
-                    )
-                except ValueError:
-                    delay = 0.5 * (2**attempt)
-                await asyncio.sleep(delay)
+            if retry_delay is not None:
+                await asyncio.sleep(retry_delay)
                 continue
-            if response.status_code == 404:
-                raise ValueError(
-                    f"CHIRPS v3 {self.variant} raster is unavailable for {observed_date}"
-                )
-            response.raise_for_status()
-            if not response.content:
-                raise ValueError(f"CHIRPS returned an empty raster for {observed_date}")
-            return response.content
         raise RuntimeError("CHIRPS download exhausted its retry budget")
-
 
 def _measurements_for_day(
     cells: list[RasterCell],
