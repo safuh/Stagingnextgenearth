@@ -86,6 +86,26 @@ def test_creator_becomes_admin_and_can_manage_programmes(client: TestClient) -> 
     assert programmes.status_code == 200
     assert len(programmes.json()) == 1
 
+    project = client.post(
+        f"/api/organizations/{organization['id']}/projects",
+        headers=headers,
+        json={
+            "title": "Western Kenya Climate Baseline",
+            "programme_id": programme.json()["id"],
+            "county": "Kisii",
+        },
+    )
+    assert project.status_code == 201
+    assert project.json()["status"] == "planned"
+    assert project.json()["country_code"] == "KE"
+
+    invalid_parent = client.post(
+        f"/api/organizations/{organization['id']}/projects",
+        headers=headers,
+        json={"title": "Invalid Project", "programme_id": "not-this-tenant"},
+    )
+    assert invalid_parent.status_code == 404
+
 
 def test_organisation_membership_is_tenant_scoped(client: TestClient) -> None:
     first_token = register_and_login(client, "first@example.org")
