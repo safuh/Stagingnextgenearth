@@ -192,16 +192,13 @@ async def list_research_datasets(
 ) -> list[ResearchDatasetRead]:
     """List registry metadata; restricted entries are visible only to owner/admin."""
     has_registry_access = membership.role in _REGISTRY_ROLES
+    statement = select(ResearchDataset).where(
+        ResearchDataset.organization_id == organization_id
+    )
+    if dataset_status is not None:
+        statement = statement.where(ResearchDataset.status == dataset_status)
     result = await session.scalars(
-        select(ResearchDataset)
-        .where(ResearchDataset.organization_id == organization_id)
-        .where(
-            ResearchDataset.status == dataset_status
-            if dataset_status is not None
-            else True
-        )
-        .order_by(ResearchDataset.created_at.desc())
-        .limit(500)
+        statement.order_by(ResearchDataset.created_at.desc()).limit(500)
     )
     visible: list[ResearchDatasetRead] = []
     for item in result.all():
