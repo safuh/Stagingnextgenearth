@@ -75,3 +75,29 @@ dataset, and the applicable study/access-classification permissions. The
 manifest is a reproducibility descriptor, not a substitute for the original
 file bytes or for a researcher's documented analysis methods and software
 environment.
+
+
+## Reproducible analysis execution records
+
+An approved dataset can record a completed analysis execution:
+
+- `POST /api/organizations/{organization_id}/research-datasets/{dataset_id}/analysis-runs`
+- `GET /api/organizations/{organization_id}/research-datasets/{dataset_id}/analysis-runs`
+
+Each run stores the exact selected input file-version IDs, versions, trusted
+checksums, sizes and upload timestamps. The ordered input snapshot is
+canonically serialized and fingerprinted as `input_manifest_sha256`. Inputs
+must belong to the dataset and be available, clean and checksummed at creation
+time; a later upload does not rewrite the recorded lineage.
+
+The record also captures a bounded JSON analysis configuration and parameter
+set, software name/version, optional source revision and random seed, and
+checksum-addressed output artifact metadata. Output records contain descriptive
+artifact identifiers and checksums only; they do not accept storage keys,
+signed URLs or credentials. The API records provenance for an analysis that
+has already run; it does not execute notebooks or claim that output artifacts
+have been independently verified.
+
+Analysis-run records are append-only through this API. Listing is scoped to
+the same approved dataset and organisation access policy as the export
+manifest. The database migration is `0020_research_analysis_runs`.
