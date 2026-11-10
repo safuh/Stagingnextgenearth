@@ -294,3 +294,29 @@ class ResearchDataset(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class ResearchDatasetReviewEvent(Base):
+    """Append-only record of each dataset governance decision."""
+
+    __tablename__ = "research_dataset_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'rejected')",
+            name="ck_dataset_review_event_decision",
+        ),
+        Index("ix_dataset_review_events_dataset_time", "dataset_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
