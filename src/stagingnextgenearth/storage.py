@@ -113,7 +113,10 @@ class S3ObjectStorage:
         if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
             upload_url = f"https://{self._bucket}.{endpoint.netloc}/"
         else:
-            upload_url = f"{self._endpoint}/{quote(self._bucket, safe='')}"
+            upload_path = (
+                f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}"
+            )
+            upload_url = f"{endpoint.scheme}://{endpoint.netloc}{upload_path}"
         return UploadForm(url=upload_url, fields=fields)
 
     def inspect(self, *, key: str) -> StoredObject | None:
