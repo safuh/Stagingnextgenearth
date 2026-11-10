@@ -80,6 +80,20 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     ).json()
     base = f"/api/organizations/{organization_id}/research-studies/{study['id']}"
 
+    blank_proposal = client.post(
+        f"{base}/proposals",
+        headers=lead_headers,
+        json={
+            "title": "   ",
+            "rationale": "Document restoration outcomes across participating communities.",
+            "objectives": "Measure ecological recovery and community participation outcomes.",
+            "proposed_methods": (
+                "Use repeat field observations and structured community interviews."
+            ),
+        },
+    )
+    assert blank_proposal.status_code == 422
+
     proposal_response = client.post(
         f"{base}/proposals",
         headers=lead_headers,
@@ -151,6 +165,19 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     # Membership invitation responses intentionally do not expose account identifiers.
     assert milestone.status_code == 201
     milestone_id = milestone.json()["id"]
+    for invalid_payload in (
+        {"title": None},
+        {"title": "   "},
+        {"status": None},
+        {"progress_percent": None},
+    ):
+        invalid_update = client.patch(
+            f"{base}/milestones/{milestone_id}",
+            headers=lead_headers,
+            json=invalid_payload,
+        )
+        assert invalid_update.status_code == 422
+
     updated = client.patch(
         f"{base}/milestones/{milestone_id}",
         headers=lead_headers,
