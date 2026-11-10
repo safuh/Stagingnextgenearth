@@ -1,6 +1,5 @@
 """Optional integration tests against synthetic GeoTIFF rasters."""
 
-import numpy as np
 import pytest
 
 from stagingnextgenearth.climate_ingestion import (
@@ -9,6 +8,7 @@ from stagingnextgenearth.climate_ingestion import (
 )
 from stagingnextgenearth.providers.chirps import _decode_geotiff
 
+np = pytest.importorskip("numpy")
 rasterio = pytest.importorskip("rasterio")
 MemoryFile = rasterio.io.MemoryFile
 from_origin = rasterio.transform.from_origin
