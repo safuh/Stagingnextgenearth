@@ -287,17 +287,17 @@ class S3ObjectStorage:
             f"{quote(name, safe='')}={quote(value, safe='~-._')}"
             for name, value in sorted(query_parameters.items())
         )
-        canonical_request = "\\n".join(
+        canonical_request = "\n".join(
             [
                 "GET",
                 path,
                 canonical_query,
-                f"host:{host}\\n",
+                f"host:{host}\n",
                 "host",
                 "UNSIGNED-PAYLOAD",
             ]
         )
-        string_to_sign = "\\n".join(
+        string_to_sign = "\n".join(
             [
                 "AWS4-HMAC-SHA256",
                 amz_date,
