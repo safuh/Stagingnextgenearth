@@ -74,7 +74,11 @@ async def test_nasa_power_normalizes_daily_series_and_omits_missing_values() -> 
     assert precipitation[0].latitude == -1.286
     assert precipitation[0].longitude == 36.817
     assert precipitation[0].metadata["time_standard"] == "UTC"
-    assert any(item.variable == "air_temperature_2m" for item in measurements)
+    temperature = [
+        item for item in measurements if item.variable == "air_temperature_2m"
+    ]
+    assert len(temperature) == 3
+    assert [item.value for item in temperature] == [24.5, 24.8, 25.0]
 
 
 @pytest.mark.asyncio
