@@ -14,19 +14,21 @@ and institutional partners.
 ## Current implementation
 
 The repository currently contains the reusable backend foundation and the first
-product-domain persistence increment:
+authenticated product workflows:
 
-- organisation and membership boundaries;
-- portal role vocabulary;
-- programme and project records;
-- research study records;
-- sourced, georeferenced climate observations;
-- Alembic migration `0004_platform_domain`.
+- JWT-authenticated organisation creation and tenant-scoped discovery;
+- organisation membership invitations and invitee-only acceptance;
+- programme and project creation with tenant-safe parent validation;
+- research study creation and discovery;
+- provenance-bearing climate observation submission and filtering;
+- independent climate-observation review with immutable verified/rejected decisions;
+- audit fields recording reviewer, review time and review note;
+- Alembic migrations `0004_platform_domain` and `0005_climate_observation_review`.
 
-The initial product-domain increment establishes persistence contracts. Authenticated
-business workflows, policy enforcement, integrations, analytics pipelines, and
-frontend portals are implemented in subsequent milestones. Do not expose domain
-tables through unrestricted generic CRUD endpoints.
+Climate observations enter the system as pending and cannot be verified by their
+submitter. Only organisation administrators and programme managers can review
+observations, and a review decision cannot be overwritten through the API.
+Do not expose domain tables through unrestricted generic CRUD endpoints.
 
 ## Quick start
 
