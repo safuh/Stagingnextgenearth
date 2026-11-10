@@ -25,6 +25,7 @@ from .core.lifespan import lifespan
 from .core.logging import configure_logging
 from .core.middleware import RequestContextMiddleware
 from .identity import create_sqlalchemy_auth_application
+from .scanning import ClamAVScanner
 from .storage import S3ObjectStorage
 
 AuthApplicationFactory = Callable[[AsyncSession], AuthenticationApplication]
@@ -46,6 +47,7 @@ def create_app(
     )
     app.state.settings = resolved
     app.state.object_storage = None
+    app.state.dataset_file_scanner = None
     if resolved.object_storage_enabled and resolved.object_storage_bucket:
         if (
             resolved.object_storage_access_key_id is None
@@ -60,6 +62,12 @@ def create_app(
             endpoint_url=resolved.object_storage_endpoint_url,
             access_key_id=resolved.object_storage_access_key_id.get_secret_value(),
             secret_access_key=resolved.object_storage_secret_access_key.get_secret_value(),
+        )
+    if resolved.malware_scanning_enabled and resolved.clamav_host:
+        app.state.dataset_file_scanner = ClamAVScanner(
+            host=resolved.clamav_host,
+            port=resolved.clamav_port,
+            timeout_seconds=resolved.clamav_timeout_seconds,
         )
     if auth_application_factory is None and resolved.jwt_secret_key is not None:
         secret = resolved.jwt_secret_key.get_secret_value()
