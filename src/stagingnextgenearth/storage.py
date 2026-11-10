@@ -37,6 +37,8 @@ class ObjectStorage(Protocol):
 
     def inspect(self, *, key: str) -> StoredObject | None: ...
 
+    def get_object(self, *, key: str, max_bytes: int) -> bytes: ...
+
 
 class S3ObjectStorage:
     """S3-compatible private bucket adapter using AWS Signature Version 4."""
@@ -185,3 +187,67 @@ class S3ObjectStorage:
             if exc.code == 404:
                 return None
             raise
+
+
+    def get_object(self, *, key: str, max_bytes: int) -> bytes:
+        """Fetch a private object with a hard response-size limit."""
+        now = datetime.now(UTC)
+        date_stamp = now.strftime("%Y%m%d")
+        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+        endpoint = urlsplit(self._endpoint)
+        encoded_key = quote(key, safe="/")
+        if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
+            host = f"{self._bucket}.{endpoint.netloc}"
+            path = f"/{encoded_key}"
+            url = f"https://{host}{path}"
+        else:
+            host = endpoint.netloc
+            path = (
+                f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/"
+                f"{encoded_key}"
+            )
+            url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{encoded_key}"
+        payload_hash = hashlib.sha256(b"").hexdigest()
+        canonical_headers = (
+            f"host:{host}\\n"
+            f"x-amz-content-sha256:{payload_hash}\\n"
+            f"x-amz-date:{amz_date}\\n"
+        )
+        signed_headers = "host;x-amz-content-sha256;x-amz-date"
+        canonical_request = "\\n".join(
+            ["GET", path, "", canonical_headers, signed_headers, payload_hash]
+        )
+        scope = f"{date_stamp}/{self._region}/s3/aws4_request"
+        string_to_sign = "\\n".join(
+            [
+                "AWS4-HMAC-SHA256",
+                amz_date,
+                scope,
+                hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+            ]
+        )
+        signature = hmac.new(
+            self._signing_key(date_stamp),
+            string_to_sign.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        authorization = (
+            "AWS4-HMAC-SHA256 "
+            f"Credential={self._access_key}/{scope}, "
+            f"SignedHeaders={signed_headers}, Signature={signature}"
+        )
+        request = Request(
+            url,
+            method="GET",
+            headers={
+                "Host": host,
+                "x-amz-content-sha256": payload_hash,
+                "x-amz-date": amz_date,
+                "Authorization": authorization,
+            },
+        )
+        with urlopen(request, timeout=30) as response:
+            content = response.read(max_bytes + 1)
+        if len(content) > max_bytes:
+            raise ValueError("Stored object exceeds the permitted scan size")
+        return content
