@@ -42,6 +42,11 @@ make run
 
 The API documentation is available at http://127.0.0.1:8000/docs.
 
+Set `JWT_SECRET_KEY` to a unique secret of at least 32 characters before enabling
+password authentication. Access tokens default to 15 minutes and refresh tokens
+to 14 days; configure `ACCESS_TOKEN_MINUTES` and `REFRESH_TOKEN_DAYS` as needed.
+Do not commit production secrets.
+
 ## Database
 
 SQLite is available for lightweight local development. PostgreSQL is the target
