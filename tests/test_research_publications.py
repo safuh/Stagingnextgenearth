@@ -8,8 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from stagingnextgenearth.app import create_app
 from stagingnextgenearth.api.research_publications import get_openalex_client
+from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
 
@@ -286,7 +286,11 @@ def test_openalex_lookup_returns_preview_without_persisting(
             yield mock_client
 
     client.app.dependency_overrides[get_openalex_client] = override_client
-    response = client.get(f"{base}/metadata/lookup", headers=headers, params={"doi": "10.1234/forest.2026"})
+    response = client.get(
+        f"{base}/metadata/lookup",
+        headers=headers,
+        params={"doi": "10.1234/forest.2026"},
+    )
     assert response.status_code == 200
     preview = response.json()
     assert preview["title"] == "Forest restoration outcomes"
