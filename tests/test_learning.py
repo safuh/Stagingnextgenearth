@@ -230,7 +230,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert lesson.json()["id"] in learner_progress.json()["completed_lesson_ids"]
         verified = client.get(
             f"{base}/certificates/verify/{premature.json()['verification_code']}",
-            headers=admin_headers,
         )
         assert verified.status_code == 200
         assert verified.json()["valid"] is True
