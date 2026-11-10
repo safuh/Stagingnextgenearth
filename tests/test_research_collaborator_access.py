@@ -52,6 +52,7 @@ def test_active_study_collaborator_can_read_restricted_dataset_file_metadata(
     admin_headers = _register(client, "study-lead@example.org")
     viewer_headers = _register(client, "study-viewer@example.org")
     outsider_headers = _register(client, "study-outsider@example.org")
+    contributor_headers = _register(client, "study-contributor@example.org")
 
     organization = client.post(
         "/api/organizations",
@@ -81,6 +82,7 @@ def test_active_study_collaborator_can_read_restricted_dataset_file_metadata(
     for headers, identifier in (
         (viewer_headers, "study-viewer@example.org"),
         (outsider_headers, "study-outsider@example.org"),
+        (contributor_headers, "study-contributor@example.org"),
     ):
         invitation = client.post(
             f"/api/organizations/{organization_id}/memberships",
@@ -118,3 +120,62 @@ def test_active_study_collaborator_can_read_restricted_dataset_file_metadata(
 
     denied = client.get(files_url, headers=outsider_headers)
     assert denied.status_code == 403
+
+    visible_datasets = client.get(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=viewer_headers,
+    )
+    assert visible_datasets.status_code == 200
+    assert [item["id"] for item in visible_datasets.json()] == [dataset_id]
+
+    viewer_edit = client.patch(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset_id}",
+        headers=viewer_headers,
+        json={"description": "Viewer must not edit metadata"},
+    )
+    assert viewer_edit.status_code == 403
+
+    contributor_invitation = client.post(
+        f"/api/organizations/{organization_id}/research-studies/{study['id']}/collaborators",
+        headers=admin_headers,
+        json={"identifier": "study-contributor@example.org", "role": "contributor"},
+    )
+    assert contributor_invitation.status_code == 201
+    contributor_acceptance = client.post(
+        f"/api/organizations/{organization_id}/research-studies/{study['id']}/"
+        f"collaborators/{contributor_invitation.json()['id']}/accept",
+        headers=contributor_headers,
+    )
+    assert contributor_acceptance.status_code == 200
+
+    contributed_dataset = client.post(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=contributor_headers,
+        json={
+            "title": "Contributor observations",
+            "format": "csv",
+            "source": "field monitoring",
+            "study_id": study["id"],
+        },
+    )
+    assert contributed_dataset.status_code == 201
+    contributed_id = contributed_dataset.json()["id"]
+    edited = client.patch(
+        f"/api/organizations/{organization_id}/research-datasets/{contributed_id}",
+        headers=contributor_headers,
+        json={"description": "Updated by an active study contributor"},
+    )
+    assert edited.status_code == 200
+    assert edited.json()["description"] == "Updated by an active study contributor"
+
+    contributor_submit = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{contributed_id}/submit",
+        headers=contributor_headers,
+    )
+    assert contributor_submit.status_code == 403
+
+    outsider_registry = client.get(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=outsider_headers,
+    )
+    assert outsider_registry.status_code == 403
