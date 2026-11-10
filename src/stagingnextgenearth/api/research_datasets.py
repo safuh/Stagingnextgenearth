@@ -201,7 +201,7 @@ async def list_research_datasets(
             else True
         )
         .order_by(ResearchDataset.created_at.desc())
-        .limit(limit)
+        .limit(500)
     )
     visible: list[ResearchDatasetRead] = []
     for item in result.all():
@@ -220,7 +220,7 @@ async def list_research_datasets(
         visible.append(ResearchDatasetRead.model_validate(item))
     if not has_registry_access and not visible:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
-    return visible
+    return visible[:limit]
 
 
 @router.patch("/{dataset_id}", response_model=ResearchDatasetRead)
