@@ -135,8 +135,11 @@ def test_publication_identifiers_are_validated(client: TestClient) -> None:
     )
     for payload in (
         {"author_orcids": ["not-an-orcid"]},
+        {"author_orcids": ["0000-0002-1825-0098"]},
         {"openalex_id": "A123"},
         {"url": "javascript:alert(1)"},
+        {"url": "https://user:password@example.org/publication"},
+        {"title": "   "},
     ):
         response = client.post(
             base,
