@@ -1,6 +1,7 @@
 """NextGen for Earth platform domain and persistence models."""
 
 from .models import (
+    ClimateIngestionRun,
     ClimateObservation,
     Membership,
     Organization,
@@ -12,6 +13,7 @@ from .models import (
 )
 
 __all__ = [
+    "ClimateIngestionRun",
     "ClimateObservation",
     "Membership",
     "Organization",
