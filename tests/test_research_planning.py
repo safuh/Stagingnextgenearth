@@ -161,6 +161,41 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     assert revision["status"] == "draft"
     assert revision["supersedes_proposal_id"] == proposal["id"]
 
+    original_after_revision = client.get(
+        f"{base}/proposals",
+        headers=lead_headers,
+    )
+    assert original_after_revision.status_code == 200
+    original_record = next(
+        item for item in original_after_revision.json() if item["id"] == proposal["id"]
+    )
+    assert original_record["status"] == "revisions_required"
+
+    submitted_revision = client.post(
+        f"{base}/proposals/{revision['id']}/submit",
+        headers=lead_headers,
+    )
+    assert submitted_revision.status_code == 200
+    assert submitted_revision.json()["status"] == "submitted"
+
+    reviewed_revision = client.post(
+        f"{base}/proposals/{revision['id']}/reviews",
+        headers=reviewer_headers,
+        json={
+            "decision": "approved",
+            "note": "The revised sampling frame and field schedule are sufficiently clear.",
+        },
+    )
+    assert reviewed_revision.status_code == 201
+    assert reviewed_revision.json()["decision"] == "approved"
+
+    final_versions = client.get(f"{base}/proposals", headers=lead_headers)
+    assert final_versions.status_code == 200
+    by_version = {item["version_number"]: item for item in final_versions.json()}
+    assert by_version[1]["status"] == "revisions_required"
+    assert by_version[2]["status"] == "approved"
+    assert by_version[2]["supersedes_proposal_id"] == by_version[1]["id"]
+
     duplicate_revision = client.post(
         f"{base}/proposals/{proposal['id']}/revisions",
         headers=lead_headers,
