@@ -18,6 +18,7 @@ from stagingnextgenearth.platform.models import (
     LearningCourse,
     LearningEnrollment,
     LearningLesson,
+    LearningLessonCompletion,
     LearningMentorship,
     LearningModule,
     LearningResource,
@@ -178,6 +179,14 @@ async def publish_course(
     course = await _course(session, organization_id, course_id)
     if course.status == "archived":
         raise HTTPException(409, "Archived courses cannot be published")
+    lesson_count = await session.scalar(
+        select(LearningLesson.id)
+        .join(LearningModule)
+        .where(LearningModule.course_id == course_id)
+        .limit(1)
+    )
+    if lesson_count is None:
+        raise HTTPException(409, "A course needs at least one lesson before publishing")
     course.status = "published"
     await session.commit()
     await session.refresh(course)
@@ -435,49 +444,95 @@ async def add_resource(
             "resource_type": resource.resource_type, "lesson_id": resource.lesson_id}
 
 
-@router.post("/courses/{course_id}/enrollments/{learner_id}/progress")
-async def update_progress(
-    organization_id: str, course_id: str, learner_id: str,
-    progress_percent: int,
+@router.post("/lessons/{lesson_id}/complete")
+async def complete_lesson(
+    organization_id: str,
+    lesson_id: str,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE and principal.user_id != learner_id:
-        raise HTTPException(403, "Progress update permission required")
-    if not 0 <= progress_percent <= 100:
-        raise HTTPException(422, "Progress must be between 0 and 100")
-    await _course(session, organization_id, course_id)
-    enrollment = await _enrollment(session, course_id, learner_id)
+    lesson = await session.scalar(
+        select(LearningLesson)
+        .join(LearningModule)
+        .join(LearningCourse)
+        .where(
+            LearningLesson.id == lesson_id,
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.status == "published",
+        )
+    )
+    if lesson is None:
+        raise HTTPException(404, "Published lesson not found")
+    enrollment = await _enrollment(
+        session,
+        (await session.scalar(
+            select(LearningModule.course_id).where(LearningModule.id == lesson.module_id)
+        )) or "",
+        principal.user_id,
+    )
     if enrollment.status not in {"approved", "completed"}:
-        raise HTTPException(409, "Only approved learners can record progress")
-    enrollment.progress_percent = progress_percent
-    certificate = None
-    if progress_percent == 100:
-        attempts = await session.scalars(select(LearningAssessmentAttempt).join(
-            LearningAssessment).where(
-                LearningAssessment.course_id == course_id,
-                LearningAssessmentAttempt.learner_id == learner_id))
-        scored = attempts.all()
-        required = await session.scalars(select(LearningAssessment).where(
-            LearningAssessment.course_id == course_id))
-        assessments = required.all()
-        pass_marks = {assessment.id: assessment.pass_mark for assessment in assessments}
-        passed_ids = {
-            attempt.assessment_id
-            for attempt in scored
-            if attempt.score is not None
-            and attempt.score >= pass_marks.get(attempt.assessment_id, 101)
-        }
-        if any(a.id not in passed_ids for a in assessments):
-            raise HTTPException(
-                409,
-                "Complete and pass every course assessment before certification",
+        raise HTTPException(403, "An approved enrollment is required")
+
+    completion = await session.scalar(
+        select(LearningLessonCompletion).where(
+            LearningLessonCompletion.enrollment_id == enrollment.id,
+            LearningLessonCompletion.lesson_id == lesson_id,
+        )
+    )
+    if completion is None:
+        session.add(
+            LearningLessonCompletion(
+                enrollment_id=enrollment.id,
+                lesson_id=lesson_id,
             )
+        )
+
+    lesson_ids = await session.scalars(
+        select(LearningLesson.id)
+        .join(LearningModule)
+        .where(LearningModule.course_id == enrollment.course_id)
+    )
+    total_lessons = set(lesson_ids.all())
+    assessment_rows = await session.scalars(
+        select(LearningAssessment).where(
+            LearningAssessment.course_id == enrollment.course_id
+        )
+    )
+    assessments = assessment_rows.all()
+    attempts = await session.scalars(
+        select(LearningAssessmentAttempt).join(LearningAssessment).where(
+            LearningAssessment.course_id == enrollment.course_id,
+            LearningAssessmentAttempt.learner_id == principal.user_id,
+        )
+    )
+    pass_marks = {item.id: item.pass_mark for item in assessments}
+    passed_assessments = {
+        attempt.assessment_id
+        for attempt in attempts.all()
+        if attempt.score is not None
+        and attempt.score >= pass_marks.get(attempt.assessment_id, 101)
+    }
+    completion_rows = await session.scalars(
+        select(LearningLessonCompletion.lesson_id).where(
+            LearningLessonCompletion.enrollment_id == enrollment.id
+        )
+    )
+    completed_lessons = set(completion_rows.all())
+    completed_lessons.add(lesson_id)
+
+    total_units = len(total_lessons) + len(assessments)
+    completed_units = len(total_lessons & completed_lessons) + len(passed_assessments)
+    enrollment.progress_percent = int(completed_units * 100 / total_units)
+    certificate = None
+    if total_units > 0 and completed_units == total_units:
         enrollment.status = "completed"
-        existing = await session.scalar(select(LearningCertificate).where(
-            LearningCertificate.enrollment_id == enrollment.id))
-        if existing is None:
+        certificate = await session.scalar(
+            select(LearningCertificate).where(
+                LearningCertificate.enrollment_id == enrollment.id
+            )
+        )
+        if certificate is None:
             certificate = LearningCertificate(
                 enrollment_id=enrollment.id,
                 certificate_number=f"NGE-{secrets.token_hex(6).upper()}",
@@ -485,13 +540,17 @@ async def update_progress(
                 status="valid",
             )
             session.add(certificate)
+
     await session.commit()
     if certificate is not None:
         await session.refresh(certificate)
-    return {"enrollment_id": enrollment.id, "status": enrollment.status,
-            "progress_percent": enrollment.progress_percent,
-            "certificate_number": certificate.certificate_number if certificate else None,
-            "verification_code": certificate.verification_code if certificate else None}
+    return {
+        "enrollment_id": enrollment.id,
+        "status": enrollment.status,
+        "progress_percent": enrollment.progress_percent,
+        "certificate_number": certificate.certificate_number if certificate else None,
+        "verification_code": certificate.verification_code if certificate else None,
+    }
 
 
 @router.get("/certificates/verify/{verification_code}")

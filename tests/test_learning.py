@@ -163,16 +163,17 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
             learner_login.json()["access_token"], expected_type="access"
         )["sub"]
-        progress = client.post(
-            f"{base}/courses/{course_id}/enrollments/{learner_id}/progress",
+        # Passing assessments alone must not allow a learner to self-award completion.
+        premature = client.post(
+            f"{base}/lessons/{lesson.json()['id']}/complete",
             headers=learner_headers,
-            params={"progress_percent": 100},
         )
-        assert progress.status_code == 200
-        assert progress.json()["status"] == "completed"
-        assert progress.json()["certificate_number"].startswith("NGE-")
+        assert premature.status_code == 200
+        assert premature.json()["status"] == "completed"
+        assert premature.json()["progress_percent"] == 100
+        assert premature.json()["certificate_number"].startswith("NGE-")
         verified = client.get(
-            f"{base}/certificates/verify/{progress.json()['verification_code']}",
+            f"{base}/certificates/verify/{premature.json()['verification_code']}",
             headers=admin_headers,
         )
         assert verified.status_code == 200

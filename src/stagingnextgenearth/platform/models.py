@@ -898,6 +898,30 @@ class LearningLesson(Base):
     position: Mapped[int] = mapped_column(nullable=False)
 
 
+class LearningLessonCompletion(Base):
+    """Learner completion record for a lesson in an approved course."""
+
+    __tablename__ = "learning_lesson_completions"
+    __table_args__ = (
+        UniqueConstraint(
+            "enrollment_id", "lesson_id", name="uq_learning_lesson_completion"
+        ),
+        Index("ix_learning_lesson_completions_enrollment", "enrollment_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    enrollment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    lesson_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_lessons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class LearningEnrollment(Base):
     """Learner application and approved course registration."""
 

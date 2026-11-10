@@ -160,6 +160,52 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "records_received", "records_inserted", "records_skipped", "started_by",
             "started_at", "finished_at",
         },
+        "research_analysis_runs": {
+            "id", "organization_id", "dataset_id", "study_id",
+            "input_manifest_sha256", "input_file_versions", "analysis_configuration",
+            "software_name", "software_version", "code_revision", "parameters",
+            "random_seed", "output_artifacts", "created_by", "created_at",
+        },
+        "learning_courses": {
+            "id", "organization_id", "title", "slug", "description", "category",
+            "delivery_mode", "status", "created_by", "created_at", "updated_at",
+        },
+        "learning_modules": {"id", "course_id", "title", "description", "position", "created_at"},
+        "learning_lessons": {
+            "id", "module_id", "title", "content_type", "content", "resource_url",
+            "duration_minutes", "position",
+        },
+        "learning_enrollments": {
+            "id", "course_id", "learner_id", "status", "progress_percent",
+            "applied_at", "reviewed_by", "reviewed_at",
+        },
+        "learning_assessments": {
+            "id", "course_id", "title", "assessment_type", "instructions",
+            "configuration", "pass_mark", "due_at", "created_by",
+        },
+        "learning_assessment_attempts": {
+            "id", "assessment_id", "learner_id", "submission", "score", "feedback",
+            "submitted_at", "evaluated_by", "evaluated_at",
+        },
+        "learning_mentorships": {
+            "id", "course_id", "mentor_id", "mentee_id", "status", "notes",
+            "assigned_by", "created_at",
+        },
+        "learning_attendance": {
+            "id", "course_id", "session_key", "session_title", "session_date",
+            "learner_id", "attendance_status", "recorded_by", "recorded_at",
+        },
+        "learning_resources": {
+            "id", "course_id", "lesson_id", "title", "resource_type", "description",
+            "resource_url", "storage_reference", "uploaded_by",
+        },
+        "learning_certificates": {
+            "id", "enrollment_id", "certificate_number", "verification_code",
+            "issued_at", "status", "revoked_at", "revoked_by",
+        },
+        "learning_lesson_completions": {
+            "id", "enrollment_id", "lesson_id", "completed_at",
+        },
         "climate_observations": {
             "id",
             "organization_id",

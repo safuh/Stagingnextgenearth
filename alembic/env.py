@@ -20,6 +20,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     LearningCourse,
     LearningEnrollment,
     LearningLesson,
+    LearningLessonCompletion,
     LearningMentorship,
     LearningModule,
     LearningResource,
