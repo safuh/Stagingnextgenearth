@@ -35,6 +35,17 @@ router = APIRouter(
 )
 _WRITE_ROLES = {"editor", "contributor"}
 _REVIEW_ROLES = {"admin", "programme_manager"}
+_REFRESHABLE_FIELDS = (
+    "title",
+    "authors",
+    "author_orcids",
+    "publication_type",
+    "journal_or_venue",
+    "publisher",
+    "published_on",
+    "url",
+    "abstract",
+)
 _ORCID_PATTERN = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
 _DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[^\s]+$", re.IGNORECASE)
 _OPENALEX_PATTERN = re.compile(r"^W\d+$")
@@ -284,8 +295,36 @@ class PublicationMetadataSourceRead(BaseModel):
     source_url: str
     metadata_sha256: str
     imported_fields: list[str]
+    metadata_snapshot: dict[str, object] | None = None
     imported_by: str
     fetched_at: datetime
+
+
+
+class PublicationMetadataFieldChange(BaseModel):
+    field: str
+    current_value: object
+    provider_value: object
+    safe_to_apply: bool
+
+
+class PublicationMetadataRefreshPreview(BaseModel):
+    publication_id: str
+    openalex_id: str
+    changes: list[PublicationMetadataFieldChange]
+
+
+class PublicationMetadataRefreshApply(BaseModel):
+    fields: list[str] = Field(min_length=1, max_length=9)
+
+    @field_validator("fields")
+    @classmethod
+    def validate_fields(cls, values: list[str]) -> list[str]:
+        if len(set(values)) != len(values):
+            raise ValueError("Refresh fields must be unique")
+        if any(value not in _REFRESHABLE_FIELDS for value in values):
+            raise ValueError("One or more fields cannot be refreshed")
+        return values
 
 
 async def get_openalex_client() -> AsyncIterator[httpx.AsyncClient]:
@@ -579,6 +618,7 @@ async def import_publication_metadata(
         provider_work_id=preview.openalex_id,
         source_url=f"https://openalex.org/{preview.openalex_id}",
         metadata_sha256=hashlib.sha256(serialized).hexdigest(),
+        metadata_snapshot=preview.model_dump(mode="json", exclude={"source"}),
         imported_fields=[
             "title",
             "authors",
@@ -619,6 +659,43 @@ async def import_publication_metadata(
 
 
 
+
+def _publication_metadata_snapshot(publication: ResearchPublication) -> dict[str, object]:
+    return {
+        "title": publication.title,
+        "authors": publication.authors,
+        "author_orcids": publication.author_orcids,
+        "publication_type": publication.publication_type,
+        "journal_or_venue": publication.journal_or_venue,
+        "publisher": publication.publisher,
+        "published_on": publication.published_on.isoformat()
+        if publication.published_on is not None
+        else None,
+        "doi": publication.doi,
+        "openalex_id": publication.openalex_id,
+        "url": publication.url,
+        "abstract": publication.abstract,
+    }
+
+
+async def _fresh_publication_preview(
+    publication: ResearchPublication, client: httpx.AsyncClient
+) -> PublicationMetadataPreview:
+    if publication.openalex_id:
+        identifier = publication.openalex_id
+    elif publication.doi:
+        identifier = "https://doi.org/" + publication.doi
+    else:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Publication has no OpenAlex ID or DOI and cannot be refreshed",
+        )
+    record = await _read_openalex_response(client, identifier)
+    preview = _openalex_preview(record)
+    _validate_openalex_match(preview, identifier)
+    return preview
+
+
 @router.get(
     "/{publication_id}/metadata/sources",
     response_model=list[PublicationMetadataSourceRead],
@@ -648,3 +725,140 @@ async def list_publication_metadata_sources(
         .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
     )
     return [PublicationMetadataSourceRead.model_validate(item) for item in result.all()]
+
+
+
+@router.get(
+    "/{publication_id}/metadata/refresh-preview",
+    response_model=PublicationMetadataRefreshPreview,
+)
+async def preview_publication_metadata_refresh(
+    organization_id: str,
+    study_id: str,
+    publication_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[httpx.AsyncClient, Depends(get_openalex_client)],
+) -> PublicationMetadataRefreshPreview:
+    """Compare current publication values with a fresh provider response."""
+    study = await _study(session, organization_id, study_id)
+    await _study_role(session, study, principal, membership)
+    publication = await session.scalar(
+        select(ResearchPublication).where(
+            ResearchPublication.id == publication_id,
+            ResearchPublication.study_id == study_id,
+        )
+    )
+    if publication is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Publication not found")
+    preview = await _fresh_publication_preview(publication, client)
+    latest_source = await session.scalar(
+        select(ResearchPublicationMetadataSource)
+        .where(ResearchPublicationMetadataSource.publication_id == publication_id)
+        .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
+        .limit(1)
+    )
+    baseline = latest_source.metadata_snapshot if latest_source is not None else None
+    current = _publication_metadata_snapshot(publication)
+    provider_values = preview.model_dump(mode="json", exclude={"source"})
+    changes = [
+        PublicationMetadataFieldChange(
+            field=field,
+            current_value=current[field],
+            provider_value=provider_values[field],
+            safe_to_apply=baseline is not None
+            and field in baseline
+            and current[field] == baseline[field],
+        )
+        for field in _REFRESHABLE_FIELDS
+        if current[field] != provider_values[field]
+    ]
+    return PublicationMetadataRefreshPreview(
+        publication_id=publication_id,
+        openalex_id=preview.openalex_id,
+        changes=changes,
+    )
+
+
+@router.post(
+    "/{publication_id}/metadata/refresh",
+    response_model=PublicationRead,
+)
+async def apply_publication_metadata_refresh(
+    organization_id: str,
+    study_id: str,
+    publication_id: str,
+    body: PublicationMetadataRefreshApply,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[httpx.AsyncClient, Depends(get_openalex_client)],
+) -> PublicationRead:
+    """Apply selected provider changes only where local values remain unmodified."""
+    study = await _study(session, organization_id, study_id)
+    if await _study_role(session, study, principal, membership) not in _WRITE_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Publication authoring permission required")
+    publication = await session.scalar(
+        select(ResearchPublication)
+        .where(
+            ResearchPublication.id == publication_id,
+            ResearchPublication.study_id == study_id,
+        )
+        .with_for_update()
+    )
+    if publication is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Publication not found")
+    latest_source = await session.scalar(
+        select(ResearchPublicationMetadataSource)
+        .where(ResearchPublicationMetadataSource.publication_id == publication_id)
+        .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
+        .limit(1)
+    )
+    baseline = latest_source.metadata_snapshot if latest_source is not None else None
+    if baseline is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "No field baseline exists; automatic refresh is disabled for this publication",
+        )
+    preview = await _fresh_publication_preview(publication, client)
+    current = _publication_metadata_snapshot(publication)
+    provider_values = preview.model_dump(mode="json", exclude={"source"})
+    for field in body.fields:
+        if field not in baseline or current[field] != baseline[field]:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"Field '{field}' was edited locally and will not be overwritten",
+            )
+        if current[field] == provider_values[field]:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"Field '{field}' has no provider change to apply",
+            )
+    for field in body.fields:
+        setattr(publication, field, getattr(preview, field))
+    updated_snapshot = _publication_metadata_snapshot(publication)
+    serialized = json.dumps(
+        provider_values, sort_keys=True, separators=(",", ":")
+    ).encode()
+    provenance = ResearchPublicationMetadataSource(
+        publication_id=publication.id,
+        provider="openalex",
+        provider_work_id=preview.openalex_id,
+        source_url=f"https://openalex.org/{preview.openalex_id}",
+        metadata_sha256=hashlib.sha256(serialized).hexdigest(),
+        metadata_snapshot=updated_snapshot,
+        imported_fields=body.fields,
+        imported_by=principal.user_id,
+    )
+    session.add(provenance)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The metadata refresh conflicts with another update; reload and compare again",
+        ) from None
+    await session.refresh(publication)
+    return PublicationRead.model_validate(publication)
