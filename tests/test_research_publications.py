@@ -387,6 +387,30 @@ def test_openalex_import_creates_publication_with_provenance(
     assert publication["openalex_id"] == "W9876543210"
     assert client.get(base, headers=headers).json()[0]["id"] == publication["id"]
 
+    provenance = client.get(
+        f"{base}/{publication['id']}/metadata/sources",
+        headers=headers,
+    )
+    assert provenance.status_code == 200
+    sources = provenance.json()
+    assert len(sources) == 1
+    assert sources[0]["provider"] == "openalex"
+    assert sources[0]["provider_work_id"] == "W9876543210"
+    assert len(sources[0]["metadata_sha256"]) == 64
+    assert sources[0]["imported_fields"] == [
+        "title",
+        "authors",
+        "author_orcids",
+        "publication_type",
+        "journal_or_venue",
+        "publisher",
+        "published_on",
+        "doi",
+        "openalex_id",
+        "url",
+        "abstract",
+    ]
+
     duplicate = client.post(
         f"{base}/metadata/import",
         headers=headers,
