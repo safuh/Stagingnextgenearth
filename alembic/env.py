@@ -20,13 +20,13 @@ from stagingnextgenearth.platform import (  # noqa: F401
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
     ResearchEthicsReviewEvent,
-    ResearchProtocolReviewEvent,
-    ResearchProtocolVersion,
     ResearchMilestone,
     ResearchProposalReviewEvent,
-    ResearchStudyProposal,
+    ResearchProtocolReviewEvent,
+    ResearchProtocolVersion,
     ResearchStudy,
     ResearchStudyCollaborator,
+    ResearchStudyProposal,
 )
 
 config = context.config
