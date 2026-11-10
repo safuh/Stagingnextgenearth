@@ -135,7 +135,9 @@ def test_streaming_object_read_uses_bounded_chunks_and_enforces_limit(monkeypatc
             return chunk
 
     response = FakeResponse(b"abcdefgh")
-    monkeypatch.setattr("stagingnextgenearth.storage.urlopen", lambda request, timeout: response)
+    monkeypatch.setattr(
+        "stagingnextgenearth.storage.urlopen", lambda request, timeout: response
+    )
     storage = S3ObjectStorage(
         bucket="research-private",
         region="af-south-1",
@@ -152,7 +154,9 @@ def test_streaming_object_read_uses_bounded_chunks_and_enforces_limit(monkeypatc
     assert response.read_sizes == [3, 3, 3, 3]
 
     oversized = FakeResponse(b"abcdef")
-    monkeypatch.setattr("stagingnextgenearth.storage.urlopen", lambda request, timeout: oversized)
+    monkeypatch.setattr(
+        "stagingnextgenearth.storage.urlopen", lambda request, timeout: oversized
+    )
     with pytest.raises(ValueError, match="permitted scan size"):
         list(
             storage.iter_object_chunks(
