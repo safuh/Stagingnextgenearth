@@ -6,6 +6,7 @@ from .auth import router as auth_router
 from .climate import router as climate_router
 from .health import router as health_router
 from .memberships import router as memberships_router
+from .learning import router as learning_router
 from .organizations import router as organizations_router
 from .programmes import router as programmes_router
 from .projects import router as projects_router
@@ -25,6 +26,7 @@ api_router.include_router(health_router)
 api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
 api_router.include_router(memberships_router)
+api_router.include_router(learning_router)
 api_router.include_router(programmes_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
