@@ -59,7 +59,13 @@ def test_clamav_scanner_accepts_multiple_stream_chunks(monkeypatch) -> None:
     )
 
     assert ClamAVScanner(host="127.0.0.1").scan_chunks([b"first", b"", b"second"])
-    assert b"".join(
-        connection.sent.split(b"\\0")[1:-1]
-    ) or connection.sent.startswith(b"zINSTREAM\\0")
-    assert struct.pack("!I", 5) in connection.sent
+    payload = bytes(connection.sent)
+    assert payload.startswith(b"zINSTREAM\\0")
+    offset = len(b"zINSTREAM\\0")
+    for expected in (b"first", b"second"):
+        chunk_length = struct.unpack("!I", payload[offset : offset + 4])[0]
+        offset += 4
+        assert chunk_length == len(expected)
+        assert payload[offset : offset + chunk_length] == expected
+        offset += chunk_length
+    assert payload[offset:] == struct.pack("!I", 0)
