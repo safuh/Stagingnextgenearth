@@ -152,3 +152,74 @@ def test_publication_identifiers_are_validated(client: TestClient) -> None:
             },
         )
         assert response.status_code == 422
+
+
+def test_publication_access_is_limited_to_active_study_collaborators(
+    client: TestClient,
+) -> None:
+    lead_headers = _register(client, "publication-lead@example.org")
+    viewer_headers = _register(client, "publication-viewer@example.org")
+    member_headers = _register(client, "publication-member@example.org")
+    outsider_headers = _register(client, "publication-outsider@example.org")
+
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={"name": "Publication Access Lab", "slug": "publication-access-lab"},
+    ).json()
+    organization_id = organization["id"]
+    study = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=lead_headers,
+        json={"title": "Community biodiversity survey"},
+    ).json()
+    study_id = study["id"]
+    base = (
+        f"/api/organizations/{organization_id}/research-studies/{study_id}/publications"
+    )
+
+    for headers, identifier in (
+        (viewer_headers, "publication-viewer@example.org"),
+        (member_headers, "publication-member@example.org"),
+    ):
+        invitation = client.post(
+            f"/api/organizations/{organization_id}/memberships",
+            headers=lead_headers,
+            json={"identifier": identifier, "role": "youth_volunteer"},
+        )
+        assert invitation.status_code == 201
+        accepted = client.post(
+            f"/api/organizations/{organization_id}/memberships/"
+            f"{invitation.json()['id']}/accept",
+            headers=headers,
+        )
+        assert accepted.status_code == 200
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/research-studies/{study_id}/collaborators",
+        headers=lead_headers,
+        json={"identifier": "publication-viewer@example.org", "role": "viewer"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/research-studies/{study_id}/"
+        f"collaborators/{invitation.json()['id']}/accept",
+        headers=viewer_headers,
+    )
+    assert accepted.status_code == 200
+
+    payload = {
+        "title": "Biodiversity observations in community-managed forests",
+        "authors": ["A. Researcher"],
+        "publication_type": "report",
+    }
+    assert client.get(base, headers=viewer_headers).status_code == 200
+    assert client.post(base, headers=viewer_headers, json=payload).status_code == 403
+
+    assert client.get(base, headers=member_headers).status_code == 403
+    assert client.post(base, headers=member_headers, json=payload).status_code == 403
+    assert client.get(base, headers=outsider_headers).status_code == 403
+
+    created = client.post(base, headers=lead_headers, json=payload)
+    assert created.status_code == 201
+    assert client.get(base, headers=viewer_headers).json()[0]["id"] == created.json()["id"]
