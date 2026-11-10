@@ -367,3 +367,35 @@ class ResearchDatasetFile(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+
+class ResearchDatasetFileAccessEvent(Base):
+    """Append-only audit record for issuing an authorised dataset file download URL."""
+
+    __tablename__ = "research_dataset_file_access_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('download_url_issued')",
+            name="ck_dataset_file_access_event_action",
+        ),
+        Index(
+            "ix_dataset_file_access_events_file_time",
+            "dataset_file_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_file_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("research_dataset_files.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
