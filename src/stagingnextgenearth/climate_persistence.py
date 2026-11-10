@@ -39,7 +39,13 @@ async def persist_provider_measurements(
         licence=licence,
         requested_start=request.start,
         requested_end=request.end,
-        requested_area=request.area.model_dump() if request.area is not None else None,
+        requested_area=(
+            request.area.model_dump()
+            if request.area is not None
+            else {"point": request.point.model_dump()}
+            if request.point is not None
+            else None
+        ),
         status="running",
         started_by=actor_user_id,
     )
