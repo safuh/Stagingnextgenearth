@@ -79,6 +79,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Initial tenant-scoped research dataset registry with metadata and data dictionaries.
 - [x] Dataset access classifications and owner/admin visibility for restricted metadata.
 - [x] Dataset submission and independent approval/rejection workflow with audit fields.
+- [x] Owner correction and resubmission workflow for rejected datasets.
+- [x] Append-only dataset review history retained across resubmissions.
 - [ ] Researcher profiles and collaborator access.
 - [ ] Study proposals, protocols, ethics approvals and milestones.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
