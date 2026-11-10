@@ -51,13 +51,23 @@ async def validation_error_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    # Exclude raw input and exception objects from the public error payload.
+    # Custom Pydantic validators may attach non-serializable exceptions in ctx.
+    details = [
+        {
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type"),
+        }
+        for error in exc.errors()
+    ]
     return JSONResponse(
         status_code=422,
         content=_payload(
             request,
             "validation_error",
             "Request validation failed",
-            exc.errors(),
+            details,
         ),
     )
 
