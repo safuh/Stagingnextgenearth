@@ -15,8 +15,6 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
-from stagingnextgenearth.providers import chirps
-from stagingnextgenearth.providers.chirps import CHIRPSProvider
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import User
 from stagingnextgenearth.platform.models import (
@@ -24,6 +22,8 @@ from stagingnextgenearth.platform.models import (
     ClimateObservation,
     Organization,
 )
+from stagingnextgenearth.providers import chirps
+from stagingnextgenearth.providers.chirps import CHIRPSProvider
 
 
 def _measurement(record_id: str) -> ClimateMeasurement:
@@ -151,7 +151,6 @@ async def test_failed_provider_stream_rolls_back_partial_observations() -> None:
     finally:
         await session.close()
         await engine.dispose()
-
 
 
 @pytest.mark.asyncio
