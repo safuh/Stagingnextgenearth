@@ -222,6 +222,11 @@ class ClimateObservation(Base):
     quality_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="pending"
     )
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
