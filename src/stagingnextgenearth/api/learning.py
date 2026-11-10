@@ -508,6 +508,8 @@ async def verify_certificate(
     if row is None:
         raise HTTPException(404, "Certificate not found")
     enrollment = await session.get(LearningEnrollment, row.enrollment_id)
+    if enrollment is None:
+        raise HTTPException(404, "Certificate enrollment not found")
     course = await _course(session, organization_id, enrollment.course_id)
     return {"valid": row.status == "valid", "certificate_number": row.certificate_number,
             "course_title": course.title, "issued_at": row.issued_at,
