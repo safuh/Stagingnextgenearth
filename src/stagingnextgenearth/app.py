@@ -12,6 +12,8 @@ from starlette.types import ExceptionHandler
 
 from .api.router import api_router
 from .auth.application import AuthenticationApplication
+from datetime import timedelta
+
 from .core.config import Settings, get_settings
 from .core.errors import (
     BackboneError,
@@ -23,6 +25,7 @@ from .core.errors import (
 from .core.lifespan import lifespan
 from .core.logging import configure_logging
 from .core.middleware import RequestContextMiddleware
+from .identity import create_sqlalchemy_auth_application
 
 AuthApplicationFactory = Callable[[AsyncSession], AuthenticationApplication]
 
@@ -46,6 +49,18 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = resolved
+    if auth_application_factory is None and resolved.jwt_secret_key is not None:
+        secret = resolved.jwt_secret_key.get_secret_value()
+
+        def configured_auth_factory(session: AsyncSession) -> AuthenticationApplication:
+            return create_sqlalchemy_auth_application(
+                session,
+                secret_key=secret,
+                access_token_lifetime=timedelta(minutes=resolved.access_token_minutes),
+                refresh_token_lifetime=timedelta(days=resolved.refresh_token_days),
+            )
+
+        auth_application_factory = configured_auth_factory
     app.state.auth_application_factory = auth_application_factory
 
     app.add_middleware(RequestContextMiddleware)
