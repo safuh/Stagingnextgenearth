@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from collections.abc import AsyncIterator
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from urllib.parse import quote, urlparse
 
@@ -619,6 +619,7 @@ async def import_publication_metadata(
         source_url=f"https://openalex.org/{preview.openalex_id}",
         metadata_sha256=hashlib.sha256(serialized).hexdigest(),
         metadata_snapshot=preview.model_dump(mode="json", exclude={"source"}),
+        fetched_at=datetime.now(UTC),
         imported_fields=[
             "title",
             "authors",
@@ -848,6 +849,7 @@ async def apply_publication_metadata_refresh(
         source_url=f"https://openalex.org/{preview.openalex_id}",
         metadata_sha256=hashlib.sha256(serialized).hexdigest(),
         metadata_snapshot=updated_snapshot,
+        fetched_at=datetime.now(UTC),
         imported_fields=body.fields,
         imported_by=principal.user_id,
     )
