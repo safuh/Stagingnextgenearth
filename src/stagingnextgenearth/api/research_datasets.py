@@ -346,10 +346,12 @@ async def review_research_dataset(
     if membership.role not in _REVIEW_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset reviewer role required")
     dataset = await session.scalar(
-        select(ResearchDataset).where(
+        select(ResearchDataset)
+        .where(
             ResearchDataset.id == dataset_id,
             ResearchDataset.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
@@ -365,17 +367,19 @@ async def review_research_dataset(
         )
     if dataset.status != "submitted":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only submitted datasets can be reviewed")
+    reviewed_at = datetime.now(UTC)
+    review_note = body.note.strip() if body.note else None
     dataset.status = body.decision
     dataset.reviewed_by = principal.user_id
-    dataset.reviewed_at = datetime.now(UTC)
-    dataset.review_note = body.note.strip() if body.note else None
+    dataset.reviewed_at = reviewed_at
+    dataset.review_note = review_note
     session.add(
         ResearchDatasetReviewEvent(
             dataset_id=dataset.id,
             reviewer_user_id=principal.user_id,
             decision=body.decision,
-            note=dataset.review_note,
-            reviewed_at=dataset.reviewed_at,
+            note=review_note,
+            reviewed_at=reviewed_at,
         )
     )
     await session.commit()
