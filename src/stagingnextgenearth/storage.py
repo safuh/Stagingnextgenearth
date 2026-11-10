@@ -1,10 +1,14 @@
-"""Private object-storage adapters for research dataset files."""
+"""Private S3-compatible object storage with dependency-free SigV4 signing."""
 
+import hashlib
+import hmac
+import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from urllib.error import HTTPError
+from urllib.parse import quote, urlsplit
+from urllib.request import Request, urlopen
 from typing import Protocol
-
-import boto3
-from botocore.config import Config
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,56 +38,143 @@ class ObjectStorage(Protocol):
 
 
 class S3ObjectStorage:
-    """S3-compatible private bucket adapter using short-lived presigned POST forms."""
+    """S3-compatible private bucket adapter using AWS Signature Version 4."""
 
     def __init__(
         self,
         *,
         bucket: str,
         region: str,
+        access_key_id: str,
+        secret_access_key: str,
         endpoint_url: str | None = None,
-        access_key_id: str | None = None,
-        secret_access_key: str | None = None,
     ) -> None:
+        if not access_key_id or not secret_access_key:
+            raise ValueError("S3-compatible storage requires explicit access credentials")
         self._bucket = bucket
-        self._client = boto3.client(
-            "s3",
-            region_name=region,
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
-            config=Config(signature_version="s3v4"),
-        )
+        self._region = region
+        self._access_key = access_key_id
+        self._secret_key = secret_access_key
+        self._endpoint = (endpoint_url or f"https://s3.{region}.amazonaws.com").rstrip("/")
+
+    @staticmethod
+    def _sign(key: bytes, message: str) -> bytes:
+        return hmac.new(key, message.encode("utf-8"), hashlib.sha256).digest()
+
+    def _signing_key(self, date_stamp: str) -> bytes:
+        date_key = self._sign(("AWS4" + self._secret_key).encode("utf-8"), date_stamp)
+        region_key = self._sign(date_key, self._region)
+        service_key = self._sign(region_key, "s3")
+        return self._sign(service_key, "aws4_request")
 
     def create_upload_form(
         self, *, key: str, content_type: str, max_bytes: int, expires_seconds: int
     ) -> UploadForm:
-        """Create a constrained POST; the bucket remains private."""
-        result = self._client.generate_presigned_post(
-            Bucket=self._bucket,
-            Key=key,
-            Fields={"Content-Type": content_type},
-            Conditions=[
+        """Create a short-lived POST policy with content-type and size constraints."""
+        now = datetime.now(UTC)
+        date_stamp = now.strftime("%Y%m%d")
+        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+        credential = (
+            f"{self._access_key}/{date_stamp}/{self._region}/s3/aws4_request"
+        )
+        policy = {
+            "expiration": datetime.fromtimestamp(
+                now.timestamp() + expires_seconds, UTC
+            ).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "conditions": [
+                {"bucket": self._bucket},
+                {"key": key},
                 {"Content-Type": content_type},
+                {"x-amz-algorithm": "AWS4-HMAC-SHA256"},
+                {"x-amz-credential": credential},
+                {"x-amz-date": amz_date},
                 ["content-length-range", 1, max_bytes],
             ],
-            ExpiresIn=expires_seconds,
-        )
-        return UploadForm(url=result["url"], fields=result["fields"])
+        }
+        encoded_policy = __import__("base64").b64encode(
+            json.dumps(policy, separators=(",", ":")).encode("utf-8")
+        ).decode("ascii")
+        signature = hmac.new(
+            self._signing_key(date_stamp),
+            encoded_policy.encode("ascii"),
+            hashlib.sha256,
+        ).hexdigest()
+        fields = {
+            "key": key,
+            "Content-Type": content_type,
+            "x-amz-algorithm": "AWS4-HMAC-SHA256",
+            "x-amz-credential": credential,
+            "x-amz-date": amz_date,
+            "policy": encoded_policy,
+            "x-amz-signature": signature,
+        }
+        endpoint = urlsplit(self._endpoint)
+        if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
+            upload_url = f"https://{self._bucket}.{endpoint.netloc}/"
+        else:
+            upload_url = f"{self._endpoint}/{quote(self._bucket, safe='')}"
+        return UploadForm(url=upload_url, fields=fields)
 
     def inspect(self, *, key: str) -> StoredObject | None:
-        """Read object metadata after upload; missing objects return None."""
+        """Issue a signed HEAD request and return provider-reported object metadata."""
+        now = datetime.now(UTC)
+        date_stamp = now.strftime("%Y%m%d")
+        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+        endpoint = urlsplit(self._endpoint)
+        if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
+            host = f"{self._bucket}.{endpoint.netloc}"
+            path = f"/{quote(key, safe='/')}"
+            url = f"https://{host}{path}"
+        else:
+            host = endpoint.netloc
+            path = f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/{quote(key, safe='/')}"
+            url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{quote(key, safe='/')}"
+        payload_hash = hashlib.sha256(b"").hexdigest()
+        canonical_headers = (
+            f"host:{host}\n"
+            f"x-amz-content-sha256:{payload_hash}\n"
+            f"x-amz-date:{amz_date}\n"
+        )
+        signed_headers = "host;x-amz-content-sha256;x-amz-date"
+        canonical_request = "\n".join(
+            ["HEAD", path, "", canonical_headers, signed_headers, payload_hash]
+        )
+        scope = f"{date_stamp}/{self._region}/s3/aws4_request"
+        string_to_sign = "\n".join(
+            [
+                "AWS4-HMAC-SHA256",
+                amz_date,
+                scope,
+                hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+            ]
+        )
+        signature = hmac.new(
+            self._signing_key(date_stamp),
+            string_to_sign.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        authorization = (
+            "AWS4-HMAC-SHA256 "
+            f"Credential={self._access_key}/{scope}, "
+            f"SignedHeaders={signed_headers}, Signature={signature}"
+        )
+        request = Request(
+            url,
+            method="HEAD",
+            headers={
+                "Host": host,
+                "x-amz-content-sha256": payload_hash,
+                "x-amz-date": amz_date,
+                "Authorization": authorization,
+            },
+        )
         try:
-            result = self._client.head_object(Bucket=self._bucket, Key=key)
-        except self._client.exceptions.NoSuchKey:
-            return None
-        except Exception as exc:
-            if getattr(exc, "response", {}).get("ResponseMetadata", {}).get(
-                "HTTPStatusCode"
-            ) == 404:
+            with urlopen(request, timeout=10) as response:
+                return StoredObject(
+                    size_bytes=int(response.headers["Content-Length"]),
+                    content_type=response.headers.get("Content-Type", ""),
+                )
+        except HTTPError as exc:
+            if exc.code == 404:
                 return None
             raise
-        return StoredObject(
-            size_bytes=int(result["ContentLength"]),
-            content_type=str(result.get("ContentType", "")),
-        )
