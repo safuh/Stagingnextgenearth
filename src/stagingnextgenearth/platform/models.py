@@ -600,7 +600,7 @@ class ResearchStudyProposal(Base):
         String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
     )
     supersedes_proposal_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("research_study_proposals.id", ondelete="RESTRICT"), nullable=True
+        String(36), ForeignKey("research_study_proposals.id", ondelete="CASCADE"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
