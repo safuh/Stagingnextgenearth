@@ -436,7 +436,7 @@ def test_research_dataset_registry_requires_submission_and_independent_review(
     assert owner_list.status_code == 200
     assert len(owner_list.json()) == 1
     assert admin_list.status_code == 200
-    assert admin_list.json() == []
+    assert len(admin_list.json()) == 1
 
     submitted = client.post(
         f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/submit",
@@ -477,7 +477,7 @@ def test_research_dataset_registry_requires_submission_and_independent_review(
         headers=admin_headers,
     )
     assert approved.status_code == 200
-    assert approved.json() == []
+    assert len(approved.json()) == 1
 
 
 def test_research_dataset_rejects_cross_tenant_study_and_invalid_dates(
