@@ -33,6 +33,7 @@ services:
       start_period: 10s
 
   dataset-scanner:
+    profiles: ["scanning"]
     build:
       context: ..
       dockerfile: docker/Dockerfile
