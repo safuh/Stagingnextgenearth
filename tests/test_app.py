@@ -64,3 +64,17 @@ def test_cors_policy_is_explicit() -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "https://example.com"
+
+
+def test_validation_errors_use_safe_serializable_details() -> None:
+    with TestClient(create_app(make_settings())) as client:
+        response = client.post(
+            "/api/auth/register",
+            json={"identifier": "", "password": ""},
+        )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "validation_error"
+    assert body["error"]["details"]
+    assert all("input" not in item and "ctx" not in item for item in body["error"]["details"])
