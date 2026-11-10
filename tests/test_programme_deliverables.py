@@ -4,11 +4,11 @@ import asyncio
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
-from sqlalchemy.ext.asyncio import create_async_engine
 
 
 def _headers(client: TestClient, identifier: str) -> dict[str, str]:
