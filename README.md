@@ -157,7 +157,8 @@ install the geospatial binary dependency by default. Optional synthetic
 GeoTIFF decoder tests in `tests/test_chirps_raster.py` run when rasterio is
 installed; they are skipped otherwise. The normal CI suite also tests the
 provider stream through climate persistence using a mocked raster decoder. The adapter limits
-requests to 366 days and bounding-box extraction to 10,000 cells per day;
+requests to 366 days, bounding-box extraction to 10,000 cells per day, and each
+GeoTIFF download to 256 MiB by default (`max_raster_bytes` is configurable);
 larger jobs should be partitioned into smaller requests. Each requested day
 is downloaded separately, so missing or not-yet-published source rasters
 fail explicitly rather than being silently skipped.
