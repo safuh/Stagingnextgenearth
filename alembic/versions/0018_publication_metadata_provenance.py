@@ -47,13 +47,6 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "publication_id",
-            "provider",
-            "provider_work_id",
-            "metadata_sha256",
-            name="uq_publication_metadata_source_snapshot",
-        ),
     )
     op.create_index(
         "ix_publication_metadata_sources_publication_time",
