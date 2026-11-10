@@ -128,7 +128,10 @@ class S3ObjectStorage:
             url = f"https://{host}{path}"
         else:
             host = endpoint.netloc
-            path = f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/{quote(key, safe='/')}"
+            path = (
+                f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/"
+                f"{quote(key, safe='/')}"
+            )
             url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{quote(key, safe='/')}"
         payload_hash = hashlib.sha256(b"").hexdigest()
         canonical_headers = (
