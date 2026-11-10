@@ -101,6 +101,18 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
         )
         assert published.status_code == 200
+
+        resource = client.post(
+            f"{base}/courses/{course_id}/resources",
+            headers=admin_headers,
+            json={
+                "title": "Climate field guide",
+                "resource_type": "research",
+                "description": "Reference material for learners.",
+                "storage_reference": "private-object-key-should-never-be-returned",
+            },
+        )
+        assert resource.status_code == 201
         application = client.post(
             f"{base}/courses/{course_id}/enrollments",
             headers=learner_headers,
@@ -126,6 +138,17 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert decision.status_code == 200
 
+        curriculum = client.get(f"{base}/courses/{course_id}/curriculum",
+                                headers=learner_headers)
+        assert curriculum.status_code == 200
+        assert curriculum.json()["modules"][0]["lessons"][0]["title"] == "Local climate risks"
+
+        resources = client.get(f"{base}/courses/{course_id}/resources",
+                               headers=learner_headers)
+        assert resources.status_code == 200
+        assert resources.json()[0]["title"] == "Climate field guide"
+        assert "storage_reference" not in resources.json()[0]
+
         assessment = client.post(
             f"{base}/courses/{course_id}/assessments",
             headers=admin_headers,
@@ -149,6 +172,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"score": 85, "feedback": "Good application of the concepts."},
         )
         assert evaluated.status_code == 200
+
+        overdue = client.post(
+            f"{base}/courses/{course_id}/assessments",
+            headers=admin_headers,
+            json={
+                "title": "Late submission check",
+                "assessment_type": "assignment",
+                "instructions": "This deadline has passed.",
+                "due_at": "2020-01-01T00:00:00Z",
+            },
+        )
+        assert overdue.status_code == 201
+        rejected_late = client.post(
+            f"{base}/assessments/{overdue.json()['id']}/submissions",
+            headers=learner_headers,
+            json={"submission": {"text": "late"}},
+        )
+        assert rejected_late.status_code == 409
 
         learner_login = client.post(
             "/api/auth/login",
@@ -180,6 +221,13 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert premature.json()["status"] == "completed"
         assert premature.json()["progress_percent"] == 100
         assert premature.json()["certificate_number"].startswith("NGE-")
+        learner_progress = client.get(
+            f"{base}/courses/{course_id}/my-progress",
+            headers=learner_headers,
+        )
+        assert learner_progress.status_code == 200
+        assert learner_progress.json()["progress_percent"] == 100
+        assert lesson.json()["id"] in learner_progress.json()["completed_lesson_ids"]
         verified = client.get(
             f"{base}/certificates/verify/{premature.json()['verification_code']}",
             headers=admin_headers,
