@@ -198,6 +198,17 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     # Membership invitation responses intentionally do not expose account identifiers.
     assert milestone.status_code == 201
     milestone_id = milestone.json()["id"]
+    created_events = client.get(
+        f"{base}/milestones/{milestone_id}/events",
+        headers=lead_headers,
+    )
+    assert created_events.status_code == 200
+    assert len(created_events.json()) == 1
+    assert created_events.json()[0]["event_type"] == "created"
+    assert created_events.json()[0]["changes"]["title"] == {
+        "old": None,
+        "new": "Complete baseline field survey",
+    }
     for invalid_payload in (
         {"title": None},
         {"title": "   "},
@@ -218,6 +229,12 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     )
     assert updated.status_code == 200
     assert updated.json()["progress_percent"] == 60
+    no_op = client.patch(
+        f"{base}/milestones/{milestone_id}",
+        headers=lead_headers,
+        json={"progress_percent": 60},
+    )
+    assert no_op.status_code == 200
     completed = client.patch(
         f"{base}/milestones/{milestone_id}",
         headers=lead_headers,
@@ -225,3 +242,16 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     )
     assert completed.status_code == 200
     assert completed.json()["progress_percent"] == 100
+
+    events = client.get(
+        f"{base}/milestones/{milestone_id}/events",
+        headers=lead_headers,
+    )
+    assert events.status_code == 200
+    audit = events.json()
+    assert [event["event_type"] for event in audit] == ["created", "updated", "updated"]
+    assert audit[1]["changes"]["status"] == {"old": "planned", "new": "in_progress"}
+    assert audit[1]["changes"]["progress_percent"] == {"old": 0, "new": 60}
+    assert audit[2]["changes"]["status"] == {"old": "in_progress", "new": "completed"}
+    assert audit[2]["changes"]["progress_percent"] == {"old": 60, "new": 100}
+    assert "actor_user_id" not in audit[0]
