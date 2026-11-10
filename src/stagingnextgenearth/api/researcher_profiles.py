@@ -128,7 +128,6 @@ async def upsert_my_researcher_profile(
     return ResearcherProfileRead.model_validate(profile)
 
 
-
 @directory_router.get(
     "/organizations/{organization_id}/researcher-profiles",
     response_model=list[ResearcherProfileRead],
