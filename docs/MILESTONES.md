@@ -99,8 +99,10 @@ These foundation checks must continue passing as product code is added.
 ## M5 — Climate and geospatial intelligence
 
 - [ ] PostGIS deployment and spatial migrations.
-- [ ] Climate data ingestion contracts and provenance tracking.
-- [ ] NASA POWER, CHIRPS and Copernicus adapters.
+- [x] Provider-neutral climate ingestion contract, point/area request validation and provenance tracking.
+- [x] NASA POWER daily point adapter for precipitation and 2 m air temperature, with UTC normalization and missing-value filtering.
+- [ ] CHIRPS precipitation adapter.
+- [ ] Copernicus climate-data adapters.
 - [ ] Administrative boundaries and geocoding strategy.
 - [ ] Spatial and temporal query APIs.
 - [x] Initial independent review workflow for field-observation quality status.
