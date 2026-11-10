@@ -363,3 +363,169 @@ def test_climate_observation_requires_independent_quality_review(client: TestCli
     assert len(verified.json()) == 1
     assert pending.status_code == 200
     assert pending.json() == []
+
+
+def test_research_dataset_registry_requires_submission_and_independent_review(
+    client: TestClient,
+) -> None:
+    admin_token = register_and_login(client, "dataset-admin@example.org")
+    researcher_token = register_and_login(client, "dataset-owner@example.org")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    researcher_headers = {"Authorization": f"Bearer {researcher_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=admin_headers,
+        json={"name": "Dataset Governance Lab", "slug": "dataset-governance-lab"},
+    ).json()
+    organization_id = organization["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=admin_headers,
+        json={"identifier": "dataset-owner@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+        headers=researcher_headers,
+    )
+    assert accepted.status_code == 200
+
+    study = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=researcher_headers,
+        json={"title": "Rainfall observations", "study_type": "observational"},
+    )
+    assert study.status_code == 201
+
+    created = client.post(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=researcher_headers,
+        json={
+            "title": "Western Kenya rainfall series",
+            "description": "Daily station observations",
+            "version": "1.0",
+            "format": "CSV",
+            "source": "Field station network",
+            "license": "CC-BY-4.0",
+            "access_classification": "restricted",
+            "study_id": study.json()["id"],
+            "data_dictionary": {
+                "observed_at": {"type": "datetime", "unit": "UTC"},
+                "rainfall_mm": {"type": "number", "unit": "mm"},
+            },
+            "collection_start": "2025-01-01",
+            "collection_end": "2025-12-31",
+        },
+    )
+    assert created.status_code == 201
+    dataset = created.json()
+    assert dataset["status"] == "draft"
+    assert dataset["owner_user_id"]
+
+    # Restricted metadata is visible to its owner but not another tenant member.
+    owner_list = client.get(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=researcher_headers,
+    )
+    admin_list = client.get(
+        f"/api/organizations/{organization_id}/research-datasets",
+        headers=admin_headers,
+    )
+    assert owner_list.status_code == 200
+    assert len(owner_list.json()) == 1
+    assert admin_list.status_code == 200
+    assert admin_list.json() == []
+
+    submitted = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/submit",
+        headers=researcher_headers,
+    )
+    assert submitted.status_code == 200
+    assert submitted.json()["status"] == "submitted"
+    assert submitted.json()["submitted_at"]
+
+    # The owner cannot approve their own submission.
+    self_review = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
+        headers=researcher_headers,
+        json={"decision": "approved"},
+    )
+    assert self_review.status_code == 403
+
+    reviewed = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
+        headers=admin_headers,
+        json={"decision": "approved", "note": "Metadata and data dictionary checked"},
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["status"] == "approved"
+    assert reviewed.json()["reviewed_by"]
+    assert reviewed.json()["reviewed_at"]
+    assert reviewed.json()["review_note"] == "Metadata and data dictionary checked"
+
+    duplicate_review = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
+        headers=admin_headers,
+        json={"decision": "rejected"},
+    )
+    assert duplicate_review.status_code == 409
+
+    approved = client.get(
+        f"/api/organizations/{organization_id}/research-datasets?status=approved",
+        headers=admin_headers,
+    )
+    assert approved.status_code == 200
+    assert approved.json() == []
+
+
+def test_research_dataset_rejects_cross_tenant_study_and_invalid_dates(
+    client: TestClient,
+) -> None:
+    token_a = register_and_login(client, "dataset-a@example.org")
+    token_b = register_and_login(client, "dataset-b@example.org")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    org_a = client.post(
+        "/api/organizations",
+        headers=headers_a,
+        json={"name": "Dataset Org A", "slug": "dataset-org-a"},
+    ).json()
+    org_b = client.post(
+        "/api/organizations",
+        headers=headers_b,
+        json={"name": "Dataset Org B", "slug": "dataset-org-b"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{org_b['id']}/research-studies",
+        headers=headers_b,
+        json={"title": "Private study"},
+    )
+    assert study.status_code == 201
+
+    cross_tenant = client.post(
+        f"/api/organizations/{org_a['id']}/research-datasets",
+        headers=headers_a,
+        json={
+            "title": "Cross-tenant dataset",
+            "format": "csv",
+            "source": "test",
+            "study_id": study.json()["id"],
+        },
+    )
+    assert cross_tenant.status_code == 404
+
+    invalid_dates = client.post(
+        f"/api/organizations/{org_a['id']}/research-datasets",
+        headers=headers_a,
+        json={
+            "title": "Invalid date dataset",
+            "format": "csv",
+            "source": "test",
+            "collection_start": "2025-12-31",
+            "collection_end": "2025-01-01",
+        },
+    )
+    assert invalid_dates.status_code == 422
