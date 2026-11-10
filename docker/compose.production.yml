@@ -12,6 +12,16 @@ services:
       LOG_JSON: "true"
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-false}
+      OBJECT_STORAGE_ENABLED: ${OBJECT_STORAGE_ENABLED:-false}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ENDPOINT_URL: ${OBJECT_STORAGE_ENDPOINT_URL:-}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
+      MALWARE_SCANNING_ENABLED: ${MALWARE_SCANNING_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
     ports:
       - "${APP_PORT:-8000}:8000"
     restart: unless-stopped
@@ -21,3 +31,33 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  dataset-scanner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - python
+      - -m
+      - stagingnextgenearth.workers.run_dataset_scanner
+      - --batch-size
+      - "${DATASET_SCANNER_BATCH_SIZE:-10}"
+      - --poll-interval-seconds
+      - "${DATASET_SCANNER_POLL_INTERVAL_SECONDS:-5}"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OBJECT_STORAGE_ENABLED: ${OBJECT_STORAGE_ENABLED:-false}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ENDPOINT_URL: ${OBJECT_STORAGE_ENDPOINT_URL:-}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
+      MALWARE_SCANNING_ENABLED: ${MALWARE_SCANNING_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
