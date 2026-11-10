@@ -216,7 +216,10 @@ def test_publication_access_is_limited_to_active_study_collaborators(
     assert client.get(base, headers=viewer_headers).status_code == 200
     assert client.post(base, headers=viewer_headers, json=payload).status_code == 403
 
-    assert client.get(base, headers=member_headers).status_code == 403\n    assert client.post(base, headers=member_headers, json=payload).status_code == 403\n    # Non-members cannot distinguish an inaccessible study from a missing one.\n    assert client.get(base, headers=outsider_headers).status_code == 404
+    assert client.get(base, headers=member_headers).status_code == 403
+    assert client.post(base, headers=member_headers, json=payload).status_code == 403
+    # Non-members cannot distinguish an inaccessible study from a missing one.
+    assert client.get(base, headers=outsider_headers).status_code == 404
 
     created = client.post(base, headers=lead_headers, json=payload)
     assert created.status_code == 201
