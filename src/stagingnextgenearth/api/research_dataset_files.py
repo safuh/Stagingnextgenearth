@@ -74,8 +74,7 @@ class DatasetFileRead(BaseModel):
 
 def _storage(request: Request) -> ObjectStorage:
     """Resolve configured storage without leaking provider configuration."""
-    app = getattr(request, "app")
-    adapter = getattr(app.state, "object_storage", None)
+    adapter = request.app.state.object_storage
     if adapter is None:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
