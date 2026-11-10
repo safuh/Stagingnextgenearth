@@ -16,6 +16,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     Organization,
     Programme,
     Project,
+    ResearchDatasetFile,
     ResearchStudy,
 )
 
