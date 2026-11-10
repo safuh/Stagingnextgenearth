@@ -78,3 +78,22 @@ def test_validation_errors_use_safe_serializable_details() -> None:
     assert body["error"]["code"] == "validation_error"
     assert body["error"]["details"]
     assert all("input" not in item and "ctx" not in item for item in body["error"]["details"])
+
+
+
+def test_clamav_scanner_is_wired_only_when_enabled() -> None:
+    from stagingnextgenearth.scanning import ClamAVScanner
+
+    settings = Settings(
+        database_url="sqlite+aiosqlite:///:memory:",
+        object_storage_enabled=True,
+        object_storage_bucket="private-research",
+        object_storage_access_key_id="test-access",
+        object_storage_secret_access_key="test-secret",
+        malware_scanning_enabled=True,
+        clamav_host="clamav.internal",
+    )
+
+    app = create_app(settings)
+
+    assert isinstance(app.state.dataset_file_scanner, ClamAVScanner)
