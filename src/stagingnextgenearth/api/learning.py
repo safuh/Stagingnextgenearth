@@ -564,7 +564,6 @@ async def complete_lesson(
 @router.get("/certificates/verify/{verification_code}")
 async def verify_certificate(
     organization_id: str, verification_code: str,
-    membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     row = await session.scalar(select(LearningCertificate).join(LearningEnrollment).join(
@@ -700,6 +699,41 @@ async def list_learning_resources(
         "description": item.description,
         "resource_url": item.resource_url,
     } for item in resources.all()]
+
+
+@router.post("/certificates/{certificate_id}/revoke")
+async def revoke_certificate(
+    organization_id: str,
+    certificate_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Revoke a credential through an auditable, tenant-scoped staff action."""
+    if membership.role not in _MANAGE:
+        raise HTTPException(403, "Certificate administration permission required")
+    certificate = await session.scalar(
+        select(LearningCertificate)
+        .join(LearningEnrollment)
+        .join(LearningCourse)
+        .where(
+            LearningCertificate.id == certificate_id,
+            LearningCourse.organization_id == organization_id,
+        )
+    )
+    if certificate is None:
+        raise HTTPException(404, "Certificate not found")
+    if certificate.status == "revoked":
+        raise HTTPException(409, "Certificate has already been revoked")
+    certificate.status = "revoked"
+    certificate.revoked_at = datetime.now(UTC)
+    certificate.revoked_by = principal.user_id
+    await session.commit()
+    return {
+        "id": certificate.id,
+        "status": certificate.status,
+        "revoked_at": certificate.revoked_at,
+    }
 
 
 @router.get("/courses/{course_id}/progress")
