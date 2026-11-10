@@ -3,11 +3,13 @@
 import asyncio
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
+from stagingnextgenearth.api.research_publications import get_openalex_client
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
 
@@ -224,3 +226,102 @@ def test_publication_access_is_limited_to_active_study_collaborators(
     created = client.post(base, headers=lead_headers, json=payload)
     assert created.status_code == 201
     assert client.get(base, headers=viewer_headers).json()[0]["id"] == created.json()["id"]
+
+
+
+def test_openalex_lookup_returns_preview_without_persisting(
+    client: TestClient,
+) -> None:
+    headers = _register(client, "openalex-preview@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "OpenAlex Lab", "slug": "openalex-lab"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=headers,
+        json={"title": "Forest restoration evidence"},
+    ).json()
+    base = (
+        f"/api/organizations/{organization['id']}/research-studies/{study['id']}/publications"
+    )
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(
+            200,
+            json={
+                "id": "https://openalex.org/W1234567890",
+                "title": "Forest restoration outcomes",
+                "type": "article",
+                "doi": "https://doi.org/10.1234/FOREST.2026",
+                "publication_date": "2026-06-12",
+                "authorships": [
+                    {
+                        "author": {
+                            "display_name": "A. Researcher",
+                            "orcid": "https://orcid.org/0000-0002-1825-0097",
+                        }
+                    }
+                ],
+                "primary_location": {
+                    "source": {
+                        "display_name": "Ecology Journal",
+                        "host_organization_name": "Research Publisher",
+                    }
+                },
+                "landing_page_url": "https://example.org/paper",
+                "abstract_inverted_index": {
+                    "Restoration": [0],
+                    "improves": [1],
+                    "habitat": [2],
+                },
+            },
+        )
+
+    async def override_client():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as mock_client:
+            yield mock_client
+
+    client.app.dependency_overrides[get_openalex_client] = override_client
+    response = client.get(f"{base}/metadata/lookup", headers=headers, params={"doi": "10.1234/forest.2026"})
+    assert response.status_code == 200
+    preview = response.json()
+    assert preview["title"] == "Forest restoration outcomes"
+    assert preview["authors"] == ["A. Researcher"]
+    assert preview["author_orcids"] == ["0000-0002-1825-0097"]
+    assert preview["doi"] == "10.1234/forest.2026"
+    assert preview["openalex_id"] == "W1234567890"
+    assert preview["abstract"] == "Restoration improves habitat"
+    assert preview["source"] == "OpenAlex"
+    assert len(calls) == 1
+    assert client.get(base, headers=headers).json() == []
+
+
+def test_openalex_lookup_requires_exactly_one_valid_identifier(
+    client: TestClient,
+) -> None:
+    headers = _register(client, "openalex-validation@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "OpenAlex Validation", "slug": "openalex-validation"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=headers,
+        json={"title": "Publication lookup validation"},
+    ).json()
+    base = (
+        f"/api/organizations/{organization['id']}/research-studies/{study['id']}/publications"
+    )
+    for params in (
+        {},
+        {"doi": "10.1234/example", "openalex_id": "W123"},
+        {"doi": "invalid"},
+        {"openalex_id": "A123"},
+    ):
+        response = client.get(f"{base}/metadata/lookup", headers=headers, params=params)
+        assert response.status_code == 422
