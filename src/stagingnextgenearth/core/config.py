@@ -78,6 +78,11 @@ class Settings(BaseSettings):
                 raise ValueError("production requires JWT_SECRET_KEY with at least 32 characters")
         if self.object_storage_enabled and not self.object_storage_bucket:
             raise ValueError("OBJECT_STORAGE_BUCKET is required when object storage is enabled")
+        if self.object_storage_enabled and (
+            self.object_storage_access_key_id is None
+            or self.object_storage_secret_access_key is None
+        ):
+            raise ValueError("S3-compatible storage requires explicit access credentials")
         if self.environment is Environment.TEST:
             self.debug = False
         return self
