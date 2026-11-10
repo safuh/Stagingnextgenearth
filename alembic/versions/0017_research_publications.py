@@ -32,9 +32,15 @@ def upgrade() -> None:
         sa.Column("url", sa.String(length=2000), nullable=True),
         sa.Column("abstract", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(length=36), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
-            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', 'report', 'preprint', 'other')",
+            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', "
+            "'report', 'preprint', 'other')",
             name="ck_research_publication_type",
         ),
         sa.ForeignKeyConstraint(["study_id"], ["research_studies.id"], ondelete="CASCADE"),
