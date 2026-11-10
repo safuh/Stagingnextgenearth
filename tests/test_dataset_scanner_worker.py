@@ -1,8 +1,6 @@
 """Tests for asynchronous research dataset file scanning."""
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
-
 import pytest
 
 from stagingnextgenearth.core.config import Settings
