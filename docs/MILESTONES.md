@@ -76,11 +76,14 @@ These foundation checks must continue passing as product code is added.
 ## M4 — Research workspace
 
 - [x] Initial tenant-scoped study creation and discovery endpoints.
+- [x] Initial tenant-scoped research dataset registry with metadata and data dictionaries.
+- [x] Dataset access classifications and owner/admin visibility for restricted metadata.
+- [x] Dataset submission and independent approval/rejection workflow with audit fields.
 - [ ] Researcher profiles and collaborator access.
 - [ ] Study proposals, protocols, ethics approvals and milestones.
-- [ ] Dataset registry, metadata, data dictionaries and access classifications.
+- [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
-- [ ] Controlled file storage and dataset access audit.
+- [ ] Controlled file storage, download authorisation and dataset access audit.
 - [ ] Research exports and reproducible analysis hand-off.
 
 ## M5 — Climate and geospatial intelligence
