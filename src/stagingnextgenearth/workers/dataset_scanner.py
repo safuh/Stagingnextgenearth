@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -15,15 +16,17 @@ _MAX_FILE_BYTES = 100 * 1024 * 1024
 
 
 class ObjectReader(Protocol):
-    """Read-only object storage contract needed by the scanning worker."""
+    """Streaming read-only object storage contract."""
 
-    def get_object(self, *, key: str, max_bytes: int) -> bytes: ...
+    def iter_object_chunks(
+        self, *, key: str, max_bytes: int, chunk_size: int = 64 * 1024
+    ) -> Iterator[bytes]: ...
 
 
 class FileScanner(Protocol):
-    """Malware scanner contract consumed by the worker."""
+    """Streaming malware scanner contract."""
 
-    def scan(self, content: bytes) -> bool: ...
+    def scan_chunks(self, chunks: Iterable[bytes]) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +38,35 @@ class DatasetScanBatchResult:
     failed: int
 
 
+@dataclass(frozen=True, slots=True)
+class _ScanResult:
+    is_clean: bool
+    size_bytes: int
+    sha256_hex: str
+
+
+def _scan_stream(
+    storage: ObjectReader, scanner: FileScanner, key: str
+) -> _ScanResult:
+    """Pipe bounded storage chunks into the scanner while hashing the stream."""
+    digest = hashlib.sha256()
+    total = 0
+
+    def tracked_chunks() -> Iterator[bytes]:
+        nonlocal total
+        for chunk in storage.iter_object_chunks(key=key, max_bytes=_MAX_FILE_BYTES):
+            total += len(chunk)
+            digest.update(chunk)
+            yield chunk
+
+    is_clean = scanner.scan_chunks(tracked_chunks())
+    return _ScanResult(
+        is_clean=is_clean,
+        size_bytes=total,
+        sha256_hex=digest.hexdigest(),
+    )
+
+
 async def scan_pending_dataset_files(
     session_factory: async_sessionmaker[AsyncSession],
     storage: ObjectReader,
@@ -42,12 +74,11 @@ async def scan_pending_dataset_files(
     *,
     batch_size: int = 10,
 ) -> DatasetScanBatchResult:
-    """Scan a bounded batch of quarantined uploads and release only clean files.
+    """Scan quarantined uploads in bounded batches and release only clean files.
 
     Each iteration claims one row with FOR UPDATE SKIP LOCKED. The row lock is
-    held while the object is read and scanned, then released by that file's
-    commit. This prevents two PostgreSQL workers from scanning the same file.
-    Infrastructure failures leave the current file quarantined for a later poll.
+    held while the object is streamed and scanned, then released by that file's
+    commit. Infrastructure failures leave the current file quarantined.
     """
     if not 1 <= batch_size <= 100:
         raise ValueError("batch_size must be between 1 and 100")
@@ -72,27 +103,25 @@ async def scan_pending_dataset_files(
                 break
 
             try:
-                content = await asyncio.to_thread(
-                    storage.get_object,
-                    key=record.storage_key,
-                    max_bytes=_MAX_FILE_BYTES,
+                result = await asyncio.to_thread(
+                    _scan_stream, storage, scanner, record.storage_key
                 )
-                if len(content) != record.size_bytes:
+                if result.size_bytes != record.size_bytes:
                     record.status = "rejected"
                     record.scan_status = "pending"
                     record.scanned_at = None
+                    record.sha256_hex = None
                     await session.commit()
                     rejected += 1
                     continue
 
-                is_clean = await asyncio.to_thread(scanner.scan, content)
-                record.sha256_hex = hashlib.sha256(content).hexdigest()
+                record.sha256_hex = result.sha256_hex
                 record.scanned_at = datetime.now(UTC)
-                record.scan_status = "clean" if is_clean else "rejected"
-                record.status = "available" if is_clean else "rejected"
+                record.scan_status = "clean" if result.is_clean else "rejected"
+                record.status = "available" if result.is_clean else "rejected"
                 await session.commit()
                 scanned += 1
-                if not is_clean:
+                if not result.is_clean:
                     rejected += 1
             except Exception:
                 await session.rollback()
