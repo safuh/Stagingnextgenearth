@@ -133,7 +133,9 @@ async def create_dataset_file_upload_intent(
         and membership.role != "admin"
         and study_role not in {"editor", "contributor"}
     ):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study collaborator required")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Dataset owner or study collaborator required"
+        )
     if dataset.status not in {"draft", "rejected"}:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
