@@ -1,5 +1,6 @@
 """Private S3-compatible object storage with dependency-free SigV4 signing."""
 
+import base64
 import hashlib
 import hmac
 import json
@@ -91,7 +92,7 @@ class S3ObjectStorage:
                 ["content-length-range", 1, max_bytes],
             ],
         }
-        encoded_policy = __import__("base64").b64encode(
+        encoded_policy = base64.b64encode(
             json.dumps(policy, separators=(",", ":")).encode("utf-8")
         ).decode("ascii")
         signature = hmac.new(
