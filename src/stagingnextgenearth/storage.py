@@ -6,6 +6,7 @@ import hmac
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from collections.abc import Iterator
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
@@ -39,76 +40,9 @@ class ObjectStorage(Protocol):
 
     def iter_object_chunks(
         self, *, key: str, max_bytes: int, chunk_size: int = 64 * 1024
-    ):
-        """Stream a private object in bounded chunks without buffering the object."""
-        if max_bytes < 1 or chunk_size < 1:
-            raise ValueError("max_bytes and chunk_size must be positive")
-        now = datetime.now(UTC)
-        date_stamp = now.strftime("%Y%m%d")
-        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
-        endpoint = urlsplit(self._endpoint)
-        encoded_key = quote(key, safe="/")
-        if endpoint.netloc.endswith("amazonaws.com") and endpoint.netloc.startswith("s3."):
-            host = f"{self._bucket}.{endpoint.netloc}"
-            path = f"/{encoded_key}"
-            url = f"https://{host}{path}"
-        else:
-            host = endpoint.netloc
-            path = (
-                f"{endpoint.path.rstrip('/')}/{quote(self._bucket, safe='')}/"
-                f"{encoded_key}"
-            )
-            url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{encoded_key}"
-        payload_hash = hashlib.sha256(b"").hexdigest()
-        canonical_headers = (
-            f"host:{host}\n"
-            f"x-amz-content-sha256:{payload_hash}\n"
-            f"x-amz-date:{amz_date}\n"
-        )
-        signed_headers = "host;x-amz-content-sha256;x-amz-date"
-        canonical_request = "\n".join(
-            ["GET", path, "", canonical_headers, signed_headers, payload_hash]
-        )
-        scope = f"{date_stamp}/{self._region}/s3/aws4_request"
-        string_to_sign = "\n".join(
-            [
-                "AWS4-HMAC-SHA256",
-                amz_date,
-                scope,
-                hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
-            ]
-        )
-        signature = hmac.new(
-            self._signing_key(date_stamp),
-            string_to_sign.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        authorization = (
-            "AWS4-HMAC-SHA256 "
-            f"Credential={self._access_key}/{scope}, "
-            f"SignedHeaders={signed_headers}, Signature={signature}"
-        )
-        request = Request(
-            url,
-            method="GET",
-            headers={
-                "Host": host,
-                "x-amz-content-sha256": payload_hash,
-                "x-amz-date": amz_date,
-                "Authorization": authorization,
-            },
-        )
-        total = 0
-        with urlopen(request, timeout=30) as response:
-            while chunk := response.read(chunk_size):
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ValueError("Stored object exceeds the permitted scan size")
-                yield chunk
+    ) -> Iterator[bytes]: ...
 
-    def get_object(self, *, key: str, max_bytes: int) -> bytes:
-        """Fetch an object with a hard limit; prefer iter_object_chunks for scanning."""
-        return b"".join(self.iter_object_chunks(key=key, max_bytes=max_bytes))
+    def get_object(self, *, key: str, max_bytes: int) -> bytes: ...
 
     def create_download_url(self, *, key: str, expires_seconds: int) -> str: ...
 
@@ -261,8 +195,12 @@ class S3ObjectStorage:
                 return None
             raise
 
-    def get_object(self, *, key: str, max_bytes: int) -> bytes:
-        """Fetch a private object with a hard response-size limit."""
+    def iter_object_chunks(
+        self, *, key: str, max_bytes: int, chunk_size: int = 64 * 1024
+    ) -> Iterator[bytes]:
+        """Stream a private object in bounded chunks without buffering the object."""
+        if max_bytes < 1 or chunk_size < 1:
+            raise ValueError("max_bytes and chunk_size must be positive")
         now = datetime.now(UTC)
         date_stamp = now.strftime("%Y%m%d")
         amz_date = now.strftime("%Y%m%dT%H%M%SZ")
@@ -318,12 +256,17 @@ class S3ObjectStorage:
                 "Authorization": authorization,
             },
         )
+        total = 0
         with urlopen(request, timeout=30) as response:
-            content = response.read(max_bytes + 1)
-        if len(content) > max_bytes:
-            raise ValueError("Stored object exceeds the permitted scan size")
-        return content
+            while chunk := response.read(chunk_size):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ValueError("Stored object exceeds the permitted scan size")
+                yield chunk
 
+    def get_object(self, *, key: str, max_bytes: int) -> bytes:
+        """Fetch an object with a hard limit; prefer iter_object_chunks for scanning."""
+        return b"".join(self.iter_object_chunks(key=key, max_bytes=max_bytes))
 
     def create_download_url(self, *, key: str, expires_seconds: int) -> str:
         """Create a short-lived SigV4 presigned GET URL for a private object."""
