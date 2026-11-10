@@ -19,16 +19,19 @@ class FakeStorage:
     def __init__(self, objects: dict[str, bytes]) -> None:
         self.objects = objects
 
-    def get_object(self, *, key: str, max_bytes: int) -> bytes:
+    def iter_object_chunks(
+        self, *, key: str, max_bytes: int, chunk_size: int = 64 * 1024
+    ):
         content = self.objects[key]
         if len(content) > max_bytes:
             raise ValueError("object too large")
-        return content
+        for offset in range(0, len(content), chunk_size):
+            yield content[offset : offset + chunk_size]
 
 
 class FakeScanner:
-    def scan(self, content: bytes) -> bool:
-        return content != b"infected"
+    def scan_chunks(self, chunks) -> bool:
+        return b"".join(chunks) != b"infected"
 
 
 @pytest.mark.asyncio
@@ -174,7 +177,7 @@ async def test_worker_keeps_file_quarantined_when_scanner_fails(tmp_path) -> Non
             await session.commit()
 
         class BrokenScanner:
-            def scan(self, content: bytes) -> bool:
+            def scan_chunks(self, chunks) -> bool:
                 raise RuntimeError("scanner unavailable")
 
         result = await scan_pending_dataset_files(
