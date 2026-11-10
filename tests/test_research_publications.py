@@ -491,6 +491,7 @@ def test_publication_metadata_refresh_is_selective_and_audited(
     publication = imported.json()
 
     provider_record["title"] = "Updated forest restoration evidence"
+    provider_record["primary_location"]["source"]["display_name"] = "Updated Ecology Review"
     preview = client.get(
         f"{base}/{publication['id']}/metadata/refresh-preview",
         headers=headers,
@@ -512,15 +513,34 @@ def test_publication_metadata_refresh_is_selective_and_audited(
     # Unselected fields are not silently overwritten.
     assert refreshed.json()["journal_or_venue"] == "Ecology Review"
 
+    second_preview = client.get(
+        f"{base}/{publication['id']}/metadata/refresh-preview",
+        headers=headers,
+    )
+    venue_change = next(
+        change
+        for change in second_preview.json()["changes"]
+        if change["field"] == "journal_or_venue"
+    )
+    assert venue_change["safe_to_apply"] is True
+    second_refresh = client.post(
+        f"{base}/{publication['id']}/metadata/refresh",
+        headers=headers,
+        json={"fields": ["journal_or_venue"]},
+    )
+    assert second_refresh.status_code == 200
+    assert second_refresh.json()["journal_or_venue"] == "Updated Ecology Review"
+
     sources = client.get(
         f"{base}/{publication['id']}/metadata/sources",
         headers=headers,
     )
     assert sources.status_code == 200
-    assert len(sources.json()) == 2
+    assert len(sources.json()) == 3
     latest = sources.json()[0]
-    assert latest["imported_fields"] == ["title"]
+    assert latest["imported_fields"] == ["journal_or_venue"]
     assert latest["metadata_snapshot"]["title"] == "Updated forest restoration evidence"
+    assert latest["metadata_snapshot"]["journal_or_venue"] == "Updated Ecology Review"
 
     async def edit_publication_locally() -> None:
         engine = create_async_engine(client.app.state.settings.database_url)
