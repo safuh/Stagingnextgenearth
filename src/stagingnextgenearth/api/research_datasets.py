@@ -232,6 +232,19 @@ async def update_research_dataset(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No dataset changes supplied")
+    required_fields = {
+        "title",
+        "version",
+        "format",
+        "source",
+        "access_classification",
+        "data_dictionary",
+    }
+    if any(field in changes and changes[field] is None for field in required_fields):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Required dataset metadata fields cannot be null",
+        )
     if "study_id" in changes and changes["study_id"] is not None:
         study = await session.scalar(
             select(ResearchStudy.id).where(
@@ -245,6 +258,11 @@ async def update_research_dataset(
     for field, value in changes.items():
         if isinstance(value, str) and field in {"title", "version", "format", "source"}:
             value = value.strip()
+            if not value:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"{field} cannot be blank",
+                )
         if field == "format" and value is not None:
             value = value.lower()
         setattr(dataset, field, value)
