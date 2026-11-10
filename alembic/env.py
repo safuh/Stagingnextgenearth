@@ -1,4 +1,4 @@
-"""Alembic migration environment for the backbone package."""
+"Alembic migration environment for the NextGen for Earth platform."
 
 from logging.config import fileConfig
 
@@ -10,6 +10,14 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from stagingnextgenearth.core.config import get_settings
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import RefreshToken, User  # noqa: F401
+from stagingnextgenearth.platform import (  # noqa: F401
+    ClimateObservation,
+    Membership,
+    Organization,
+    Programme,
+    Project,
+    ResearchStudy,
+)
 
 config = context.config
 settings = get_settings()
