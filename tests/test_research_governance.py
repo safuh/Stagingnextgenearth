@@ -130,7 +130,10 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     reviewed = client.post(
         f"{base_url}/protocol-versions/{protocol_id}/reviews",
         headers=reviewer_headers,
-        json={"decision": "approved", "note": "Methods and safeguards are sufficiently documented."},
+        json={
+            "decision": "approved",
+            "note": "Methods and safeguards are sufficiently documented.",
+        },
     )
     assert reviewed.status_code == 201
     assert reviewed.json()["decision"] == "approved"
