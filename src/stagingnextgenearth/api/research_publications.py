@@ -26,9 +26,9 @@ router = APIRouter(
 )
 _WRITE_ROLES = {"editor", "contributor"}
 _REVIEW_ROLES = {"admin", "programme_manager"}
-_ORCID_PATTERN = re.compile(r"^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$")
-_DOI_PATTERN = re.compile(r"^10\\.\\d{4,9}/[^\\s]+$", re.IGNORECASE)
-_OPENALEX_PATTERN = re.compile(r"^W\\d+$")
+_ORCID_PATTERN = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
+_DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[^\s]+$", re.IGNORECASE)
+_OPENALEX_PATTERN = re.compile(r"^W\d+$")
 
 
 class PublicationCreate(BaseModel):
