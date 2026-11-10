@@ -454,16 +454,60 @@ def test_research_dataset_registry_requires_submission_and_independent_review(
     )
     assert self_review.status_code == 403
 
+    rejected = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
+        headers=admin_headers,
+        json={"decision": "rejected", "note": "Please document missing-value handling"},
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+
+    corrected = client.patch(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}",
+        headers=researcher_headers,
+        json={
+            "description": "Daily station observations with documented missing-value handling",
+            "version": "1.1",
+        },
+    )
+    assert corrected.status_code == 200
+    assert corrected.json()["status"] == "draft"
+    assert corrected.json()["version"] == "1.1"
+    assert corrected.json()["reviewed_at"] is None
+
+    review_history = client.get(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/reviews",
+        headers=researcher_headers,
+    )
+    assert review_history.status_code == 200
+    assert len(review_history.json()) == 1
+    assert review_history.json()[0]["decision"] == "rejected"
+    assert review_history.json()[0]["note"] == "Please document missing-value handling"
+
+    resubmitted = client.post(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/submit",
+        headers=researcher_headers,
+    )
+    assert resubmitted.status_code == 200
+    assert resubmitted.json()["status"] == "submitted"
+
     reviewed = client.post(
         f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
         headers=admin_headers,
-        json={"decision": "approved", "note": "Metadata and data dictionary checked"},
+        json={"decision": "approved", "note": "Corrections verified"},
     )
     assert reviewed.status_code == 200
     assert reviewed.json()["status"] == "approved"
     assert reviewed.json()["reviewed_by"]
     assert reviewed.json()["reviewed_at"]
-    assert reviewed.json()["review_note"] == "Metadata and data dictionary checked"
+    assert reviewed.json()["review_note"] == "Corrections verified"
+
+    review_history = client.get(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/reviews",
+        headers=admin_headers,
+    )
+    assert review_history.status_code == 200
+    assert [event["decision"] for event in review_history.json()] == ["rejected", "approved"]
 
     duplicate_review = client.post(
         f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}/review",
