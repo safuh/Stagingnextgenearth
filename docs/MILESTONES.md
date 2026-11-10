@@ -81,7 +81,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Dataset submission and independent approval/rejection workflow with audit fields.
 - [x] Owner correction and resubmission workflow for rejected datasets.
 - [x] Append-only dataset review history retained across resubmissions.
-- [ ] Researcher profiles and collaborator access.
+- [ ] Researcher profile and collaborator access workflows (implementation in progress; awaiting CI verification).
 - [ ] Study proposals, protocols, ethics approvals and milestones.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
