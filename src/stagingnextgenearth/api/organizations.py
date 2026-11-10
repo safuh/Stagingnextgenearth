@@ -1,6 +1,5 @@
 """Organisation creation and membership-scoped discovery endpoints."""
 
-import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,8 +13,6 @@ from stagingnextgenearth.platform.models import Membership, Organization
 from .dependencies import Principal, get_current_principal, get_session
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
-_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-
 
 class OrganizationCreate(BaseModel):
     """Validated organisation creation payload."""
