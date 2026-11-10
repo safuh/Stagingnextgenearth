@@ -12,7 +12,10 @@ from .projects import router as projects_router
 from .research import router as research_router
 from .research_collaborators import router as research_collaborators_router
 from .research_dataset_files import router as research_dataset_files_router
-from .researcher_profiles import router as researcher_profiles_router
+from .researcher_profiles import (
+    directory_router as researcher_profile_directory_router,
+    router as researcher_profiles_router,
+)
 from .research_datasets import router as research_datasets_router
 
 api_router = APIRouter()
@@ -24,6 +27,7 @@ api_router.include_router(programmes_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
 api_router.include_router(researcher_profiles_router)
+api_router.include_router(researcher_profile_directory_router)
 api_router.include_router(research_collaborators_router)
 api_router.include_router(research_datasets_router)
 api_router.include_router(research_dataset_files_router)
