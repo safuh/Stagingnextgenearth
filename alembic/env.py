@@ -1,4 +1,4 @@
-"Alembic migration environment for the NextGen for Earth platform."
+"""Alembic migration environment for the NextGen for Earth platform."""
 
 from logging.config import fileConfig
 
