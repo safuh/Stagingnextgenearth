@@ -48,7 +48,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Model persistence test.
 - [x] Run lint, type checks and full tests across Python 3.11, 3.12 and 3.13.
 - [x] Review tenant-boundary and role-policy design before exposing endpoints.
-- [ ] Verify migration upgrade/downgrade against PostgreSQL.
+- [x] Verify migration upgrade/downgrade against PostgreSQL (CI integration test runs upgrade, schema assertions, downgrade to base and re-upgrade against PostgreSQL 17).
 
 ## M2 — Identity, access control and organisation workflows
 
