@@ -210,3 +210,66 @@ def test_chirps_validates_variant_and_date_limit() -> None:
         CHIRPSProvider(variant="unknown")
     with pytest.raises(ValueError, match="positive"):
         CHIRPSProvider(max_days=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("variant", "start", "expected_start"),
+    [
+        ("rnl", datetime(1980, 12, 31, tzinfo=UTC), "1981-01-01"),
+        ("sat", datetime(1997, 12, 31, tzinfo=UTC), "1998-01-01"),
+    ],
+)
+async def test_chirps_rejects_dates_before_variant_coverage(
+    variant: str,
+    start: datetime,
+    expected_start: str,
+) -> None:
+    provider = CHIRPSProvider(variant=variant)
+    request = _request(
+        start=start,
+        end=start + timedelta(days=1),
+        point=ClimatePoint(latitude=-1.26, longitude=36.76),
+    )
+
+    with pytest.raises(ValueError, match=expected_start):
+        await anext(provider.fetch(request))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("variant", "start"),
+    [
+        ("rnl", datetime(1981, 1, 1, tzinfo=UTC)),
+        ("sat", datetime(1998, 1, 1, tzinfo=UTC)),
+    ],
+)
+async def test_chirps_accepts_first_supported_variant_date(
+    variant: str,
+    start: datetime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        chirps,
+        "_decode_geotiff",
+        lambda content, point, area, max_cells: [(-1.25, 36.75, 1.0)],
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"test-geotiff")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = CHIRPSProvider(client=client, variant=variant)
+        values = [
+            item
+            async for item in provider.fetch(
+                _request(
+                    start=start,
+                    end=start + timedelta(days=1),
+                    point=ClimatePoint(latitude=-1.26, longitude=36.76),
+                )
+            )
+        ]
+
+    assert len(values) == 1
+    assert values[0].observed_at == start
