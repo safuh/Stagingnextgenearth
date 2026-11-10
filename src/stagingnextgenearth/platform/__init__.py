@@ -10,6 +10,7 @@ from .models import (
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
     ResearchStudy,
+    ResearchStudyCollaborator,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "ResearchDatasetFile",
     "ResearchDatasetFileAccessEvent",
     "ResearchStudy",
+    "ResearchStudyCollaborator",
 ]
