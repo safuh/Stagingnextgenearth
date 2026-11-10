@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,6 +78,15 @@ class MilestoneUpdate(BaseModel):
     due_date: date | None = None
     status: Literal["planned", "in_progress", "blocked", "completed", "cancelled"] | None = None
     progress_percent: int | None = Field(default=None, ge=0, le=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: object) -> object:
+        if isinstance(value, dict):
+            for field in ("title", "status", "progress_percent"):
+                if field in value and value[field] is None:
+                    raise ValueError(f"{field} cannot be null")
+        return value
 
 
 class MilestoneRead(BaseModel):
@@ -164,12 +173,18 @@ async def create_proposal(
     study = await _study(session, organization_id, study_id)
     if await _access(session, study, principal, membership) not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Proposal authoring permission required")
+    title = body.title.strip()
+    rationale = body.rationale.strip()
+    objectives = body.objectives.strip()
+    proposed_methods = body.proposed_methods.strip()
+    if min(map(len, (title, rationale, objectives, proposed_methods))) == 0:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Proposal fields cannot be blank")
     proposal = ResearchStudyProposal(
         study_id=study_id,
-        title=body.title.strip(),
-        rationale=body.rationale.strip(),
-        objectives=body.objectives.strip(),
-        proposed_methods=body.proposed_methods.strip(),
+        title=title,
+        rationale=rationale,
+        objectives=objectives,
+        proposed_methods=proposed_methods,
         expected_outcomes=body.expected_outcomes.strip() if body.expected_outcomes else None,
         status="draft",
         version_number=1,
@@ -312,9 +327,12 @@ async def create_milestone(
     if await _access(session, study, principal, membership) not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Milestone management permission required")
     await _validate_assignee(session, organization_id, body.assigned_to)
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Milestone title cannot be blank")
     milestone = ResearchMilestone(
         study_id=study_id,
-        title=body.title.strip(),
+        title=title,
         description=body.description,
         assigned_to=body.assigned_to,
         due_date=body.due_date,
@@ -368,14 +386,17 @@ async def update_milestone(
     if milestone is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
     changes = body.model_dump(exclude_unset=True)
+    for field in ("title", "description"):
+        if field in changes and isinstance(changes[field], str):
+            changes[field] = changes[field].strip()
+            if field == "title" and not changes[field]:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY, "Milestone title cannot be blank"
+                )
     if "assigned_to" in changes:
         await _validate_assignee(session, organization_id, changes["assigned_to"])
     for key, value in changes.items():
-        setattr(
-            milestone,
-            key,
-            value.strip() if key in {"title", "description"} and value else value,
-        )
+        setattr(milestone, key, value)
     if milestone.status == "completed":
         milestone.progress_percent = 100
     elif milestone.progress_percent == 100 and milestone.status != "completed":
