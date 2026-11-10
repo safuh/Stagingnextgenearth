@@ -295,7 +295,7 @@ class PublicationMetadataSourceRead(BaseModel):
     source_url: str
     metadata_sha256: str
     imported_fields: list[str]
-    metadata_snapshot: dict[str, object] | None = None
+    metadata_baseline: dict[str, object] | None = None
     imported_by: str
     fetched_at: datetime
 
@@ -618,7 +618,7 @@ async def import_publication_metadata(
         provider_work_id=preview.openalex_id,
         source_url=f"https://openalex.org/{preview.openalex_id}",
         metadata_sha256=hashlib.sha256(serialized).hexdigest(),
-        metadata_snapshot=preview.model_dump(mode="json", exclude={"source"}),
+        metadata_baseline=preview.model_dump(mode="json", exclude={"source"}),
         fetched_at=datetime.now(UTC),
         imported_fields=[
             "title",
@@ -661,7 +661,7 @@ async def import_publication_metadata(
 
 
 
-def _publication_metadata_snapshot(publication: ResearchPublication) -> dict[str, object]:
+def _publication_metadata_baseline(publication: ResearchPublication) -> dict[str, object]:
     return {
         "title": publication.title,
         "authors": publication.authors,
@@ -760,8 +760,8 @@ async def preview_publication_metadata_refresh(
         .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
         .limit(1)
     )
-    baseline = latest_source.metadata_snapshot if latest_source is not None else None
-    current = _publication_metadata_snapshot(publication)
+    baseline = latest_source.metadata_baseline if latest_source is not None else None
+    current = _publication_metadata_baseline(publication)
     provider_values = preview.model_dump(mode="json", exclude={"source"})
     changes = [
         PublicationMetadataFieldChange(
@@ -816,14 +816,14 @@ async def apply_publication_metadata_refresh(
         .order_by(ResearchPublicationMetadataSource.fetched_at.desc())
         .limit(1)
     )
-    baseline = latest_source.metadata_snapshot if latest_source is not None else None
+    baseline = latest_source.metadata_baseline if latest_source is not None else None
     if baseline is None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "No field baseline exists; automatic refresh is disabled for this publication",
         )
     preview = await _fresh_publication_preview(publication, client)
-    current = _publication_metadata_snapshot(publication)
+    current = _publication_metadata_baseline(publication)
     provider_values = preview.model_dump(mode="json", exclude={"source"})
     for field in body.fields:
         if field not in baseline or current[field] != baseline[field]:
@@ -838,7 +838,7 @@ async def apply_publication_metadata_refresh(
             )
     for field in body.fields:
         setattr(publication, field, getattr(preview, field))
-    updated_snapshot = _publication_metadata_snapshot(publication)
+    updated_snapshot = _publication_metadata_baseline(publication)
     serialized = json.dumps(
         provider_values, sort_keys=True, separators=(",", ":")
     ).encode()
@@ -848,7 +848,7 @@ async def apply_publication_metadata_refresh(
         provider_work_id=preview.openalex_id,
         source_url=f"https://openalex.org/{preview.openalex_id}",
         metadata_sha256=hashlib.sha256(serialized).hexdigest(),
-        metadata_snapshot=updated_snapshot,
+        metadata_baseline=updated_snapshot,
         fetched_at=datetime.now(UTC),
         imported_fields=body.fields,
         imported_by=principal.user_id,
