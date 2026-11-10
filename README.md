@@ -29,9 +29,11 @@ authenticated product workflows:
 Climate observations enter the system as pending and cannot be verified by their
 submitter. Only organisation administrators and programme managers can review
 observations, and a review decision cannot be overwritten through the API. Dataset
-registration currently stores metadata only: it does not store files or issue download
-URLs. Restricted dataset metadata is visible only to its owner and organisation
-administrators. A public classification does not publish data to the internet.
+registration stores governed metadata and supports private file upload intents when
+S3-compatible object storage is configured. Completed files remain quarantined until a
+trusted scanning workflow is implemented; downloads are not yet available. Restricted
+dataset metadata is visible only to its owner and organisation administrators. A public
+classification does not publish data to the internet.
 Do not expose domain tables through unrestricted generic CRUD endpoints.
 
 ## Quick start
