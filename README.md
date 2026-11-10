@@ -109,7 +109,7 @@ organisation members for clean, available files. Restricted datasets remain owne
 only. Each URL issuance is recorded in an append-only access event table. The application
 does not proxy file bytes, and the URL can be used until it expires; configure the bucket
 with public access blocked and encryption enabled.
-A database-polled worker is available at `stagingnextgenearth.workers.dataset_scanner.scan_pending_dataset_files` for a separately managed worker process. It claims quarantined rows with database row locks, streams bounded object-storage chunks into ClamAV, computes SHA-256 incrementally, commits each verdict independently, and leaves files quarantined when storage or scanning fails. A packaged worker process entry point and deployment configuration remain future work.
+A separately managed worker process is included and can be started with `uv run python -m stagingnextgenearth.workers.run_dataset_scanner`. It claims quarantined rows with database row locks, streams bounded object-storage chunks into ClamAV, computes SHA-256 incrementally, commits each verdict independently, and leaves files quarantined when storage or scanning fails. Configure the same database, object-storage and ClamAV environment variables used by the API. Tune polling with `--batch-size` (1–100) and `--poll-interval-seconds` (default 5). Run API and scanner as separate processes; do not start the scanner inside each API worker.
 Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
 100 MiB upload limit. Keep the ClamAV TCP service on a private, trusted network; this
 adapter does not provide transport encryption or authentication.
