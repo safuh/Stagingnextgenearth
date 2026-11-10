@@ -12,6 +12,9 @@ from .models import (
     ResearchEthicsReviewEvent,
     ResearchProtocolReviewEvent,
     ResearchProtocolVersion,
+    ResearchMilestone,
+    ResearchProposalReviewEvent,
+    ResearchStudyProposal,
     ResearchStudy,
     ResearchStudyCollaborator,
 )
@@ -28,6 +31,9 @@ __all__ = [
     "ResearchEthicsReviewEvent",
     "ResearchProtocolReviewEvent",
     "ResearchProtocolVersion",
+    "ResearchMilestone",
+    "ResearchProposalReviewEvent",
+    "ResearchStudyProposal",
     "ResearchStudy",
     "ResearchStudyCollaborator",
 ]
