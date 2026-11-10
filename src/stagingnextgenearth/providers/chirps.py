@@ -155,6 +155,17 @@ class CHIRPSProvider:
                         )
                     else:
                         response.raise_for_status()
+                        content_length = response.headers.get("Content-Length")
+                        if content_length is not None:
+                            try:
+                                declared_size = int(content_length)
+                            except ValueError:
+                                declared_size = -1
+                            if declared_size > self.max_raster_bytes:
+                                raise ValueError(
+                                    "CHIRPS raster exceeds the configured download-size "
+                                    f"limit ({self.max_raster_bytes} bytes)"
+                                )
                         content = bytearray()
                         async for chunk in response.aiter_bytes():
                             if len(content) + len(chunk) > self.max_raster_bytes:
