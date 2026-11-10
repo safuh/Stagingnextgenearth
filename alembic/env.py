@@ -23,7 +23,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     ResearchMilestone,
     ResearchProposalReviewEvent,
     ResearchProtocolReviewEvent,
-    ResearchProtocolVersion,
+    ResearchProtocolVersion,\n    ResearchPublication,
     ResearchStudy,
     ResearchStudyCollaborator,
     ResearchStudyProposal,
