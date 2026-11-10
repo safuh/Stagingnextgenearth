@@ -92,7 +92,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Bounded database-polled scanner worker with row locking, per-file commits and retry-safe quarantine on infrastructure failures.
 - [x] Streaming object-storage reads and chunked ClamAV INSTREAM scanning with incremental SHA-256.
 - [x] Executable scanner worker process with configurable polling and batch size.
-- [ ] Dedicated worker container/deployment manifest and production operational runbook.
+- [x] Dedicated worker container/deployment manifest and production operational runbook (production Compose profiles validated in CI; operational runbook added).
 - [x] Dataset file download access audit events.
 - [ ] Research exports and reproducible analysis hand-off.
 
@@ -164,6 +164,6 @@ These foundation checks must continue passing as product code is added.
 - [x] Database-polled asynchronous scanning worker for quarantined file versions.
 - [x] Streaming worker transport and incremental file hashing.
 - [x] Standalone scanner process entry point.
-- [ ] Dedicated worker deployment manifest and production operational runbook.
+- [x] Dedicated worker deployment manifest and production operational runbook (production Compose profiles validated in CI; operational runbook added).
 - [x] Five-minute authorised download URLs restricted to clean files and permitted organisation members.
 - [x] Append-only audit event for each download URL issuance.
