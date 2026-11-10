@@ -3,8 +3,8 @@
 import asyncio
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
