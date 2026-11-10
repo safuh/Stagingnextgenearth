@@ -15,21 +15,21 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint(
-        "uq_publication_metadata_source_snapshot",
-        "research_publication_metadata_sources",
-        type_="unique",
-    )
+    with op.batch_alter_table("research_publication_metadata_sources") as batch_op:
+        batch_op.drop_constraint(
+            "uq_publication_metadata_source_snapshot",
+            type_="unique",
+        )
 
 
 def downgrade() -> None:
-    op.create_unique_constraint(
-        "uq_publication_metadata_source_snapshot",
-        "research_publication_metadata_sources",
-        [
-            "publication_id",
-            "provider",
-            "provider_work_id",
-            "metadata_sha256",
-        ],
-    )
+    with op.batch_alter_table("research_publication_metadata_sources") as batch_op:
+        batch_op.create_unique_constraint(
+            "uq_publication_metadata_source_snapshot",
+            [
+                "publication_id",
+                "provider",
+                "provider_work_id",
+                "metadata_sha256",
+            ],
+        )
