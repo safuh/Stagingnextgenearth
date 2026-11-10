@@ -75,6 +75,12 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "action",
             "created_at",
         },
+        "climate_ingestion_runs": {
+            "id", "organization_id", "provider_id", "source_name", "licence",
+            "requested_start", "requested_end", "requested_area", "status",
+            "records_received", "records_inserted", "records_skipped", "started_by",
+            "started_at", "finished_at",
+        },
         "climate_observations": {
             "id",
             "organization_id",
@@ -86,6 +92,9 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "latitude",
             "longitude",
             "source",
+            "ingestion_run_id",
+            "provider_id",
+            "provider_record_id",
             "quality_status",
             "reviewed_by",
             "reviewed_at",
