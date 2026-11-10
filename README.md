@@ -100,9 +100,7 @@ storage keys.
 
 Optional ClamAV scanning can be enabled with `MALWARE_SCANNING_ENABLED=true`,
 `CLAMAV_HOST`, and the optional `CLAMAV_PORT`/`CLAMAV_TIMEOUT_SECONDS` settings.
-It requires object storage to be enabled. The API reads the stored bytes with a hard
-100 MiB limit, computes SHA-256 itself, and only marks a file available after ClamAV
-returns a clean verdict. Infected files are rejected. Scanner or storage errors fail
+It requires object storage to be enabled. The synchronous API completion path reads stored bytes with a hard 100 MiB limit. For larger-scale processing, the database-polled worker streams bounded object-storage chunks directly into ClamAV INSTREAM while computing SHA-256 incrementally, avoiding whole-file buffering. Both paths only mark a file available after ClamAV returns a clean verdict. Infected files are rejected. Scanner or storage errors fail
 closed and leave files quarantined; the uploader or an organisation admin can retry
 the completion request. Without a configured scanner, files remain quarantined.
 
@@ -111,7 +109,7 @@ organisation members for clean, available files. Restricted datasets remain owne
 only. Each URL issuance is recorded in an append-only access event table. The application
 does not proxy file bytes, and the URL can be used until it expires; configure the bucket
 with public access blocked and encryption enabled.
-A database-polled worker is available at `stagingnextgenearth.workers.dataset_scanner.scan_pending_dataset_files` for a separately managed worker process. It claims quarantined rows with database row locks, commits each verdict independently, and leaves files quarantined when storage or scanning fails. The worker currently buffers each file in memory (up to 100 MiB); streaming scanner transport and a packaged worker process entry point remain future scaling work.
+A database-polled worker is available at `stagingnextgenearth.workers.dataset_scanner.scan_pending_dataset_files` for a separately managed worker process. It claims quarantined rows with database row locks, streams bounded object-storage chunks into ClamAV, computes SHA-256 incrementally, commits each verdict independently, and leaves files quarantined when storage or scanning fails. A packaged worker process entry point and deployment configuration remain future work.
 Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
 100 MiB upload limit. Keep the ClamAV TCP service on a private, trusted network; this
 adapter does not provide transport encryption or authentication.
