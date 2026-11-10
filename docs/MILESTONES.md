@@ -85,7 +85,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Study proposals, protocols, ethics approvals and milestones.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
-- [ ] Private object-storage adapter, upload intents and authorised download workflow.
+- [x] Private object-storage adapter, constrained upload intents and authorised download grants.
 - [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
 - [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
 - [x] Trusted SHA-256 calculation from stored object bytes and clean/rejected state transition.
@@ -156,4 +156,5 @@ These foundation checks must continue passing as product code is added.
 - [x] Optional ClamAV scanner integration with fail-closed quarantine on scanner errors.
 - [x] Trusted SHA-256 calculation from stored bytes and clean/rejected state transition.
 - [ ] Streaming worker/queue for large-scale asynchronous scanning.
-- [ ] Short-lived authorised download workflow and access audit events.
+- [x] Five-minute authorised download URLs restricted to clean files and permitted organisation members.
+- [x] Append-only audit event for each download URL issuance.
