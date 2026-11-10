@@ -10,10 +10,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stagingnextgenearth.platform.models import ResearchDatasetFile
-from stagingnextgenearth.scanning import ClamAVScanner
-from stagingnextgenearth.storage import ObjectStorage
 
 _MAX_FILE_BYTES = 100 * 1024 * 1024
+
+
+class ObjectReader(Protocol):
+    """Read-only object storage contract needed by the scanning worker."""
+
+    def get_object(self, *, key: str, max_bytes: int) -> bytes: ...
 
 
 class FileScanner(Protocol):
@@ -33,8 +37,8 @@ class DatasetScanBatchResult:
 
 async def scan_pending_dataset_files(
     session_factory: async_sessionmaker[AsyncSession],
-    storage: ObjectStorage,
-    scanner: FileScanner | ClamAVScanner,
+    storage: ObjectReader,
+    scanner: FileScanner,
     *,
     batch_size: int = 10,
 ) -> DatasetScanBatchResult:
