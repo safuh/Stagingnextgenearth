@@ -3,15 +3,15 @@
 import numpy as np
 import pytest
 
-rasterio = pytest.importorskip("rasterio")
-from rasterio.io import MemoryFile
-from rasterio.transform import from_origin
-
 from stagingnextgenearth.climate_ingestion import (
     ClimateBoundingBox,
     ClimatePoint,
 )
 from stagingnextgenearth.providers.chirps import _decode_geotiff
+
+rasterio = pytest.importorskip("rasterio")
+MemoryFile = rasterio.io.MemoryFile
+from_origin = rasterio.transform.from_origin
 
 
 @pytest.fixture
