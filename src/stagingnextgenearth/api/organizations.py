@@ -64,7 +64,9 @@ async def create_organization(
         await session.refresh(organization)
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Organisation slug is already in use") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Organisation slug is already in use"
+        ) from exc
     return OrganizationRead.model_validate(organization)
 
 
