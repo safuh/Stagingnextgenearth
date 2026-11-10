@@ -687,3 +687,29 @@ class ResearchMilestone(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class ResearchMilestoneEvent(Base):
+    """Append-only audit event for a research milestone change."""
+
+    __tablename__ = "research_milestone_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('created', 'updated')",
+            name="ck_research_milestone_event_type",
+        ),
+        Index("ix_research_milestone_events_milestone_time", "milestone_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    milestone_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_milestones.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
