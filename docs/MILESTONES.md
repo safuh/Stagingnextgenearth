@@ -58,10 +58,11 @@ These foundation checks must continue passing as product code is added.
 - [x] Organisation creation with atomic creator-to-admin membership.
 - [x] Membership-scoped organisation, programme and project discovery.
 - [x] Existing-account membership invitation and invitee-only acceptance.
+- [x] Cross-organisation access denial and initial role-escalation tests.
 - [ ] Membership role changes, suspension and ownership transfer.
 - [ ] Account lifecycle, audit events and privileged-action logging.
 - [ ] Rate limiting and abuse protection at the application or edge.
-- [ ] Security tests for cross-organisation access and role escalation.
+- [x] Initial security tests for cross-organisation access and role escalation.
 
 ## M3 — Programme and project operations
 
@@ -74,6 +75,7 @@ These foundation checks must continue passing as product code is added.
 
 ## M4 — Research workspace
 
+- [x] Initial tenant-scoped study creation and discovery endpoints.
 - [ ] Researcher profiles and collaborator access.
 - [ ] Study proposals, protocols, ethics approvals and milestones.
 - [ ] Dataset registry, metadata, data dictionaries and access classifications.
@@ -88,6 +90,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] NASA POWER, CHIRPS and Copernicus adapters.
 - [ ] Administrative boundaries and geocoding strategy.
 - [ ] Spatial and temporal query APIs.
+- [x] Initial independent review workflow for field-observation quality status.
 - [ ] Quality assurance, missing-data handling and unit normalisation.
 - [ ] Research-grade statistical and geospatial analysis pipelines.
 - [ ] Interactive map and climate research dashboards.
