@@ -49,3 +49,29 @@ This increment establishes SQLAlchemy models and the Alembic persistence contrac
 Authenticated API workflows, membership invitations, programme/project services,
 research workflows, climate ingestion adapters, and portal UIs are subsequent
 increments. Do not expose these tables through unrestricted generic CRUD endpoints.
+
+
+## Research dataset export hand-off
+
+Approved research datasets expose a versioned metadata manifest at:
+
+`GET /api/organizations/{organization_id}/research-datasets/{dataset_id}/export-manifest`
+
+The manifest includes the dataset's descriptive metadata, collection period,
+data dictionary, access classification, clean file-version identifiers, file
+sizes, media types, upload timestamps and SHA-256 checksums. A canonical
+serialization of the dataset snapshot is hashed into `manifest_sha256`, so
+clients can detect metadata changes between hand-offs.
+
+Only file versions in the `available` state with a `clean` scan verdict and
+a trusted SHA-256 are referenced. Quarantined, pending, rejected, deleted or
+incompletely scanned versions are counted in `excluded_file_versions` and
+never included as downloadable content. Storage keys and signed object URLs
+are not embedded in the manifest; clients must obtain file access through the
+existing tenant-authorised download endpoint.
+
+The export endpoint requires active organisation membership, an approved
+dataset, and the applicable study/access-classification permissions. The
+manifest is a reproducibility descriptor, not a substitute for the original
+file bytes or for a researcher's documented analysis methods and software
+environment.
