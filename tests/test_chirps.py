@@ -132,8 +132,8 @@ async def test_chirps_omits_nodata_and_respects_exclusive_end_date(
             item
             async for item in provider.fetch(
                 _request(
-                    start=datetime(2026, 1, 1, 3, tzinfo=local_zone),
-                    end=datetime(2026, 1, 2, 3, tzinfo=local_zone),
+                    start=datetime(2026, 1, 1, 2, tzinfo=local_zone),
+                    end=datetime(2026, 1, 1, 3, tzinfo=local_zone),
                     point=ClimatePoint(latitude=-1.26, longitude=36.76),
                 )
             )
