@@ -1,11 +1,14 @@
 """End-to-end programme deliverable and lifecycle tests."""
 
+import asyncio
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.database import Base
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 def _headers(client: TestClient, identifier: str) -> dict[str, str]:
@@ -25,6 +28,14 @@ def _headers(client: TestClient, identifier: str) -> dict[str, str]:
 
 def test_programme_deliverable_submission_review_and_lifecycle(tmp_path: Path) -> None:
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'programme-deliverables.db'}"
+    engine = create_async_engine(database_url)
+
+    async def prepare_database() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(prepare_database())
     settings = Settings(
         environment=Environment.TEST,
         database_url=database_url,
