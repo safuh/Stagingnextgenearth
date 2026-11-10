@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -167,7 +168,16 @@ async def create_publication(
         created_by=principal.user_id,
     )
     session.add(publication)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        if body.doi is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "A publication with this DOI is already registered for the study",
+            ) from exc
+        raise
     await session.refresh(publication)
     return PublicationRead.model_validate(publication)
 
