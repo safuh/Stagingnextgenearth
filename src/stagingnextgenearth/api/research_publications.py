@@ -309,6 +309,10 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
     if isinstance(primary_location, dict) and isinstance(primary_location.get("source"), dict):
         source = primary_location["source"]
 
+    normalized_id = identifier.removeprefix("https://openalex.org/")
+    if not _OPENALEX_PATTERN.fullmatch(normalized_id):
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "OpenAlex returned an invalid work ID")
+
     doi_value = record.get("doi")
     doi = doi_value.removeprefix("https://doi.org/").lower() if isinstance(doi_value, str) else None
     work_type = record.get("type")
@@ -328,9 +332,17 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
             published_on = date.fromisoformat(published_value)
         except ValueError:
             published_on = None
-    landing_page = record.get("landing_page_url")
-    if not isinstance(landing_page, str):
-        landing_page = None
+    landing_page_value = record.get("landing_page_url")
+    landing_page = None
+    if isinstance(landing_page_value, str):
+        parsed_landing_page = urlparse(landing_page_value)
+        if (
+            parsed_landing_page.scheme in {"http", "https"}
+            and parsed_landing_page.hostname
+            and parsed_landing_page.username is None
+            and parsed_landing_page.password is None
+        ):
+            landing_page = landing_page_value[:2000]
     venue = source.get("display_name")
     publisher = source.get("host_organization_name")
     return PublicationMetadataPreview(
@@ -342,7 +354,7 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
         publisher=publisher[:240] if isinstance(publisher, str) else None,
         published_on=published_on,
         doi=doi if isinstance(doi, str) and _DOI_PATTERN.fullmatch(doi) else None,
-        openalex_id=identifier.removeprefix("https://openalex.org/"),
+        openalex_id=normalized_id,
         url=landing_page,
         abstract=_abstract_from_inverted_index(record.get("abstract_inverted_index")),
     )
