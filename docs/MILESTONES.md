@@ -83,7 +83,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Append-only dataset review history retained across resubmissions.
 - [x] Researcher profiles with private-by-default visibility and organisation-scoped sharing.
 - [x] Study collaborator invitations, acceptance, revocation and role-scoped dataset access.
-- [ ] Study proposals and milestones.
+- [x] Study proposal submission, independent review decisions and append-only review history.
+- [x] Study milestones with active-member assignments, due dates, lifecycle states and progress tracking.
 - [ ] Versioned research protocols and independent protocol review (implemented; awaiting CI verification).
 - [ ] Append-only ethics committee decisions linked to approved protocol versions (implemented; awaiting CI verification).
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
