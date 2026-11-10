@@ -159,3 +159,9 @@ The current evidence field is a URL reference, not an uploaded file. For
 sensitive documents, integrate the existing private object-storage and
 authorised download-grant workflows rather than exposing public storage URLs.
 The schema is introduced by migration `0021_programme_deliverables`.
+
+Programme lifecycle transitions are manager-controlled through
+`POST /api/organizations/{organization_id}/programmes/{programme_id}/status`.
+The allowed path is draft → planned → active → completed → archived;
+draft and planned programmes may also be archived. Invalid or backward
+transitions return HTTP 409.
