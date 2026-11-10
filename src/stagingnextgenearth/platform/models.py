@@ -4,13 +4,13 @@ from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     Date,
     DateTime,
     Float,
     ForeignKey,
     Index,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -58,7 +58,10 @@ class Membership(Base):
             "'youth_volunteer', 'institutional_partner')",
             name="ck_membership_role",
         ),
-        CheckConstraint("status IN ('invited', 'active', 'suspended')", name="ck_membership_status"),
+        CheckConstraint(
+            "status IN ('invited', 'active', 'suspended')",
+            name="ck_membership_status",
+        ),
         Index("ix_memberships_user_status", "user_id", "status"),
     )
 
