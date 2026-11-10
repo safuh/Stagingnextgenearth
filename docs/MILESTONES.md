@@ -85,8 +85,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Study collaborator invitations, acceptance, revocation and role-scoped dataset access.
 - [x] Study proposal submission, independent review decisions and append-only review history.
 - [x] Study milestones with active-member assignments, due dates, lifecycle states and progress tracking.
-- [ ] Versioned research protocols and independent protocol review (implemented; awaiting CI verification).
-- [ ] Append-only ethics committee decisions linked to approved protocol versions (implemented; awaiting CI verification).
+- [x] Versioned research protocols and independent protocol review.
+- [x] Append-only ethics committee decisions linked to approved protocol versions.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
 - [x] Private object-storage adapter, constrained upload intents and authorised download grants.
