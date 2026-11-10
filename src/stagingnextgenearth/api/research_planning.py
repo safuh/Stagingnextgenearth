@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -39,6 +39,7 @@ class ProposalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     study_id: str
+    supersedes_proposal_id: str | None
     title: str
     rationale: str
     objectives: str
@@ -194,6 +195,89 @@ async def create_proposal(
     await session.commit()
     await session.refresh(proposal)
     return ProposalRead.model_validate(proposal)
+
+
+@router.post(
+    "/proposals/{proposal_id}/revisions",
+    response_model=ProposalRead,
+    status_code=201,
+)
+async def create_proposal_revision(
+    organization_id: str,
+    study_id: str,
+    proposal_id: str,
+    body: ProposalCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProposalRead:
+    study = await _study(session, organization_id, study_id)
+    role = await _access(session, study, principal, membership)
+    if role not in _WRITE_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Proposal authoring permission required")
+
+    # Serialize revision allocation for databases that support row-level locks.
+    await session.scalar(
+        select(ResearchStudy.id)
+        .where(ResearchStudy.id == study_id)
+        .with_for_update()
+    )
+    previous = await session.scalar(
+        select(ResearchStudyProposal).where(
+            ResearchStudyProposal.id == proposal_id,
+            ResearchStudyProposal.study_id == study_id,
+        )
+    )
+    if previous is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proposal not found")
+    if previous.created_by != principal.user_id and role != "editor":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Proposal revision permission required")
+    if previous.status != "revisions_required":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Only proposals requiring revisions can be revised",
+        )
+    existing_revision = await session.scalar(
+        select(ResearchStudyProposal.id).where(
+            ResearchStudyProposal.supersedes_proposal_id == previous.id
+        )
+    )
+    if existing_revision is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A revision already exists for this proposal version",
+        )
+
+    title = body.title.strip()
+    rationale = body.rationale.strip()
+    objectives = body.objectives.strip()
+    proposed_methods = body.proposed_methods.strip()
+    if min(map(len, (title, rationale, objectives, proposed_methods))) == 0:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Proposal fields cannot be blank",
+        )
+    latest_version = await session.scalar(
+        select(func.max(ResearchStudyProposal.version_number)).where(
+            ResearchStudyProposal.study_id == study_id
+        )
+    )
+    revision = ResearchStudyProposal(
+        study_id=study_id,
+        supersedes_proposal_id=previous.id,
+        title=title,
+        rationale=rationale,
+        objectives=objectives,
+        proposed_methods=proposed_methods,
+        expected_outcomes=body.expected_outcomes.strip() if body.expected_outcomes else None,
+        status="draft",
+        version_number=(latest_version or previous.version_number) + 1,
+        created_by=principal.user_id,
+    )
+    session.add(revision)
+    await session.commit()
+    await session.refresh(revision)
+    return ProposalRead.model_validate(revision)
 
 
 @router.get("/proposals", response_model=list[ProposalRead])
