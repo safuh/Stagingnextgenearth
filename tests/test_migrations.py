@@ -68,6 +68,13 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "created_by",
             "created_at",
         },
+        "research_dataset_file_access_events": {
+            "id",
+            "dataset_file_id",
+            "user_id",
+            "action",
+            "created_at",
+        },
         "climate_observations": {
             "id",
             "organization_id",
