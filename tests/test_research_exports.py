@@ -171,4 +171,54 @@ def test_dataset_export_manifest_requires_approval_and_is_reproducible(
 
         second = client.get(manifest_url, headers=owner_headers)
         assert second.status_code == 200
+
         assert second.json()["manifest_sha256"] == manifest["manifest_sha256"]
+
+        analysis_url = f"{datasets_url}/{dataset_id}/analysis-runs"
+        analysis = client.post(
+            analysis_url,
+            headers=owner_headers,
+            json={
+                "file_ids": ["clean-file-version"],
+                "analysis_configuration": {"method": "monthly-aggregation", "version": 1},
+                "software_name": "NextGen Analysis",
+                "software_version": "0.1.0",
+                "code_revision": "a" * 40,
+                "parameters": {"minimum_observations": 20},
+                "random_seed": 42,
+                "output_artifacts": [
+                    {
+                        "artifact_id": "rainfall-summary-v1",
+                        "filename": "rainfall-summary.csv",
+                        "media_type": "text/csv",
+                        "size_bytes": 256,
+                        "sha256": "b" * 64,
+                    }
+                ],
+            },
+        )
+        assert analysis.status_code == 201
+        run = analysis.json()
+        assert run["dataset_id"] == dataset_id
+        assert run["input_file_versions"][0]["file_id"] == "clean-file-version"
+        assert run["input_file_versions"][0]["sha256"] == "a" * 64
+        assert len(run["input_manifest_sha256"]) == 64
+        assert run["software_name"] == "NextGen Analysis"
+        assert run["random_seed"] == 42
+        assert run["output_artifacts"][0]["sha256"] == "b" * 64
+        assert "storage_key" not in run["input_file_versions"][0]
+
+        rejected_input = client.post(
+            analysis_url,
+            headers=owner_headers,
+            json={
+                "file_ids": ["quarantined-file-version"],
+                "software_name": "NextGen Analysis",
+                "software_version": "0.1.0",
+            },
+        )
+        assert rejected_input.status_code == 422
+
+        listed_runs = client.get(analysis_url, headers=owner_headers)
+        assert listed_runs.status_code == 200
+        assert [item["id"] for item in listed_runs.json()] == [run["id"]]
