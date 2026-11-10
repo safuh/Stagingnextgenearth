@@ -163,7 +163,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
             learner_login.json()["access_token"], expected_type="access"
         )["sub"]
-        # Passing assessments alone must not allow a learner to self-award completion.
+        # The former caller-supplied percentage endpoint is no longer available.
+        forged_progress = client.post(
+            f"{base}/courses/{course_id}/enrollments/{learner_id}/progress",
+            headers=learner_headers,
+            params={"progress_percent": 100},
+        )
+        assert forged_progress.status_code == 404
+
+        # Completion is recorded against an actual lesson and evaluated assessment.
         premature = client.post(
             f"{base}/lessons/{lesson.json()['id']}/complete",
             headers=learner_headers,
