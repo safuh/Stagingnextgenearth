@@ -462,6 +462,20 @@ def test_research_dataset_registry_requires_submission_and_independent_review(
     assert rejected.status_code == 200
     assert rejected.json()["status"] == "rejected"
 
+    null_required_field = client.patch(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}",
+        headers=researcher_headers,
+        json={"format": None},
+    )
+    assert null_required_field.status_code == 422
+
+    blank_title = client.patch(
+        f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}",
+        headers=researcher_headers,
+        json={"title": "   "},
+    )
+    assert blank_title.status_code == 422
+
     corrected = client.patch(
         f"/api/organizations/{organization_id}/research-datasets/{dataset['id']}",
         headers=researcher_headers,
