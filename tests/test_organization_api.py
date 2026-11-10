@@ -118,3 +118,52 @@ def test_access_token_cannot_be_used_as_refresh_token(client: TestClient) -> Non
         headers={"Authorization": f"Bearer {token}.tampered"},
     )
     assert response.status_code == 401
+
+
+def test_invitation_requires_invited_user_to_accept(client: TestClient) -> None:
+    admin_token = register_and_login(client, "org-admin@example.org")
+    member_token = register_and_login(client, "new-member@example.org")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=admin_headers,
+        json={"name": "Membership Test", "slug": "membership-test"},
+    ).json()
+    organization_id = organization["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=admin_headers,
+        json={"identifier": "new-member@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    membership_id = invitation.json()["id"]
+    assert invitation.json()["status"] == "invited"
+
+    before_acceptance = client.get(
+        f"/api/organizations/{organization_id}/programmes",
+        headers=member_headers,
+    )
+    assert before_acceptance.status_code == 404
+
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/accept",
+        headers=member_headers,
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "active"
+
+    after_acceptance = client.get(
+        f"/api/organizations/{organization_id}/programmes",
+        headers=member_headers,
+    )
+    assert after_acceptance.status_code == 200
+
+    forbidden_admin_invite = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=member_headers,
+        json={"identifier": "org-admin@example.org", "role": "researcher"},
+    )
+    assert forbidden_admin_invite.status_code == 403
