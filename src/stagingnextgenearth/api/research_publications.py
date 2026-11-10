@@ -2,10 +2,13 @@
 
 import re
 from datetime import date, datetime
+from collections.abc import AsyncIterator
+from urllib.parse import quote
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -227,3 +230,203 @@ async def list_publications(
         ResearchPublication.study_id == study_id
     ).order_by(ResearchPublication.published_on.desc(), ResearchPublication.created_at.desc()))
     return [PublicationRead.model_validate(item) for item in result.all()]
+
+
+_OPENALEX_API = "https://api.openalex.org/works/"
+_OPENALEX_RESPONSE_LIMIT = 1_000_000
+
+
+class PublicationMetadataPreview(BaseModel):
+    """Normalized, unpersisted metadata returned by OpenAlex."""
+
+    title: str
+    authors: list[str]
+    author_orcids: list[str]
+    publication_type: Literal[
+        "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
+    ]
+    journal_or_venue: str | None = None
+    publisher: str | None = None
+    published_on: date | None = None
+    doi: str | None = None
+    openalex_id: str
+    url: str | None = None
+    abstract: str | None = None
+    source: Literal["OpenAlex"] = "OpenAlex"
+
+
+async def get_openalex_client() -> AsyncIterator[httpx.AsyncClient]:
+    """Provide a bounded-timeout client without following external redirects."""
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(5.0, connect=2.0),
+        follow_redirects=False,
+        trust_env=False,
+        headers={"User-Agent": "NextGenForEarth/0.1 (publication metadata lookup)"},
+    ) as client:
+        yield client
+
+
+def _abstract_from_inverted_index(value: object) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    words: dict[int, str] = {}
+    for token, positions in value.items():
+        if isinstance(token, str) and isinstance(positions, list):
+            for position in positions:
+                if isinstance(position, int) and 0 <= position < 100_000:
+                    words[position] = token
+    if not words:
+        return None
+    return " ".join(words[index] for index in sorted(words))
+
+
+def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
+    title = record.get("title")
+    identifier = record.get("id")
+    if not isinstance(title, str) or not title.strip() or not isinstance(identifier, str):
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "OpenAlex returned incomplete metadata")
+
+    authors: list[str] = []
+    orcids: list[str] = []
+    authorships = record.get("authorships")
+    if isinstance(authorships, list):
+        for authorship in authorships[:100]:
+            if not isinstance(authorship, dict):
+                continue
+            author = authorship.get("author")
+            if not isinstance(author, dict):
+                continue
+            name = author.get("display_name")
+            if isinstance(name, str) and name.strip():
+                authors.append(name.strip())
+                orcid = author.get("orcid")
+                if isinstance(orcid, str) and orcid.startswith("https://orcid.org/"):
+                    orcid_value = orcid.removeprefix("https://orcid.org/")
+                    if _ORCID_PATTERN.fullmatch(orcid_value):
+                        orcids.append(orcid_value)
+
+    primary_location = record.get("primary_location")
+    source: dict[str, object] = {}
+    if isinstance(primary_location, dict) and isinstance(primary_location.get("source"), dict):
+        source = primary_location["source"]
+
+    doi_value = record.get("doi")
+    doi = doi_value.removeprefix("https://doi.org/").lower() if isinstance(doi_value, str) else None
+    work_type = record.get("type")
+    type_map = {
+        "article": "article",
+        "book": "book",
+        "book-chapter": "chapter",
+        "proceedings-article": "conference_paper",
+        "report": "report",
+        "preprint": "preprint",
+    }
+    publication_type = type_map.get(str(work_type), "other")
+    published_value = record.get("publication_date")
+    published_on = None
+    if isinstance(published_value, str):
+        try:
+            published_on = date.fromisoformat(published_value)
+        except ValueError:
+            published_on = None
+    landing_page = record.get("landing_page_url")
+    if not isinstance(landing_page, str):
+        landing_page = None
+    venue = source.get("display_name")
+    publisher = source.get("host_organization_name")
+    return PublicationMetadataPreview(
+        title=title.strip()[:500],
+        authors=authors,
+        author_orcids=list(dict.fromkeys(orcids)),
+        publication_type=publication_type,
+        journal_or_venue=venue[:300] if isinstance(venue, str) else None,
+        publisher=publisher[:240] if isinstance(publisher, str) else None,
+        published_on=published_on,
+        doi=doi if isinstance(doi, str) and _DOI_PATTERN.fullmatch(doi) else None,
+        openalex_id=identifier.removeprefix("https://openalex.org/"),
+        url=landing_page,
+        abstract=_abstract_from_inverted_index(record.get("abstract_inverted_index")),
+    )
+
+
+async def _read_openalex_response(
+    client: httpx.AsyncClient, identifier: str
+) -> dict[str, object]:
+    url = _OPENALEX_API + quote(identifier, safe="/:")
+    try:
+        async with client.stream("GET", url) as response:
+            if response.status_code == status.HTTP_404_NOT_FOUND:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "No matching OpenAlex work found")
+            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex rate limit reached")
+            if response.status_code != status.HTTP_200_OK:
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex metadata service is unavailable"
+                )
+            declared_length = response.headers.get("content-length")
+            if declared_length:
+                try:
+                    if int(declared_length) > _OPENALEX_RESPONSE_LIMIT:
+                        raise HTTPException(
+                            status.HTTP_502_BAD_GATEWAY, "OpenAlex response exceeds size limit"
+                        )
+                except ValueError:
+                    pass
+            payload = bytearray()
+            async for chunk in response.aiter_bytes():
+                payload.extend(chunk)
+                if len(payload) > _OPENALEX_RESPONSE_LIMIT:
+                    raise HTTPException(
+                        status.HTTP_502_BAD_GATEWAY, "OpenAlex response exceeds size limit"
+                    )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex metadata request timed out"
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex metadata request failed"
+        ) from exc
+    try:
+        result = httpx.Response(200, content=bytes(payload)).json()
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "OpenAlex returned invalid JSON") from exc
+    if not isinstance(result, dict):
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "OpenAlex returned an invalid record")
+    return result
+
+
+@router.get("/metadata/lookup", response_model=PublicationMetadataPreview)
+async def lookup_publication_metadata(
+    organization_id: str,
+    study_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[httpx.AsyncClient, Depends(get_openalex_client)],
+    doi: str | None = Query(default=None, min_length=5, max_length=255),
+    openalex_id: str | None = Query(default=None, min_length=2, max_length=32),
+) -> PublicationMetadataPreview:
+    """Preview metadata by DOI or OpenAlex ID; never writes to the registry."""
+    study = await _study(session, organization_id, study_id)
+    await _study_role(session, study, principal, membership)
+    if (doi is None) == (openalex_id is None):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Supply exactly one of doi or openalex_id"
+        )
+    if doi is not None:
+        normalized = doi.strip()
+        for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+            if normalized.lower().startswith(prefix):
+                normalized = normalized[len(prefix):]
+                break
+        if not _DOI_PATTERN.fullmatch(normalized):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid DOI")
+        identifier = "https://doi.org/" + normalized
+    else:
+        normalized = (openalex_id or "").strip().removeprefix("https://openalex.org/")
+        if not _OPENALEX_PATTERN.fullmatch(normalized):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid OpenAlex work ID")
+        identifier = normalized
+    record = await _read_openalex_response(client, identifier)
+    return _openalex_preview(record)
