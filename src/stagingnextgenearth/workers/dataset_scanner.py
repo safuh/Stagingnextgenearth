@@ -86,15 +86,19 @@ async def scan_pending_dataset_files(
     scanned = 0
     rejected = 0
     failed = 0
+    failed_ids: set[str] = set()
     async with session_factory() as session:
         for _ in range(batch_size):
+            conditions = [
+                ResearchDatasetFile.status == "quarantined",
+                ResearchDatasetFile.scan_status == "pending",
+                ResearchDatasetFile.uploaded_at.is_not(None),
+            ]
+            if failed_ids:
+                conditions.append(ResearchDatasetFile.id.not_in(failed_ids))
             record = await session.scalar(
                 select(ResearchDatasetFile)
-                .where(
-                    ResearchDatasetFile.status == "quarantined",
-                    ResearchDatasetFile.scan_status == "pending",
-                    ResearchDatasetFile.uploaded_at.is_not(None),
-                )
+                .where(*conditions)
                 .order_by(ResearchDatasetFile.created_at, ResearchDatasetFile.id)
                 .limit(1)
                 .with_for_update(skip_locked=True)
@@ -124,8 +128,8 @@ async def scan_pending_dataset_files(
                 if not result.is_clean:
                     rejected += 1
             except Exception:
+                failed_ids.add(record.id)
                 await session.rollback()
                 failed += 1
-                break
 
     return DatasetScanBatchResult(scanned=scanned, rejected=rejected, failed=failed)
