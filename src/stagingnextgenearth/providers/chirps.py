@@ -13,6 +13,7 @@ from typing import TypeAlias
 import httpx
 
 from stagingnextgenearth.climate_ingestion import (
+    ClimateBoundingBox,
     ClimateMeasurement,
     ClimatePoint,
     ClimateProviderRequest,
@@ -200,7 +201,7 @@ def _measurements_for_day(
 def _decode_geotiff(
     content: bytes,
     point: ClimatePoint | None,
-    area: object | None,
+    area: ClimateBoundingBox | None,
     max_area_cells: int,
 ) -> list[RasterCell]:
     """Decode a GeoTIFF with rasterio and return selected cell-centre values."""
