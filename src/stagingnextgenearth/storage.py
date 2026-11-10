@@ -4,9 +4,9 @@ import base64
 import hashlib
 import hmac
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from collections.abc import Iterator
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
