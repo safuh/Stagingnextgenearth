@@ -3,7 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1)
     database_max_overflow: int = Field(default=10, ge=0)
     database_pool_pre_ping: bool = True
+    jwt_secret_key: SecretStr | None = None
+    access_token_minutes: int = Field(default=15, ge=1, le=60)
+    refresh_token_days: int = Field(default=14, ge=1, le=90)
     log_level: str = "INFO"
     log_json: bool = False
     cors_origins: list[str] = Field(default_factory=list)
@@ -64,6 +67,8 @@ class Settings(BaseSettings):
             if not self.database_url.startswith("postgresql+asyncpg://"):
                 raise ValueError("production requires a PostgreSQL asyncpg DATABASE_URL")
             self.log_json = True
+            if self.jwt_secret_key is None or len(self.jwt_secret_key.get_secret_value()) < 32:
+                raise ValueError("production requires JWT_SECRET_KEY with at least 32 characters")
         if self.environment is Environment.TEST:
             self.debug = False
         return self
