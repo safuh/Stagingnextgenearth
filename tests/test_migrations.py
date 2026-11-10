@@ -19,25 +19,42 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     command = [sys.executable, "-m", "alembic"]
     subprocess.run([*command, "upgrade", "head"], check=True, env=env)
 
+    expected_columns = {
+        "users": {"id", "identifier", "password_hash", "created_at"},
+        "refresh_tokens": {"token_id", "subject", "expires_at", "revoked"},
+        "organizations": {"id", "name", "slug", "owner_user_id"},
+        "organization_memberships": {"id", "organization_id", "user_id", "role", "status"},
+        "programmes": {"id", "organization_id", "title", "slug", "status"},
+        "projects": {"id", "organization_id", "programme_id", "title", "status"},
+        "research_studies": {"id", "organization_id", "project_id", "title", "status"},
+        "climate_observations": {
+            "id",
+            "organization_id",
+            "study_id",
+            "observed_at",
+            "variable",
+            "value",
+            "unit",
+            "latitude",
+            "longitude",
+            "source",
+            "quality_status",
+        },
+    }
+
     engine = create_async_engine(url)
     try:
         async with engine.connect() as connection:
-            result = await connection.execute(
-                text(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = 'users'"
+            for table_name, required in expected_columns.items():
+                result = await connection.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table_name"
+                    ),
+                    {"table_name": table_name},
                 )
-            )
-            user_columns = {row[0] for row in result}
-            result = await connection.execute(
-                text(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = 'refresh_tokens'"
-                )
-            )
-            refresh_token_columns = {row[0] for row in result}
-        assert {"id", "identifier", "password_hash", "created_at"} <= user_columns
-        assert {"token_id", "subject", "expires_at", "revoked"} <= refresh_token_columns
+                actual = {row[0] for row in result}
+                assert required <= actual, f"{table_name} is missing {required - actual}"
     finally:
         await engine.dispose()
 
