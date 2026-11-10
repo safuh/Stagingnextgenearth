@@ -10,13 +10,13 @@ from .models import (
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
     ResearchEthicsReviewEvent,
-    ResearchProtocolReviewEvent,
-    ResearchProtocolVersion,
     ResearchMilestone,
     ResearchProposalReviewEvent,
-    ResearchStudyProposal,
+    ResearchProtocolReviewEvent,
+    ResearchProtocolVersion,
     ResearchStudy,
     ResearchStudyCollaborator,
+    ResearchStudyProposal,
 )
 
 __all__ = [
@@ -29,11 +29,11 @@ __all__ = [
     "ResearchDatasetFile",
     "ResearchDatasetFileAccessEvent",
     "ResearchEthicsReviewEvent",
-    "ResearchProtocolReviewEvent",
-    "ResearchProtocolVersion",
     "ResearchMilestone",
     "ResearchProposalReviewEvent",
-    "ResearchStudyProposal",
+    "ResearchProtocolReviewEvent",
+    "ResearchProtocolVersion",
     "ResearchStudy",
     "ResearchStudyCollaborator",
+    "ResearchStudyProposal",
 ]
