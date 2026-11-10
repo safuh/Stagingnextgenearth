@@ -448,3 +448,42 @@ class ResearchDatasetFileAccessEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ResearchStudyCollaborator(Base):
+    """An invited or active organisation member on one research study."""
+
+    __tablename__ = "research_study_collaborators"
+    __table_args__ = (
+        UniqueConstraint("study_id", "user_id", name="uq_study_collaborator_user"),
+        CheckConstraint(
+            "role IN ('editor', 'contributor', 'viewer')",
+            name="ck_study_collaborator_role",
+        ),
+        CheckConstraint(
+            "status IN ('invited', 'active', 'revoked')",
+            name="ck_study_collaborator_status",
+        ),
+        Index("ix_study_collaborators_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="invited")
+    invited_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
