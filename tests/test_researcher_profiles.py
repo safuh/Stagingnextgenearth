@@ -108,6 +108,13 @@ def test_researcher_profile_requires_authentication_and_valid_fields(
     )
     assert invalid_orcid.status_code == 422
 
+    invalid_checksum = client.put(
+        "/api/me/researcher-profile",
+        headers=headers,
+        json={"display_name": "Researcher", "orcid": "0000-0002-1825-0098"},
+    )
+    assert invalid_checksum.status_code == 422
+
     duplicate_interests = client.put(
         "/api/me/researcher-profile",
         headers=headers,
@@ -144,3 +151,72 @@ def test_orcid_cannot_be_claimed_by_two_profiles(client: TestClient) -> None:
         json={"display_name": "Second Researcher", "orcid": orcid},
     )
     assert duplicate.status_code == 409
+
+
+
+def test_organisation_directory_only_returns_explicitly_shared_profiles(
+    client: TestClient,
+) -> None:
+    owner_headers = _register(client, "directory-owner@example.org")
+    member_headers = _register(client, "directory-member@example.org")
+    outsider_headers = _register(client, "directory-outsider@example.org")
+
+    organization = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Directory Research Lab", "slug": "directory-research-lab"},
+    )
+    assert organization.status_code == 201
+    organization_id = organization.json()["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "directory-member@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/"
+        f"{invitation.json()['id']}/accept",
+        headers=member_headers,
+    )
+    assert accepted.status_code == 200
+
+    shared = client.put(
+        "/api/me/researcher-profile",
+        headers=member_headers,
+        json={
+            "display_name": "Shared Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "visibility": "organization",
+        },
+    )
+    assert shared.status_code == 200
+    assert "user_id" not in shared.json()
+
+    private = client.put(
+        "/api/me/researcher-profile",
+        headers=owner_headers,
+        json={"display_name": "Private Owner Profile"},
+    )
+    assert private.status_code == 200
+    assert private.json()["visibility"] == "private"
+
+    directory_url = (
+        f"/api/organizations/{organization_id}/researcher-profiles"
+    )
+    member_directory = client.get(directory_url, headers=member_headers)
+    assert member_directory.status_code == 200
+    assert [item["display_name"] for item in member_directory.json()] == [
+        "Shared Researcher"
+    ]
+    assert "user_id" not in member_directory.json()[0]
+
+    owner_directory = client.get(directory_url, headers=owner_headers)
+    assert owner_directory.status_code == 200
+    assert [item["display_name"] for item in owner_directory.json()] == [
+        "Shared Researcher"
+    ]
+
+    outsider_directory = client.get(directory_url, headers=outsider_headers)
+    assert outsider_directory.status_code == 404
