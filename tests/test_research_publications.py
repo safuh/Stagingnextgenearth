@@ -216,9 +216,7 @@ def test_publication_access_is_limited_to_active_study_collaborators(
     assert client.get(base, headers=viewer_headers).status_code == 200
     assert client.post(base, headers=viewer_headers, json=payload).status_code == 403
 
-    assert client.get(base, headers=member_headers).status_code == 403
-    assert client.post(base, headers=member_headers, json=payload).status_code == 403
-    assert client.get(base, headers=outsider_headers).status_code == 403
+    # Study resources are concealed from users without an active study role.\n    assert client.get(base, headers=member_headers).status_code == 404\n    assert client.post(base, headers=member_headers, json=payload).status_code == 404\n    assert client.get(base, headers=outsider_headers).status_code == 404
 
     created = client.post(base, headers=lead_headers, json=payload)
     assert created.status_code == 201
