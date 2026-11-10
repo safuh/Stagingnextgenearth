@@ -49,9 +49,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/safuh/FastApiBackbone"
-Repository = "https://github.com/safuh/FastApiBackbone"
-Issues = "https://github.com/safuh/FastApiBackbone/issues"
+Homepage = "https://nextgenforearth.org/"
+Repository = "https://github.com/safuh/Stagingnextgenearth"
+Issues = "https://github.com/safuh/Stagingnextgenearth/issues"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
