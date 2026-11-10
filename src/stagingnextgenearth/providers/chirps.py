@@ -209,7 +209,7 @@ def _decode_geotiff(
         import numpy as np
         import rasterio
         from rasterio.io import MemoryFile
-        from rasterio.windows import from_bounds
+        from rasterio.windows import Window, from_bounds
     except ImportError as exc:
         raise RuntimeError(
             "CHIRPS GeoTIFF decoding requires rasterio and numpy; install "
@@ -240,9 +240,7 @@ def _decode_geotiff(
             )
             window = window.round_offsets().round_lengths()
             try:
-                window = window.intersection(
-                    ((0, 0), (dataset.height, dataset.width))
-                )
+                window = window.intersection(Window(0, 0, dataset.width, dataset.height))
             except rasterio.errors.WindowError as exc:
                 raise ValueError(
                     "requested bounding box does not intersect CHIRPS coverage"
