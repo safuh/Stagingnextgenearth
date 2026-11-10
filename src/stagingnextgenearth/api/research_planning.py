@@ -253,7 +253,10 @@ async def review_proposal(
     if membership.role not in _REVIEW_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Independent reviewer role required")
     if proposal.created_by == principal.user_id or study.lead_researcher_id == principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Proposal authors and study leads cannot review")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Proposal authors and study leads cannot review",
+        )
     if proposal.status != "submitted":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only submitted proposals can be reviewed")
     event = ResearchProposalReviewEvent(
@@ -368,7 +371,11 @@ async def update_milestone(
     if "assigned_to" in changes:
         await _validate_assignee(session, organization_id, changes["assigned_to"])
     for key, value in changes.items():
-        setattr(milestone, key, value.strip() if key in {"title", "description"} and value else value)
+        setattr(
+            milestone,
+            key,
+            value.strip() if key in {"title", "description"} and value else value,
+        )
     if milestone.status == "completed":
         milestone.progress_percent = 100
     elif milestone.progress_percent == 100 and milestone.status != "completed":
