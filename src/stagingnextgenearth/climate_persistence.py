@@ -24,12 +24,13 @@ async def persist_provider_measurements(
     request: ClimateProviderRequest,
     measurements: AsyncIterator[ClimateMeasurement],
 ) -> ClimateIngestionRun:
-    """Persist one provider stream idempotently; new records remain pending review.
+    """Persist one provider stream atomically; new records remain pending review.
 
-    The caller owns the transaction and must commit the returned run. Provider
-    identity is unique per organisation, so replaying a later run cannot create
-    duplicate observations. The database constraint is the final concurrency
-    guard; callers should retry a transaction after a concurrent uniqueness race.
+    The caller owns the outer transaction and must commit the returned run. A
+    savepoint keeps partial observations out of the database if the provider
+    stream fails, while allowing the caller to commit the failed-run audit row.
+    Provider identity is unique per organisation; the database constraint is
+    the final concurrency guard, so callers should retry uniqueness races.
     """
     run = ClimateIngestionRun(
         organization_id=organization_id,
@@ -45,50 +46,62 @@ async def persist_provider_measurements(
     session.add(run)
     await session.flush()
 
+    received = 0
+    inserted = 0
+    skipped = 0
     try:
-        async for measurement in measurements:
-            run.records_received += 1
-            existing_id = await session.scalar(
-                select(ClimateObservation.id).where(
-                    ClimateObservation.organization_id == organization_id,
-                    ClimateObservation.provider_id == provider_id,
-                    ClimateObservation.provider_record_id == measurement.provider_record_id,
+        async with session.begin_nested():
+            async for measurement in measurements:
+                received += 1
+                existing_id = await session.scalar(
+                    select(ClimateObservation.id).where(
+                        ClimateObservation.organization_id == organization_id,
+                        ClimateObservation.provider_id == provider_id,
+                        ClimateObservation.provider_record_id == measurement.provider_record_id,
+                    )
                 )
-            )
-            if existing_id is not None:
-                run.records_skipped += 1
-                continue
+                if existing_id is not None:
+                    skipped += 1
+                    continue
 
-            session.add(
-                ClimateObservation(
-                    organization_id=organization_id,
-                    observed_at=measurement.observed_at,
-                    variable=measurement.variable,
-                    value=measurement.value,
-                    unit=measurement.unit,
-                    latitude=measurement.latitude,
-                    longitude=measurement.longitude,
-                    source=source_name,
-                    ingestion_run_id=run.id,
-                    provider_id=provider_id,
-                    provider_record_id=measurement.provider_record_id,
-                    quality_status="pending",
-                    metadata_json={
-                        **measurement.metadata,
-                        "provider_licence": licence,
-                    },
-                    created_by=actor_user_id,
+                session.add(
+                    ClimateObservation(
+                        organization_id=organization_id,
+                        observed_at=measurement.observed_at,
+                        variable=measurement.variable,
+                        value=measurement.value,
+                        unit=measurement.unit,
+                        latitude=measurement.latitude,
+                        longitude=measurement.longitude,
+                        source=source_name,
+                        ingestion_run_id=run.id,
+                        provider_id=provider_id,
+                        provider_record_id=measurement.provider_record_id,
+                        quality_status="pending",
+                        metadata_json={
+                            **measurement.metadata,
+                            "provider_licence": licence,
+                        },
+                        created_by=actor_user_id,
+                    )
                 )
-            )
-            run.records_inserted += 1
+                inserted += 1
 
-        run.status = "completed"
-        run.finished_at = datetime.now(UTC)
-        await session.flush()
-        return run
+            run.records_received = received
+            run.records_inserted = inserted
+            run.records_skipped = skipped
+            run.status = "completed"
+            run.finished_at = datetime.now(UTC)
+            await session.flush()
     except Exception as exc:
+        # The savepoint has rolled back all observations from this stream.
+        run.records_received = received
+        run.records_inserted = 0
+        run.records_skipped = skipped
         run.status = "failed"
         run.error_summary = f"{type(exc).__name__}: climate provider stream failed"[:2000]
         run.finished_at = datetime.now(UTC)
         await session.flush()
         raise
+
+    return run
