@@ -46,6 +46,14 @@ class PublicationCreate(BaseModel):
     url: str | None = Field(default=None, max_length=2000)
     abstract: str | None = Field(default=None, max_length=20000)
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Publication title cannot be blank")
+        return cleaned
+
     @field_validator("authors")
     @classmethod
     def validate_authors(cls, values: list[str]) -> list[str]:
@@ -60,6 +68,17 @@ class PublicationCreate(BaseModel):
         cleaned = [value.strip().removeprefix("https://orcid.org/") for value in values]
         if any(not _ORCID_PATTERN.fullmatch(value) for value in cleaned):
             raise ValueError("ORCID identifiers must use the 0000-0000-0000-0000 format")
+        for value in cleaned:
+            digits = value.replace("-", "")
+            total = 0
+            for digit in digits[:15]:
+                total = (total + int(digit)) * 2
+            remainder = (12 - (total % 11)) % 11
+            expected = "X" if remainder == 10 else str(remainder)
+            if digits[-1] != expected:
+                raise ValueError("ORCID checksum is invalid")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("Author ORCID identifiers must be unique")
         return cleaned
 
     @field_validator("doi")
@@ -90,10 +109,14 @@ class PublicationCreate(BaseModel):
     @classmethod
     def validate_url(cls, value: str | None) -> str | None:
         if value is not None:
-            parsed = urlparse(value)
-            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            cleaned = value.strip()
+            parsed = urlparse(cleaned)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
                 raise ValueError("URL must be an absolute HTTP or HTTPS URL")
-        return value
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("URL cannot contain embedded credentials")
+            return cleaned
+        return None
 
 
 class PublicationRead(BaseModel):
@@ -174,7 +197,13 @@ async def create_publication(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        if body.doi is not None:
+        original_error = exc.orig
+        constraint_name = getattr(getattr(original_error, "diag", None), "constraint_name", None)
+        sqlite_duplicate = (
+            "UNIQUE constraint failed: research_publications.study_id, research_publications.doi"
+            in str(original_error)
+        )
+        if constraint_name == "uq_research_publication_study_doi" or sqlite_duplicate:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 "A publication with this DOI is already registered for the study",
