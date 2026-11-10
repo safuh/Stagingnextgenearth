@@ -186,6 +186,97 @@ class ResearchStudy(Base):
     )
 
 
+class ResearchProtocolVersion(Base):
+    """Immutable-by-workflow version of a study's research protocol."""
+
+    __tablename__ = "research_protocol_versions"
+    __table_args__ = (
+        UniqueConstraint("study_id", "version_number", name="uq_protocol_study_version"),
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'revisions_required', 'rejected')",
+            name="ck_research_protocol_status",
+        ),
+        CheckConstraint("version_number >= 1", name="ck_protocol_version_positive"),
+        Index("ix_research_protocol_versions_study_status", "study_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    objectives: Mapped[str] = mapped_column(Text, nullable=False)
+    methodology: Mapped[str] = mapped_column(Text, nullable=False)
+    sampling_and_participants: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_management: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_and_safeguarding: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchProtocolReviewEvent(Base):
+    """Append-only review history for submitted protocol versions."""
+
+    __tablename__ = "research_protocol_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected')",
+            name="ck_protocol_review_decision",
+        ),
+        Index("ix_protocol_review_events_protocol_time", "protocol_version_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    protocol_version_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_protocol_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchEthicsReviewEvent(Base):
+    """Append-only ethics committee decision history for a research study."""
+
+    __tablename__ = "research_ethics_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected', 'exempt')",
+            name="ck_ethics_review_decision",
+        ),
+        Index("ix_ethics_review_events_study_time", "study_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    protocol_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_protocol_versions.id", ondelete="RESTRICT"), nullable=True
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ClimateIngestionRun(Base):
     """Auditable execution record for one provider data retrieval."""
 
