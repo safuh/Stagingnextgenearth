@@ -47,10 +47,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Alembic migration for the initial product domain.
 - [x] Model persistence test.
 - [x] Run lint, type checks and full tests across Python 3.11, 3.12 and 3.13.
-- [ ] Verify migration upgrade/downgrade against PostgreSQL.
-- [ ] Review tenant-boundary and role-policy design before exposing endpoints.
-- [ ] Verify migration upgrade/downgrade against PostgreSQL.
 - [x] Review tenant-boundary and role-policy design before exposing endpoints.
+- [ ] Verify migration upgrade/downgrade against PostgreSQL.
 
 ## M2 — Identity, access control and organisation workflows
 
@@ -59,7 +57,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Organisation-scoped membership checks and initial programme role enforcement.
 - [x] Organisation creation with atomic creator-to-admin membership.
 - [x] Membership-scoped organisation, programme and project discovery.
-- [ ] Membership invitation/acceptance and role-management workflows.
+- [x] Existing-account membership invitation and invitee-only acceptance.
+- [ ] Membership role changes, suspension and ownership transfer.
 - [ ] Account lifecycle, audit events and privileged-action logging.
 - [ ] Rate limiting and abuse protection at the application or edge.
 - [ ] Security tests for cross-organisation access and role escalation.
