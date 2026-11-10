@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.api.research_publications import get_openalex_client
@@ -520,3 +521,35 @@ def test_publication_metadata_refresh_is_selective_and_audited(
     latest = sources.json()[0]
     assert latest["imported_fields"] == ["title"]
     assert latest["metadata_snapshot"]["title"] == "Updated forest restoration evidence"
+
+    async def edit_publication_locally() -> None:
+        engine = create_async_engine(client.app.state.settings.database_url)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("UPDATE research_publications SET title = :title WHERE id = :id"),
+                    {"title": "Researcher-edited title", "id": publication["id"]},
+                )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(edit_publication_locally())
+    provider_record["title"] = "A newer provider title"
+    local_edit_preview = client.get(
+        f"{base}/{publication['id']}/metadata/refresh-preview",
+        headers=headers,
+    )
+    assert local_edit_preview.status_code == 200
+    local_title = next(
+        change
+        for change in local_edit_preview.json()["changes"]
+        if change["field"] == "title"
+    )
+    assert local_title["safe_to_apply"] is False
+
+    rejected = client.post(
+        f"{base}/{publication['id']}/metadata/refresh",
+        headers=headers,
+        json={"fields": ["title"]},
+    )
+    assert rejected.status_code == 409
