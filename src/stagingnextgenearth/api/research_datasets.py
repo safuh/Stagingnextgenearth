@@ -136,9 +136,9 @@ async def list_research_datasets(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    dataset_status: Literal["draft", "submitted", "approved", "rejected", "archived"] | None = Query(
-        default=None, alias="status"
-    ),
+    dataset_status: Literal[
+        "draft", "submitted", "approved", "rejected", "archived"
+    ] | None = Query(default=None, alias="status"),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[ResearchDatasetRead]:
     """List registry metadata; restricted entries are visible only to owner/admin."""
@@ -211,9 +211,15 @@ async def review_research_dataset(
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
     if dataset.access_classification == "restricted" and membership.role != "admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Restricted datasets require an administrator reviewer")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Restricted datasets require an administrator reviewer",
+        )
     if dataset.owner_user_id == principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owners cannot review their own data")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Dataset owners cannot review their own data",
+        )
     if dataset.status != "submitted":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only submitted datasets can be reviewed")
     dataset.status = body.decision
