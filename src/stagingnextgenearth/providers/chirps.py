@@ -231,7 +231,13 @@ def _decode_geotiff(
                 if values.size == 0 or np.ma.is_masked(values[0, 0]):
                     return []
                 longitude, latitude = dataset.xy(row, column)
-                return [(round(float(latitude), 5), round(float(longitude), 5), float(values[0, 0]))]
+                return [
+                    (
+                        round(float(latitude), 5),
+                        round(float(longitude), 5),
+                        float(values[0, 0]),
+                    )
+                ]
 
             if area is None:
                 raise ValueError("a point or bounding box is required for raster extraction")
@@ -269,5 +275,11 @@ def _decode_geotiff(
                         and area.west <= longitude <= area.east
                     ):
                         continue
-                    cells.append((round(float(latitude), 5), round(float(longitude), 5), float(raw_value)))
+                    cells.append(
+                        (
+                            round(float(latitude), 5),
+                            round(float(longitude), 5),
+                            float(raw_value),
+                        )
+                    )
             return cells
