@@ -22,6 +22,10 @@ from stagingnextgenearth.platform.models import (
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
+PublicationType = Literal[
+    "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
+]
+
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}/publications",
     tags=["research-publications"],
@@ -37,9 +41,7 @@ class PublicationCreate(BaseModel):
     title: str = Field(min_length=3, max_length=500)
     authors: list[str] = Field(min_length=1, max_length=100)
     author_orcids: list[str] = Field(default_factory=list, max_length=100)
-    publication_type: Literal[
-        "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
-    ]
+    publication_type: PublicationType
     journal_or_venue: str | None = Field(default=None, max_length=300)
     publisher: str | None = Field(default=None, max_length=240)
     published_on: date | None = None
@@ -316,9 +318,6 @@ def _openalex_preview(record: dict[str, object]) -> PublicationMetadataPreview:
     doi_value = record.get("doi")
     doi = doi_value.removeprefix("https://doi.org/").lower() if isinstance(doi_value, str) else None
     work_type = record.get("type")
-    PublicationType = Literal[
-        "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
-    ]
     type_map: dict[str, PublicationType] = {
         "article": "article",
         "book": "book",
