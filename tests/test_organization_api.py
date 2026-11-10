@@ -1,5 +1,6 @@
 """Integration tests for authenticated organisation and tenant-scoped APIs."""
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -20,8 +21,6 @@ def client(tmp_path: Path):
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
 
-    import asyncio
-
     asyncio.run(prepare_database())
     settings = Settings(
         environment=Environment.TEST,
@@ -30,8 +29,6 @@ def client(tmp_path: Path):
     )
     with TestClient(create_app(settings)) as test_client:
         yield test_client
-    import asyncio
-
     asyncio.run(engine.dispose())
 
 
