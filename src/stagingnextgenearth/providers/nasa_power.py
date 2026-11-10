@@ -60,7 +60,10 @@ class NASAPowerProvider:
             raise ValueError("at least one NASA POWER parameter is required")
         if len(self.parameter_variables) > 20:
             raise ValueError("NASA POWER point requests support at most 20 parameters")
-        if any(not key.strip() or not value.strip() for key, value in self.parameter_variables.items()):
+        if any(
+            not key.strip() or not value.strip()
+            for key, value in self.parameter_variables.items()
+        ):
             raise ValueError("parameter identifiers and variable names must not be blank")
         if not community.strip():
             raise ValueError("NASA POWER community must not be blank")
