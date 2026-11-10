@@ -76,7 +76,9 @@ async def create_climate_observation(
 ) -> ClimateObservationRead:
     """Persist a measurement as pending; only a separate review can verify it."""
     if membership.role not in _WRITE_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate observation submission is not permitted")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Climate observation submission is not permitted"
+        )
     if body.project_id is not None:
         project = await session.scalar(
             select(Project.id).where(
@@ -96,7 +98,9 @@ async def create_climate_observation(
         if study is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
         if body.project_id is not None and study.project_id not in {None, body.project_id}:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Study and project do not match")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Study and project do not match"
+            )
     observation = ClimateObservation(
         organization_id=organization_id,
         study_id=body.study_id,
