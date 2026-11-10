@@ -589,12 +589,18 @@ class ResearchStudyProposal(Base):
             "status IN ('draft', 'submitted', 'approved', 'revisions_required', 'rejected')",
             name="ck_research_proposal_status",
         ),
+        CheckConstraint("version_number >= 1", name="ck_research_proposal_version"),
+        UniqueConstraint("study_id", "version_number", name="uq_research_proposal_study_version"),
+        UniqueConstraint("supersedes_proposal_id", name="uq_research_proposal_supersedes"),
         Index("ix_research_proposals_study_status", "study_id", "status"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     study_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    supersedes_proposal_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_study_proposals.id", ondelete="RESTRICT"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
