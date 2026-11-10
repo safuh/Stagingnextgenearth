@@ -1,14 +1,16 @@
 """Integration tests for reproducible research export manifests."""
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
+from stagingnextgenearth.platform.models import ResearchDatasetFile
 
 
 def _register(client: TestClient, identifier: str) -> dict[str, str]:
@@ -109,6 +111,49 @@ def test_dataset_export_manifest_requires_approval_and_is_reproducible(
         )
         assert reviewed.status_code == 200
 
+        file_engine = create_async_engine(database_url)
+        file_time = datetime.now(UTC)
+
+        async def add_file_versions() -> None:
+            session_factory = async_sessionmaker(file_engine, expire_on_commit=False)
+            async with session_factory() as session:
+                session.add_all(
+                    [
+                        ResearchDatasetFile(
+                            id="clean-file-version",
+                            dataset_id=dataset_id,
+                            version=1,
+                            original_filename="rainfall.csv",
+                            media_type="text/csv",
+                            size_bytes=128,
+                            sha256_hex="a" * 64,
+                            storage_key="private/clean-file",
+                            status="available",
+                            scan_status="clean",
+                            uploaded_at=file_time,
+                            scanned_at=file_time,
+                            created_by=created.json()["owner_user_id"],
+                        ),
+                        ResearchDatasetFile(
+                            id="quarantined-file-version",
+                            dataset_id=dataset_id,
+                            version=2,
+                            original_filename="pending.csv",
+                            media_type="text/csv",
+                            size_bytes=64,
+                            storage_key="private/quarantined-file",
+                            status="quarantined",
+                            scan_status="pending",
+                            uploaded_at=file_time,
+                            created_by=created.json()["owner_user_id"],
+                        ),
+                    ]
+                )
+                await session.commit()
+
+        asyncio.run(add_file_versions())
+        await file_engine.dispose()
+
         first = client.get(manifest_url, headers=owner_headers)
         assert first.status_code == 200
         manifest = first.json()
@@ -117,8 +162,12 @@ def test_dataset_export_manifest_requires_approval_and_is_reproducible(
         assert manifest["dataset"]["id"] == dataset_id
         assert manifest["dataset"]["title"] == "Community rainfall observations"
         assert manifest["dataset"]["data_dictionary"]["rainfall_mm"]["unit"] == "mm"
-        assert manifest["dataset"]["files"] == []
-        assert manifest["dataset"]["excluded_file_versions"] == 0
+        assert [item["file_id"] for item in manifest["dataset"]["files"]] == [
+            "clean-file-version"
+        ]
+        assert manifest["dataset"]["files"][0]["sha256"] == "a" * 64
+        assert manifest["dataset"]["excluded_file_versions"] == 1
+        assert "storage_key" not in manifest["dataset"]["files"][0]
 
         second = client.get(manifest_url, headers=owner_headers)
         assert second.status_code == 200
