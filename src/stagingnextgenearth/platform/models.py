@@ -578,3 +578,106 @@ class ResearchStudyCollaborator(Base):
     )
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ResearchStudyProposal(Base):
+    """Versioned proposal record and its current governance state."""
+
+    __tablename__ = "research_study_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'revisions_required', 'rejected')",
+            name="ck_research_proposal_status",
+        ),
+        Index("ix_research_proposals_study_status", "study_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    objectives: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_methods: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_outcomes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    version_number: Mapped[int] = mapped_column(nullable=False, default=1)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResearchProposalReviewEvent(Base):
+    """Append-only independent decisions for a research proposal."""
+
+    __tablename__ = "research_proposal_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected')",
+            name="ck_proposal_review_decision",
+        ),
+        Index("ix_proposal_review_events_proposal_time", "proposal_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    proposal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_study_proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchMilestone(Base):
+    """Assigned, date-bounded deliverable within a research study."""
+
+    __tablename__ = "research_milestones"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'blocked', 'completed', 'cancelled')",
+            name="ck_research_milestone_status",
+        ),
+        CheckConstraint("progress_percent >= 0 AND progress_percent <= 100",
+                        name="ck_research_milestone_progress"),
+        CheckConstraint(
+            "status != 'completed' OR progress_percent = 100",
+            name="ck_research_milestone_completed_progress",
+        ),
+        Index("ix_research_milestones_study_due", "study_id", "due_date"),
+        Index("ix_research_milestones_assignee_status", "assigned_to", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    progress_percent: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
