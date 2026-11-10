@@ -751,3 +751,44 @@ class ResearchPublication(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+
+class ResearchPublicationMetadataSource(Base):
+    """Append-only provenance for metadata imported from an external provider."""
+
+    __tablename__ = "research_publication_metadata_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "provider = 'openalex'",
+            name="ck_publication_metadata_source_provider",
+        ),
+        Index(
+            "ix_publication_metadata_sources_publication_time",
+            "publication_id",
+            "fetched_at",
+        ),
+        UniqueConstraint(
+            "publication_id",
+            "provider",
+            "provider_work_id",
+            "metadata_sha256",
+            name="uq_publication_metadata_source_snapshot",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    publication_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_publications.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_work_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    metadata_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    imported_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    imported_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
