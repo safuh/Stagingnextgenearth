@@ -174,3 +174,91 @@ def test_invitation_requires_invited_user_to_accept(client: TestClient) -> None:
         json={"identifier": "org-admin@example.org", "role": "researcher"},
     )
     assert forbidden_admin_invite.status_code == 403
+
+
+def test_research_and_climate_records_are_tenant_scoped_and_provenanced(
+    client: TestClient,
+) -> None:
+    researcher_token = register_and_login(client, "researcher@example.org")
+    other_token = register_and_login(client, "outsider@example.org")
+    researcher_headers = {"Authorization": f"Bearer {researcher_token}"}
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=researcher_headers,
+        json={"name": "Climate Lab", "slug": "climate-lab"},
+    ).json()
+    organization_id = organization["id"]
+
+    study_response = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=researcher_headers,
+        json={
+            "title": "Rainfall variability in western Kenya",
+            "study_type": "observational",
+            "ethics_reference": "NACOSTI/TEST/001",
+        },
+    )
+    assert study_response.status_code == 201
+    study = study_response.json()
+    assert study["lead_researcher_id"]
+    assert study["status"] == "concept"
+
+    observation_response = client.post(
+        f"/api/organizations/{organization_id}/climate-observations",
+        headers=researcher_headers,
+        json={
+            "observed_at": "2026-10-10T09:00:00Z",
+            "variable": "precipitation",
+            "value": 18.4,
+            "unit": "mm",
+            "latitude": -0.6773,
+            "longitude": 34.7796,
+            "source": "field-gauge-01",
+            "study_id": study["id"],
+            "metadata_json": {"method": "manual_gauge"},
+        },
+    )
+    assert observation_response.status_code == 201
+    observation = observation_response.json()
+    assert observation["quality_status"] == "pending"
+    assert observation["source"] == "field-gauge-01"
+
+    listed = client.get(
+        f"/api/organizations/{organization_id}/climate-observations?variable=precipitation",
+        headers=researcher_headers,
+    )
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+
+    outsider = client.get(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=other_headers,
+    )
+    assert outsider.status_code == 404
+
+
+def test_climate_observation_rejects_timezone_naive_timestamps(client: TestClient) -> None:
+    token = register_and_login(client, "climate-user@example.org")
+    headers = {"Authorization": f"Bearer {token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "Climate QA", "slug": "climate-qa"},
+    ).json()
+
+    response = client.post(
+        f"/api/organizations/{organization['id']}/climate-observations",
+        headers=headers,
+        json={
+            "observed_at": "2026-10-10T09:00:00",
+            "variable": "precipitation",
+            "value": 18.4,
+            "unit": "mm",
+            "latitude": -0.6773,
+            "longitude": 34.7796,
+            "source": "field-gauge-01",
+        },
+    )
+    assert response.status_code == 422
