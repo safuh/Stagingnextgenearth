@@ -85,7 +85,9 @@ These foundation checks must continue passing as product code is added.
 - [ ] Study proposals, protocols, ethics approvals and milestones.
 - [x] Dataset registry, metadata, data dictionaries and access classifications.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
-- [ ] Controlled file storage, download authorisation and dataset access audit.
+- [ ] Private object-storage adapter, upload intents and authorised download workflow.
+- [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
+- [ ] Malware scanning/quarantine integration and dataset access audit.
 - [ ] Research exports and reproducible analysis hand-off.
 
 ## M5 — Climate and geospatial intelligence
