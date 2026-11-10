@@ -13,6 +13,7 @@ from stagingnextgenearth.platform import (
     Membership,
     Organization,
     Programme,
+    ProgrammeDeliverable,
     Project,
     ResearchStudy,
 )
@@ -56,6 +57,17 @@ async def test_platform_domain_tables_create_and_persist() -> None:
                 created_by=user.id,
             )
             session.add(programme)
+            await session.flush()
+
+            deliverable = ProgrammeDeliverable(
+                organization_id=organization.id,
+                programme_id=programme.id,
+                title="Community climate baseline report",
+                status="planned",
+                assigned_to=user.id,
+                created_by=user.id,
+            )
+            session.add(deliverable)
             await session.flush()
 
             project = Project(
@@ -103,6 +115,15 @@ async def test_platform_domain_tables_create_and_persist() -> None:
             assert await session.scalar(
                 select(Programme).where(Programme.slug == "climate-health-research")
             ) is not None
+            stored_deliverable = await session.scalar(
+                select(ProgrammeDeliverable).where(
+                    ProgrammeDeliverable.id == deliverable.id
+                )
+            )
+            assert stored_deliverable is not None
+            assert stored_deliverable.status == "planned"
+            assert stored_deliverable.assigned_to == user.id
+
             assert await session.scalar(
                 select(ResearchStudy).where(
                     ResearchStudy.title == "Climate variability and community health"
