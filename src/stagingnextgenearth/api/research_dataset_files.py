@@ -21,6 +21,7 @@ from stagingnextgenearth.platform.models import (
 from stagingnextgenearth.storage import ObjectStorage
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .research_collaborators import study_access_role
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
@@ -307,8 +308,6 @@ async def create_dataset_file_download(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DatasetFileDownloadRead:
     """Issue a short-lived URL only for clean files and record the access grant."""
-    if membership.role not in _READ_ROLES:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset file access is not permitted")
     result = await session.execute(
         select(ResearchDatasetFile, ResearchDataset)
         .join(ResearchDataset, ResearchDataset.id == ResearchDatasetFile.dataset_id)
@@ -321,10 +320,18 @@ async def create_dataset_file_download(
     record, dataset = result.one_or_none() or (None, None)
     if record is None or dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _READ_ROLES and study_role not in {
+        "editor", "contributor", "viewer"
+    }:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset file access is not permitted")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
         and membership.role != "admin"
+        and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
     if record.status != "available" or record.scan_status != "clean" or not record.sha256_hex:
@@ -366,18 +373,26 @@ async def list_dataset_files(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[DatasetFileRead]:
     """List file metadata without disclosing storage keys or download locations."""
-    if membership.role not in _WRITE_ROLES | {"institutional_partner"}:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registry access required")
     dataset = await session.scalar(
         select(ResearchDataset).where(
             ResearchDataset.id == dataset_id,
             ResearchDataset.organization_id == organization_id,
         )
     )
-    if dataset is None or (
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    study_role = await study_access_role(
+        session, organization_id, dataset.study_id, principal, membership
+    )
+    if membership.role not in _WRITE_ROLES | {"institutional_partner"} and study_role not in {
+        "editor", "contributor", "viewer"
+    }:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registry access required")
+    if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
         and membership.role != "admin"
+        and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
     result = await session.scalars(
