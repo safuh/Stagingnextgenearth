@@ -842,3 +842,129 @@ def test_dataset_file_scanner_controls_release_and_records_checksum(
     )
     assert denied_download.status_code == 409
     assert len(scanner.scanned) == 2
+
+
+def test_study_collaborator_invitation_acceptance_and_revocation(client: TestClient) -> None:
+    lead_token = register_and_login(client, "study-lead@example.org")
+    collaborator_token = register_and_login(client, "study-collaborator@example.org")
+    outsider_token = register_and_login(client, "study-outsider@example.org")
+    lead_headers = {"Authorization": f"Bearer {lead_token}"}
+    collaborator_headers = {"Authorization": f"Bearer {collaborator_token}"}
+    outsider_headers = {"Authorization": f"Bearer {outsider_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={"name": "Collaborative Research Lab", "slug": "collaborative-research-lab"},
+    ).json()
+    organization_id = organization["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=lead_headers,
+        json={"identifier": "study-collaborator@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    accepted_membership = client.post(
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+        headers=collaborator_headers,
+    )
+    assert accepted_membership.status_code == 200
+
+    study = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=lead_headers,
+        json={"title": "Community rainfall monitoring"},
+    )
+    assert study.status_code == 201
+    study_id = study.json()["id"]
+    base = f"/api/organizations/{organization_id}/research-studies/{study_id}/collaborators"
+
+    invited = client.post(
+        base,
+        headers=lead_headers,
+        json={"identifier": "study-collaborator@example.org", "role": "contributor"},
+    )
+    assert invited.status_code == 201
+    collaborator_id = invited.json()["id"]
+    assert invited.json()["status"] == "invited"
+    assert invited.json()["role"] == "contributor"
+
+    # An organisation member who is not the study lead cannot manage collaborators.
+    forbidden_invite = client.post(
+        base,
+        headers=collaborator_headers,
+        json={"identifier": "study-lead@example.org", "role": "viewer"},
+    )
+    assert forbidden_invite.status_code == 403
+
+    # Only the account named in the invitation can accept it.
+    wrong_account = client.post(
+        f"{base}/{collaborator_id}/accept",
+        headers=lead_headers,
+    )
+    assert wrong_account.status_code == 404
+
+    accepted = client.post(
+        f"{base}/{collaborator_id}/accept",
+        headers=collaborator_headers,
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "active"
+    assert accepted.json()["accepted_at"]
+
+    visible = client.get(base, headers=collaborator_headers)
+    assert visible.status_code == 200
+    assert len(visible.json()) == 1
+
+    outsider_list = client.get(base, headers=outsider_headers)
+    assert outsider_list.status_code == 404
+
+    revoked = client.delete(
+        f"{base}/{collaborator_id}",
+        headers=lead_headers,
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["status"] == "revoked"
+    assert revoked.json()["revoked_at"]
+
+    revoked_collaborator_list = client.get(base, headers=collaborator_headers)
+    assert revoked_collaborator_list.status_code == 403
+
+
+def test_study_collaborator_requires_active_same_organisation_member(
+    client: TestClient,
+) -> None:
+    lead_token = register_and_login(client, "collab-lead@example.org")
+    outsider_token = register_and_login(client, "collab-outsider@example.org")
+    lead_headers = {"Authorization": f"Bearer {lead_token}"}
+    outsider_headers = {"Authorization": f"Bearer {outsider_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={"name": "Study Access Lab", "slug": "study-access-lab"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=lead_headers,
+        json={"title": "Restricted collaboration"},
+    ).json()
+    base = (
+        f"/api/organizations/{organization['id']}/research-studies/"
+        f"{study['id']}/collaborators"
+    )
+
+    not_member = client.post(
+        base,
+        headers=lead_headers,
+        json={"identifier": "collab-outsider@example.org", "role": "viewer"},
+    )
+    assert not_member.status_code == 404
+
+    cross_tenant = client.get(
+        f"/api/organizations/not-the-organisation/research-studies/"
+        f"{study['id']}/collaborators",
+        headers=outsider_headers,
+    )
+    assert cross_tenant.status_code == 404
