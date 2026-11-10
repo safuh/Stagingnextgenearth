@@ -309,6 +309,8 @@ async def submit_assessment(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
+    if membership.role not in _LEARN:
+        raise HTTPException(403, "Learner access required")
     assessment = await session.scalar(select(LearningAssessment).join(LearningCourse).where(
         LearningAssessment.id == assessment_id,
         LearningCourse.organization_id == organization_id,
@@ -319,6 +321,12 @@ async def submit_assessment(
     enrollment = await _enrollment(session, assessment.course_id, principal.user_id)
     if enrollment.status != "approved":
         raise HTTPException(403, "An approved enrollment is required")
+    if assessment.due_at is not None:
+        due_at = assessment.due_at
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=UTC)
+        if datetime.now(UTC) > due_at:
+            raise HTTPException(409, "The assessment submission deadline has passed")
     attempt = LearningAssessmentAttempt(assessment_id=assessment_id,
                                         learner_id=principal.user_id,
                                         submission=body.submission)
@@ -573,6 +581,125 @@ async def verify_certificate(
     return {"valid": row.status == "valid", "certificate_number": row.certificate_number,
             "course_title": course.title, "issued_at": row.issued_at,
             "status": row.status}
+
+
+@router.get("/courses/{course_id}/curriculum")
+async def course_curriculum(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return ordered modules and lessons without exposing draft content to learners."""
+    course = await _course(session, organization_id, course_id)
+    if course.status != "published" and membership.role not in _MANAGE:
+        raise HTTPException(404, "Course not found")
+    modules = await session.scalars(
+        select(LearningModule).where(LearningModule.course_id == course_id)
+        .order_by(LearningModule.position)
+    )
+    module_rows = modules.all()
+    result: list[dict[str, object]] = []
+    for module in module_rows:
+        lessons = await session.scalars(
+            select(LearningLesson).where(LearningLesson.module_id == module.id)
+            .order_by(LearningLesson.position)
+        )
+        result.append({
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "position": module.position,
+            "lessons": [{
+                "id": lesson.id,
+                "title": lesson.title,
+                "content_type": lesson.content_type,
+                "content": lesson.content,
+                "resource_url": lesson.resource_url,
+                "duration_minutes": lesson.duration_minutes,
+                "position": lesson.position,
+            } for lesson in lessons.all()],
+        })
+    return {"course_id": course.id, "title": course.title, "modules": result}
+
+
+@router.get("/courses/{course_id}/my-progress")
+async def my_course_progress(
+    organization_id: str,
+    course_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return only the authenticated learner's own completion and assessment results."""
+    if membership.role not in _LEARN:
+        raise HTTPException(403, "Learner access required")
+    course = await _course(session, organization_id, course_id)
+    if course.status != "published":
+        raise HTTPException(404, "Course not found")
+    enrollment = await _enrollment(session, course_id, principal.user_id)
+    completed = await session.scalars(
+        select(LearningLessonCompletion.lesson_id).where(
+            LearningLessonCompletion.enrollment_id == enrollment.id
+        )
+    )
+    attempts = await session.execute(
+        select(
+            LearningAssessmentAttempt.assessment_id,
+            LearningAssessmentAttempt.score,
+            LearningAssessmentAttempt.feedback,
+            LearningAssessmentAttempt.evaluated_at,
+        )
+        .join(LearningAssessment)
+        .where(
+            LearningAssessment.course_id == course_id,
+            LearningAssessmentAttempt.learner_id == principal.user_id,
+        )
+        .order_by(LearningAssessmentAttempt.submitted_at.desc())
+        .limit(200)
+    )
+    return {
+        "course_id": course_id,
+        "enrollment_status": enrollment.status,
+        "progress_percent": enrollment.progress_percent,
+        "completed_lesson_ids": list(completed.all()),
+        "assessments": [{
+            "assessment_id": row.assessment_id,
+            "score": row.score,
+            "feedback": row.feedback,
+            "evaluated_at": row.evaluated_at,
+        } for row in attempts],
+    }
+
+
+@router.get("/courses/{course_id}/resources")
+async def list_learning_resources(
+    organization_id: str,
+    course_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List course resources while never returning internal storage references."""
+    course = await _course(session, organization_id, course_id)
+    if course.status != "published" and membership.role not in _MANAGE:
+        raise HTTPException(404, "Course not found")
+    if membership.role not in _MANAGE:
+        enrollment = await _enrollment(session, course_id, principal.user_id)
+        if enrollment.status not in {"approved", "completed"}:
+            raise HTTPException(403, "An approved enrollment is required")
+    resources = await session.scalars(
+        select(LearningResource).where(LearningResource.course_id == course_id)
+        .order_by(LearningResource.title).limit(200)
+    )
+    return [{
+        "id": item.id,
+        "lesson_id": item.lesson_id,
+        "title": item.title,
+        "resource_type": item.resource_type,
+        "description": item.description,
+        "resource_url": item.resource_url,
+    } for item in resources.all()]
 
 
 @router.get("/courses/{course_id}/progress")
