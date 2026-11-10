@@ -531,7 +531,6 @@ async def import_publication_metadata(
         preview.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
     ).encode()
     provenance = ResearchPublicationMetadataSource(
-        publication_id=publication.id,
         provider="openalex",
         provider_work_id=preview.openalex_id,
         source_url=f"https://openalex.org/{preview.openalex_id}",
@@ -551,7 +550,10 @@ async def import_publication_metadata(
         ],
         imported_by=principal.user_id,
     )
-    session.add_all([publication, provenance])
+    session.add(publication)
+    await session.flush()
+    provenance.publication_id = publication.id
+    session.add(provenance)
     try:
         await session.commit()
     except IntegrityError as exc:
