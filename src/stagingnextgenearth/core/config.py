@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         case_sensitive=False,
         extra="ignore",
         validate_default=True,
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1)
     database_max_overflow: int = Field(default=10, ge=0)
     database_pool_pre_ping: bool = True
-    jwt_secret_key: SecretStr | None = None
+    jwt_secret_key: SecretStr | None = Field(default=None, min_length=32)
     access_token_minutes: int = Field(default=15, ge=1, le=60)
     refresh_token_days: int = Field(default=14, ge=1, le=90)
     log_level: str = "INFO"
