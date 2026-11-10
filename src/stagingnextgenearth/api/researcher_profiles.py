@@ -1,6 +1,7 @@
 """Authenticated self-service researcher profile endpoints."""
 
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -57,13 +58,31 @@ class ResearcherProfileUpsert(BaseModel):
             raise ValueError("research interests must be unique")
         return cleaned
 
+    @field_validator("orcid")
+    @classmethod
+    def validate_orcid_checksum(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        digits = value.replace("-", "")
+        total = 0
+        for digit in digits[:15]:
+            total = (total + int(digit)) * 2
+        remainder = (12 - (total % 11)) % 11
+        expected = "X" if remainder == 10 else str(remainder)
+        if digits[-1] != expected:
+            raise ValueError("ORCID checksum is invalid")
+        return value
+
     @field_validator("website_url")
     @classmethod
     def validate_website_url(cls, value: str | None) -> str | None:
         if value is not None:
             cleaned = value.strip()
-            if not cleaned.startswith(("https://", "http://")):
-                raise ValueError("website_url must use http or https")
+            parsed = urlsplit(cleaned)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ValueError("website_url must be an absolute http or https URL")
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("website_url cannot contain embedded credentials")
             return cleaned
         return value
 
@@ -74,7 +93,6 @@ class ResearcherProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    user_id: str
     display_name: str
     biography: str | None
     affiliation: str | None
@@ -134,7 +152,7 @@ async def upsert_my_researcher_profile(
 )
 async def list_organisation_researcher_profiles(
     organization_id: str,
-    membership: Annotated[Membership, Depends(require_membership)],
+    _membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(default=100, ge=1, le=200),
 ) -> list[ResearcherProfileRead]:
