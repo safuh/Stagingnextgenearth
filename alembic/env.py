@@ -27,6 +27,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     Membership,
     Organization,
     Programme,
+    ProgrammeDeliverable,
     Project,
     ResearchAnalysisRun,
     ResearchDatasetFile,
