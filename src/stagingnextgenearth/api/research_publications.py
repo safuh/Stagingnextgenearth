@@ -1,11 +1,10 @@
 """Study publication registry with DOI, ORCID and OpenAlex identifiers."""
 
 import re
-from datetime import date, datetime
 from collections.abc import AsyncIterator
-from urllib.parse import quote
+from datetime import date, datetime
 from typing import Annotated, Literal
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -358,7 +357,9 @@ async def _read_openalex_response(
             if response.status_code == status.HTTP_404_NOT_FOUND:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "No matching OpenAlex work found")
             if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
-                raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex rate limit reached")
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex rate limit reached"
+                )
             if response.status_code != status.HTTP_200_OK:
                 raise HTTPException(
                     status.HTTP_503_SERVICE_UNAVAILABLE, "OpenAlex metadata service is unavailable"
