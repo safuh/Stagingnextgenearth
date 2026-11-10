@@ -113,3 +113,27 @@ A separately managed worker process is included and can be started with `uv run 
 Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
 100 MiB upload limit. Keep the ClamAV TCP service on a private, trusted network; this
 adapter does not provide transport encryption or authentication.
+
+### Climate data ingestion
+
+The climate ingestion contract separates provider requests from normalized
+measurements and records the source, provider identifier, licence metadata when
+verified, requested time window and requested point/area in each ingestion run.
+Ingestion is idempotent for provider record identifiers within an organisation;
+new observations enter review as pending and ingestion does not imply scientific
+validation.
+
+The first adapter, `NASAPowerProvider`, requests daily point data from the NASA
+POWER API. It currently maps `PRECTOTCORR` to precipitation and `T2M` to
+2-metre air temperature by default. Requests explicitly use UTC; the platform's
+exclusive end-time contract is translated to POWER's inclusive end date.
+POWER's `-999` missing-data sentinel is omitted rather than stored as a
+measurement. The adapter supports point requests only; bounding-box requests
+are rejected rather than silently treated as point data. Parameter units are
+preserved from the provider response, and the adapter does not assert a licence
+where the applicable terms have not yet been verified.
+
+This adapter is a daily observational data source, not a forecast or a
+spatially complete raster product. CHIRPS, Copernicus, area-based ingestion,
+unit harmonisation, quality assessment and spatial/temporal query APIs remain
+separate planned work.
