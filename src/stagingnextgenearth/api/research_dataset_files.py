@@ -1,6 +1,7 @@
 """Controlled upload-intent and quarantine workflow for dataset file versions."""
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime
 from pathlib import PurePath
 from typing import Annotated
@@ -190,7 +191,7 @@ async def complete_dataset_file_upload(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DatasetFileRead:
-    """Verify provider metadata and quarantine a completed upload pending scanning."""
+    """Verify, quarantine, and scan a completed upload when a scanner is configured."""
     if membership.role not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     record = await session.scalar(
@@ -201,37 +202,74 @@ async def complete_dataset_file_upload(
             ResearchDatasetFile.dataset_id == dataset_id,
             ResearchDataset.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if record is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
     if record.created_by != principal.user_id and membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the uploader can complete this upload")
-    if record.status != "upload_pending":
-        raise HTTPException(status.HTTP_409_CONFLICT, "Upload is not pending")
+    if record.status not in {"upload_pending", "quarantined"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Upload is not awaiting verification or scanning")
+
+    storage = _storage(request)
+    if record.status == "upload_pending":
+        try:
+            stored = await asyncio.to_thread(storage.inspect, key=record.storage_key)
+        except Exception as exc:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Unable to verify uploaded object",
+            ) from exc
+        if stored is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Uploaded object was not found")
+        if stored.size_bytes != record.size_bytes or stored.content_type != record.media_type:
+            record.status = "rejected"
+            # Metadata validation is not a malware scan; keep scan state pending.
+            record.scan_status = "pending"
+            record.scanned_at = None
+            await session.commit()
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Uploaded object metadata does not match the upload intent",
+            )
+        record.uploaded_at = datetime.now(UTC)
+        record.status = "quarantined"
+        await session.commit()
+        await session.refresh(record)
+
+    scanner = request.app.state.dataset_file_scanner
+    if scanner is None:
+        return DatasetFileRead.model_validate(record)
+
     try:
-        stored = await asyncio.to_thread(
-            _storage(request).inspect, key=record.storage_key
+        content = await asyncio.to_thread(
+            storage.get_object,
+            key=record.storage_key,
+            max_bytes=_MAX_FILE_BYTES,
         )
+        if len(content) != record.size_bytes:
+            record.status = "rejected"
+            record.scan_status = "pending"
+            record.scanned_at = None
+            await session.commit()
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Stored object size changed after upload verification",
+            )
+        is_clean = await asyncio.to_thread(scanner.scan, content)
+    except HTTPException:
+        raise
     except Exception as exc:
+        # Keep the object quarantined; transient scanner/storage failures are retryable.
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Unable to verify uploaded object",
+            "File remains quarantined because scanning could not be completed",
         ) from exc
-    if stored is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Uploaded object was not found")
-    if stored.size_bytes != record.size_bytes or stored.content_type != record.media_type:
-        record.status = "rejected"
-        # Metadata validation is not a malware scan; keep scan state pending.
-        record.scan_status = "pending"
-        record.scanned_at = None
-        await session.commit()
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Uploaded object metadata does not match the upload intent",
-        )
-    # A trusted scanner will compute the checksum from object bytes.
-    record.uploaded_at = datetime.now(UTC)
-    record.status = "quarantined"
+
+    record.sha256_hex = hashlib.sha256(content).hexdigest()
+    record.scanned_at = datetime.now(UTC)
+    record.scan_status = "clean" if is_clean else "rejected"
+    record.status = "available" if is_clean else "rejected"
     await session.commit()
     await session.refresh(record)
     return DatasetFileRead.model_validate(record)
