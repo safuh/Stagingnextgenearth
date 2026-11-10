@@ -36,8 +36,8 @@ def create_app(
 ) -> FastAPI:
     """Create a configured FastAPI application with optional auth composition.
 
-    Authentication dependencies are supplied by the consuming application so
-    secrets, token lifetimes, and persistence remain explicit composition concerns.
+    A database-backed authentication application is composed automatically when
+    a valid JWT secret is configured. A custom factory may override that default.
     """
     resolved = settings or get_settings()
     configure_logging(resolved)
