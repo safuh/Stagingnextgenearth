@@ -152,7 +152,7 @@ def test_dataset_export_manifest_requires_approval_and_is_reproducible(
                 await session.commit()
 
         asyncio.run(add_file_versions())
-        await file_engine.dispose()
+        asyncio.run(file_engine.dispose())
 
         first = client.get(manifest_url, headers=owner_headers)
         assert first.status_code == 200
