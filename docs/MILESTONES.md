@@ -90,7 +90,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
 - [x] Trusted SHA-256 calculation from stored object bytes and clean/rejected state transition.
 - [x] Bounded database-polled scanner worker with row locking, per-file commits and retry-safe quarantine on infrastructure failures.
-- [ ] Streaming scanner transport and an independently deployable worker process for large files.
+- [x] Streaming object-storage reads and chunked ClamAV INSTREAM scanning with incremental SHA-256.\n- [ ] Packaged worker process entry point and deployment configuration.
 - [x] Dataset file download access audit events.
 - [ ] Research exports and reproducible analysis hand-off.
 
@@ -158,6 +158,6 @@ These foundation checks must continue passing as product code is added.
 - [x] Optional ClamAV scanner integration with fail-closed quarantine on scanner errors.
 - [x] Trusted SHA-256 calculation from stored bytes and clean/rejected state transition.
 - [x] Database-polled asynchronous scanning worker for quarantined file versions.
-- [ ] Streaming worker transport and deployment entry point for large-scale files.
+- [x] Streaming worker transport and incremental file hashing.\n- [ ] Independently deployable worker entry point and deployment configuration.
 - [x] Five-minute authorised download URLs restricted to clean files and permitted organisation members.
 - [x] Append-only audit event for each download URL issuance.
