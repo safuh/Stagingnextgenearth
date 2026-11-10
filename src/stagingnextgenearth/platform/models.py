@@ -713,3 +713,40 @@ class ResearchMilestoneEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ResearchPublication(Base):
+    """Study-linked scholarly publication and external researcher identifiers."""
+
+    __tablename__ = "research_publications"
+    __table_args__ = (
+        CheckConstraint(
+            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', 'report', 'preprint', 'other')",
+            name="ck_research_publication_type",
+        ),
+        UniqueConstraint("study_id", "doi", name="uq_research_publication_study_doi"),
+        Index("ix_research_publications_study_date", "study_id", "published_on"),
+        Index("ix_research_publications_openalex_id", "openalex_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    authors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    author_orcids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    publication_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    journal_or_venue: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    publisher: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    published_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    doi: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    openalex_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    abstract: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
