@@ -556,6 +556,7 @@ async def complete_lesson(
         "enrollment_id": enrollment.id,
         "status": enrollment.status,
         "progress_percent": enrollment.progress_percent,
+        "certificate_id": certificate.id if certificate else None,
         "certificate_number": certificate.certificate_number if certificate else None,
         "verification_code": certificate.verification_code if certificate else None,
     }
