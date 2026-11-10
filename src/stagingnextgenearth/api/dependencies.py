@@ -75,15 +75,3 @@ async def require_membership(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
     return membership
 
-
-def require_roles(*roles: str):
-    """Build a dependency enforcing one of the supplied organisation roles."""
-
-    async def dependency(
-        membership: Annotated[Membership, Depends(require_membership)],
-    ) -> Membership:
-        if membership.role not in roles:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient organisation permissions")
-        return membership
-
-    return dependency
