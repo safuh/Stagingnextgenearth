@@ -52,6 +52,18 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "note",
             "reviewed_at",
         },
+        "research_study_proposals": {
+            "id", "study_id", "title", "rationale", "objectives", "proposed_methods",
+            "expected_outcomes", "status", "version_number", "created_by", "submitted_at",
+            "created_at", "updated_at",
+        },
+        "research_proposal_review_events": {
+            "id", "proposal_id", "reviewer_user_id", "decision", "note", "reviewed_at",
+        },
+        "research_milestones": {
+            "id", "study_id", "title", "description", "assigned_to", "due_date",
+            "status", "progress_percent", "created_by", "created_at", "updated_at",
+        },
         "research_protocol_versions": {
             "id",
             "study_id",
