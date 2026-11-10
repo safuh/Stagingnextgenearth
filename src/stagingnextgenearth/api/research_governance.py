@@ -219,7 +219,7 @@ async def submit_protocol_version(
         protocol.created_by != principal.user_id and role != "editor"
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol submission permission required")
-    if protocol.status not in {"draft", "revisions_required"}:
+    if protocol.status != "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, "Protocol version cannot be submitted")
     protocol.status = "submitted"
     protocol.submitted_at = datetime.now(UTC)
@@ -328,6 +328,8 @@ async def record_ethics_review(
             status.HTTP_409_CONFLICT,
             "Ethics review must reference an approved protocol version for this study",
         )
+    if protocol.created_by == principal.user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol authors cannot review its ethics")
     event = ResearchEthicsReviewEvent(
         study_id=study_id,
         protocol_version_id=protocol.id,
