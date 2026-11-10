@@ -209,16 +209,16 @@ class S3ObjectStorage:
             url = f"{self._endpoint}/{quote(self._bucket, safe='')}/{encoded_key}"
         payload_hash = hashlib.sha256(b"").hexdigest()
         canonical_headers = (
-            f"host:{host}\\n"
-            f"x-amz-content-sha256:{payload_hash}\\n"
-            f"x-amz-date:{amz_date}\\n"
+            f"host:{host}\n"
+            f"x-amz-content-sha256:{payload_hash}\n"
+            f"x-amz-date:{amz_date}\n"
         )
         signed_headers = "host;x-amz-content-sha256;x-amz-date"
-        canonical_request = "\\n".join(
+        canonical_request = "\n".join(
             ["GET", path, "", canonical_headers, signed_headers, payload_hash]
         )
         scope = f"{date_stamp}/{self._region}/s3/aws4_request"
-        string_to_sign = "\\n".join(
+        string_to_sign = "\n".join(
             [
                 "AWS4-HMAC-SHA256",
                 amz_date,
