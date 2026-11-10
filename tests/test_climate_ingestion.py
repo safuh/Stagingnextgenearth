@@ -8,8 +8,30 @@ from pydantic import ValidationError
 from stagingnextgenearth.climate_ingestion import (
     ClimateBoundingBox,
     ClimateMeasurement,
+    ClimatePoint,
     ClimateProviderRequest,
 )
+
+
+def test_provider_request_accepts_timezone_aware_period_and_wgs84_point() -> None:
+    request = ClimateProviderRequest(
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        end=datetime(2026, 2, 1, tzinfo=UTC),
+        point=ClimatePoint(latitude=-1.286, longitude=36.817),
+    )
+
+    assert request.point is not None
+    assert request.point.latitude == -1.286
+
+
+def test_provider_request_rejects_point_and_area_together() -> None:
+    with pytest.raises(ValidationError):
+        ClimateProviderRequest(
+            start=datetime(2026, 1, 1, tzinfo=UTC),
+            end=datetime(2026, 2, 1, tzinfo=UTC),
+            point=ClimatePoint(latitude=-1.286, longitude=36.817),
+            area=ClimateBoundingBox(west=34, south=-5, east=42, north=5),
+        )
 
 
 def test_provider_request_accepts_timezone_aware_period_and_wgs84_area() -> None:
