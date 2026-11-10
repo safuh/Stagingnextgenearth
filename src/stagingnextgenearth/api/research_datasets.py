@@ -12,7 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, ResearchDataset, ResearchStudy
+from stagingnextgenearth.platform.models import (
+    Membership,
+    ResearchDataset,
+    ResearchDatasetReviewEvent,
+    ResearchStudy,
+)
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -51,6 +56,42 @@ class ResearchDatasetCreate(BaseModel):
         if len(self.data_dictionary) > 200:
             raise ValueError("data_dictionary cannot contain more than 200 fields")
         return self
+
+
+
+class ResearchDatasetUpdate(BaseModel):
+    """Owner-supplied metadata corrections for drafts and rejected submissions."""
+
+    title: str | None = Field(default=None, min_length=3, max_length=240)
+    description: str | None = Field(default=None, max_length=20000)
+    version: str | None = Field(default=None, min_length=1, max_length=40)
+    format: str | None = Field(default=None, min_length=2, max_length=40)
+    source: str | None = Field(default=None, min_length=2, max_length=200)
+    license: str | None = Field(default=None, max_length=120)
+    access_classification: Literal["public", "organization", "restricted"] | None = None
+    study_id: str | None = None
+    data_dictionary: dict[str, object] | None = None
+    collection_start: date | None = None
+    collection_end: date | None = None
+
+    @model_validator(mode="after")
+    def validate_dictionary_size(self) -> "ResearchDatasetUpdate":
+        if self.data_dictionary is not None and len(self.data_dictionary) > 200:
+            raise ValueError("data_dictionary cannot contain more than 200 fields")
+        return self
+
+
+class ResearchDatasetReviewEventRead(BaseModel):
+    """A historical review decision."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    dataset_id: str
+    reviewer_user_id: str | None
+    decision: str
+    note: str | None
+    reviewed_at: datetime
 
 
 class ResearchDatasetReview(BaseModel):
@@ -160,6 +201,108 @@ async def list_research_datasets(
     return [ResearchDatasetRead.model_validate(item) for item in result.all()]
 
 
+@router.patch("/{dataset_id}", response_model=ResearchDatasetRead)
+async def update_research_dataset(
+    organization_id: str,
+    dataset_id: str,
+    body: ResearchDatasetUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ResearchDatasetRead:
+    """Correct an owned draft or rejected submission before resubmitting it."""
+    if membership.role not in _CREATE_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset editing is not permitted")
+    dataset = await session.scalar(
+        select(ResearchDataset).where(
+            ResearchDataset.id == dataset_id,
+            ResearchDataset.organization_id == organization_id,
+        )
+    )
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    if dataset.owner_user_id != principal.user_id and membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the dataset owner can edit it")
+    if dataset.status not in {"draft", "rejected"}:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Only draft or rejected datasets can be edited",
+        )
+
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No dataset changes supplied")
+    if "study_id" in changes and changes["study_id"] is not None:
+        study = await session.scalar(
+            select(ResearchStudy.id).where(
+                ResearchStudy.id == changes["study_id"],
+                ResearchStudy.organization_id == organization_id,
+            )
+        )
+        if study is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
+
+    for field, value in changes.items():
+        if isinstance(value, str) and field in {"title", "version", "format", "source"}:
+            value = value.strip()
+        if field == "format" and value is not None:
+            value = value.lower()
+        setattr(dataset, field, value)
+
+    if (
+        dataset.collection_start is not None
+        and dataset.collection_end is not None
+        and dataset.collection_end < dataset.collection_start
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "collection_end must not precede collection_start",
+        )
+    if dataset.status == "rejected":
+        dataset.status = "draft"
+        dataset.submitted_at = None
+        dataset.reviewed_by = None
+        dataset.reviewed_at = None
+        dataset.review_note = None
+
+    await session.commit()
+    await session.refresh(dataset)
+    return ResearchDatasetRead.model_validate(dataset)
+
+
+@router.get("/{dataset_id}/reviews", response_model=list[ResearchDatasetReviewEventRead])
+async def list_research_dataset_reviews(
+    organization_id: str,
+    dataset_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ResearchDatasetReviewEventRead]:
+    """Read immutable review history subject to the dataset's metadata visibility."""
+    if membership.role not in _REGISTRY_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
+    dataset = await session.scalar(
+        select(ResearchDataset).where(
+            ResearchDataset.id == dataset_id,
+            ResearchDataset.organization_id == organization_id,
+        )
+    )
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    if (
+        dataset.access_classification == "restricted"
+        and dataset.owner_user_id != principal.user_id
+        and membership.role != "admin"
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+    result = await session.scalars(
+        select(ResearchDatasetReviewEvent)
+        .where(ResearchDatasetReviewEvent.dataset_id == dataset_id)
+        .order_by(ResearchDatasetReviewEvent.reviewed_at.asc())
+    )
+    return [ResearchDatasetReviewEventRead.model_validate(item) for item in result.all()]
+
+
 @router.post("/{dataset_id}/submit", response_model=ResearchDatasetRead)
 async def submit_research_dataset(
     organization_id: str,
@@ -226,6 +369,15 @@ async def review_research_dataset(
     dataset.reviewed_by = principal.user_id
     dataset.reviewed_at = datetime.now(UTC)
     dataset.review_note = body.note.strip() if body.note else None
+    session.add(
+        ResearchDatasetReviewEvent(
+            dataset_id=dataset.id,
+            reviewer_user_id=principal.user_id,
+            decision=body.decision,
+            note=dataset.review_note,
+            reviewed_at=dataset.reviewed_at,
+        )
+    )
     await session.commit()
     await session.refresh(dataset)
     return ResearchDatasetRead.model_validate(dataset)
