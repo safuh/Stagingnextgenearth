@@ -111,3 +111,6 @@ There is not yet a download endpoint, so even clean files cannot be downloaded t
 the application. Configure the bucket with public access blocked and encryption enabled.
 The current scanner path buffers each file in application memory (up to 100 MiB); a
 streaming worker queue is a production scaling improvement still to be implemented.
+Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
+100 MiB upload limit. Keep the ClamAV TCP service on a private, trusted network; this
+adapter does not provide transport encryption or authentication.
