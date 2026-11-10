@@ -48,3 +48,20 @@ jobs:
         run: uv run mypy src
       - name: Tests
         run: uv run pytest -q
+
+  geospatial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install locked test dependencies
+        run: uv sync --locked --extra dev
+      - name: Install optional raster dependencies
+        run: uv pip install rasterio
+      - name: Test synthetic GeoTIFF extraction
+        run: uv run pytest -q tests/test_chirps_raster.py
