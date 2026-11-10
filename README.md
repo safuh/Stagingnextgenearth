@@ -97,6 +97,17 @@ uses explicit static credentials and does not yet support workload/IAM role cred
 The API issues a short-lived presigned POST (10 minutes), restricts accepted media types
 and upload size (100 MiB maximum), verifies the stored object's size and media type at
 completion, and moves accepted uploads into quarantine. File listings never expose
-storage keys. Uploads remain unavailable for download: no malware scanner, clean-state
-transition, checksum verification, or download endpoint is implemented yet. Configure
-the bucket with public access blocked and encryption enabled.
+storage keys.
+
+Optional ClamAV scanning can be enabled with `MALWARE_SCANNING_ENABLED=true`,
+`CLAMAV_HOST`, and the optional `CLAMAV_PORT`/`CLAMAV_TIMEOUT_SECONDS` settings.
+It requires object storage to be enabled. The API reads the stored bytes with a hard
+100 MiB limit, computes SHA-256 itself, and only marks a file available after ClamAV
+returns a clean verdict. Infected files are rejected. Scanner or storage errors fail
+closed and leave files quarantined; the uploader or an organisation admin can retry
+the completion request. Without a configured scanner, files remain quarantined.
+
+There is not yet a download endpoint, so even clean files cannot be downloaded through
+the application. Configure the bucket with public access blocked and encryption enabled.
+The current scanner path buffers each file in application memory (up to 100 MiB); a
+streaming worker queue is a production scaling improvement still to be implemented.
