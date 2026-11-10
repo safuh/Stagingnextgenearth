@@ -203,3 +203,38 @@ async def revoke_study_collaborator(
     await session.commit()
     await session.refresh(collaborator)
     return CollaboratorRead.model_validate(collaborator)
+
+
+async def study_access_role(
+    session: AsyncSession,
+    organization_id: str,
+    study_id: str | None,
+    principal: Principal,
+    membership: Membership,
+) -> str | None:
+    """Return the effective study role, or None when the user has no study access.
+
+    A missing study link leaves the existing organisation-level policy in force.
+    Organisation administrators and study leads receive editor-equivalent access.
+    """
+    if study_id is None:
+        return None
+    study = await session.scalar(
+        select(ResearchStudy).where(
+            ResearchStudy.id == study_id,
+            ResearchStudy.organization_id == organization_id,
+        )
+    )
+    if study is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
+    if membership.role == "admin" or study.lead_researcher_id == principal.user_id:
+        return "editor"
+    collaborator = await session.scalar(
+        select(ResearchStudyCollaborator).where(
+            ResearchStudyCollaborator.study_id == study_id,
+            ResearchStudyCollaborator.organization_id == organization_id,
+            ResearchStudyCollaborator.user_id == principal.user_id,
+            ResearchStudyCollaborator.status == "active",
+        )
+    )
+    return collaborator.role if collaborator is not None else None
