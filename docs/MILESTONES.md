@@ -87,7 +87,9 @@ These foundation checks must continue passing as product code is added.
 - [ ] Publication records and DOI/ORCID/OpenAlex integrations.
 - [ ] Private object-storage adapter, upload intents and authorised download workflow.
 - [x] Dataset file-version metadata schema with storage-key uniqueness, size constraints and scan/status state.
-- [ ] Malware scanning/quarantine integration and dataset access audit.
+- [x] Optional ClamAV INSTREAM scanning; files remain quarantined unless a clean verdict is returned.
+- [x] Trusted SHA-256 calculation from stored object bytes and clean/rejected state transition.
+- [ ] Streaming background scanner worker and dataset access audit.
 - [ ] Research exports and reproducible analysis hand-off.
 
 ## M5 — Climate and geospatial intelligence
@@ -151,5 +153,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Tenant- and owner-scoped upload-intent and completion endpoints.
 - [x] Verify uploaded object size and media type against the upload intent.
 - [x] Quarantine accepted uploads; file metadata endpoints do not disclose object keys.
-- [ ] Malware scanner integration, trusted checksum calculation and clean-state transition.
+- [x] Optional ClamAV scanner integration with fail-closed quarantine on scanner errors.
+- [x] Trusted SHA-256 calculation from stored bytes and clean/rejected state transition.
+- [ ] Streaming worker/queue for large-scale asynchronous scanning.
 - [ ] Short-lived authorised download workflow and access audit events.
