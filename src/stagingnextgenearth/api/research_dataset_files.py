@@ -209,7 +209,10 @@ async def complete_dataset_file_upload(
     if record.created_by != principal.user_id and membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the uploader can complete this upload")
     if record.status not in {"upload_pending", "quarantined"}:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Upload is not awaiting verification or scanning")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Upload is not awaiting verification or scanning",
+        )
 
     storage = _storage(request)
     if record.status == "upload_pending":
