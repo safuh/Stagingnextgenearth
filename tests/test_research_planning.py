@@ -142,6 +142,39 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     assert history.status_code == 200
     assert len(history.json()) == 1
 
+    revision_response = client.post(
+        f"{base}/proposals/{proposal['id']}/revisions",
+        headers=lead_headers,
+        json={
+            "title": "Restoration field study — revision 2",
+            "rationale": "Document restoration outcomes across participating communities.",
+            "objectives": "Measure ecological recovery and community participation outcomes.",
+            "proposed_methods": (
+                "Use stratified field observations and structured community interviews."
+            ),
+            "expected_outcomes": "A reproducible baseline and follow-up dataset.",
+        },
+    )
+    assert revision_response.status_code == 201
+    revision = revision_response.json()
+    assert revision["version_number"] == 2
+    assert revision["status"] == "draft"
+    assert revision["supersedes_proposal_id"] == proposal["id"]
+
+    duplicate_revision = client.post(
+        f"{base}/proposals/{proposal['id']}/revisions",
+        headers=lead_headers,
+        json={
+            "title": "Duplicate revision",
+            "rationale": "Document restoration outcomes across participating communities.",
+            "objectives": "Measure ecological recovery and community participation outcomes.",
+            "proposed_methods": (
+                "Use repeat field observations and structured community interviews."
+            ),
+        },
+    )
+    assert duplicate_revision.status_code == 409
+
     invalid_assignment = client.post(
         f"{base}/milestones",
         headers=lead_headers,
