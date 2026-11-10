@@ -22,12 +22,16 @@ authenticated product workflows:
 - research study creation and discovery;
 - provenance-bearing climate observation submission and filtering;
 - independent climate-observation review with immutable verified/rejected decisions;
-- audit fields recording reviewer, review time and review note;
-- Alembic migrations `0004_platform_domain` and `0005_climate_observation_review`.
+- a tenant-scoped research dataset registry with data dictionaries and collection metadata;
+- dataset access classifications, submission workflow and independent approval/rejection audit;
+- Alembic migrations `0004_platform_domain` through `0006_research_dataset_registry`.
 
 Climate observations enter the system as pending and cannot be verified by their
 submitter. Only organisation administrators and programme managers can review
-observations, and a review decision cannot be overwritten through the API.
+observations, and a review decision cannot be overwritten through the API. Dataset
+registration currently stores metadata only: it does not store files or issue download
+URLs. Restricted dataset metadata is visible only to its owner and organisation
+administrators. A public classification does not publish data to the internet.
 Do not expose domain tables through unrestricted generic CRUD endpoints.
 
 ## Quick start
