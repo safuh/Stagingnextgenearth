@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -137,15 +137,9 @@ async def list_organisation_researcher_profiles(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    limit: int = 100,
+    limit: int = Query(default=100, ge=1, le=200),
 ) -> list[ResearcherProfileRead]:
     """List only profiles explicitly shared with active members of this organisation."""
-    del membership  # The dependency enforces active membership in this tenant.
-    if limit < 1 or limit > 200:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "limit must be between 1 and 200",
-        )
     result = await session.scalars(
         select(ResearcherProfile)
         .join(Membership, Membership.user_id == ResearcherProfile.user_id)
