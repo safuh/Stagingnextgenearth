@@ -19,6 +19,9 @@ from stagingnextgenearth.platform import (  # noqa: F401
     Project,
     ResearchDatasetFile,
     ResearchDatasetFileAccessEvent,
+    ResearchEthicsReviewEvent,
+    ResearchProtocolReviewEvent,
+    ResearchProtocolVersion,
     ResearchStudy,
     ResearchStudyCollaborator,
 )
