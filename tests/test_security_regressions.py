@@ -32,7 +32,12 @@ def test_token_protects_security_claims_from_custom_claim_override() -> None:
 def test_tampered_token_is_rejected() -> None:
     service = TokenService(SECRET)
     token = service.create("user-123", timedelta(minutes=15))
-    tampered_token = token[:-1] + ("A" if token[-1] != "A" else "B")
+    header, payload, signature = token.split(".")
+    # Change a significant signature character. Mutating the final base64url
+    # character can alter only unused padding bits and decode to the same bytes.
+    replacement = "A" if signature[0] != "A" else "B"
+    tampered_signature = replacement + signature[1:]
+    tampered_token = ".".join((header, payload, tampered_signature))
 
     try:
         service.decode(tampered_token)
