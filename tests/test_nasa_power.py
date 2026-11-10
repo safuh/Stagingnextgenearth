@@ -1,6 +1,6 @@
 """Tests for the NASA POWER daily point adapter."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -144,8 +144,6 @@ async def test_nasa_power_retries_transient_http_status() -> None:
 
 @pytest.mark.asyncio
 async def test_nasa_power_converts_request_window_to_utc_dates() -> None:
-    from datetime import timedelta, timezone
-
     captured: dict[str, str] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
