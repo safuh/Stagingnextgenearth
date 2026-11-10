@@ -47,20 +47,19 @@ def create_app(
     app.state.settings = resolved
     app.state.object_storage = None
     if resolved.object_storage_enabled and resolved.object_storage_bucket:
+        if (
+            resolved.object_storage_access_key_id is None
+            or resolved.object_storage_secret_access_key is None
+        ):
+            raise ValueError(
+                "Enabled object storage requires explicit access and secret credentials"
+            )
         app.state.object_storage = S3ObjectStorage(
             bucket=resolved.object_storage_bucket,
             region=resolved.object_storage_region,
             endpoint_url=resolved.object_storage_endpoint_url,
-            access_key_id=(
-                resolved.object_storage_access_key_id.get_secret_value()
-                if resolved.object_storage_access_key_id
-                else None
-            ),
-            secret_access_key=(
-                resolved.object_storage_secret_access_key.get_secret_value()
-                if resolved.object_storage_secret_access_key
-                else None
-            ),
+            access_key_id=resolved.object_storage_access_key_id.get_secret_value(),
+            secret_access_key=resolved.object_storage_secret_access_key.get_secret_value(),
         )
     if auth_application_factory is None and resolved.jwt_secret_key is not None:
         secret = resolved.jwt_secret_key.get_secret_value()
