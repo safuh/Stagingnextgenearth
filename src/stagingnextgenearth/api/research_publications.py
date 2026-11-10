@@ -35,7 +35,9 @@ class PublicationCreate(BaseModel):
     title: str = Field(min_length=3, max_length=500)
     authors: list[str] = Field(min_length=1, max_length=100)
     author_orcids: list[str] = Field(default_factory=list, max_length=100)
-    publication_type: Literal["article", "book", "chapter", "conference_paper", "report", "preprint", "other"]
+    publication_type: Literal[
+        "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
+    ]
     journal_or_venue: str | None = Field(default=None, max_length=300)
     publisher: str | None = Field(default=None, max_length=240)
     published_on: date | None = None
