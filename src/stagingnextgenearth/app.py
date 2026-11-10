@@ -1,6 +1,7 @@
 """Application factory and composition root."""
 
 from collections.abc import Callable
+from datetime import timedelta
 from typing import cast
 
 from fastapi import FastAPI
@@ -12,7 +13,6 @@ from starlette.types import ExceptionHandler
 
 from .api.router import api_router
 from .auth.application import AuthenticationApplication
-from datetime import timedelta
 
 from .core.config import Settings, get_settings
 from .core.errors import (
