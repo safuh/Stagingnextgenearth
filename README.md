@@ -111,8 +111,7 @@ organisation members for clean, available files. Restricted datasets remain owne
 only. Each URL issuance is recorded in an append-only access event table. The application
 does not proxy file bytes, and the URL can be used until it expires; configure the bucket
 with public access blocked and encryption enabled.
-The current scanner path buffers each file in application memory (up to 100 MiB); a
-streaming worker queue is a production scaling improvement still to be implemented.
+A database-polled worker is available at `stagingnextgenearth.workers.dataset_scanner.scan_pending_dataset_files` for a separately managed worker process. It claims quarantined rows with database row locks, commits each verdict independently, and leaves files quarantined when storage or scanning fails. The worker currently buffers each file in memory (up to 100 MiB); streaming scanner transport and a packaged worker process entry point remain future scaling work.
 Configure ClamAV's `StreamMaxLength` and `MaxFileSize` to at least the platform's
 100 MiB upload limit. Keep the ClamAV TCP service on a private, trusted network; this
 adapter does not provide transport encryption or authentication.
