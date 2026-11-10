@@ -111,3 +111,51 @@ def test_download_url_rejects_expiry_over_fifteen_minutes() -> None:
 
     with pytest.raises(ValueError, match="expiry"):
         storage.create_download_url(key="dataset-files/file", expires_seconds=901)
+
+
+def test_streaming_object_read_uses_bounded_chunks_and_enforces_limit(monkeypatch) -> None:
+    import pytest
+
+    class FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+            self.offset = 0
+            self.read_sizes: list[int] = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self, size: int) -> bytes:
+            self.read_sizes.append(size)
+            chunk = self.content[self.offset : self.offset + size]
+            self.offset += len(chunk)
+            return chunk
+
+    response = FakeResponse(b"abcdefgh")
+    monkeypatch.setattr("stagingnextgenearth.storage.urlopen", lambda request, timeout: response)
+    storage = S3ObjectStorage(
+        bucket="research-private",
+        region="af-south-1",
+        endpoint_url="https://objects.example.test",
+        access_key_id="test-access-key",
+        secret_access_key="test-secret-key",
+    )
+
+    assert list(
+        storage.iter_object_chunks(
+            key="dataset-files/file", max_bytes=8, chunk_size=3
+        )
+    ) == [b"abc", b"def", b"gh"]
+    assert response.read_sizes == [3, 3, 3, 3]
+
+    oversized = FakeResponse(b"abcdef")
+    monkeypatch.setattr("stagingnextgenearth.storage.urlopen", lambda request, timeout: oversized)
+    with pytest.raises(ValueError, match="permitted scan size"):
+        list(
+            storage.iter_object_chunks(
+                key="dataset-files/file", max_bytes=5, chunk_size=3
+            )
+        )
