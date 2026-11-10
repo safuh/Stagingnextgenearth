@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +57,8 @@ class DatasetFileUploadIntentRead(BaseModel):
 
 class DatasetFileRead(BaseModel):
     """Safe file metadata; storage keys and provider details are never exposed."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
     version: int
