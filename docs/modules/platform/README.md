@@ -101,3 +101,38 @@ have been independently verified.
 Analysis-run records are append-only through this API. Listing is scoped to
 the same approved dataset and organisation access policy as the export
 manifest. The database migration is `0020_research_analysis_runs`.
+
+
+## Learning management MVP
+
+Learning workflows are exposed under
+`/api/organizations/{organization_id}/learning` and require an active
+organisation membership. Course and assessment administration, mentor assignment,
+attendance recording, and resource metadata management are restricted to
+administrators and programme managers.
+
+The initial API supports:
+
+- Course, module and ordered lesson creation, publication, and discovery.
+- Learner applications, staff approval/rejection, and registration.
+- Quiz, assignment and evaluation definitions, learner submissions, and staff
+  scoring with feedback. Submissions after a configured deadline are rejected.
+- Course-scoped mentor assignments between active organisation members.
+- Workshop attendance with a unique learner/session record.
+- Course and lesson resource metadata. Internal storage references are never
+  returned to learner-facing resource listings; actual file delivery must use
+  an authorised private-storage integration.
+- Lesson completion and assessment-derived progress. Progress is calculated
+  server-side and cannot be set by a client-supplied percentage.
+- Learner-only progress views and staff course-level aggregates.
+- Automatically issued completion certificates, public verification using
+  high-entropy verification codes, and staff revocation.
+
+Certificate verification intentionally does not require an account. It reveals
+only the certificate number, course title, issue timestamp and validity state.
+Revocation requires an authorised organisation manager and is tenant-scoped.
+
+The MVP stores resource references and assessment submissions; it does not
+currently provide a media transcoder, quiz runtime, PDF certificate renderer,
+learner notification service, or guardian-consent workflow. Those remain
+separate delivery increments rather than implied capabilities.
