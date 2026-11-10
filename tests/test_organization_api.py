@@ -30,8 +30,7 @@ def client(tmp_path: Path):
     )
     with TestClient(create_app(settings)) as test_client:
         yield test_client
-    asyncio.run(engine.dispose())
-
+ 
 
 def register_and_login(client: TestClient, identifier: str) -> str:
     registered = client.post(
