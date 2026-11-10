@@ -139,14 +139,24 @@ extraction (the containing raster cell) and bounding-box extraction (each
 selected cell centre), emits precipitation in `mm/day`, and records the
 CHIRPS variant, grid resolution, extraction method, citation and licence.
 The default `rnl` variant partitions pentad totals into daily amounts using
-ERA5; `sat` uses IMERG. The daily date is a consistent product label and
-must not be interpreted as a uniform gauge observation window. CHIRPS v3 is
-a 0.05-degree gridded product covering 60°S–60°N.
+ERA5; `sat` uses IMERG Late V07 and is available from 1998, while `rnl`
+extends back to 1981. Both variants begin with the same pentad total but can
+allocate it differently among days. The daily label follows the UTC calendar
+day used for disaggregation (approximately 00:00 UTC to 00:00 UTC the next
+day); it is not a uniform observation window for the station data blended
+into the pentad total. Daily values are derived from pentad totals, not
+independent daily station blends. Prefer pentad or monthly values when daily
+timing is not essential. CHIRPS v3 is a 0.05-degree gridded product covering
+60°S–60°N and is licensed CC BY 4.0 with attribution to the Climate Hazards
+Center.
 
 CHIRPS raster decoding uses the optional `rasterio` package (which installs
 NumPy). Install it in deployments that enable this adapter with
 `uv pip install rasterio`. The core application and CI test suite do not
-install the geospatial binary dependency by default. The adapter limits
+install the geospatial binary dependency by default. Optional synthetic
+GeoTIFF decoder tests in `tests/test_chirps_raster.py` run when rasterio is
+installed; they are skipped otherwise. The normal CI suite also tests the
+provider stream through climate persistence using a mocked raster decoder. The adapter limits
 requests to 366 days and bounding-box extraction to 10,000 cells per day;
 larger jobs should be partitioned into smaller requests. Each requested day
 is downloaded separately, so missing or not-yet-published source rasters
