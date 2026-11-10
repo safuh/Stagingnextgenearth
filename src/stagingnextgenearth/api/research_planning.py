@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import (
     Membership,
     ResearchMilestone,
+    ResearchMilestoneEvent,
     ResearchProposalReviewEvent,
     ResearchStudy,
     ResearchStudyCollaborator,
@@ -88,6 +89,15 @@ class MilestoneUpdate(BaseModel):
                 if field in value and value[field] is None:
                     raise ValueError(f"{field} cannot be null")
         return value
+
+
+class MilestoneEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    milestone_id: str
+    event_type: str
+    changes: dict[str, object]
+    created_at: datetime
 
 
 class MilestoneRead(BaseModel):
@@ -425,6 +435,23 @@ async def create_milestone(
         created_by=principal.user_id,
     )
     session.add(milestone)
+    await session.flush()
+    initial_values: dict[str, object] = {
+        "title": title,
+        "description": body.description,
+        "assigned_to": body.assigned_to,
+        "due_date": body.due_date.isoformat() if body.due_date else None,
+        "status": "planned",
+        "progress_percent": 0,
+    }
+    session.add(
+        ResearchMilestoneEvent(
+            milestone_id=milestone.id,
+            actor_user_id=principal.user_id,
+            event_type="created",
+            changes={key: {"old": None, "new": value} for key, value in initial_values.items()},
+        )
+    )
     await session.commit()
     await session.refresh(milestone)
     return MilestoneRead.model_validate(milestone)
@@ -479,12 +506,66 @@ async def update_milestone(
                 )
     if "assigned_to" in changes:
         await _validate_assignee(session, organization_id, changes["assigned_to"])
+
+    tracked_fields = (
+        "title", "description", "assigned_to", "due_date", "status", "progress_percent"
+    )
+    previous_values = {field: getattr(milestone, field) for field in tracked_fields}
     for key, value in changes.items():
         setattr(milestone, key, value)
     if milestone.status == "completed":
         milestone.progress_percent = 100
     elif milestone.progress_percent == 100 and milestone.status != "completed":
         milestone.status = "completed"
+
+    audit_changes: dict[str, object] = {}
+    for field in tracked_fields:
+        old_value = previous_values[field]
+        new_value = getattr(milestone, field)
+        if old_value != new_value:
+            audit_changes[field] = {
+                "old": old_value.isoformat() if isinstance(old_value, date) else old_value,
+                "new": new_value.isoformat() if isinstance(new_value, date) else new_value,
+            }
+    if audit_changes:
+        session.add(
+            ResearchMilestoneEvent(
+                milestone_id=milestone.id,
+                actor_user_id=principal.user_id,
+                event_type="updated",
+                changes=audit_changes,
+            )
+        )
     await session.commit()
     await session.refresh(milestone)
     return MilestoneRead.model_validate(milestone)
+
+
+@router.get(
+    "/milestones/{milestone_id}/events",
+    response_model=list[MilestoneEventRead],
+)
+async def list_milestone_events(
+    organization_id: str,
+    study_id: str,
+    milestone_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[MilestoneEventRead]:
+    study = await _study(session, organization_id, study_id)
+    await _access(session, study, principal, membership)
+    exists = await session.scalar(
+        select(ResearchMilestone.id).where(
+            ResearchMilestone.id == milestone_id,
+            ResearchMilestone.study_id == study_id,
+        )
+    )
+    if exists is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
+    rows = await session.scalars(
+        select(ResearchMilestoneEvent)
+        .where(ResearchMilestoneEvent.milestone_id == milestone_id)
+        .order_by(ResearchMilestoneEvent.created_at, ResearchMilestoneEvent.id)
+    )
+    return [MilestoneEventRead.model_validate(item) for item in rows.all()]
