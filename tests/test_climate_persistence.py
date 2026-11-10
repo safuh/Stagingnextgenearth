@@ -3,16 +3,20 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.climate_ingestion import (
+    ClimateBoundingBox,
     ClimateMeasurement,
     ClimatePoint,
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
+from stagingnextgenearth.providers import chirps
+from stagingnextgenearth.providers.chirps import CHIRPSProvider
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import User
 from stagingnextgenearth.platform.models import (
@@ -144,6 +148,64 @@ async def test_failed_provider_stream_rolls_back_partial_observations() -> None:
         assert runs[0].records_received == 1
         assert runs[0].records_inserted == 0
         assert "upstream failure details" not in (runs[0].error_summary or "")
+    finally:
+        await session.close()
+        await engine.dispose()
+
+
+
+@pytest.mark.asyncio
+async def test_chirps_provider_stream_persists_with_provider_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, session, user, organization, _ = await _database()
+    monkeypatch.setattr(
+        chirps,
+        "_decode_geotiff",
+        lambda content, point, area, max_cells: [(-1.25, 36.75, 7.4)],
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"mock-geotiff")
+
+    try:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            provider = CHIRPSProvider(client=client, variant="rnl")
+            request = ClimateProviderRequest(
+                start=datetime(2026, 1, 1, tzinfo=UTC),
+                end=datetime(2026, 1, 2, tzinfo=UTC),
+                area=ClimateBoundingBox(
+                    west=36.7, south=-1.3, east=36.8, north=-1.2
+                ),
+            )
+            run = await persist_provider_measurements(
+                session,
+                organization_id=organization.id,
+                actor_user_id=user.id,
+                provider_id=provider.provider_id,
+                source_name=provider.source_name,
+                licence=provider.licence,
+                request=request,
+                measurements=provider.fetch(request),
+            )
+
+        await session.commit()
+        observations = list(
+            (await session.scalars(select(ClimateObservation))).all()
+        )
+        assert run.status == "completed"
+        assert run.records_received == 1
+        assert run.records_inserted == 1
+        assert len(observations) == 1
+        observation = observations[0]
+        assert observation.provider_id == "chirps-v3"
+        assert observation.provider_record_id == "rnl:2026-01-01:-1.25000:36.75000"
+        assert observation.source == "CHIRPS v3"
+        assert observation.unit == "mm/day"
+        assert observation.quality_status == "pending"
+        assert observation.metadata_json["provider_variant"] == "rnl"
+        assert observation.metadata_json["provider_licence"] == "CC-BY-4.0"
+        assert observation.ingestion_run_id == run.id
     finally:
         await session.close()
         await engine.dispose()
