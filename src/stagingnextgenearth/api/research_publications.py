@@ -480,7 +480,11 @@ async def lookup_publication_metadata(
 
 
 
-@router.post("/metadata/import", response_model=PublicationRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/metadata/import",
+    response_model=PublicationRead,
+    status_code=status.HTTP_201_CREATED,
+)
 async def import_publication_metadata(
     organization_id: str,
     study_id: str,
