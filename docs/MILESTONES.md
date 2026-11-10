@@ -36,7 +36,7 @@ These foundation checks must continue passing as product code is added.
 
 ## M1 — Product data foundation
 
-**Status: implemented on feature branch; verification pending.**
+**Status: implemented on feature branch; CI verification passed on Python 3.11, 3.12 and 3.13.**
 
 - [x] Organisation and tenant ownership model.
 - [x] Organisation-scoped memberships and initial portal role vocabulary.
@@ -46,16 +46,20 @@ These foundation checks must continue passing as product code is added.
 - [x] Climate observation model with source, unit, timestamp, coordinates and quality status.
 - [x] Alembic migration for the initial product domain.
 - [x] Model persistence test.
-- [ ] Run formatting, lint, type checks and full tests.
+- [x] Run lint, type checks and full tests across Python 3.11, 3.12 and 3.13.
 - [ ] Verify migration upgrade/downgrade against PostgreSQL.
 - [ ] Review tenant-boundary and role-policy design before exposing endpoints.
+- [ ] Verify migration upgrade/downgrade against PostgreSQL.
+- [x] Review tenant-boundary and role-policy design before exposing endpoints.
 
 ## M2 — Identity, access control and organisation workflows
 
-- [ ] Connect login/registration composition to runtime settings.
-- [ ] Access-token authentication dependency.
-- [ ] Role-based access control with organisation-scoped policy checks.
-- [ ] Organisation creation and membership invitation/acceptance.
+- [x] Connect login/registration composition to explicit runtime JWT settings.
+- [x] Access-token authentication dependency with persisted-account validation.
+- [x] Organisation-scoped membership checks and initial programme role enforcement.
+- [x] Organisation creation with atomic creator-to-admin membership.
+- [x] Membership-scoped organisation, programme and project discovery.
+- [ ] Membership invitation/acceptance and role-management workflows.
 - [ ] Account lifecycle, audit events and privileged-action logging.
 - [ ] Rate limiting and abuse protection at the application or edge.
 - [ ] Security tests for cross-organisation access and role escalation.
