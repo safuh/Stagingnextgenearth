@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
+    ClimatePoint,
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
@@ -58,6 +59,7 @@ async def _database():
     request = ClimateProviderRequest(
         start=datetime(2026, 1, 1, tzinfo=UTC),
         end=datetime(2026, 2, 1, tzinfo=UTC),
+        point=ClimatePoint(latitude=-1.286, longitude=36.817),
     )
     return engine, session, user, organization, request
 
@@ -79,6 +81,7 @@ async def test_provider_persistence_is_idempotent_and_keeps_records_pending() ->
         await session.commit()
 
         assert first.status == "completed"
+        assert first.requested_area == {"point": {"latitude": -1.286, "longitude": 36.817}}
         assert (first.records_received, first.records_inserted, first.records_skipped) == (
             2, 2, 0
         )
