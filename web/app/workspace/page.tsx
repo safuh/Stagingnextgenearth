@@ -296,7 +296,7 @@ export default function WorkspacePage() {
                     <Link href="/workspace/research">Research workspace →</Link>
                   )}
                   {membership.role === "youth_volunteer" && (
-                    <span>Learner access · browse courses, apply and track your learning.</span>
+                    <Link href="/workspace/youth">Youth & volunteer portal →</Link>
                   )}
                   {membership.role === "institutional_partner" && (
                     <span>Partner access · review organisation programmes and published learning.</span>
