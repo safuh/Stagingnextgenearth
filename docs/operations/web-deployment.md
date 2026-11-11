@@ -31,7 +31,7 @@ The BFF retains a localhost fallback for local development only.
   Concurrent refreshes are coalesced within one Node.js process for 30 seconds;
   run a single web replica until a shared refresh coordinator is deployed for
   multi-replica operation.
-- Mutating BFF and session requests reject a supplied cross-origin Origin header.
+- Mutating BFF and session requests require an exact same-origin Origin header.
   Keep the application on HTTPS in production.
 - Sign-out revokes the refresh token where possible and clears both cookies.
 - Session restoration checks only whether the HttpOnly session cookies are present;
@@ -95,3 +95,17 @@ The web container uses the Next.js standalone build and runs as an unprivileged
 user. Put a TLS-terminating reverse proxy or managed ingress in front of the
 web service; do not expose the internal API or database directly to the public
 internet unless an explicit network/security design requires it.
+
+## Web verification
+
+Run the web checks from `web/`:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+The Node test suite covers strict Origin validation and API path-segment
+encoding/traversal rejection. CI also builds the production web container.
