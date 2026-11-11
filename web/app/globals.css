@@ -693,3 +693,21 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
   .research-record-grid { grid-template-columns: 1fr; }
   .section-heading { align-items: start; flex-direction: column; }
 }
+
+
+/* Learner progress indicator */
+.progress-track {
+  height: 8px;
+  overflow: hidden;
+  margin: 1.1rem 0 .55rem;
+  border-radius: 999px;
+  background: var(--soft, #eceee8);
+}
+.progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent, #527a58);
+  transition: width .2s ease;
+}
+.research-record > small { color: var(--muted, #6b7069); }
