@@ -64,6 +64,21 @@ interface CourseProgress {
   completed_lesson_ids: string[];
   assessments: Array<{ assessment_id: string; score: number | null; feedback: string | null }>;
 }
+interface LearnerMentorship {
+  id: string;
+  course_title: string;
+  relationship: "mentor" | "mentee";
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+interface LearnerAttendance {
+  id: string;
+  course_title: string;
+  session_title: string;
+  session_date: string;
+  attendance_status: string;
+}
 type Panel = "overview" | "programmes" | "learning";
 
 export default function WorkspacePage() {
@@ -71,6 +86,8 @@ export default function WorkspacePage() {
   const [organizationId, setOrganizationId] = useState("");
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [mentorships, setMentorships] = useState<LearnerMentorship[]>([]);
+  const [attendance, setAttendance] = useState<LearnerAttendance[]>([]);
   const [panel, setPanel] = useState<Panel>("overview");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [curriculum, setCurriculum] = useState<Curriculum | null>(null);
@@ -108,10 +125,14 @@ export default function WorkspacePage() {
     Promise.all([
       apiGet<Programme[]>(`/organizations/${organizationId}/programmes`),
       apiGet<Course[]>(`/organizations/${organizationId}/learning/courses`),
-    ]).then(([programmeItems, courseItems]) => {
+      apiGet<LearnerMentorship[]>(`/organizations/${organizationId}/learning/my-mentorships`),
+      apiGet<LearnerAttendance[]>(`/organizations/${organizationId}/learning/my-attendance`),
+    ]).then(([programmeItems, courseItems, mentorshipItems, attendanceItems]) => {
       if (!active) return;
       setProgrammes(programmeItems);
       setCourses(courseItems);
+      setMentorships(mentorshipItems);
+      setAttendance(attendanceItems);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Unable to load workspace data.");
     });
@@ -272,6 +293,30 @@ export default function WorkspacePage() {
             )}
             {panel === "learning" && (
               <section className="workspace-list">
+                {!selectedCourse && (
+                  <div className="learner-history-grid">
+                    <section className="history-panel">
+                      <h3>Mentorship</h3>
+                      {mentorships.length === 0 ? <p className="workspace-muted">No mentorship relationships are recorded yet.</p> : mentorships.map((item) => (
+                        <article className="history-row" key={item.id}>
+                          <strong>{item.course_title}</strong>
+                          <span>{item.relationship === "mentee" ? "Your mentor relationship" : "You are a mentor"}</span>
+                          <small>{item.status}{item.notes ? ` · ${item.notes}` : ""}</small>
+                        </article>
+                      ))}
+                    </section>
+                    <section className="history-panel">
+                      <h3>Attendance history</h3>
+                      {attendance.length === 0 ? <p className="workspace-muted">No attendance records are available yet.</p> : attendance.map((item) => (
+                        <article className="history-row" key={item.id}>
+                          <strong>{item.session_title}</strong>
+                          <span>{item.course_title} · {item.session_date}</span>
+                          <small>Attendance: {item.attendance_status}</small>
+                        </article>
+                      ))}
+                    </section>
+                  </div>
+                )}
                 {selectedCourse ? (
                   <>
                     <button className="course-back" onClick={() => { setSelectedCourse(null); setCurriculum(null); setProgress(null); }}>← All courses</button>
