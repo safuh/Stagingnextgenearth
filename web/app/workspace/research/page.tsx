@@ -157,6 +157,7 @@ export default function ResearchWorkspacePage() {
   const [spatialLoading, setSpatialLoading] = useState(false);
   const [spatialError, setSpatialError] = useState("");
   const [flaggedReport, setFlaggedReport] = useState<FlaggedObservationReport | null>(null);
+  const [flaggedOffset, setFlaggedOffset] = useState(0);
   const [flaggedLoading, setFlaggedLoading] = useState(false);
   const [flaggedError, setFlaggedError] = useState("");
   const [flaggedQuality, setFlaggedQuality] = useState<"" | "pending" | "verified" | "rejected">("");
@@ -328,11 +329,10 @@ export default function ResearchWorkspacePage() {
     }
   }
 
-  async function loadFlaggedObservations() {
+  async function loadFlaggedObservations(offset = 0) {
     setFlaggedLoading(true);
     setFlaggedError("");
-    setFlaggedReport(null);
-    const params = new URLSearchParams({ limit: "200", offset: "0" });
+    const params = new URLSearchParams({ limit: "200", offset: String(offset) });
     if (flaggedName.trim()) params.set("flag", flaggedName.trim());
     if (flaggedQuality) params.set("quality_status", flaggedQuality);
     try {
@@ -340,6 +340,7 @@ export default function ResearchWorkspacePage() {
         "/organizations/" + organizationId + "/climate-observations/flagged?" + params.toString(),
       );
       setFlaggedReport(report);
+      setFlaggedOffset(report.offset);
     } catch (cause) {
       setFlaggedError(cause instanceof Error ? cause.message : "Unable to load flagged observations.");
     } finally {
@@ -684,6 +685,11 @@ export default function ResearchWorkspacePage() {
                         <tbody>{flaggedReport.items.map((item) => <tr key={item.id}><td>{new Date(item.observed_at).toLocaleString()}</td><td>{item.variable}: {formatStatistic(item.value)} {item.unit}</td><td>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</td><td>{item.source}</td><td>{item.quality_status}</td><td>{item.flags.join(", ")}</td></tr>)}</tbody>
                       </table></div>
                     )}
+                    <div className="dataset-review-actions" aria-label="Flagged observation pagination">
+                      <button type="button" className="secondary-action" disabled={flaggedLoading || flaggedOffset === 0} onClick={() => void loadFlaggedObservations(Math.max(0, flaggedOffset - flaggedReport.limit))}>Previous</button>
+                      <span className="workspace-muted">Showing {flaggedReport.matched_count === 0 ? 0 : flaggedOffset + 1}–{flaggedOffset + flaggedReport.items.length} of {flaggedReport.matched_count} scanned matches</span>
+                      <button type="button" className="secondary-action" disabled={flaggedLoading || flaggedOffset + flaggedReport.items.length >= flaggedReport.matched_count} onClick={() => void loadFlaggedObservations(flaggedOffset + flaggedReport.limit)}>Next</button>
+                    </div>
                   </div>}
                 </section>
                 <section className="research-section climate-analysis-panel">
