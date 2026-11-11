@@ -4,8 +4,8 @@ from fastapi import APIRouter
 
 from .auth import router as auth_router
 from .climate import router as climate_router
-from .climate_reporting import router as climate_reporting_router
 from .climate_analysis import router as climate_analysis_router
+from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
 from .learning import router as learning_router
 from .memberships import router as memberships_router
