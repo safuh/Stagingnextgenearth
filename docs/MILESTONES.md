@@ -151,7 +151,7 @@ These foundation checks must continue passing as product code is added.
 ## M8 — Production readiness
 
 - [x] PostgreSQL/PostGIS integration and migration CI (PostgreSQL 17/PostGIS 3.5 service; migration upgrade, schema assertions, downgrade and re-upgrade are exercised).
-- [ ] Automated API and frontend test suites.
+- [ ] API integration suite and frontend BFF policy unit tests run in CI; browser end-to-end coverage and broader interaction tests remain.
 - [ ] Security review, privacy impact assessment and safeguarding review.
 - [ ] Backups, restore drills, retention and deletion policies.
 - [ ] Observability, alerting and operational runbooks.
