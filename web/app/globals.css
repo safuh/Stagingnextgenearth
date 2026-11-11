@@ -605,3 +605,44 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 @media (max-width: 680px) {
   .learner-history-grid { grid-template-columns: 1fr; }
 }
+
+
+.role-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr);
+  gap: 1.25rem;
+  align-items: center;
+  margin: 1.5rem 0;
+  padding: 1.4rem;
+  border: 1px solid var(--line, #dce4df);
+  border-radius: 1rem;
+  background: var(--surface, #fff);
+}
+
+.role-workspace h2 {
+  margin: .35rem 0;
+  text-transform: capitalize;
+  font-size: 1.2rem;
+}
+
+.role-workspace p, .role-workspace-links {
+  color: var(--muted, #64736a);
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.role-workspace-links {
+  display: grid;
+  gap: .65rem;
+}
+
+.role-workspace-links a {
+  color: var(--foreground, #17382b);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: .2rem;
+}
+
+@media (max-width: 680px) {
+  .role-workspace { grid-template-columns: 1fr; }
+}
