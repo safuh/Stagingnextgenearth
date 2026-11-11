@@ -163,6 +163,19 @@ export default function ResearchWorkspacePage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load dataset files."); } finally { setFileLoading(null); }
   }
 
+  async function retryDatasetFileScan(datasetId: string, fileId: string) {
+    setUploading(datasetId); setError(""); setNotice("");
+    try {
+      await apiPost<DatasetFile>(
+        "/organizations/" + organizationId + "/research-datasets/" + datasetId + "/files/" + fileId + "/complete", {},
+      );
+      await loadDatasetFiles(datasetId);
+      setNotice("File verification and scanning retry completed. Check the updated file status before use.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to retry file scanning.");
+    } finally { setUploading(null); }
+  }
+
   async function uploadDatasetFile(datasetId: string, file: File) {
     const allowed: Record<string, string> = { "text/csv": ".csv", "application/json": ".json", "application/pdf": ".pdf", "application/zip": ".zip", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx" };
     const extension = allowed[file.type];
@@ -345,7 +358,7 @@ export default function ResearchWorkspacePage() {
                             )}
                             {(dataset.status === "draft" || dataset.status === "rejected") && (dataset.owner_user_id === membership.user_id || membership.role === "admin") && <label className="dataset-file-picker">Add file version<input type="file" disabled={uploading === dataset.id || saving} accept=".csv,.json,.pdf,.zip,.xlsx" onChange={(event) => { const selected = event.currentTarget.files?.[0]; if (selected) void uploadDatasetFile(dataset.id, selected); event.currentTarget.value = ""; }} /><small>Maximum 100 MB. Files remain quarantined until scanning completes.</small></label>}
                             <button type="button" className="text-action" disabled={fileLoading === dataset.id} onClick={() => loadDatasetFiles(dataset.id)}>{fileLoading === dataset.id ? "Loading files…" : "File versions"}</button>
-                            {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span><small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
+                            {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span>{file.status === "quarantined" && <button type="button" className="text-action" disabled={uploading === dataset.id} onClick={() => retryDatasetFileScan(dataset.id, file.id)}>{uploading === dataset.id ? "Retrying…" : "Retry verification / scan"}</button>}<small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
                             <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
                             {reviewHistory[dataset.id] && <ol className="dataset-review-history">{reviewHistory[dataset.id].map((event) => <li key={event.id}><strong>{event.decision}</strong> · {new Date(event.reviewed_at).toLocaleString()}{event.note && <p>{event.note}</p>}</li>)}</ol>}
                           </td>
