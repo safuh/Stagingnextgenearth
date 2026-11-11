@@ -120,3 +120,111 @@ async def accept_invitation(
     await session.commit()
     await session.refresh(invitation)
     return MembershipRead.model_validate(invitation)
+
+
+class MembershipRoleUpdate(BaseModel):
+    """Validated role change; administrator grants are owner-controlled."""
+
+    role: Literal[
+        "admin",
+        "programme_manager",
+        "researcher",
+        "youth_volunteer",
+        "institutional_partner",
+    ]
+
+
+class MembershipStatusUpdate(BaseModel):
+    """Activate or suspend an existing organisation membership."""
+
+    status: Literal["active", "suspended"]
+
+
+async def _organization_owner(session: AsyncSession, organization_id: str) -> str:
+    """Return the tenant owner, failing closed if the tenant is missing."""
+    from stagingnextgenearth.platform.models import Organization
+
+    owner_id = await session.scalar(
+        select(Organization.owner_user_id).where(Organization.id == organization_id)
+    )
+    if owner_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    return owner_id
+
+
+async def _active_admin_count(session: AsyncSession, organization_id: str) -> int:
+    """Count active administrators before a potentially demoting operation."""
+    from sqlalchemy import func
+
+    count = await session.scalar(
+        select(func.count(Membership.id)).where(
+            Membership.organization_id == organization_id,
+            Membership.role == "admin",
+            Membership.status == "active",
+        )
+    )
+    return int(count or 0)
+
+
+@router.patch("/{membership_id}/role", response_model=MembershipRead)
+async def update_member_role(
+    organization_id: str,
+    membership_id: str,
+    body: MembershipRoleUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MembershipRead:
+    """Change a member role without permitting privilege escalation by non-admins."""
+    if membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    target = await session.scalar(
+        select(Membership).where(
+            Membership.id == membership_id,
+            Membership.organization_id == organization_id,
+        )
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
+    owner_id = await _organization_owner(session, organization_id)
+    if target.user_id == owner_id and body.role != "admin":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Transfer organisation ownership before changing the owner's role")
+    if body.role == "admin" and membership.user_id != owner_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the organisation owner can grant administrator access")
+    if target.status == "active" and target.role == "admin" and body.role != "admin":
+        if target.user_id == membership.user_id or await _active_admin_count(session, organization_id) <= 1:
+            raise HTTPException(status.HTTP_409_CONFLICT, "The last active administrator cannot be demoted")
+    target.role = body.role
+    await session.commit()
+    await session.refresh(target)
+    return MembershipRead.model_validate(target)
+
+
+@router.patch("/{membership_id}/status", response_model=MembershipRead)
+async def update_member_status(
+    organization_id: str,
+    membership_id: str,
+    body: MembershipStatusUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MembershipRead:
+    """Suspend or reactivate a member while preserving an active organisation owner."""
+    if membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    target = await session.scalar(
+        select(Membership).where(
+            Membership.id == membership_id,
+            Membership.organization_id == organization_id,
+        )
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
+    owner_id = await _organization_owner(session, organization_id)
+    if target.user_id == owner_id and body.status == "suspended":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Transfer organisation ownership before suspending the owner")
+    if target.status == "active" and target.role == "admin" and body.status == "suspended":
+        if target.user_id == membership.user_id or await _active_admin_count(session, organization_id) <= 1:
+            raise HTTPException(status.HTTP_409_CONFLICT, "The last active administrator cannot be suspended")
+    target.status = body.status
+    await session.commit()
+    await session.refresh(target)
+    return MembershipRead.model_validate(target)
