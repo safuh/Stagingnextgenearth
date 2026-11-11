@@ -27,3 +27,22 @@ interpretation only under assumptions such as independent observations;
 climate series commonly exhibit temporal and spatial dependence. This endpoint
 does not provide trend significance, confidence intervals, attribution,
 bias correction, spatial interpolation or uncertainty quantification.
+
+
+## Observation submission and quality review
+
+- `POST /api/organizations/{organization_id}/climate-observations` accepts a
+  timezone-aware timestamp, finite measurement value, unit, WGS84 coordinates,
+  source reference, and optional project/study association. New records are
+  always persisted with `quality_status=pending`.
+- `GET /api/organizations/{organization_id}/climate-observations?quality_status=pending&limit=200`
+  provides the bounded pending-review queue for active organisation members.
+- `POST /api/organizations/{organization_id}/climate-observations/{observation_id}/review`
+  accepts `verified` or `rejected` and an optional review note. Only
+  administrators and programme managers may review; submitters cannot review
+  their own observations, and only pending records can be decided. Decisions
+  are immutable through this endpoint.
+- The researcher workspace exposes submission and a role-gated review queue.
+  Backend role, tenant and independent-review checks remain authoritative.
+- The review queue is capped at 200 records per request. Use the API's supported
+  filters and pagination strategy before treating it as a complete backlog.
