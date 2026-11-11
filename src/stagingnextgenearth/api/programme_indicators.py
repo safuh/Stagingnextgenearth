@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -154,8 +155,15 @@ async def create_indicator(
         created_by=principal.user_id,
     )
     session.add(item)
-    await session.commit()
-    await session.refresh(item)
+    try:
+        await session.commit()
+        await session.refresh(item)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "An indicator with this key already exists in the programme",
+        ) from exc
     return IndicatorRead.model_validate(item)
 
 
