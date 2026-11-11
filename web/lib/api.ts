@@ -14,7 +14,12 @@ export function setSession(_tokens: TokenResponse): void {
 }
 
 export function clearSession(): void {
-  // Session cookies are cleared by /api/session/logout.
+  // Compatibility for portal sign-out controls; cookies remain server-managed.
+  void fetch("/api/session/logout", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+  }).catch(() => undefined);
 }
 
 export function hasSession(): boolean {
