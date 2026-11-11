@@ -19,6 +19,7 @@ export function clearSession(): void {
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
+    keepalive: true,
   }).catch(() => undefined);
 }
 
