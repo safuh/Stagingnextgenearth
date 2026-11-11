@@ -199,4 +199,5 @@ These foundation checks must continue passing as product code is added.
 - [x] Staff-only, tenant-scoped enrollment queue, assessment catalogue/submission review, mentorship and attendance reporting APIs; assessment configuration remains withheld from learner responses.
 - [x] Staff learning operations UI for course authoring, enrollment decisions, assessment evaluation, mentorship assignment and attendance recording.
 - [ ] Automated quiz execution, learner notifications, certificate PDF rendering,
-      safeguarding/guardian consent, learner-facing mentorship/attendance views and dedicated role-specific portal dashboards.
+      safeguarding/guardian consent and dedicated role-specific portal dashboards.
+- [x] Learner-owned mentorship and attendance history endpoints and workspace panels (identity is derived from the authenticated principal and records are tenant-scoped).
