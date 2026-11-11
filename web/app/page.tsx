@@ -71,7 +71,7 @@ export default function HomePage() {
         <Link className="brand" href="/" aria-label="NextGen for Earth home">
           <span className="brand-mark">N</span>
           <span>nextgen<span className="brand-light">for</span>earth</span>
-        </a>
+        </Link>
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
           <a href="#portals">Portals</a>
