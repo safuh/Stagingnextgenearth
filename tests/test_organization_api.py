@@ -968,3 +968,93 @@ def test_study_collaborator_requires_active_same_organisation_member(
         headers=outsider_headers,
     )
     assert cross_tenant.status_code == 404
+
+
+def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
+    client: TestClient,
+) -> None:
+    owner_token = register_and_login(client, "membership-owner@example.org")
+    member_token = register_and_login(client, "membership-user@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+
+    organization = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Membership Controls", "slug": "membership-controls"},
+    ).json()
+    organization_id = organization["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "membership-user@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    member_id = invitation.json()["id"]
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{member_id}/accept",
+        headers=member_headers,
+    )
+    assert accepted.status_code == 200
+
+    # A regular member cannot alter membership privileges or status.
+    forbidden_role = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{member_id}/role",
+        headers=member_headers,
+        json={"role": "admin"},
+    )
+    assert forbidden_role.status_code == 403
+
+    promoted = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{member_id}/role",
+        headers=owner_headers,
+        json={"role": "programme_manager"},
+    )
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "programme_manager"
+
+    suspended = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{member_id}/status",
+        headers=owner_headers,
+        json={"status": "suspended"},
+    )
+    assert suspended.status_code == 200
+    assert suspended.json()["status"] == "suspended"
+
+    denied_while_suspended = client.get(
+        "/api/organizations",
+        headers=member_headers,
+    )
+    assert denied_while_suspended.status_code == 200
+    assert denied_while_suspended.json() == []
+
+    reactivated = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{member_id}/status",
+        headers=owner_headers,
+        json={"status": "active"},
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["status"] == "active"
+
+    memberships = client.get(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+    )
+    assert memberships.status_code == 200
+    owner_membership = next(
+        item for item in memberships.json() if item["user_id"] != member_id
+    )
+    # The organisation owner cannot be demoted or suspended before ownership transfer.
+    owner_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{owner_membership['id']}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    owner_suspension = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{owner_membership['id']}/status",
+        headers=owner_headers,
+        json={"status": "suspended"},
+    )
+    assert owner_demotion.status_code == 409
+    assert owner_suspension.status_code == 409
