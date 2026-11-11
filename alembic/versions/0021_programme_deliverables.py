@@ -33,7 +33,9 @@ def upgrade() -> None:
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("review_note", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(36), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint(
             "status IN ('planned', 'in_progress', 'submitted', 'accepted', 'revisions_required')",
             name="ck_programme_deliverable_status",
