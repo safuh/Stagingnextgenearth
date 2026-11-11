@@ -98,6 +98,24 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert activity.status_code == 201
         activity_id = activity.json()["id"]
+        started = client.post(
+            f"{base}/activities/{activity_id}/status",
+            headers=manager,
+            json={"status": "in_progress"},
+        )
+        assert started.status_code == 200
+        completed = client.post(
+            f"{base}/activities/{activity_id}/status",
+            headers=manager,
+            json={"status": "completed"},
+        )
+        assert completed.status_code == 200
+        invalid_transition = client.post(
+            f"{base}/activities/{activity_id}/status",
+            headers=manager,
+            json={"status": "in_progress"},
+        )
+        assert invalid_transition.status_code == 409
         assert client.get(f"{base}/activities", headers=participant).status_code == 200
         assignment = client.post(
             f"{base}/activities/{activity_id}/volunteers",
