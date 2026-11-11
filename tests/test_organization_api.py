@@ -1187,5 +1187,13 @@ def test_administration_summary_is_visible_only_to_administrators(client: TestCl
         headers=owner_headers,
     )
     assert summary.status_code == 200
+    owner_memberships = client.get(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+    )
+    owner_user_id = next(
+        item["user_id"] for item in owner_memberships.json() if item["role"] == "admin"
+    )
     assert summary.json()["organization_id"] == organization_id
-    assert summary.json()["owner_user_id"] == accepted.json()["user_id"] or summary.json()["owner_user_id"] != accepted.json()["user_id"]
+    assert summary.json()["owner_user_id"] == owner_user_id
+    assert summary.json()["owner_user_id"] != accepted.json()["user_id"]
