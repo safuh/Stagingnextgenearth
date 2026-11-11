@@ -14,6 +14,9 @@ interface AuditEvent {
   id: string; action: string; actor_user_id: string; subject_user_id: string | null;
   changes: Record<string, unknown>; created_at: string;
 }
+interface AdministrationSummary {
+  organization_id: string; organization_name: string; owner_user_id: string; created_at: string;
+}
 type InvitableRole = "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
 
 export default function AdministrationPage() {
@@ -22,6 +25,7 @@ export default function AdministrationPage() {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [members, setMembers] = useState<Membership[]>([]);
   const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [administration, setAdministration] = useState<AdministrationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessLoading, setAccessLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -29,14 +33,16 @@ export default function AdministrationPage() {
   const [notice, setNotice] = useState("");
 
   const refresh = useCallback(async (id: string) => {
-    const [mine, memberRows, auditRows] = await Promise.all([
+    const [mine, memberRows, auditRows, adminSummary] = await Promise.all([
       apiGet<Membership>(`/organizations/${id}/memberships/me`),
       apiGet<Membership[]>(`/organizations/${id}/memberships`),
       apiGet<AuditEvent[]>(`/organizations/${id}/audit-events?limit=100`),
+      apiGet<AdministrationSummary>(`/organizations/${id}/administration-summary`),
     ]);
     setMembership(mine);
     setMembers(memberRows);
     setEvents(auditRows);
+    setAdministration(adminSummary);
     setAccessLoading(false);
   }, []);
 
@@ -139,14 +145,14 @@ export default function AdministrationPage() {
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
               </section>
-              <section className="staff-card">
+              {administration?.owner_user_id === membership.user_id && <section className="staff-card">
                 <h2>Transfer ownership</h2>
-                <p>Only the current owner can transfer ownership. The new owner must already be an active member. Your role becomes programme manager.</p>
+                <p>The new owner must already be an active member. Your role becomes programme manager after transfer.</p>
                 <form onSubmit={transferOwnership}>
                   <label>New owner user ID<input name="user_id" minLength={1} maxLength={36} required /></label>
                   <button className="secondary-action" disabled={busyId === "ownership"}>Transfer ownership</button>
                 </form>
-              </section>
+              </section>}
             </div>
             <section className="staff-card admin-member-section">
               <div className="section-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>Organisation members</h2></div><span>{members.length} records</span></div>
