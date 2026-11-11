@@ -16,7 +16,7 @@ The portal reads its tenant from the caller's active organisation list and then 
 
 Invitations remain in the `invited` state until the invited account accepts. The portal does not create user accounts, expose passwords or activate invitations on behalf of invitees. Membership identifiers are shown to administrators because the existing membership and audit APIs expose those identifiers to administrators.
 
-Only the current organisation owner may grant administrator access or transfer ownership. The backend prevents demoting or suspending the owner before transfer and prevents removal of the last active administrator. Ownership transfer requires an already-active member and atomically changes the owner and membership roles.
+Only the current organisation owner may grant administrator access or transfer ownership. A separate administrator-only summary endpoint supplies owner metadata so the portal can display the transfer form only to the current owner. The backend prevents demoting or suspending the owner before transfer and prevents removal of the last active administrator. Ownership transfer requires an already-active member and atomically changes the owner and membership roles.
 
 Audit history is tenant-scoped and administrator-only. It records governance changes, not a complete application-wide activity log. The portal does not expose learner records, research file contents, raw climate data or participant-level programme data.
 
