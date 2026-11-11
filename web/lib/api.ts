@@ -55,7 +55,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {\n  return request<T>(path);\n}\n\nexport async function apiPost<T>(path: string, body: unknown): Promise<T> {\n  return request<T>(path, { method: "POST", body: JSON.stringify(body) });\n}\n\nexport async function login(identifier: string, password: string): Promise<TokenResponse> {
+export async function apiGet<T>(path: string): Promise<T> {
+  return request<T>(path);
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function login(identifier: string, password: string): Promise<TokenResponse> {
   const tokens = await request<TokenResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ identifier, password }),
