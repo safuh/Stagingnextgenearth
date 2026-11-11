@@ -59,6 +59,13 @@ grading are not part of this MVP.
   completed enrolment.
 - Staff can review attendance with
   `GET /courses/{course_id}/attendance`.
+- Learners can retrieve only relationships involving their own account with
+  `GET /my-mentorships`; the response identifies whether the caller is the
+  mentor or mentee and includes the course, relationship status and staff notes.
+- Learners can retrieve their own records with `GET /my-attendance`, including
+  session date, title, course and attendance status. Both personal-history
+  endpoints are tenant-scoped and derive the learner identity from the access
+  token; callers cannot supply another learner ID.
 
 These endpoints return user IDs, not public profile details. The UI should
 resolve display names only through an independently authorised organisation
@@ -78,7 +85,7 @@ interface only; all permissions remain enforced by the API.
   reload ends the session; production deployment should use a backend-for-
   frontend with secure HttpOnly cookies and CSRF protection.
 - Quiz delivery, automatic grading, notifications, certificate PDF rendering,
-  learner-facing mentorship/attendance history, and dedicated role dashboards
+  dedicated role dashboards
   remain future work.
 - Course resources backed by private object storage must be delivered through
   the existing authorised storage-grant flow; never expose storage references
