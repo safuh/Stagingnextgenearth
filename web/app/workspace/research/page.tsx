@@ -51,6 +51,11 @@ interface ClimateObservation {
   source: string; quality_status: "pending" | "verified" | "rejected"; reviewed_by: string | null;
   reviewed_at: string | null; review_note: string | null;
 }
+interface SpatialClimateQuery {
+  west: string; south: string; east: string; north: string; variable: string;
+  quality_status: "" | "pending" | "verified" | "rejected";
+  start: string; end: string;
+}
 interface ClimateAnalysisSummary {
   variable: string; quality_status: "verified" | "pending"; start: string; end: string;
   observation_count: number; groups: ClimateUnitSummary[];
@@ -131,6 +136,14 @@ export default function ResearchWorkspacePage() {
   const [analysis, setAnalysis] = useState<ClimateAnalysisSummary | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
+  const [spatialQuery, setSpatialQuery] = useState<SpatialClimateQuery>({
+    west: "33.9", south: "-4.7", east: "41.9", north: "5.2",
+    variable: "", quality_status: "verified", start: "", end: "",
+  });
+  const [spatialResults, setSpatialResults] = useState<ClimateObservation[] | null>(null);
+  const [spatialLoading, setSpatialLoading] = useState(false);
+  const [spatialError, setSpatialError] = useState("");
+
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
@@ -238,6 +251,54 @@ export default function ResearchWorkspacePage() {
       setAnalysisError(cause instanceof Error ? cause.message : "Unable to calculate climate summary.");
     } finally {
       setAnalysisLoading(false);
+    }
+  }
+
+  async function runSpatialClimateQuery(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSpatialError("");
+    setSpatialResults(null);
+    const west = Number(spatialQuery.west);
+    const south = Number(spatialQuery.south);
+    const east = Number(spatialQuery.east);
+    const north = Number(spatialQuery.north);
+    if (![west, south, east, north].every(Number.isFinite) ||
+        west < -180 || east > 180 || south < -90 || north > 90 ||
+        west >= east || south >= north) {
+      setSpatialError("Enter a valid WGS84 bounding box: west < east and south < north.");
+      return;
+    }
+    const params = new URLSearchParams({
+      west: String(west), south: String(south), east: String(east), north: String(north),
+      limit: "500", offset: "0",
+    });
+    if (spatialQuery.variable.trim()) params.set("variable", spatialQuery.variable.trim());
+    if (spatialQuery.quality_status) params.set("quality_status", spatialQuery.quality_status);
+    if (spatialQuery.start) {
+      const start = new Date(spatialQuery.start);
+      if (!Number.isFinite(start.getTime())) { setSpatialError("Enter a valid start date."); return; }
+      params.set("start", start.toISOString());
+    }
+    if (spatialQuery.end) {
+      const end = new Date(spatialQuery.end);
+      if (!Number.isFinite(end.getTime())) { setSpatialError("Enter a valid end date."); return; }
+      params.set("end", end.toISOString());
+    }
+    if (spatialQuery.start && spatialQuery.end &&
+        new Date(spatialQuery.end).getTime() < new Date(spatialQuery.start).getTime()) {
+      setSpatialError("End date must not precede start date.");
+      return;
+    }
+    setSpatialLoading(true);
+    try {
+      const result = await apiGet<ClimateObservation[]>(
+        "/organizations/" + organizationId + "/climate-observations/spatial?" + params.toString(),
+      );
+      setSpatialResults(result);
+    } catch (cause) {
+      setSpatialError(cause instanceof Error ? cause.message : "Unable to query spatial observations.");
+    } finally {
+      setSpatialLoading(false);
     }
   }
 
@@ -489,6 +550,30 @@ export default function ResearchWorkspacePage() {
                       <p className="workspace-muted">Method: {analysis.method.replace(/_/g, " ")}. The selected time window is start-inclusive and end-exclusive. These are descriptive statistics, not trend significance or attribution.</p>
                     </div>
                   )}
+                </section>
+                <section className="research-section climate-analysis-panel">
+                  <div className="section-heading"><div><p className="eyebrow">SPATIAL DATA</p><h2>Observation area query</h2></div><span>WGS84 · max 500 rows</span></div>
+                  <p className="workspace-muted">Filter observations by a geographic bounding box. The initial extent covers Kenya; narrow it to an area of interest. This is a coordinate query, not a map or an interpolated surface.</p>
+                  <form className="climate-analysis-form" onSubmit={runSpatialClimateQuery}>
+                    <label>West longitude<input type="number" step="any" min="-180" max="180" required value={spatialQuery.west} onChange={(event) => setSpatialQuery((q) => ({ ...q, west: event.target.value }))} /></label>
+                    <label>South latitude<input type="number" step="any" min="-90" max="90" required value={spatialQuery.south} onChange={(event) => setSpatialQuery((q) => ({ ...q, south: event.target.value }))} /></label>
+                    <label>East longitude<input type="number" step="any" min="-180" max="180" required value={spatialQuery.east} onChange={(event) => setSpatialQuery((q) => ({ ...q, east: event.target.value }))} /></label>
+                    <label>North latitude<input type="number" step="any" min="-90" max="90" required value={spatialQuery.north} onChange={(event) => setSpatialQuery((q) => ({ ...q, north: event.target.value }))} /></label>
+                    <label>Variable (optional)<input value={spatialQuery.variable} onChange={(event) => setSpatialQuery((q) => ({ ...q, variable: event.target.value }))} maxLength={80} placeholder="e.g. precipitation" /></label>
+                    <label>Quality status<select value={spatialQuery.quality_status} onChange={(event) => setSpatialQuery((q) => ({ ...q, quality_status: event.target.value as SpatialClimateQuery["quality_status"] }))}><option value="">All statuses</option><option value="verified">Verified</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
+                    <label>Start (optional)<input type="datetime-local" value={spatialQuery.start} onChange={(event) => setSpatialQuery((q) => ({ ...q, start: event.target.value }))} /></label>
+                    <label>End (optional)<input type="datetime-local" value={spatialQuery.end} onChange={(event) => setSpatialQuery((q) => ({ ...q, end: event.target.value }))} /></label>
+                    <button className="primary-action" disabled={spatialLoading}>{spatialLoading ? "Querying…" : "Find observations"}</button>
+                  </form>
+                  {spatialError && <p className="workspace-error" role="alert">{spatialError}</p>}
+                  {spatialResults && <div className="climate-analysis-results" aria-live="polite">
+                    <p><strong>{spatialResults.length.toLocaleString()}</strong> observations returned (maximum 500 per query).</p>
+                    {spatialResults.length === 0 ? <p className="workspace-muted">No observations match this area and filter set.</p> : (
+                      <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Observed</th><th>Variable</th><th>Value</th><th>Coordinates</th><th>Source</th><th>Quality</th></tr></thead>
+                        <tbody>{spatialResults.map((item) => <tr key={item.id}><td>{new Date(item.observed_at).toLocaleString()}</td><td>{item.variable}</td><td>{formatStatistic(item.value)} {item.unit}</td><td>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</td><td>{item.source}</td><td><span className="status-chip">{item.quality_status}</span></td></tr>)}</tbody>
+                      </table></div>
+                    )}
+                  </div>}
                 </section>
                 <div className="research-metrics" aria-label="Research dataset summary">
                   <article><span>Studies</span><strong>{studies.length}</strong></article>
