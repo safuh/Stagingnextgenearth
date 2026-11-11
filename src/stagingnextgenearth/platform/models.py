@@ -1390,3 +1390,45 @@ class ProgrammeIndicatorMeasurement(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ProgrammeParticipationRecord(Base):
+    """Aggregate school/community participation record without child-level PII."""
+
+    __tablename__ = "programme_participation_records"
+    __table_args__ = (
+        CheckConstraint(
+            "participant_group IN ('school', 'community', 'youth_group', 'institution')",
+            name="ck_programme_participant_group",
+        ),
+        CheckConstraint("participant_count > 0", name="ck_participant_count_positive"),
+        Index(
+            "ix_programme_participation_programme_period",
+            "programme_id",
+            "period_end",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="SET NULL"), nullable=True
+    )
+    participant_group: Mapped[str] = mapped_column(String(20), nullable=False)
+    group_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    participant_count: Mapped[int] = mapped_column(nullable=False)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
