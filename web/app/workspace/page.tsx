@@ -302,7 +302,7 @@ export default function WorkspacePage() {
                     <Link href="/workspace/partner">Institutional partner portal →</Link>
                   )}
                   {membership.role === "admin" && (
-                    <span>Organisation administration · membership and governance controls.</span>
+                    <Link href="/workspace/administration">Organisation administration →</Link>
                   )}
                 </div>
               </section>
