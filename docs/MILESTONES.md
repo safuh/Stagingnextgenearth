@@ -119,8 +119,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Spatial and temporal query APIs (tenant-scoped WGS84 bounding-box and time filters with bounded pagination).
 - [x] Initial independent review workflow for field-observation quality status.
 - [ ] Quality assurance, missing-data handling and unit normalisation (conservative conversions and broad-range screening are integrated into provider persistence with original-value provenance; tenant-scoped status/variable summaries, bounded flagged-observation reports and daily station coverage reports are implemented; coverage uses an explicit report-only/no-imputation policy; descriptive statistics preserve missingness; dashboard presentation and configurable domain-specific thresholds remain).
-- [ ] Research-grade statistical and geospatial analysis pipelines (tested descriptive statistics primitive and tenant-scoped, bounded, unit-grouped verified-data analysis summary API implemented; inferential and spatial/temporal dependence methods remain) (deterministic descriptive statistics are implemented as a tested calculation primitive; inferential methods, spatial/temporal dependence handling and API integration remain).
-- [ ] Interactive map and advanced climate research dashboards.\n- [x] Interactive tenant-scoped descriptive climate analysis dashboard for bounded verified/pending series, with unit-separated statistics and explicit no-imputation/provisional-data messaging.
+- [ ] Research-grade statistical and geospatial analysis pipelines (tested descriptive statistics primitive, tenant-scoped bounded unit-grouped analysis API, and interactive verified/pending descriptive workspace implemented; inferential and spatial/temporal dependence methods remain).
+- [x] Interactive tenant-scoped descriptive climate analysis dashboard for bounded verified/pending series, with unit-separated statistics and explicit no-imputation/provisional-data messaging.
 - [ ] Uncertainty, model limitations and data lineage shown in outputs.
 
 ## M6 — Public website and four portals
