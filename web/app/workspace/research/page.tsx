@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization {
@@ -81,6 +81,7 @@ const RESEARCH_ROLES = ["admin", "programme_manager", "researcher", "institution
 export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
+  const workspaceGeneration = useRef(0);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [studies, setStudies] = useState<Study[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -130,6 +131,20 @@ export default function ResearchWorkspacePage() {
     return () => { active = false; };
   }, [organizationId]);
 
+
+  useEffect(() => {
+    workspaceGeneration.current += 1;
+    setClimateObservations([]);
+    setAnalysis(null);
+    setAnalysisError("");
+    setSpatialResults(null);
+    setSpatialError("");
+    setFlaggedReport(null);
+    setFlaggedOffset(0);
+    setFlaggedError("");
+    setCoverageReport(null);
+    setCoverageError("");
+  }, [organizationId]);
 
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [reviewHistory, setReviewHistory] = useState<Record<string, { id: string; decision: string; note: string | null; reviewed_at: string }[]>>({});
@@ -251,6 +266,8 @@ export default function ResearchWorkspacePage() {
   }
 
   async function runClimateAnalysis(event: FormEvent<HTMLFormElement>) {
+    const generation = workspaceGeneration.current;
+    const requestOrganizationId = organizationId;
     event.preventDefault();
     setAnalysisError("");
     setAnalysis(null);
@@ -273,17 +290,19 @@ export default function ResearchWorkspacePage() {
         quality_status: analysisQuality,
       });
       const result = await apiGet<ClimateAnalysisSummary>(
-        "/organizations/" + organizationId + "/climate-observations/analysis-summary?" + params.toString(),
+        "/organizations/" + requestOrganizationId + "/climate-observations/analysis-summary?" + params.toString(),
       );
-      setAnalysis(result);
+      if (generation === workspaceGeneration.current) setAnalysis(result);
     } catch (cause) {
-      setAnalysisError(cause instanceof Error ? cause.message : "Unable to calculate climate summary.");
+      if (generation === workspaceGeneration.current) setAnalysisError(cause instanceof Error ? cause.message : "Unable to calculate climate summary.");
     } finally {
-      setAnalysisLoading(false);
+      if (generation === workspaceGeneration.current) setAnalysisLoading(false);
     }
   }
 
   async function runSpatialClimateQuery(event: FormEvent<HTMLFormElement>) {
+    const generation = workspaceGeneration.current;
+    const requestOrganizationId = organizationId;
     event.preventDefault();
     setSpatialError("");
     setSpatialResults(null);
@@ -321,17 +340,19 @@ export default function ResearchWorkspacePage() {
     setSpatialLoading(true);
     try {
       const result = await apiGet<ClimateObservation[]>(
-        "/organizations/" + organizationId + "/climate-observations/spatial?" + params.toString(),
+        "/organizations/" + requestOrganizationId + "/climate-observations/spatial?" + params.toString(),
       );
-      setSpatialResults(result);
+      if (generation === workspaceGeneration.current) setSpatialResults(result);
     } catch (cause) {
-      setSpatialError(cause instanceof Error ? cause.message : "Unable to query spatial observations.");
+      if (generation === workspaceGeneration.current) setSpatialError(cause instanceof Error ? cause.message : "Unable to query spatial observations.");
     } finally {
-      setSpatialLoading(false);
+      if (generation === workspaceGeneration.current) setSpatialLoading(false);
     }
   }
 
   async function loadFlaggedObservations(offset = 0) {
+    const generation = workspaceGeneration.current;
+    const requestOrganizationId = organizationId;
     setFlaggedError("");
     const start = flaggedStart ? new Date(flaggedStart) : null;
     const end = flaggedEnd ? new Date(flaggedEnd) : null;
@@ -352,18 +373,20 @@ export default function ResearchWorkspacePage() {
     if (end) params.set("end", end.toISOString());
     try {
       const report = await apiGet<FlaggedObservationReport>(
-        "/organizations/" + organizationId + "/climate-observations/flagged?" + params.toString(),
+        "/organizations/" + requestOrganizationId + "/climate-observations/flagged?" + params.toString(),
       );
-      setFlaggedReport(report);
-      setFlaggedOffset(report.offset);
+      if (generation === workspaceGeneration.current) setFlaggedReport(report);
+      if (generation === workspaceGeneration.current) setFlaggedOffset(report.offset);
     } catch (cause) {
-      setFlaggedError(cause instanceof Error ? cause.message : "Unable to load flagged observations.");
+      if (generation === workspaceGeneration.current) setFlaggedError(cause instanceof Error ? cause.message : "Unable to load flagged observations.");
     } finally {
-      setFlaggedLoading(false);
+      if (generation === workspaceGeneration.current) setFlaggedLoading(false);
     }
   }
 
   async function runCoverageReport(event: FormEvent<HTMLFormElement>) {
+    const generation = workspaceGeneration.current;
+    const requestOrganizationId = organizationId;
     event.preventDefault();
     setCoverageError("");
     setCoverageReport(null);
@@ -396,13 +419,13 @@ export default function ResearchWorkspacePage() {
     setCoverageLoading(true);
     try {
       const report = await apiGet<DailyCoverageReport>(
-        "/organizations/" + organizationId + "/climate-observations/coverage?" + params.toString(),
+        "/organizations/" + requestOrganizationId + "/climate-observations/coverage?" + params.toString(),
       );
-      setCoverageReport(report);
+      if (generation === workspaceGeneration.current) setCoverageReport(report);
     } catch (cause) {
-      setCoverageError(cause instanceof Error ? cause.message : "Unable to calculate station coverage.");
+      if (generation === workspaceGeneration.current) setCoverageError(cause instanceof Error ? cause.message : "Unable to calculate station coverage.");
     } finally {
-      setCoverageLoading(false);
+      if (generation === workspaceGeneration.current) setCoverageLoading(false);
     }
   }
 
