@@ -33,13 +33,20 @@ export default function AdministrationPage() {
   const [notice, setNotice] = useState("");
 
   const refresh = useCallback(async (id: string) => {
-    const [mine, memberRows, auditRows, adminSummary] = await Promise.all([
-      apiGet<Membership>(`/organizations/${id}/memberships/me`),
+    const mine = await apiGet<Membership>(`/organizations/${id}/memberships/me`);
+    setMembership(mine);
+    if (mine.role !== "admin") {
+      setMembers([]);
+      setEvents([]);
+      setAdministration(null);
+      setAccessLoading(false);
+      return;
+    }
+    const [memberRows, auditRows, adminSummary] = await Promise.all([
       apiGet<Membership[]>(`/organizations/${id}/memberships`),
       apiGet<AuditEvent[]>(`/organizations/${id}/audit-events?limit=100`),
       apiGet<AdministrationSummary>(`/organizations/${id}/administration-summary`),
     ]);
-    setMembership(mine);
     setMembers(memberRows);
     setEvents(auditRows);
     setAdministration(adminSummary);
