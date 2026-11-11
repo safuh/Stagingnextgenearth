@@ -69,7 +69,7 @@ These foundation checks must continue passing as product code is added.
 ## M3 — Programme and project operations
 
 - [ ] Programme and project APIs with explicit service/repository boundaries.
-- [x] Activities, deliverables, volunteer allocations and activity lifecycle transitions.\n- [ ] Goals, milestones and general assignments.
+- [x] Activities, deliverables, volunteer allocations and activity lifecycle transitions.\n- [x] Programme goals, milestone checkpoints and general assignments with tenant-scoped visibility, active-member assignment, and guarded lifecycle transitions.
 - [x] Volunteer and ambassador applications, approval and activity allocation.
 - [x] Aggregate school, community, youth-group and institutional participation records (no child-level PII).
 - [ ] Evidence uploads and approval workflow.
