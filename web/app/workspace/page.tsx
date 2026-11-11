@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet, clearSession, hasSession } from "@/lib/api";
+import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
   country_code: string;
 }
 interface Programme {
@@ -21,10 +22,39 @@ interface Programme {
 interface Course {
   id: string;
   title: string;
+  slug: string;
   description: string;
   category: string | null;
   delivery_mode: string;
   status: string;
+}
+interface Lesson {
+  id: string;
+  title: string;
+  content_type: string;
+  content: string | null;
+  resource_url: string | null;
+  duration_minutes: number | null;
+  position: number;
+}
+interface Module {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  lessons: Lesson[];
+}
+interface Curriculum {
+  course_id: string;
+  title: string;
+  modules: Module[];
+}
+interface CourseProgress {
+  course_id: string;
+  enrollment_status: string;
+  progress_percent: number;
+  completed_lesson_ids: string[];
+  assessments: Array<{ assessment_id: string; score: number | null; feedback: string | null }>;
 }
 type Panel = "overview" | "programmes" | "learning";
 
@@ -34,8 +64,14 @@ export default function WorkspacePage() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [panel, setPanel] = useState<Panel>("overview");
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [curriculum, setCurriculum] = useState<Curriculum | null>(null);
+  const [progress, setProgress] = useState<CourseProgress | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     if (!hasSession()) {
@@ -54,17 +90,102 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (!organizationId) return;
+    let active = true;
     setError("");
+    setSelectedCourse(null);
+    setCurriculum(null);
+    setProgress(null);
     Promise.all([
       apiGet<Programme[]>(`/organizations/${organizationId}/programmes`),
       apiGet<Course[]>(`/organizations/${organizationId}/learning/courses`),
     ]).then(([programmeItems, courseItems]) => {
+      if (!active) return;
       setProgrammes(programmeItems);
       setCourses(courseItems);
     }).catch((cause: unknown) => {
-      setError(cause instanceof Error ? cause.message : "Unable to load workspace data.");
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load workspace data.");
     });
+    return () => { active = false; };
   }, [organizationId]);
+
+  async function openCourse(course: Course) {
+    setSelectedCourse(course);
+    setCurriculum(null);
+    setProgress(null);
+    setNotice("");
+    setError("");
+    setDetailLoading(true);
+    try {
+      const outline = await apiGet<Curriculum>(
+        `/organizations/${organizationId}/learning/courses/${course.id}/curriculum`,
+      );
+      setCurriculum(outline);
+      try {
+        const learnerProgress = await apiGet<CourseProgress>(
+          `/organizations/${organizationId}/learning/courses/${course.id}/my-progress`,
+        );
+        setProgress(learnerProgress);
+      } catch {
+        // A learner without an application has no progress record yet.
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load this course.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function applyToCourse() {
+    if (!selectedCourse) return;
+    setActionLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiPost<{ id: string; status: string }>(
+        `/organizations/${organizationId}/learning/courses/${selectedCourse.id}/enrollments`,
+        {},
+      );
+      setNotice(`Application submitted. Current status: ${result.status}.`);
+      setProgress({
+        course_id: selectedCourse.id,
+        enrollment_status: result.status,
+        progress_percent: 0,
+        completed_lesson_ids: [],
+        assessments: [],
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit your application.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function completeLesson(lessonId: string) {
+    if (!selectedCourse) return;
+    setActionLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiPost<{
+        status: string;
+        progress_percent: number;
+        certificate_number: string | null;
+      }>(`/organizations/${organizationId}/learning/lessons/${lessonId}/complete`, {});
+      setProgress((current) => current ? {
+        ...current,
+        enrollment_status: result.status,
+        progress_percent: result.progress_percent,
+        completed_lesson_ids: [...new Set([...current.completed_lesson_ids, lessonId])],
+      } : current);
+      setNotice(result.certificate_number
+        ? `Course completed. Certificate ${result.certificate_number} has been issued.`
+        : `Lesson marked complete. Course progress: ${result.progress_percent}%.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update lesson progress.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   if (loading) return <main className="workspace-shell"><p>Loading your workspace…</p></main>;
 
@@ -78,6 +199,7 @@ export default function WorkspacePage() {
         <p className="eyebrow">MEMBER WORKSPACE</p>
         <h1 className="workspace-title">Your organisation.<br /><em>Your impact.</em></h1>
         {error && <p className="workspace-error" role="alert">{error}</p>}
+        {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {organizations.length === 0 && !error ? (
           <div className="workspace-empty"><h2>No organisation access yet</h2><p>Ask your organisation administrator to invite your account to a workspace.</p></div>
         ) : (
@@ -88,7 +210,7 @@ export default function WorkspacePage() {
             </select>
             <nav className="workspace-tabs" aria-label="Workspace sections">
               {(["overview", "programmes", "learning"] as Panel[]).map((item) => (
-                <button key={item} className={panel === item ? "active" : ""} onClick={() => setPanel(item)}>{item}</button>
+                <button key={item} className={panel === item ? "active" : ""} onClick={() => { setPanel(item); setSelectedCourse(null); }}>{item}</button>
               ))}
             </nav>
             {panel === "overview" && (
@@ -106,10 +228,42 @@ export default function WorkspacePage() {
               </section>
             )}
             {panel === "learning" && (
-              <section className="workspace-list"><h2>Learning programmes</h2>
-                {courses.length === 0 ? <p className="workspace-muted">No published courses are available yet.</p> : courses.map((item) => (
-                  <article className="workspace-item" key={item.id}><div><h3>{item.title}</h3><p>{item.description}</p><small>{item.category || "General"} · {item.delivery_mode.replace("_", " ")}</small></div><span className="status-pill">{item.status}</span></article>
-                ))}
+              <section className="workspace-list">
+                {selectedCourse ? (
+                  <>
+                    <button className="course-back" onClick={() => { setSelectedCourse(null); setCurriculum(null); setProgress(null); }}>← All courses</button>
+                    <div className="course-heading"><div><p className="eyebrow">COURSE CURRICULUM</p><h2>{selectedCourse.title}</h2><p>{selectedCourse.description}</p></div><span className="status-pill">{selectedCourse.delivery_mode.replace("_", " ")}</span></div>
+                    {progress && <div className="course-progress"><div><span>Your progress</span><strong>{progress.progress_percent}%</strong></div><div className="progress-track"><span style={{ width: `${progress.progress_percent}%` }} /></div><small>Enrollment: {progress.enrollment_status}</small></div>}
+                    {!progress && selectedCourse.status === "published" && <button className="primary-action" onClick={applyToCourse} disabled={actionLoading}>{actionLoading ? "Submitting…" : "Apply for this course"}</button>}
+                    {detailLoading ? <p className="workspace-muted">Loading curriculum…</p> : curriculum?.modules.length ? curriculum.modules.map((module) => (
+                      <article className="module-card" key={module.id}>
+                        <div className="module-title"><span>MODULE {module.position}</span><h3>{module.title}</h3>{module.description && <p>{module.description}</p>}</div>
+                        {module.lessons.map((lesson) => {
+                          const complete = progress?.completed_lesson_ids.includes(lesson.id) ?? false;
+                          const canComplete = progress?.enrollment_status === "approved";
+                          return <div className="lesson-row" key={lesson.id}>
+                            <div><strong>{lesson.title}</strong><small>{lesson.content_type}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</small>
+                              {lesson.content && <p>{lesson.content}</p>}
+                              {lesson.resource_url && <a href={lesson.resource_url} target="_blank" rel="noreferrer">Open lesson resource ↗</a>}
+                            </div>
+                            {complete ? <span className="lesson-complete">Completed</span> : canComplete ? <button className="lesson-action" disabled={actionLoading} onClick={() => completeLesson(lesson.id)}>Mark complete</button> : null}
+                          </div>;
+                        })}
+                      </article>
+                    )) : !detailLoading && <p className="workspace-muted">This course has no published lessons yet.</p>}
+                  </>
+                ) : (
+                  <>
+                    <h2>Learning programmes</h2>
+                    <p className="workspace-muted">Explore published courses, review the curriculum and track your learning progress.</p>
+                    {courses.length === 0 ? <p className="workspace-muted">No published courses are available yet.</p> : courses.map((item) => (
+                      <button className="course-item" key={item.id} onClick={() => openCourse(item)}>
+                        <span><strong>{item.title}</strong><small>{item.category || "General"} · {item.delivery_mode.replace("_", " ")}</small><span>{item.description}</span></span>
+                        <span className="course-open">View course →</span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </section>
             )}
           </>
