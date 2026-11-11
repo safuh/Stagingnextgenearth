@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { clearSession, hasSession, login, logout } from "@/lib/api";
 
 const portals = [
@@ -67,7 +68,7 @@ export default function HomePage() {
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="/" aria-label="NextGen for Earth home">
+        <Link className="brand" href="/" aria-label="NextGen for Earth home">
           <span className="brand-mark">N</span>
           <span>nextgen<span className="brand-light">for</span>earth</span>
         </a>
@@ -157,7 +158,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer><a className="brand" href="/"><span className="brand-mark">N</span><span>nextgen<span className="brand-light">for</span>earth</span></a><span>Research with purpose. Action with evidence.</span><span>© {new Date().getFullYear()} NextGen for Earth</span></footer>
+      <footer><Link className="brand" href="/"><span className="brand-mark">N</span><span>nextgen<span className="brand-light">for</span>earth</span></Link><span>Research with purpose. Action with evidence.</span><span>© {new Date().getFullYear()} NextGen for Earth</span></footer>
     </main>
   );
 }
