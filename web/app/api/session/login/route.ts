@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSameOriginMutation } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,7 @@ function cookieOptions(maxAge: number) {
 }
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 
