@@ -47,3 +47,22 @@ The dashboard now includes two API-backed forms for users with an eligible resea
 - Dataset registration creates a metadata-only draft with optional study link, description, version, format, source, licence and access classification.
 
 Dataset registration does not upload bytes or make a dataset approved. Drafts must follow the existing submission and independent review workflow. File upload intents, malware scanning, download grants and object-storage access remain separate, authorised operations. The UI refreshes its local registry after successful creation and reports API validation/permission errors without bypassing server checks.
+
+
+## Dataset submission and review workspace
+
+The researcher registry exposes a submit action for draft dataset metadata. Submission
+uses the tenant-scoped `POST /organizations/{organization_id}/research-datasets/{dataset_id}/submit`
+endpoint; ownership and study-editor permissions are enforced by the API.
+
+Administrator and programme-manager members see review controls for submitted datasets.
+Approval and rejection are recorded through the independent review endpoint, with a
+review note required in the UI when requesting corrections. Review history is loaded
+from the append-only dataset review endpoint and displayed per dataset. Restricted
+datasets remain subject to the stricter administrator-only review policy, and owners
+cannot review their own submissions.
+
+The browser does not treat client-side role checks as authorization. Every mutation
+and history request is re-authorised by the API. Owner correction/resubmission and
+file upload/scanning remain separate workflows; no storage keys or download URLs are
+exposed in the registry.
