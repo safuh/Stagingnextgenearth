@@ -128,7 +128,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Responsive Next.js public landing page, four portal entry points, API-backed sign-in and authenticated organisation workspace with server-filtered membership discovery, programme listing and published-course listing.
 - [x] Learner course detail, ordered module/lesson curriculum, course application, lesson completion and progress tracking.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
-- [ ] Staff-facing course authoring, application decisions, assessment evaluation and attendance/mentorship management UI.
+- [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
 - [ ] Researcher portal.
 - [ ] Youth and volunteer portal.
 - [ ] Administrator portal.
@@ -196,6 +196,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Assessment definitions, submissions and staff evaluation.
 - [x] Mentor assignments, workshop attendance and learning resource metadata.
 - [x] Lesson completion, assessment-derived progress and verifiable certificates.
-- [x] Staff-only, tenant-scoped enrollment queue and assessment catalogue APIs with assessment configuration withheld from learner responses.
+- [x] Staff-only, tenant-scoped enrollment queue, assessment catalogue/submission review, mentorship and attendance reporting APIs; assessment configuration remains withheld from learner responses.
+- [x] Staff learning operations UI for course authoring, enrollment decisions, assessment evaluation, mentorship assignment and attendance recording.
 - [ ] Automated quiz execution, learner notifications, certificate PDF rendering,
-      safeguarding/guardian consent, mentor/attendance management UI and role-specific portal dashboards.
+      safeguarding/guardian consent, learner-facing mentorship/attendance views and dedicated role-specific portal dashboards.
