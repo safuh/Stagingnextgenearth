@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -83,21 +83,39 @@ async def get_partner_programme_report(
         .order_by(ProgrammeIndicator.title)
         .limit(200)
     )
+    latest_measurements = (
+        select(
+            ProgrammeIndicatorMeasurement.id.label("measurement_id"),
+            func.row_number()
+            .over(
+                partition_by=ProgrammeIndicatorMeasurement.indicator_id,
+                order_by=(
+                    ProgrammeIndicatorMeasurement.period_end.desc(),
+                    ProgrammeIndicatorMeasurement.created_at.desc(),
+                    ProgrammeIndicatorMeasurement.id.desc(),
+                ),
+            )
+            .label("row_number"),
+        )
+        .where(
+            ProgrammeIndicatorMeasurement.organization_id == organization_id,
+            ProgrammeIndicatorMeasurement.programme_id == programme_id,
+        )
+        .subquery()
+    )
+    latest_rows = await session.scalars(
+        select(ProgrammeIndicatorMeasurement)
+        .join(
+            latest_measurements,
+            ProgrammeIndicatorMeasurement.id == latest_measurements.c.measurement_id,
+        )
+        .where(latest_measurements.c.row_number == 1)
+    )
+    latest_by_indicator = {row.indicator_id: row for row in latest_rows.all()}
+
     indicators: list[PartnerIndicator] = []
     for indicator in indicator_rows.all():
-        latest = await session.scalar(
-            select(ProgrammeIndicatorMeasurement)
-            .where(
-                ProgrammeIndicatorMeasurement.organization_id == organization_id,
-                ProgrammeIndicatorMeasurement.programme_id == programme_id,
-                ProgrammeIndicatorMeasurement.indicator_id == indicator.id,
-            )
-            .order_by(
-                ProgrammeIndicatorMeasurement.period_end.desc(),
-                ProgrammeIndicatorMeasurement.created_at.desc(),
-            )
-            .limit(1)
-        )
+        latest = latest_by_indicator.get(indicator.id)
         progress: float | None = None
         if latest is not None and indicator.target_value is not None:
             baseline = indicator.baseline_value if indicator.baseline_value is not None else 0.0
