@@ -117,7 +117,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Administrative boundaries and geocoding strategy.
 - [x] Spatial and temporal query APIs (tenant-scoped WGS84 bounding-box and time filters with bounded pagination).
 - [x] Initial independent review workflow for field-observation quality status.
-- [ ] Quality assurance, missing-data handling and unit normalisation (conservative conversions and broad-range screening are integrated into provider persistence with original-value provenance; tenant-scoped status/variable summary API added; explicit missing-data policies and flagged-value review reporting remain).
+- [ ] Quality assurance, missing-data handling and unit normalisation (conservative conversions and broad-range screening are integrated into provider persistence with original-value provenance; tenant-scoped status/variable summaries, bounded flagged-observation reports and daily station coverage reports are implemented; coverage uses an explicit report-only/no-imputation policy; dashboard presentation and configurable domain-specific thresholds remain).
 - [ ] Research-grade statistical and geospatial analysis pipelines.
 - [ ] Interactive map and climate research dashboards.
 - [ ] Uncertainty, model limitations and data lineage shown in outputs.
