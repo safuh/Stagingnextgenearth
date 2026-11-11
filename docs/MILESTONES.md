@@ -69,11 +69,11 @@ These foundation checks must continue passing as product code is added.
 ## M3 — Programme and project operations
 
 - [ ] Programme and project APIs with explicit service/repository boundaries.
-- [ ] Goals, milestones, activities, deliverables and assignments.
-- [ ] Volunteer and ambassador registration and allocation.
+- [x] Activities, deliverables, volunteer allocations and activity lifecycle transitions.\n- [ ] Goals, milestones and general assignments.
+- [x] Volunteer and ambassador applications, approval and activity allocation.
 - [ ] School and community participation records.
 - [ ] Evidence uploads and approval workflow.
-- [ ] Programme indicators and progress reporting.
+- [x] Programme indicator definitions, append-only period measurements and latest-value progress reporting.
 
 ## M4 — Research workspace
 
