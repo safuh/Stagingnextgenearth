@@ -38,7 +38,8 @@ interface Dataset {
   collection_end: string | null;
   owner_user_id: string;
 }
-interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }\ninterface ClimateUnitSummary {
+interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }
+interface ClimateUnitSummary {
   unit: string; count: number; missing_count: number; mean: number | null; median: number | null;
   sample_standard_deviation: number | null; standard_error: number | null; minimum: number | null; maximum: number | null;
   percentile_05: number | null; percentile_25: number | null; percentile_75: number | null; percentile_95: number | null;
