@@ -51,6 +51,19 @@ interface ClimateObservation {
   source: string; quality_status: "pending" | "verified" | "rejected"; reviewed_by: string | null;
   reviewed_at: string | null; review_note: string | null;
 }
+interface FlaggedObservation {
+  id: string; observed_at: string; variable: string; value: number; unit: string;
+  latitude: number; longitude: number; source: string; quality_status: string; flags: string[];
+}
+interface FlaggedObservationReport {
+  items: FlaggedObservation[]; scanned_count: number; matched_count: number;
+  offset: number; limit: number; scan_truncated: boolean;
+}
+interface DailyCoverageReport {
+  variable: string; latitude: number; longitude: number; start_date: string; end_date: string;
+  expected_days: number; observed_days: number; missing_days: string[];
+  coverage_ratio: number; missing_data_policy: "report_only_no_imputation";
+}
 interface SpatialClimateQuery {
   west: string; south: string; east: string; north: string; variable: string;
   quality_status: "" | "pending" | "verified" | "rejected";
@@ -143,6 +156,19 @@ export default function ResearchWorkspacePage() {
   const [spatialResults, setSpatialResults] = useState<ClimateObservation[] | null>(null);
   const [spatialLoading, setSpatialLoading] = useState(false);
   const [spatialError, setSpatialError] = useState("");
+  const [flaggedReport, setFlaggedReport] = useState<FlaggedObservationReport | null>(null);
+  const [flaggedLoading, setFlaggedLoading] = useState(false);
+  const [flaggedError, setFlaggedError] = useState("");
+  const [flaggedQuality, setFlaggedQuality] = useState<"" | "pending" | "verified" | "rejected">("");
+  const [flaggedName, setFlaggedName] = useState("");
+  const [coverageQuery, setCoverageQuery] = useState({
+    variable: "precipitation", latitude: "", longitude: "",
+    start_date: "2026-01-01", end_date: "2026-12-31",
+  });
+  const [coverageReport, setCoverageReport] = useState<DailyCoverageReport | null>(null);
+  const [coverageLoading, setCoverageLoading] = useState(false);
+  const [coverageError, setCoverageError] = useState("");
+
 
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
   useEffect(() => {
@@ -299,6 +325,67 @@ export default function ResearchWorkspacePage() {
       setSpatialError(cause instanceof Error ? cause.message : "Unable to query spatial observations.");
     } finally {
       setSpatialLoading(false);
+    }
+  }
+
+  async function loadFlaggedObservations() {
+    setFlaggedLoading(true);
+    setFlaggedError("");
+    setFlaggedReport(null);
+    const params = new URLSearchParams({ limit: "200", offset: "0" });
+    if (flaggedName.trim()) params.set("flag", flaggedName.trim());
+    if (flaggedQuality) params.set("quality_status", flaggedQuality);
+    try {
+      const report = await apiGet<FlaggedObservationReport>(
+        "/organizations/" + organizationId + "/climate-observations/flagged?" + params.toString(),
+      );
+      setFlaggedReport(report);
+    } catch (cause) {
+      setFlaggedError(cause instanceof Error ? cause.message : "Unable to load flagged observations.");
+    } finally {
+      setFlaggedLoading(false);
+    }
+  }
+
+  async function runCoverageReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCoverageError("");
+    setCoverageReport(null);
+    const latitude = Number(coverageQuery.latitude);
+    const longitude = Number(coverageQuery.longitude);
+    if (!coverageQuery.variable.trim() || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+        !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setCoverageError("Enter a variable and valid station coordinates (latitude −90 to 90, longitude −180 to 180).");
+      return;
+    }
+    if (!coverageQuery.start_date || !coverageQuery.end_date ||
+        coverageQuery.end_date < coverageQuery.start_date) {
+      setCoverageError("Choose a valid date range; the end date must not precede the start date.");
+      return;
+    }
+    const start = new Date(coverageQuery.start_date + "T00:00:00Z");
+    const end = new Date(coverageQuery.end_date + "T00:00:00Z");
+    if ((end.getTime() - start.getTime()) / 86400000 + 1 > 366) {
+      setCoverageError("Coverage windows are limited to 366 calendar days.");
+      return;
+    }
+    const params = new URLSearchParams({
+      variable: coverageQuery.variable.trim(),
+      latitude: String(latitude),
+      longitude: String(longitude),
+      start_date: coverageQuery.start_date,
+      end_date: coverageQuery.end_date,
+    });
+    setCoverageLoading(true);
+    try {
+      const report = await apiGet<DailyCoverageReport>(
+        "/organizations/" + organizationId + "/climate-observations/coverage?" + params.toString(),
+      );
+      setCoverageReport(report);
+    } catch (cause) {
+      setCoverageError(cause instanceof Error ? cause.message : "Unable to calculate station coverage.");
+    } finally {
+      setCoverageLoading(false);
     }
   }
 
@@ -573,6 +660,54 @@ export default function ResearchWorkspacePage() {
                         <tbody>{spatialResults.map((item) => <tr key={item.id}><td>{new Date(item.observed_at).toLocaleString()}</td><td>{item.variable}</td><td>{formatStatistic(item.value)} {item.unit}</td><td>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</td><td>{item.source}</td><td><span className="status-chip">{item.quality_status}</span></td></tr>)}</tbody>
                       </table></div>
                     )}
+                  </div>}
+                </section>
+                <section className="research-section climate-analysis-panel">
+                  <div className="section-heading"><div><p className="eyebrow">QUALITY SCREENING</p><h2>Flagged observations</h2></div><span>Scan cap 5,000 · page size 200</span></div>
+                  <p className="workspace-muted">Provider screening flags identify records for further review. They are not scientific validation or an automatic rejection decision.</p>
+                  <div className="climate-analysis-form">
+                    <label>Exact flag (optional)<input value={flaggedName} onChange={(event) => setFlaggedName(event.target.value)} maxLength={80} placeholder="e.g. outside_expected_range" /></label>
+                    <label>Quality status<select value={flaggedQuality} onChange={(event) => setFlaggedQuality(event.target.value as typeof flaggedQuality)}><option value="">All statuses</option><option value="pending">Pending</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></label>
+                    <button type="button" className="primary-action" disabled={flaggedLoading} onClick={() => void loadFlaggedObservations()}>{flaggedLoading ? "Scanning…" : "Load flagged observations"}</button>
+                  </div>
+                  {flaggedError && <p className="workspace-error" role="alert">{flaggedError}</p>}
+                  {flaggedReport && <div className="climate-analysis-results" aria-live="polite">
+                    <div className="research-metrics">
+                      <article><span>Scanned</span><strong>{flaggedReport.scanned_count.toLocaleString()}</strong></article>
+                      <article><span>Matched</span><strong>{flaggedReport.matched_count.toLocaleString()}</strong></article>
+                      <article><span>Displayed</span><strong>{flaggedReport.items.length.toLocaleString()}</strong></article>
+                      <article><span>Scan complete</span><strong>{flaggedReport.scan_truncated ? "No" : "Yes"}</strong></article>
+                    </div>
+                    {flaggedReport.scan_truncated && <p className="workspace-notice">The scan reached its 5,000-record cap. This report may omit older flagged observations; narrow the period or use the API for additional filtering.</p>}
+                    {flaggedReport.items.length === 0 ? <p className="workspace-muted">No flagged observations matched the selected filters in the scanned records.</p> : (
+                      <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Observed</th><th>Measurement</th><th>Coordinates</th><th>Source</th><th>Quality</th><th>Screening flags</th></tr></thead>
+                        <tbody>{flaggedReport.items.map((item) => <tr key={item.id}><td>{new Date(item.observed_at).toLocaleString()}</td><td>{item.variable}: {formatStatistic(item.value)} {item.unit}</td><td>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</td><td>{item.source}</td><td>{item.quality_status}</td><td>{item.flags.join(", ")}</td></tr>)}</tbody>
+                      </table></div>
+                    )}
+                  </div>}
+                </section>
+                <section className="research-section climate-analysis-panel">
+                  <div className="section-heading"><div><p className="eyebrow">STATION COMPLETENESS</p><h2>Daily coverage report</h2></div><span>Maximum 366 days</span></div>
+                  <p className="workspace-muted">Check whether a station has at least one non-rejected observation per calendar day for a variable. Station matching uses a coordinate tolerance of 0.0001 degrees; pending observations count as observed.</p>
+                  <form className="climate-analysis-form" onSubmit={runCoverageReport}>
+                    <label>Variable<input value={coverageQuery.variable} onChange={(event) => setCoverageQuery((q) => ({ ...q, variable: event.target.value }))} minLength={2} maxLength={80} required /></label>
+                    <label>Station latitude<input type="number" step="any" min="-90" max="90" value={coverageQuery.latitude} onChange={(event) => setCoverageQuery((q) => ({ ...q, latitude: event.target.value }))} required /></label>
+                    <label>Station longitude<input type="number" step="any" min="-180" max="180" value={coverageQuery.longitude} onChange={(event) => setCoverageQuery((q) => ({ ...q, longitude: event.target.value }))} required /></label>
+                    <label>Start date<input type="date" value={coverageQuery.start_date} onChange={(event) => setCoverageQuery((q) => ({ ...q, start_date: event.target.value }))} required /></label>
+                    <label>End date<input type="date" value={coverageQuery.end_date} onChange={(event) => setCoverageQuery((q) => ({ ...q, end_date: event.target.value }))} required /></label>
+                    <button className="primary-action" disabled={coverageLoading}>{coverageLoading ? "Calculating…" : "Calculate coverage"}</button>
+                  </form>
+                  {coverageError && <p className="workspace-error" role="alert">{coverageError}</p>}
+                  {coverageReport && <div className="climate-analysis-results" aria-live="polite">
+                    <div className="research-metrics">
+                      <article><span>Expected days</span><strong>{coverageReport.expected_days}</strong></article>
+                      <article><span>Observed days</span><strong>{coverageReport.observed_days}</strong></article>
+                      <article><span>Missing days</span><strong>{coverageReport.missing_days.length}</strong></article>
+                      <article><span>Coverage</span><strong>{(coverageReport.coverage_ratio * 100).toFixed(2)}%</strong></article>
+                    </div>
+                    <p className="workspace-muted">{coverageReport.variable} at {coverageReport.latitude.toFixed(5)}, {coverageReport.longitude.toFixed(5)} · {coverageReport.start_date} to {coverageReport.end_date}.</p>
+                    {coverageReport.missing_days.length === 0 ? <p className="workspace-notice">No missing calendar days were detected for this station and variable.</p> : <div><strong>Missing calendar days</strong><p className="workspace-muted">{coverageReport.missing_days.join(", ")}</p></div>}
+                    <p className="workspace-muted">Policy: {coverageReport.missing_data_policy.replace(/_/g, " ")}. Missing values are reported, never filled or inferred.</p>
                   </div>}
                 </section>
                 <div className="research-metrics" aria-label="Research dataset summary">
