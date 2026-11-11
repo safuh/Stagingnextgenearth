@@ -2,10 +2,10 @@
 
 The production database target is PostgreSQL 17 with PostGIS 3.5. The
 application remains compatible with SQLite for unit tests and lightweight
-local development; spatial queries and the PostGIS geometry column are
+local development; the PostGIS geometry column and spatial queries are
 PostgreSQL-only.
 
-## Provision the database
+## Configuration
 
 Set the following in a protected deployment environment (use a strong,
 unique password and do not commit the environment file):
@@ -14,27 +14,35 @@ unique password and do not commit the environment file):
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `POSTGRES_PORT` (optional; defaults to 5432)
+- `DATABASE_URL`, using the same credentials and the Compose service hostname
+  `postgres`, for example
+  `postgresql+asyncpg://USER:PASSWORD@postgres:5432/DBNAME`.
 
-Start the database:
+The API and database must share the Compose network. The commands below merge
+the PostGIS database service with the production API definition, creating one
+network and one deployment project.
 
-```bash
-docker compose -f docker/compose.postgis.yml up -d postgres
-docker compose -f docker/compose.postgis.yml ps
-docker compose -f docker/compose.postgis.yml logs --tail=100 postgres
-```
+## Deploy
 
-Configure the API's `DATABASE_URL` to use the same database and credentials,
-for example `postgresql+asyncpg://USER:PASSWORD@HOST:5432/DBNAME`. The host
-must be reachable from the API deployment; use the service DNS name
-`postgres` when both services share a Compose network.
-
-## Apply schema migrations
-
-Run migrations once as a release operation, not from every API worker:
+Validate the merged production stack and start the database:
 
 ```bash
-uv run alembic upgrade head
+docker compose -f docker/compose.postgis.yml -f docker/compose.production.yml config --quiet
+docker compose -f docker/compose.postgis.yml -f docker/compose.production.yml up -d postgres
+docker compose -f docker/compose.postgis.yml -f docker/compose.production.yml ps
 ```
+
+Wait until the database health check reports healthy, then apply migrations
+once as a release operation:
+
+```bash
+docker compose -f docker/compose.postgis.yml -f docker/compose.production.yml run --rm api alembic upgrade head
+docker compose -f docker/compose.postgis.yml -f docker/compose.production.yml up -d api
+```
+
+If malware scanning is configured, add `--profile scanning` to the production
+Compose commands and start the `dataset-scanner` service alongside the API.
+Migrations are never run automatically by API or worker processes.
 
 Migration `0029_postgis_spatial` enables the PostGIS extension, adds an SRID
 4326 point geometry to climate observations, backfills existing latitude and
