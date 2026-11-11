@@ -161,8 +161,8 @@ async def climate_daily_coverage(
     variable: str = Query(min_length=2, max_length=80),
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
-    start_date: date = Query(),
-    end_date: date = Query(),
+    start_date: date,
+    end_date: date,
 ) -> DailyCoverageReport:
     """Report daily gaps for one station; no synthetic observations are created."""
     from fastapi import HTTPException, status
