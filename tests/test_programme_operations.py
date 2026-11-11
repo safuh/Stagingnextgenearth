@@ -71,6 +71,16 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert application.status_code == 201
         application_id = application.json()["id"]
         assert application.json()["status"] == "pending"
+        personal_applications = client.get(
+            f"/api/organizations/{org_id}/my-volunteer-applications",
+            headers=participant,
+        )
+        assert personal_applications.status_code == 200
+        assert [item["id"] for item in personal_applications.json()] == [application_id]
+        assert client.get(
+            f"/api/organizations/{org_id}/my-volunteer-applications",
+            headers=manager,
+        ).json() == []
         assert client.post(
             f"{base}/volunteer-applications",
             headers=participant,
@@ -124,6 +134,16 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert assignment.status_code == 201
         assert assignment.json()["status"] == "assigned"
+        personal_allocations = client.get(
+            f"/api/organizations/{org_id}/my-volunteer-allocations",
+            headers=participant,
+        )
+        assert personal_allocations.status_code == 200
+        assert personal_allocations.json()[0]["activity_title"] == "Community planting day"
+        assert client.get(
+            f"/api/organizations/{org_id}/my-volunteer-allocations",
+            headers=manager,
+        ).json() == []
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
             headers=manager,
