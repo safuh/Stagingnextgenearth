@@ -125,7 +125,7 @@ These foundation checks must continue passing as product code is added.
 
 ## M6 — Public website and four portals
 
-- [ ] Next.js public website and content management workflow.
+- [x] Initial responsive Next.js public landing page, four portal entry points and API-backed sign-in shell (portal-specific data views and content management remain).
 - [ ] Researcher portal.
 - [ ] Youth and volunteer portal.
 - [ ] Administrator portal.
