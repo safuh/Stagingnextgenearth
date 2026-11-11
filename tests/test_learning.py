@@ -348,7 +348,11 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         mentorship = client.post(
             f"{base}/courses/{course_id}/mentorships",
             headers=admin_headers,
-            json={"mentor_id": admin_id, "mentee_id": learner_id, "notes": "Monthly learning support."},
+            json={
+                "mentor_id": admin_id,
+                "mentee_id": learner_id,
+                "notes": "Monthly learning support.",
+            },
         )
         assert mentorship.status_code == 201
         mentorship_rows = client.get(
