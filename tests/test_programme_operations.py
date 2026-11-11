@@ -284,6 +284,21 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             "period_end": "2026-11-30",
         }]
         assert "recorded_by" not in report_body["participation"][0]
+        newer_measurement = client.post(
+            f"{base}/indicators/{indicator_id}/measurements",
+            headers=manager,
+            json={
+                "period_start": "2026-12-01",
+                "period_end": "2026-12-31",
+                "value": 500,
+                "notes": "Subsequent reporting period",
+            },
+        )
+        assert newer_measurement.status_code == 201
+        refreshed_partner_report = client.get(f"{base}/partner-reporting", headers=partner)
+        assert refreshed_partner_report.status_code == 200
+        assert refreshed_partner_report.json()["indicators"][0]["latest_value"] == 500
+        assert refreshed_partner_report.json()["indicators"][0]["progress_percent"] == 50
         assert client.get(f"{base}/partner-reporting", headers=participant).status_code == 403
         assert client.get(
             f"/api/organizations/{org_id}/programmes/not-a-programme/partner-reporting",
