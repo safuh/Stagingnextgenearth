@@ -100,4 +100,5 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Build production web container
+        working-directory: .
         run: docker build -f web/Dockerfile -t nextgen-for-earth-web:${{ github.sha }} .
