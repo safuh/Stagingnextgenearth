@@ -43,6 +43,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
     with TestClient(create_app(settings)) as client:
         manager = _auth(client, "ops-manager@example.org")
         participant = _auth(client, "ops-participant@example.org")
+        partner = _auth(client, "ops-partner@example.org")
         org = client.post(
             "/api/organizations",
             headers=manager,
@@ -50,6 +51,17 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert org.status_code == 201
         org_id = org.json()["id"]
+        invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=manager,
+            json={"identifier": "ops-partner@example.org", "role": "institutional_partner"},
+        )
+        assert invitation.status_code == 201
+        accepted_partner = client.post(
+            f"/api/organizations/{org_id}/memberships/{invitation.json()['id']}/accept",
+            headers=partner,
+        )
+        assert accepted_partner.status_code == 200
         programmes = f"/api/organizations/{org_id}/programmes"
         programme = client.post(
             programmes,
@@ -214,6 +226,35 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         participation_list = client.get(f"{base}/participation", headers=participant)
         assert participation_list.status_code == 200
         assert participation_list.json()[0]["participant_group"] == "school"
+        small_cohort = client.post(
+            f"{base}/participation",
+            headers=manager,
+            json={
+                "participant_group": "youth_group",
+                "group_name": "Small pilot group",
+                "participant_count": 4,
+                "period_start": "2026-11-01",
+                "period_end": "2026-11-30",
+            },
+        )
+        assert small_cohort.status_code == 201
+        partner_report = client.get(f"{base}/partner-reporting", headers=partner)
+        assert partner_report.status_code == 200
+        report_body = partner_report.json()
+        assert report_body["programme_title"] == "Tree growing programme"
+        assert report_body["indicators"][0]["latest_value"] == 250
+        assert report_body["participation"] == [{
+            "participant_group": "school",
+            "participant_count": 32,
+            "period_start": "2026-11-01",
+            "period_end": "2026-11-30",
+        }]
+        assert "recorded_by" not in report_body["participation"][0]
+        assert client.get(f"{base}/partner-reporting", headers=participant).status_code == 403
+        assert client.get(
+            f"/api/organizations/{org_id}/programmes/not-a-programme/partner-reporting",
+            headers=partner,
+        ).status_code == 404
 
         goal = client.post(
             f"{base}/goals",
