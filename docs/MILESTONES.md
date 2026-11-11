@@ -134,7 +134,8 @@ These foundation checks must continue passing as product code is added.
 - [ ] Administrator portal.
 - [ ] Institutional partner portal.
 - [x] Shared design system, responsive layouts and accessible navigation.
-- [ ] Role-aware navigation driven by server-authorised memberships.
+- [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
+- [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows.
 - [x] Typed API client, authenticated requests, explicit in-memory session lifecycle and user-visible loading/error states (production BFF/HttpOnly-cookie session remains a hardening item).
 
 ## M7 — Integrations and organisational intelligence
