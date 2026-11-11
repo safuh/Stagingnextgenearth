@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.climate_quality import normalize_climate_value
 from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
     ClimateProviderRequest,
@@ -70,13 +71,30 @@ async def persist_provider_measurements(
                     skipped += 1
                     continue
 
+                screened = normalize_climate_value(
+                    variable=measurement.variable,
+                    value=measurement.value,
+                    unit=measurement.unit,
+                )
+                metadata = {
+                    **measurement.metadata,
+                    "provider_licence": licence,
+                    "normalization": {
+                        "source_value": screened.source_value,
+                        "source_unit": screened.source_unit,
+                        "canonical_value": screened.value,
+                        "canonical_unit": screened.unit,
+                        "conversion": screened.conversion,
+                    },
+                    "quality_screening_flags": list(screened.flags),
+                }
                 session.add(
                     ClimateObservation(
                         organization_id=organization_id,
                         observed_at=measurement.observed_at,
-                        variable=measurement.variable,
-                        value=measurement.value,
-                        unit=measurement.unit,
+                        variable=screened.variable,
+                        value=screened.value,
+                        unit=screened.unit,
                         latitude=measurement.latitude,
                         longitude=measurement.longitude,
                         source=source_name,
@@ -84,10 +102,7 @@ async def persist_provider_measurements(
                         provider_id=provider_id,
                         provider_record_id=measurement.provider_record_id,
                         quality_status="pending",
-                        metadata_json={
-                            **measurement.metadata,
-                            "provider_licence": licence,
-                        },
+                        metadata_json=metadata,
                         created_by=actor_user_id,
                     )
                 )
