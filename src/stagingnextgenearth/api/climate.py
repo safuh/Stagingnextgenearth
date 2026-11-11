@@ -164,6 +164,64 @@ async def list_climate_observations(
     return [ClimateObservationRead.model_validate(item) for item in result.all()]
 
 
+class ClimateQualitySummary(BaseModel):
+    """Tenant-scoped counts for climate quality dashboards."""
+
+    total: int
+    by_status: dict[str, int]
+    by_variable: dict[str, int]
+
+
+@router.get("/quality-summary", response_model=ClimateQualitySummary)
+async def climate_quality_summary(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> ClimateQualitySummary:
+    """Summarise observations by review status and variable for a time window."""
+    if start is not None and (start.tzinfo is None or start.utcoffset() is None):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "start must include a timezone"
+        )
+    if end is not None and (end.tzinfo is None or end.utcoffset() is None):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "end must include a timezone"
+        )
+    if start is not None and end is not None and end < start:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "end must not precede start"
+        )
+
+    filters = [ClimateObservation.organization_id == organization_id]
+    if start is not None:
+        filters.append(ClimateObservation.observed_at >= start)
+    if end is not None:
+        filters.append(ClimateObservation.observed_at < end)
+
+    status_rows = (
+        await session.execute(
+            select(ClimateObservation.quality_status, func.count(ClimateObservation.id))
+            .where(*filters)
+            .group_by(ClimateObservation.quality_status)
+        )
+    ).all()
+    variable_rows = (
+        await session.execute(
+            select(ClimateObservation.variable, func.count(ClimateObservation.id))
+            .where(*filters)
+            .group_by(ClimateObservation.variable)
+        )
+    ).all()
+    by_status = {str(key): int(count) for key, count in status_rows}
+    by_variable = {str(key): int(count) for key, count in variable_rows}
+    return ClimateQualitySummary(
+        total=sum(by_status.values()),
+        by_status=by_status,
+        by_variable=by_variable,
+    )
+
 @router.get("/spatial", response_model=list[ClimateObservationRead])
 async def query_climate_observations_spatially(
     organization_id: str,
