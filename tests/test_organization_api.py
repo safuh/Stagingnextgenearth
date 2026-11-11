@@ -1058,3 +1058,77 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
     )
     assert owner_demotion.status_code == 409
     assert owner_suspension.status_code == 409
+
+
+def test_organisation_owner_can_transfer_ownership_atomically(client: TestClient) -> None:
+    owner_token = register_and_login(client, "transfer-owner@example.org")
+    successor_token = register_and_login(client, "transfer-successor@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    successor_headers = {"Authorization": f"Bearer {successor_token}"}
+
+    organisation = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Ownership Transfer", "slug": "ownership-transfer"},
+    ).json()
+    organisation_id = organisation["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organisation_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "transfer-successor@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    successor_membership_id = invitation.json()["id"]
+    accepted = client.post(
+        f"/api/organizations/{organisation_id}/memberships/"
+        f"{successor_membership_id}/accept",
+        headers=successor_headers,
+    )
+    assert accepted.status_code == 200
+
+    forbidden = client.post(
+        f"/api/organizations/{organisation_id}/ownership-transfer",
+        headers=successor_headers,
+        json={"new_owner_user_id": "not-the-owner"},
+    )
+    assert forbidden.status_code == 403
+
+    owner_memberships = client.get(
+        f"/api/organizations/{organisation_id}/memberships",
+        headers=owner_headers,
+    )
+    old_owner_membership_id = next(
+        item["id"]
+        for item in owner_memberships.json()
+        if item["role"] == "admin"
+    )
+
+    transfer = client.post(
+        f"/api/organizations/{organisation_id}/ownership-transfer",
+        headers=owner_headers,
+        json={"new_owner_user_id": accepted.json()["user_id"]},
+    )
+    assert transfer.status_code == 200
+    assert transfer.json()["previous_owner_user_id"] != transfer.json()["owner_user_id"]
+
+    successor_memberships = client.get(
+        f"/api/organizations/{organisation_id}/memberships",
+        headers=successor_headers,
+    )
+    assert successor_memberships.status_code == 200
+    roles = {item["id"]: item["role"] for item in successor_memberships.json()}
+    assert roles[successor_membership_id] == "admin"
+    assert roles[old_owner_membership_id] == "programme_manager"
+
+    # The previous owner retains ordinary membership access but no longer owns the tenant.
+    old_owner_orgs = client.get("/api/organizations", headers=owner_headers)
+    assert old_owner_orgs.status_code == 200
+    assert old_owner_orgs.json()[0]["id"] == organisation_id
+
+    repeated = client.post(
+        f"/api/organizations/{organisation_id}/ownership-transfer",
+        headers=owner_headers,
+        json={"new_owner_user_id": accepted.json()["user_id"]},
+    )
+    assert repeated.status_code == 403
