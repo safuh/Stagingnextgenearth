@@ -1059,6 +1059,15 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
     assert owner_demotion.status_code == 409
     assert owner_suspension.status_code == 409
 
+    audit = client.get(
+        f"/api/organizations/{organization_id}/audit-events",
+        headers=owner_headers,
+    )
+    assert audit.status_code == 200
+    actions = [event["action"] for event in audit.json()]
+    assert actions.count("membership.role_changed") == 1
+    assert actions.count("membership.status_changed") == 2
+
 
 def test_organisation_owner_can_transfer_ownership_atomically(client: TestClient) -> None:
     owner_token = register_and_login(client, "transfer-owner@example.org")
@@ -1111,6 +1120,14 @@ def test_organisation_owner_can_transfer_ownership_atomically(client: TestClient
     )
     assert transfer.status_code == 200
     assert transfer.json()["previous_owner_user_id"] != transfer.json()["owner_user_id"]
+
+    audit = client.get(
+        f"/api/organizations/{organisation_id}/audit-events",
+        headers=successor_headers,
+    )
+    assert audit.status_code == 200
+    assert audit.json()[0]["action"] == "organization.ownership_transferred"
+    assert audit.json()[0]["changes"]["owner_user_id"]["after"] == accepted.json()["user_id"]
 
     successor_memberships = client.get(
         f"/api/organizations/{organisation_id}/memberships",
