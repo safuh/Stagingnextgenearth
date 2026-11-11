@@ -770,3 +770,14 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 @media (max-width: 720px) {
   .research-authoring-grid, .research-form-pair { grid-template-columns: 1fr; }
 }
+
+
+.dataset-review-controls { display: grid; gap: 0.65rem; min-width: 15rem; }
+.dataset-review-controls label { display: grid; gap: 0.35rem; font-size: 0.82rem; }
+.dataset-review-controls textarea { width: 100%; resize: vertical; }
+.dataset-review-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.text-action { display: inline-flex; margin-top: 0.55rem; padding: 0.35rem 0; border: 0; background: transparent; color: var(--accent, #397b68); font: inherit; font-size: 0.82rem; text-decoration: underline; cursor: pointer; }
+.text-action:disabled { cursor: wait; opacity: 0.6; }
+.dataset-review-history { margin: 0.5rem 0 0; padding-left: 1.2rem; min-width: 14rem; font-size: 0.8rem; }
+.dataset-review-history li { margin: 0.35rem 0; }
+.dataset-review-history p { margin: 0.2rem 0; white-space: normal; }
