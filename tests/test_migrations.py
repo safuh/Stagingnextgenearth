@@ -216,6 +216,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "unit",
             "latitude",
             "longitude",
+            "location",
             "source",
             "ingestion_run_id",
             "provider_id",
@@ -228,6 +229,35 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     }
 
     engine = create_async_engine(url)
+    try:
+        async with engine.connect() as connection:
+            geometry_type = await connection.scalar(
+                text(
+                    "SELECT type FROM geometry_columns "
+                    "WHERE f_table_name = 'climate_observations' "
+                    "AND f_geometry_column = 'location'"
+                )
+            )
+            assert geometry_type == "POINT"
+            index_exists = await connection.scalar(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_indexes "
+                    "WHERE tablename = 'climate_observations' "
+                    "AND indexname = 'ix_climate_observations_location_gist')"
+                )
+            )
+            assert index_exists is True
+            trigger_exists = await connection.scalar(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_trigger "
+                    "WHERE tgname = 'trg_climate_observation_location' "
+                    "AND NOT tgisinternal)"
+                )
+            )
+            assert trigger_exists is True
+    finally:
+        await engine.dispose()
+
     try:
         async with engine.connect() as connection:
             for table_name, required in expected_columns.items():
