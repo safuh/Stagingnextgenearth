@@ -334,6 +334,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert learner_attendance_access.status_code == 403
+        own_attendance = client.get(f"{base}/my-attendance", headers=learner_headers)
+        assert own_attendance.status_code == 200
+        assert own_attendance.json() == []
 
         admin_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
             client.post(
@@ -366,6 +369,11 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert learner_mentorship_access.status_code == 403
+        own_mentorships = client.get(f"{base}/my-mentorships", headers=learner_headers)
+        assert own_mentorships.status_code == 200
+        assert len(own_mentorships.json()) == 1
+        assert own_mentorships.json()[0]["relationship"] == "mentee"
+        assert own_mentorships.json()[0]["course_title"] == "Community Climate Action"
 
         summary = client.get(
             f"{base}/courses/{course_id}/progress",
