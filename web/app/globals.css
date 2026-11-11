@@ -711,3 +711,8 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
   transition: width .2s ease;
 }
 .research-record > small { color: var(--muted, #6b7069); }
+
+
+/* Institutional partner reporting */
+.partner-indicator, .partner-participation > div { display: grid; gap: 0.35rem; padding: 0.8rem 0; border-top: 1px solid var(--line, #e5e7eb); }
+.partner-indicator span, .partner-participation span, .partner-indicator small, .partner-participation small { color: var(--muted, #64748b); font-size: 0.88rem; }
