@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -160,6 +160,91 @@ async def list_climate_observations(
         statement = statement.where(ClimateObservation.observed_at <= end)
     result = await session.scalars(
         statement.order_by(ClimateObservation.observed_at.desc()).limit(limit)
+    )
+    return [ClimateObservationRead.model_validate(item) for item in result.all()]
+
+
+@router.get("/spatial", response_model=list[ClimateObservationRead])
+async def query_climate_observations_spatially(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    west: float = Query(ge=-180, le=180),
+    south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180),
+    north: float = Query(ge=-90, le=90),
+    variable: str | None = Query(default=None, min_length=2, max_length=80),
+    quality_status: Literal["pending", "verified", "rejected"] | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100_000),
+) -> list[ClimateObservationRead]:
+    """Return tenant-scoped observations intersecting a WGS84 bounding box.
+
+    PostgreSQL uses the PostGIS geometry column and GiST index. SQLite uses
+    coordinate predicates so the same API contract remains testable locally.
+    """
+    if west >= east or south >= north:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Bounding box requires west < east and south < north",
+        )
+    if start is not None and start.tzinfo is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "start must include a timezone"
+        )
+    if end is not None and end.tzinfo is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "end must include a timezone"
+        )
+    if start is not None and end is not None and end < start:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "end must not precede start"
+        )
+
+    statement = select(ClimateObservation).where(
+        ClimateObservation.organization_id == organization_id,
+        ClimateObservation.longitude >= west,
+        ClimateObservation.longitude <= east,
+        ClimateObservation.latitude >= south,
+        ClimateObservation.latitude <= north,
+    )
+    if session.get_bind().dialect.name == "postgresql":
+        envelope = func.ST_MakeEnvelope(west, south, east, north, 4326)
+        statement = statement.where(
+            func.ST_Intersects(
+                func.ST_GeomFromEWKT(
+                    "SRID=4326;POINT(0 0)"
+                ),
+                envelope,
+            )
+            == False
+        ) if False else statement.where(
+            func.ST_Intersects(
+                func.ST_SetSRID(
+                    func.ST_MakePoint(
+                        ClimateObservation.longitude,
+                        ClimateObservation.latitude,
+                    ),
+                    4326,
+                ),
+                envelope,
+            )
+        )
+    if variable is not None:
+        statement = statement.where(ClimateObservation.variable == variable)
+    if quality_status is not None:
+        statement = statement.where(ClimateObservation.quality_status == quality_status)
+    if start is not None:
+        statement = statement.where(ClimateObservation.observed_at >= start)
+    if end is not None:
+        statement = statement.where(ClimateObservation.observed_at <= end)
+
+    result = await session.scalars(
+        statement.order_by(ClimateObservation.observed_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     return [ClimateObservationRead.model_validate(item) for item in result.all()]
 
