@@ -103,7 +103,9 @@ def test_climate_quality_summary_is_tenant_scoped_and_time_bounded(
         )
         assert invalid.status_code == 422
 
+        # Conceal tenant resources from non-members to avoid organization
+        # enumeration; this is the established authorization contract.
         assert client.get(
             f"/api/organizations/{organization_id}/climate-observations/quality-summary",
             headers=other,
-        ).status_code == 403
+        ).status_code == 404
