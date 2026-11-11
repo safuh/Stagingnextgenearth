@@ -71,6 +71,7 @@ Do not run migrations automatically in API workers.
 - [Platform domain](docs/modules/platform/README.md)
 - [Milestones](docs/MILESTONES.md)
 - [Security](docs/SECURITY.md)
+- [PostgreSQL/PostGIS deployment](docs/operations/postgis.md)
 
 ## Development checks
 
