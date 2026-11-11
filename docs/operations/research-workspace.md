@@ -66,3 +66,21 @@ The browser does not treat client-side role checks as authorization. Every mutat
 and history request is re-authorised by the API. Owner correction/resubmission and
 file upload/scanning remain separate workflows; no storage keys or download URLs are
 exposed in the registry.
+
+
+## Dataset corrections and file versions
+
+Rejected dataset owners can edit the supported metadata fields. Saving corrections returns
+the record to draft state and clears the previous decision fields; the owner must submit
+the revised metadata again for independent review. The API rejects edits to submitted
+or approved datasets.
+
+The workspace can request a short-lived upload intent for CSV, JSON, PDF, ZIP and XLSX
+files up to 100 MiB, post the file to the private storage form, and call the completion
+endpoint. The completion endpoint verifies stored size and media type, quarantines the
+object, and invokes the configured scanner. A missing scanner leaves the file quarantined;
+a scanner/storage error does not make it downloadable. Only clean, available files can
+receive an audited, short-lived download grant through the separate download endpoint.
+
+The browser displays safe file-version metadata and scan state only. It does not persist
+upload credentials, expose storage keys, or request download URLs in the registry.
