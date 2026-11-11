@@ -49,6 +49,7 @@ jobs:
       - name: Validate production Compose profiles
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/backbone
+          JWT_SECRET_KEY: ci-only-secret-that-is-long-enough-for-testing
           POSTGRES_DB: backbone
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
