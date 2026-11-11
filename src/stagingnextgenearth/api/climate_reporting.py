@@ -62,12 +62,10 @@ async def list_flagged_climate_observations(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "start must include a timezone"
         )
     if end is not None and (end.tzinfo is None or end.utcoffset() is None):
-            raise HTTPException(
+        raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "end must include a timezone"
         )
     if start is not None and end is not None and end < start:
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "end must not precede start"
         )
@@ -165,8 +163,6 @@ async def climate_daily_coverage(
     longitude: float = Query(ge=-180, le=180),
 ) -> DailyCoverageReport:
     """Report daily gaps for one station; no synthetic observations are created."""
-    from fastapi import HTTPException, status
-
     if end_date < start_date:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
