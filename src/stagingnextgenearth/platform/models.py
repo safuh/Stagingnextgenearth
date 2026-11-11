@@ -16,10 +16,28 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from stagingnextgenearth.core.database import Base
 
+
+
+class GeometryPoint(UserDefinedType):
+    """PostGIS WGS84 point type with a SQLite BLOB test/development fallback."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: object) -> str:
+        return "geometry(POINT, 4326)"
+
+
+@compiles(GeometryPoint, "sqlite")
+def _compile_geometry_point_sqlite(
+    element: GeometryPoint, compiler: object, **kw: object
+) -> str:
+    return "BLOB"
 
 def _uuid() -> str:
     return str(uuid4())
@@ -353,6 +371,7 @@ class ClimateObservation(Base):
     unit: Mapped[str] = mapped_column(String(32), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    location: Mapped[object | None] = mapped_column(GeometryPoint(), nullable=True)
     source: Mapped[str] = mapped_column(String(160), nullable=False)
     ingestion_run_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("climate_ingestion_runs.id", ondelete="SET NULL"), nullable=True
