@@ -135,14 +135,19 @@ export default function ResearchWorkspacePage() {
   useEffect(() => {
     workspaceGeneration.current += 1;
     setClimateObservations([]);
+    setClimateListLoading(false);
     setAnalysis(null);
+    setAnalysisLoading(false);
     setAnalysisError("");
     setSpatialResults(null);
+    setSpatialLoading(false);
     setSpatialError("");
     setFlaggedReport(null);
     setFlaggedOffset(0);
+    setFlaggedLoading(false);
     setFlaggedError("");
     setCoverageReport(null);
+    setCoverageLoading(false);
     setCoverageError("");
   }, [organizationId]);
 
