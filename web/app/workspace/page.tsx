@@ -11,6 +11,13 @@ interface Organization {
   description: string | null;
   country_code: string;
 }
+interface MyMembership {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  status: string;
+}
 interface Programme {
   id: string;
   title: string;
@@ -84,6 +91,7 @@ type Panel = "overview" | "programmes" | "learning";
 export default function WorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
+  const [membership, setMembership] = useState<MyMembership | null>(null);
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [mentorships, setMentorships] = useState<LearnerMentorship[]>([]);
@@ -123,12 +131,14 @@ export default function WorkspacePage() {
     setCurriculum(null);
     setProgress(null);
     Promise.all([
+      apiGet<MyMembership>(`/organizations/${organizationId}/memberships/me`),
       apiGet<Programme[]>(`/organizations/${organizationId}/programmes`),
       apiGet<Course[]>(`/organizations/${organizationId}/learning/courses`),
       apiGet<LearnerMentorship[]>(`/organizations/${organizationId}/learning/my-mentorships`),
       apiGet<LearnerAttendance[]>(`/organizations/${organizationId}/learning/my-attendance`),
-    ]).then(([programmeItems, courseItems, mentorshipItems, attendanceItems]) => {
+    ]).then(([myMembership, programmeItems, courseItems, mentorshipItems, attendanceItems]) => {
       if (!active) return;
+      setMembership(myMembership);
       setProgrammes(programmeItems);
       setCourses(courseItems);
       setMentorships(mentorshipItems);
@@ -271,12 +281,40 @@ export default function WorkspacePage() {
             <select id="organization" value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
               {organizations.map((org) => <option value={org.id} key={org.id}>{org.name} · {org.country_code}</option>)}
             </select>
+            {membership && (
+              <section className="role-workspace" aria-label="Role-specific workspace">
+                <div>
+                  <span className="eyebrow">YOUR ACCESS</span>
+                  <h2>{membership.role.replaceAll("_", " ")}</h2>
+                  <p>Workspace sections are shown according to your active organisation role. The API independently enforces every permission.</p>
+                </div>
+                <div className="role-workspace-links">
+                  {(membership.role === "admin" || membership.role === "programme_manager") && (
+                    <Link href="/workspace/learning-admin">Learning operations →</Link>
+                  )}
+                  {membership.role === "researcher" && (
+                    <span>Research access · dataset and study services are available through authorised APIs.</span>
+                  )}
+                  {membership.role === "youth_volunteer" && (
+                    <span>Learner access · browse courses, apply and track your learning.</span>
+                  )}
+                  {membership.role === "institutional_partner" && (
+                    <span>Partner access · review organisation programmes and published learning.</span>
+                  )}
+                  {membership.role === "admin" && (
+                    <span>Organisation administration · membership and governance controls.</span>
+                  )}
+                </div>
+              </section>
+            )}
             <nav className="workspace-tabs" aria-label="Workspace sections">
               {(["overview", "programmes", "learning"] as Panel[]).map((item) => (
                 <button key={item} className={panel === item ? "active" : ""} onClick={() => { setPanel(item); setSelectedCourse(null); }}>{item}</button>
               ))}
             </nav>
-            <Link className="staff-portal-link" href="/workspace/learning-admin">Learning operations · staff workspace →</Link>
+            {(membership?.role === "admin" || membership?.role === "programme_manager") && (
+              <Link className="staff-portal-link" href="/workspace/learning-admin">Learning operations · staff workspace →</Link>
+            )}
             {panel === "overview" && (
               <div className="workspace-stats">
                 <article><span>PROGRAMMES</span><strong>{programmes.length}</strong><p>Organisation programmes</p></article>
