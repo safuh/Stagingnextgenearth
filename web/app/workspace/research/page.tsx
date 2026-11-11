@@ -45,6 +45,12 @@ interface ClimateUnitSummary {
   percentile_05: number | null; percentile_25: number | null; percentile_75: number | null; percentile_95: number | null;
   median_absolute_deviation: number | null;
 }
+interface ClimateObservation {
+  id: string; organization_id: string; study_id: string | null; project_id: string | null;
+  observed_at: string; variable: string; value: number; unit: string; latitude: number; longitude: number;
+  source: string; quality_status: "pending" | "verified" | "rejected"; reviewed_by: string | null;
+  reviewed_at: string | null; review_note: string | null;
+}
 interface ClimateAnalysisSummary {
   variable: string; quality_status: "verified" | "pending"; start: string; end: string;
   observation_count: number; groups: ClimateUnitSummary[];
@@ -114,6 +120,10 @@ export default function ResearchWorkspacePage() {
   const [datasetFiles, setDatasetFiles] = useState<Record<string, DatasetFile[]>>({});
   const [fileLoading, setFileLoading] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [climateObservations, setClimateObservations] = useState<ClimateObservation[]>([]);
+  const [climateListLoading, setClimateListLoading] = useState(false);
+  const [climateReviewNotes, setClimateReviewNotes] = useState<Record<string, string>>({});
+  const [climateSubmitting, setClimateSubmitting] = useState(false);
   const [analysisVariable, setAnalysisVariable] = useState("precipitation");
   const [analysisStart, setAnalysisStart] = useState("2026-01-01T00:00");
   const [analysisEnd, setAnalysisEnd] = useState("2026-12-31T23:59");
@@ -122,6 +132,75 @@ export default function ResearchWorkspacePage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+
+  async function loadClimateObservations() {
+    setClimateListLoading(true);
+    try {
+      const items = await apiGet<ClimateObservation[]>(
+        "/organizations/" + organizationId + "/climate-observations?quality_status=pending&limit=200",
+      );
+      setClimateObservations(items);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load climate observations.");
+    } finally {
+      setClimateListLoading(false);
+    }
+  }
+
+  async function submitClimateObservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const observedAt = new Date(String(values.get("observed_at") || ""));
+    if (!Number.isFinite(observedAt.getTime())) {
+      setError("Enter a valid observation date and time.");
+      return;
+    }
+    setClimateSubmitting(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiPost<ClimateObservation>(
+        "/organizations/" + organizationId + "/climate-observations",
+        {
+          observed_at: observedAt.toISOString(),
+          variable: String(values.get("variable") || "").trim(),
+          value: Number(values.get("value")),
+          unit: String(values.get("unit") || "").trim(),
+          latitude: Number(values.get("latitude")),
+          longitude: Number(values.get("longitude")),
+          source: String(values.get("source") || "").trim(),
+          study_id: String(values.get("study_id") || "") || null,
+        },
+      );
+      form.reset();
+      await loadClimateObservations();
+      setNotice("Observation submitted as pending. It will not appear in verified analysis until independently reviewed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit climate observation.");
+    } finally {
+      setClimateSubmitting(false);
+    }
+  }
+
+  async function reviewClimateObservation(id: string, decision: "verified" | "rejected") {
+    setClimateSubmitting(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiPost<ClimateObservation>(
+        "/organizations/" + organizationId + "/climate-observations/" + id + "/review",
+        { decision, note: climateReviewNotes[id]?.trim() || null },
+      );
+      setClimateObservations((items) => items.filter((item) => item.id !== id));
+      setClimateReviewNotes((items) => { const next = { ...items }; delete next[id]; return next; });
+      setNotice("Quality decision recorded. Review decisions are immutable.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to review climate observation.");
+    } finally {
+      setClimateSubmitting(false);
+    }
+  }
 
   async function runClimateAnalysis(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -328,6 +407,31 @@ export default function ResearchWorkspacePage() {
                 <section className="role-workspace">
                   <div><span className="eyebrow">YOUR ACCESS</span><h2>{membership.role.replace(/_/g, " ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
                   <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link></div>
+                </section>
+                <section className="research-section climate-submission-panel">
+                  <div className="section-heading"><div><p className="eyebrow">FIELD DATA</p><h2>Submit a climate observation</h2></div><span>Pending independent review</span></div>
+                  <p className="workspace-muted">Each submission records its timestamp, measurement unit, coordinates and source. New observations are pending and are excluded from verified summaries until independently reviewed.</p>
+                  <form className="climate-submission-form" onSubmit={submitClimateObservation}>
+                    <label>Observed at (local time)<input type="datetime-local" name="observed_at" required /></label>
+                    <label>Variable<input name="variable" minLength={2} maxLength={80} required placeholder="e.g. precipitation" /></label>
+                    <label>Value<input name="value" type="number" step="any" required /></label>
+                    <label>Unit<input name="unit" minLength={1} maxLength={32} required placeholder="e.g. mm/day" /></label>
+                    <label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required /></label>
+                    <label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required /></label>
+                    <label>Source<input name="source" minLength={2} maxLength={160} required placeholder="Instrument, station or source reference" /></label>
+                    <label>Linked study (optional)<select name="study_id" defaultValue=""><option value="">No linked study</option>{studies.map((study) => <option value={study.id} key={study.id}>{study.title}</option>)}</select></label>
+                    <button className="primary-action" disabled={climateSubmitting}>{climateSubmitting ? "Submitting…" : "Submit observation"}</button>
+                  </form>
+                  <div className="section-heading climate-queue-heading"><div><p className="eyebrow">QUALITY CONTROL</p><h3>Pending observations</h3></div><button type="button" className="secondary-action" disabled={climateListLoading} onClick={() => void loadClimateObservations()}>{climateListLoading ? "Refreshing…" : "Refresh queue"}</button></div>
+                  {climateObservations.length === 0 ? <p className="workspace-muted">The pending queue has not been loaded or contains no observations. Refresh to check.</p> : (
+                    <div className="climate-observation-list">{climateObservations.map((item) => (
+                      <article className="climate-observation-card" key={item.id}>
+                        <div><strong>{item.variable}: {formatStatistic(item.value)} {item.unit}</strong><span>{new Date(item.observed_at).toLocaleString()} · {item.source}</span><span>Coordinates: {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</span></div>
+                        {isReviewer && <div className="climate-review-controls"><label>Review note<textarea rows={2} maxLength={2000} value={climateReviewNotes[item.id] || ""} onChange={(event) => setClimateReviewNotes((items) => ({ ...items, [item.id]: event.target.value }))} placeholder="Optional quality-review note" /></label><div className="dataset-review-actions"><button type="button" className="primary-action" disabled={climateSubmitting} onClick={() => void reviewClimateObservation(item.id, "verified")}>Verify</button><button type="button" className="secondary-action" disabled={climateSubmitting} onClick={() => void reviewClimateObservation(item.id, "rejected")}>Reject</button></div></div>}
+                      </article>
+                    ))}</div>
+                  )}
+                  <p className="workspace-muted">Reviewers must not verify their own submissions. The API enforces independent review and prevents decisions on already reviewed observations.</p>
                 </section>
                 <section className="research-section climate-analysis-panel">
                   <div className="section-heading"><div><p className="eyebrow">CLIMATE INTELLIGENCE</p><h2>Descriptive analysis</h2></div><span>Maximum 10,000 observations</span></div>
