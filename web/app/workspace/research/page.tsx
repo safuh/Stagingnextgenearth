@@ -38,7 +38,18 @@ interface Dataset {
   collection_end: string | null;
   owner_user_id: string;
 }
-interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }
+interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }\ninterface ClimateUnitSummary {
+  unit: string; count: number; missing_count: number; mean: number | null; median: number | null;
+  sample_standard_deviation: number | null; standard_error: number | null; minimum: number | null; maximum: number | null;
+  percentile_05: number | null; percentile_25: number | null; percentile_75: number | null; percentile_95: number | null;
+  median_absolute_deviation: number | null;
+}
+interface ClimateAnalysisSummary {
+  variable: string; quality_status: "verified" | "pending"; start: string; end: string;
+  observation_count: number; groups: ClimateUnitSummary[];
+  method: "descriptive_hyndman_fan_type_7"; missing_data_policy: "no_imputation";
+}
+
 
 const RESEARCH_ROLES = ["admin", "programme_manager", "researcher", "institutional_partner"];
 
@@ -102,7 +113,51 @@ export default function ResearchWorkspacePage() {
   const [datasetFiles, setDatasetFiles] = useState<Record<string, DatasetFile[]>>({});
   const [fileLoading, setFileLoading] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [analysisVariable, setAnalysisVariable] = useState("precipitation");
+  const [analysisStart, setAnalysisStart] = useState("2026-01-01T00:00");
+  const [analysisEnd, setAnalysisEnd] = useState("2026-12-31T23:59");
+  const [analysisQuality, setAnalysisQuality] = useState<"verified" | "pending">("verified");
+  const [analysis, setAnalysis] = useState<ClimateAnalysisSummary | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+
+  async function runClimateAnalysis(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAnalysisError("");
+    setAnalysis(null);
+    const startDate = new Date(analysisStart);
+    const endDate = new Date(analysisEnd);
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate <= startDate) {
+      setAnalysisError("Choose a valid date range; the end must be later than the start.");
+      return;
+    }
+    if (analysisVariable.trim().length < 2) {
+      setAnalysisError("Enter a variable name containing at least two characters.");
+      return;
+    }
+    setAnalysisLoading(true);
+    try {
+      const params = new URLSearchParams({
+        variable: analysisVariable.trim(),
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        quality_status: analysisQuality,
+      });
+      const result = await apiGet<ClimateAnalysisSummary>(
+        "/organizations/" + organizationId + "/climate-observations/analysis-summary?" + params.toString(),
+      );
+      setAnalysis(result);
+    } catch (cause) {
+      setAnalysisError(cause instanceof Error ? cause.message : "Unable to calculate climate summary.");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
+  function formatStatistic(value: number | null): string {
+    return value === null ? "—" : new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value);
+  }
 
   async function submitDataset(datasetId: string) {
     setSaving(true); setError(""); setNotice("");
@@ -272,6 +327,57 @@ export default function ResearchWorkspacePage() {
                 <section className="role-workspace">
                   <div><span className="eyebrow">YOUR ACCESS</span><h2>{membership.role.replace(/_/g, " ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
                   <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link></div>
+                </section>
+                <section className="research-section climate-analysis-panel">
+                  <div className="section-heading"><div><p className="eyebrow">CLIMATE INTELLIGENCE</p><h2>Descriptive analysis</h2></div><span>Maximum 10,000 observations</span></div>
+                  <p className="workspace-muted">Summarise one variable over a bounded time window. Results remain separated by measurement unit; rejected observations are excluded by the API.</p>
+                  <form className="climate-analysis-form" onSubmit={runClimateAnalysis}>
+                    <label>Variable
+                      <input value={analysisVariable} onChange={(event) => setAnalysisVariable(event.target.value)} minLength={2} maxLength={80} required placeholder="e.g. precipitation, air_temperature" />
+                    </label>
+                    <label>Start (local time)
+                      <input type="datetime-local" value={analysisStart} onChange={(event) => setAnalysisStart(event.target.value)} required />
+                    </label>
+                    <label>End (local time, exclusive)
+                      <input type="datetime-local" value={analysisEnd} onChange={(event) => setAnalysisEnd(event.target.value)} required />
+                    </label>
+                    <label>Data quality
+                      <select value={analysisQuality} onChange={(event) => setAnalysisQuality(event.target.value as "verified" | "pending")}>
+                        <option value="verified">Verified only</option><option value="pending">Pending (provisional)</option>
+                      </select>
+                    </label>
+                    <button className="primary-action" disabled={analysisLoading}>{analysisLoading ? "Analysing…" : "Run analysis"}</button>
+                  </form>
+                  {analysisError && <p className="workspace-error" role="alert">{analysisError}</p>}
+                  {analysis && (
+                    <div className="climate-analysis-results" aria-live="polite">
+                      <div className="research-metrics">
+                        <article><span>Observations</span><strong>{analysis.observation_count.toLocaleString()}</strong></article>
+                        <article><span>Unit groups</span><strong>{analysis.groups.length}</strong></article>
+                        <article><span>Quality status</span><strong>{analysis.quality_status}</strong></article>
+                        <article><span>Missing policy</span><strong>No imputation</strong></article>
+                      </div>
+                      {analysis.quality_status === "pending" && <p className="workspace-notice">Provisional data: these measurements have not completed independent quality review.</p>}
+                      {analysis.groups.length === 0 ? <p className="workspace-muted">No observations match this variable, period and quality status.</p> : analysis.groups.map((group) => (
+                        <section className="climate-unit-result" key={group.unit}>
+                          <h3>Measurements in {group.unit}</h3>
+                          <p>{group.count.toLocaleString()} recorded values · {group.missing_count} missing values</p>
+                          <div className="research-table-wrap"><table className="research-table">
+                            <thead><tr><th>Statistic</th><th>Value</th><th>Statistic</th><th>Value</th></tr></thead>
+                            <tbody>
+                              <tr><th scope="row">Mean</th><td>{formatStatistic(group.mean)}</td><th scope="row">Median</th><td>{formatStatistic(group.median)}</td></tr>
+                              <tr><th scope="row">Sample standard deviation</th><td>{formatStatistic(group.sample_standard_deviation)}</td><th scope="row">Standard error</th><td>{formatStatistic(group.standard_error)}</td></tr>
+                              <tr><th scope="row">Minimum</th><td>{formatStatistic(group.minimum)}</td><th scope="row">Maximum</th><td>{formatStatistic(group.maximum)}</td></tr>
+                              <tr><th scope="row">5th percentile</th><td>{formatStatistic(group.percentile_05)}</td><th scope="row">25th percentile</th><td>{formatStatistic(group.percentile_25)}</td></tr>
+                              <tr><th scope="row">75th percentile</th><td>{formatStatistic(group.percentile_75)}</td><th scope="row">95th percentile</th><td>{formatStatistic(group.percentile_95)}</td></tr>
+                              <tr><th scope="row">Median absolute deviation</th><td>{formatStatistic(group.median_absolute_deviation)}</td><th scope="row">Missing count</th><td>{group.missing_count}</td></tr>
+                            </tbody>
+                          </table></div>
+                        </section>
+                      ))}
+                      <p className="workspace-muted">Method: {analysis.method.replace(/_/g, " ")}. The selected time window is start-inclusive and end-exclusive. These are descriptive statistics, not trend significance or attribution.</p>
+                    </div>
+                  )}
                 </section>
                 <div className="research-metrics" aria-label="Research dataset summary">
                   <article><span>Studies</span><strong>{studies.length}</strong></article>
