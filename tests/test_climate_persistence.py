@@ -110,6 +110,15 @@ async def test_provider_persistence_is_idempotent_and_keeps_records_pending() ->
         assert all(item.quality_status == "pending" for item in observations)
         assert all(item.provider_id == "example-climate" for item in observations)
         assert all(item.ingestion_run_id == first.id for item in observations)
+        assert observations[0].unit == "mm/day"
+        assert observations[0].metadata_json["normalization"] == {
+            "source_value": 18.2,
+            "source_unit": "mm",
+            "canonical_value": 18.2,
+            "canonical_unit": "mm/day",
+            "conversion": "mm to mm/day daily accumulation",
+        }
+        assert observations[0].metadata_json["quality_screening_flags"] == []
         runs = list((await session.scalars(select(ClimateIngestionRun))).all())
         assert len(runs) == 2
     finally:
