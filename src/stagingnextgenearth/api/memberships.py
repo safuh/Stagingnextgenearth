@@ -96,6 +96,33 @@ async def get_my_membership(
     return MembershipRead.model_validate(membership)
 
 
+@router.get("/directory")
+async def list_staff_directory(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, str]]:
+    """Return minimal active-member identities to authorised programme staff."""
+    if membership.role not in {"admin", "programme_manager"}:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme staff access required",
+        )
+    rows = await session.scalars(
+        select(Membership)
+        .where(
+            Membership.organization_id == organization_id,
+            Membership.status == "active",
+        )
+        .order_by(Membership.role, Membership.user_id)
+        .limit(1000)
+    )
+    return [
+        {"user_id": item.user_id, "role": item.role}
+        for item in rows.all()
+    ]
+
+
 @router.get("", response_model=list[MembershipRead])
 async def list_memberships(
     organization_id: str,
