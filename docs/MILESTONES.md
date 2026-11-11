@@ -73,7 +73,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Programme goals, milestone checkpoints and general assignments with tenant-scoped visibility, active-member assignment, and guarded lifecycle transitions.
 - [x] Volunteer and ambassador applications, approval and activity allocation.
 - [x] Aggregate school, community, youth-group and institutional participation records (no child-level PII).
-- [ ] Evidence uploads and approval workflow.
+- [x] HTTPS evidence-reference submission and manager approval/revision workflow for programme deliverables; private file upload attachments remain a follow-on.
 - [x] Programme indicator definitions, append-only period measurements and latest-value progress reporting.
 
 ## M4 — Research workspace
