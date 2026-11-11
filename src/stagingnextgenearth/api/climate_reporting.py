@@ -158,11 +158,11 @@ async def climate_daily_coverage(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    start_date: date,
+    end_date: date,
     variable: str = Query(min_length=2, max_length=80),
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
-    start_date: date,
-    end_date: date,
 ) -> DailyCoverageReport:
     """Report daily gaps for one station; no synthetic observations are created."""
     from fastapi import HTTPException, status
