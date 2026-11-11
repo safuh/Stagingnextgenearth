@@ -1402,6 +1402,10 @@ class ProgrammeParticipationRecord(Base):
             name="ck_programme_participant_group",
         ),
         CheckConstraint("participant_count > 0", name="ck_participant_count_positive"),
+        CheckConstraint(
+            "period_end >= period_start",
+            name="ck_participation_period_order",
+        ),
         Index(
             "ix_programme_participation_programme_period",
             "programme_id",
