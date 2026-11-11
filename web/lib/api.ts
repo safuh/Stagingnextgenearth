@@ -96,8 +96,8 @@ export async function restoreSession(): Promise<TokenResponse | null> {
     cache: "no-store",
   });
   if (!response.ok) return null;
-  const result = (await response.json()) as { authenticated: boolean; subject?: string };
-  return result.authenticated && result.subject ? { subject: result.subject } : null;
+  const result = (await response.json()) as { authenticated: boolean };
+  return result.authenticated ? { subject: "" } : null;
 }
 
 export async function logout(): Promise<void> {
