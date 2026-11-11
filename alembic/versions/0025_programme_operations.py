@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("status", sa.String(16), nullable=False),
         sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.CheckConstraint("status IN ('planned', 'in_progress', 'completed', 'cancelled)", name="ck_programme_activity_status"),
+        sa.CheckConstraint("status IN ('planned', 'in_progress', 'completed', 'cancelled')", name="ck_programme_activity_status"),
         sa.CheckConstraint("end_at IS NULL OR end_at >= start_at", name="ck_programme_activity_time_order"),
         sa.PrimaryKeyConstraint("id"),
     )
