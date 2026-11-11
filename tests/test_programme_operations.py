@@ -145,6 +145,16 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert indicator.status_code == 201
         indicator_id = indicator.json()["id"]
+        duplicate_indicator = client.post(
+            f"{base}/indicators",
+            headers=manager,
+            json={
+                "key": "trees_established",
+                "title": "Duplicate trees indicator",
+                "unit": "trees",
+            },
+        )
+        assert duplicate_indicator.status_code == 409
         measurement = client.post(
             f"{base}/indicators/{indicator_id}/measurements",
             headers=manager,
