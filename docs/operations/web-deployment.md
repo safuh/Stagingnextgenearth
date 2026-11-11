@@ -28,6 +28,9 @@ The BFF retains a localhost fallback for local development only.
   path-root cookies; the `Secure` flag is enabled in production.
 - The browser sends same-origin requests to the BFF. The BFF adds the bearer
   access token and retries one 401 response after rotating the refresh token.
+  Concurrent refreshes are coalesced within one Node.js process for 30 seconds;
+  run a single web replica until a shared refresh coordinator is deployed for
+  multi-replica operation.
 - Mutating BFF and session requests reject a supplied cross-origin Origin header.
   Keep the application on HTTPS in production.
 - Sign-out revokes the refresh token where possible and clears both cookies.
