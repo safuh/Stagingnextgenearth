@@ -79,7 +79,9 @@ The workspace can request a short-lived upload intent for CSV, JSON, PDF, ZIP an
 files up to 100 MiB, post the file to the private storage form, and call the completion
 endpoint. The completion endpoint verifies stored size and media type, quarantines the
 object, and invokes the configured scanner. A missing scanner leaves the file quarantined;
-a scanner/storage error does not make it downloadable. Only clean, available files can
+a scanner/storage error does not make it downloadable. The workspace exposes a retry action
+for quarantined versions so transient scanner/storage failures can be retried without
+creating another file version. Only clean, available files can
 receive an audited, short-lived download grant through the separate download endpoint.
 
 The browser displays safe file-version metadata and scan state only. It does not persist
