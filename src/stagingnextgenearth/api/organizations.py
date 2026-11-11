@@ -90,6 +90,37 @@ async def list_my_organizations(
     return [OrganizationRead.model_validate(item) for item in result.all()]
 
 
+class OrganizationAdministrationSummary(BaseModel):
+    """Owner metadata visible only to active organisation administrators."""
+
+    organization_id: str
+    organization_name: str
+    owner_user_id: str
+    created_at: datetime
+
+
+@router.get("/{organization_id}/administration-summary", response_model=OrganizationAdministrationSummary)
+async def get_organization_administration_summary(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> OrganizationAdministrationSummary:
+    """Return governance metadata only to active administrators."""
+    if membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    organization = await session.scalar(
+        select(Organization).where(Organization.id == organization_id)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    return OrganizationAdministrationSummary(
+        organization_id=organization.id,
+        organization_name=organization.name,
+        owner_user_id=organization.owner_user_id,
+        created_at=organization.created_at,
+    )
+
+
 class OwnershipTransfer(BaseModel):
     """Transfer organisation ownership to an active organisation member."""
 
