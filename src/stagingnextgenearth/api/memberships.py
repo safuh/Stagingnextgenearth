@@ -147,7 +147,9 @@ class MembershipStatusUpdate(BaseModel):
 async def _organization_owner(session: AsyncSession, organization_id: str) -> str:
     """Return the tenant owner, failing closed if the tenant is missing."""
     owner_id = await session.scalar(
-        select(Organization.owner_user_id).where(Organization.id == organization_id)
+        select(Organization.owner_user_id)
+        .where(Organization.id == organization_id)
+        .with_for_update()
     )
     if owner_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
@@ -177,15 +179,17 @@ async def update_member_role(
     """Change a member role without permitting privilege escalation by non-admins."""
     if membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    owner_id = await _organization_owner(session, organization_id)
     target = await session.scalar(
-        select(Membership).where(
+        select(Membership)
+        .where(
             Membership.id == membership_id,
             Membership.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
-    owner_id = await _organization_owner(session, organization_id)
     if target.user_id == owner_id and body.role != "admin":
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -232,15 +236,17 @@ async def update_member_status(
     """Suspend or reactivate a member while preserving an active organisation owner."""
     if membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    owner_id = await _organization_owner(session, organization_id)
     target = await session.scalar(
-        select(Membership).where(
+        select(Membership)
+        .where(
             Membership.id == membership_id,
             Membership.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
-    owner_id = await _organization_owner(session, organization_id)
     if target.user_id == owner_id and body.status == "suspended":
         raise HTTPException(
             status.HTTP_409_CONFLICT,
