@@ -190,6 +190,18 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert assessments.status_code == 200
         assert assessments.json()[0]["title"] == "Climate foundations quiz"
         assert "configuration" not in assessments.json()[0]
+        staff_submissions = client.get(
+            f"{base}/courses/{course_id}/submissions",
+            headers=admin_headers,
+        )
+        assert staff_submissions.status_code == 200
+        assert staff_submissions.json()[0]["id"] == submission.json()["id"]
+        assert staff_submissions.json()[0]["submission"]["answers"] == ["risk", "adaptation"]
+        learner_submission_access = client.get(
+            f"{base}/courses/{course_id}/submissions",
+            headers=learner_headers,
+        )
+        assert learner_submission_access.status_code == 403
 
         learner_login = client.post(
             "/api/auth/login",
@@ -311,6 +323,46 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert attendance.status_code == 201
+        attendance_rows = client.get(
+            f"{base}/courses/{course_id}/attendance",
+            headers=admin_headers,
+        )
+        assert attendance_rows.status_code == 200
+        assert attendance_rows.json()[0]["learner_id"] == learner_id
+        learner_attendance_access = client.get(
+            f"{base}/courses/{course_id}/attendance",
+            headers=learner_headers,
+        )
+        assert learner_attendance_access.status_code == 403
+
+        admin_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
+            client.post(
+                "/api/auth/login",
+                json={
+                    "identifier": "learning-admin@example.org",
+                    "password": "correct horse battery staple",
+                },
+            ).json()["access_token"],
+            expected_type="access",
+        )["sub"]
+        mentorship = client.post(
+            f"{base}/courses/{course_id}/mentorships",
+            headers=admin_headers,
+            json={"mentor_id": admin_id, "mentee_id": learner_id, "notes": "Monthly learning support."},
+        )
+        assert mentorship.status_code == 201
+        mentorship_rows = client.get(
+            f"{base}/courses/{course_id}/mentorships",
+            headers=admin_headers,
+        )
+        assert mentorship_rows.status_code == 200
+        assert mentorship_rows.json()[0]["mentee_id"] == learner_id
+        learner_mentorship_access = client.get(
+            f"{base}/courses/{course_id}/mentorships",
+            headers=learner_headers,
+        )
+        assert learner_mentorship_access.status_code == 403
+
         summary = client.get(
             f"{base}/courses/{course_id}/progress",
             headers=admin_headers,
