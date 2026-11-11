@@ -71,7 +71,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Programme and project APIs with explicit service/repository boundaries.
 - [x] Activities, deliverables, volunteer allocations and activity lifecycle transitions.\n- [ ] Goals, milestones and general assignments.
 - [x] Volunteer and ambassador applications, approval and activity allocation.
-- [ ] School and community participation records.
+- [x] Aggregate school, community, youth-group and institutional participation records (no child-level PII).
 - [ ] Evidence uploads and approval workflow.
 - [x] Programme indicator definitions, append-only period measurements and latest-value progress reporting.
 
