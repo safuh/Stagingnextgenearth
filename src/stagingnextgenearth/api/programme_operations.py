@@ -372,3 +372,47 @@ async def allocate_volunteer(
         await session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Volunteer is already allocated to this activity") from exc
     return VolunteerAllocationRead.model_validate(item)
+
+
+class ActivityStatusUpdate(BaseModel):
+    """Requested activity lifecycle state."""
+
+    status: str = Field(pattern=r"^(in_progress|completed|cancelled)$")
+
+
+@router.post(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/status",
+    response_model=ActivityRead,
+)
+async def update_activity_status(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    body: ActivityStatusUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ActivityRead:
+    """Apply a guarded activity lifecycle transition."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    item = await session.scalar(
+        select(ProgrammeActivity).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    allowed = {
+        "planned": {"in_progress", "cancelled"},
+        "in_progress": {"completed", "cancelled"},
+        "completed": set(),
+        "cancelled": set(),
+    }
+    if body.status not in allowed.get(item.status, set()):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Invalid activity status transition")
+    item.status = body.status
+    await session.commit()
+    await session.refresh(item)
+    return ActivityRead.model_validate(item)
