@@ -255,6 +255,7 @@ export default function WorkspacePage() {
                 <button key={item} className={panel === item ? "active" : ""} onClick={() => { setPanel(item); setSelectedCourse(null); }}>{item}</button>
               ))}
             </nav>
+            <Link className="staff-portal-link" href="/workspace/learning-admin">Learning operations · staff workspace →</Link>
             {panel === "overview" && (
               <div className="workspace-stats">
                 <article><span>PROGRAMMES</span><strong>{programmes.length}</strong><p>Organisation programmes</p></article>
