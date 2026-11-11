@@ -99,3 +99,5 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: Build production web container
+        run: docker build -f web/Dockerfile -t nextgen-for-earth-web:${{ github.sha }} .
