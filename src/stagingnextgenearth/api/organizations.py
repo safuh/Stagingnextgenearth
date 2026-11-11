@@ -4,13 +4,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
+from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import Membership, Organization
 
-from .dependencies import Principal, get_current_principal, get_session
+from .dependencies import Principal, get_current_principal, get_session, require_membership
+
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -83,3 +85,81 @@ async def list_my_organizations(
         .order_by(Organization.name)
     )
     return [OrganizationRead.model_validate(item) for item in result.all()]
+
+
+class OwnershipTransfer(BaseModel):
+    """Transfer organisation ownership to an active organisation member."""
+
+    new_owner_user_id: str = Field(min_length=1, max_length=36)
+
+
+@router.post("/{organization_id}/ownership-transfer")
+async def transfer_organization_ownership(
+    organization_id: str,
+    body: OwnershipTransfer,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, str]:
+    """Atomically transfer ownership and preserve an active administrator."""
+    if membership.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+
+    organization = await session.scalar(
+        select(Organization)
+        .where(Organization.id == organization_id)
+        .with_for_update()
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    if organization.owner_user_id != principal.user_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the current organisation owner can transfer ownership",
+        )
+    if body.new_owner_user_id == principal.user_id:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The new owner must be a different organisation member",
+        )
+
+    new_owner_membership = await session.scalar(
+        select(Membership)
+        .where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == body.new_owner_user_id,
+        )
+        .with_for_update()
+    )
+    if new_owner_membership is None or new_owner_membership.status != "active":
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "The new owner must have an active organisation membership",
+        )
+
+    current_owner_membership = await session.scalar(
+        select(Membership)
+        .where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == principal.user_id,
+        )
+        .with_for_update()
+    )
+    if current_owner_membership is None or current_owner_membership.status != "active":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The current owner must retain an active membership during transfer",
+        )
+
+    previous_owner_id = organization.owner_user_id
+    new_owner_membership.role = "admin"
+    current_owner_membership.role = "programme_manager"
+    organization.owner_user_id = body.new_owner_user_id
+
+    await session.commit()
+    return {
+        "organization_id": organization_id,
+        "previous_owner_user_id": previous_owner_id,
+        "owner_user_id": body.new_owner_user_id,
+        "transferred_at": datetime.now(UTC).isoformat(),
+    }
