@@ -4,12 +4,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import User
-from stagingnextgenearth.platform.models import Membership
+from stagingnextgenearth.platform.models import Membership, Organization
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -142,8 +142,6 @@ class MembershipStatusUpdate(BaseModel):
 
 async def _organization_owner(session: AsyncSession, organization_id: str) -> str:
     """Return the tenant owner, failing closed if the tenant is missing."""
-    from stagingnextgenearth.platform.models import Organization
-
     owner_id = await session.scalar(
         select(Organization.owner_user_id).where(Organization.id == organization_id)
     )
@@ -154,8 +152,6 @@ async def _organization_owner(session: AsyncSession, organization_id: str) -> st
 
 async def _active_admin_count(session: AsyncSession, organization_id: str) -> int:
     """Count active administrators before a potentially demoting operation."""
-    from sqlalchemy import func
-
     count = await session.scalar(
         select(func.count(Membership.id)).where(
             Membership.organization_id == organization_id,
@@ -187,12 +183,24 @@ async def update_member_role(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
     owner_id = await _organization_owner(session, organization_id)
     if target.user_id == owner_id and body.role != "admin":
-        raise HTTPException(status.HTTP_409_CONFLICT, "Transfer organisation ownership before changing the owner's role")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Transfer organisation ownership before changing the owner's role",
+        )
     if body.role == "admin" and membership.user_id != owner_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the organisation owner can grant administrator access")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can grant administrator access",
+        )
     if target.status == "active" and target.role == "admin" and body.role != "admin":
-        if target.user_id == membership.user_id or await _active_admin_count(session, organization_id) <= 1:
-            raise HTTPException(status.HTTP_409_CONFLICT, "The last active administrator cannot be demoted")
+        if (
+            target.user_id == membership.user_id
+            or await _active_admin_count(session, organization_id) <= 1
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "The last active administrator cannot be demoted",
+            )
     target.role = body.role
     await session.commit()
     await session.refresh(target)
@@ -220,10 +228,16 @@ async def update_member_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
     owner_id = await _organization_owner(session, organization_id)
     if target.user_id == owner_id and body.status == "suspended":
-        raise HTTPException(status.HTTP_409_CONFLICT, "Transfer organisation ownership before suspending the owner")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Transfer organisation ownership before suspending the owner",
+        )
     if target.status == "active" and target.role == "admin" and body.status == "suspended":
         if target.user_id == membership.user_id or await _active_admin_count(session, organization_id) <= 1:
-            raise HTTPException(status.HTTP_409_CONFLICT, "The last active administrator cannot be suspended")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "The last active administrator cannot be suspended",
+            )
     target.status = body.status
     await session.commit()
     await session.refresh(target)
