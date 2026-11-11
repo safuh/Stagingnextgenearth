@@ -8,7 +8,7 @@ export interface ApiError {
 }
 
 // Authentication cookies are HttpOnly and are deliberately inaccessible to JavaScript.
-// The BFF validates and refreshes the session on every protected API request.
+// The BFF validates protected requests and refreshes expired access tokens after a 401.
 export function setSession(_tokens: TokenResponse): void {
   // Session cookies are set by /api/session/login.
 }
@@ -24,7 +24,7 @@ export function clearSession(): void {
 }
 
 export function hasSession(): boolean {
-  // The browser cannot inspect HttpOnly cookies. The API proxy is the authority.
+  // The browser cannot inspect HttpOnly cookies; protected requests determine session validity.
   return true;
 }
 
