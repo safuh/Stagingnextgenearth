@@ -748,3 +748,25 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
   .admin-member-actions label, .admin-member-actions select { width: 100%; }
   .admin-audit-row > div { flex-direction: column; gap: .35rem; }
 }
+
+
+/* Researcher authoring forms */
+.research-authoring-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+.research-form-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+.research-authoring-grid .staff-card h2 { margin: .25rem 0 .5rem; }
+.research-authoring-grid .staff-card > p:not(.eyebrow) {
+  color: var(--muted, #6b7069);
+  line-height: 1.5;
+}
+@media (max-width: 720px) {
+  .research-authoring-grid, .research-form-pair { grid-template-columns: 1fr; }
+}
