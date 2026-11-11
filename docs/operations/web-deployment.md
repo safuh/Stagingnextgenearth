@@ -31,8 +31,9 @@ The BFF retains a localhost fallback for local development only.
 - Mutating BFF and session requests reject a supplied cross-origin Origin header.
   Keep the application on HTTPS in production.
 - Sign-out revokes the refresh token where possible and clears both cookies.
-- Session restoration rotates the refresh token and returns only the account
-  subject and authenticated state.
+- Session restoration checks only whether the HttpOnly session cookies are present;
+  token rotation happens in the API proxy after an upstream 401, avoiding concurrent
+  refresh races during client-side rendering.
 - The BFF streams upstream response bodies and does not cache API responses.
 
 The BFF is not a replacement for API authorization. FastAPI must continue to
