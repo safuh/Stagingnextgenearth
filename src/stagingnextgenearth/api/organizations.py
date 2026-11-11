@@ -3,13 +3,17 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Organization
+from stagingnextgenearth.platform.models import (
+    Membership,
+    Organization,
+    OrganizationAuditEvent,
+)
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -155,6 +159,20 @@ async def transfer_organization_ownership(
     new_owner_membership.role = "admin"
     current_owner_membership.role = "programme_manager"
     organization.owner_user_id = body.new_owner_user_id
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=body.new_owner_user_id,
+            action="organization.ownership_transferred",
+            changes={
+                "owner_user_id": {
+                    "before": previous_owner_id,
+                    "after": body.new_owner_user_id,
+                }
+            },
+        )
+    )
 
     await session.commit()
     return {
@@ -163,3 +181,35 @@ async def transfer_organization_ownership(
         "owner_user_id": body.new_owner_user_id,
         "transferred_at": datetime.now(UTC).isoformat(),
     }
+
+
+@router.get("/{organization_id}/audit-events")
+async def list_organization_audit_events(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[dict[str, object]]:
+    """List a bounded, tenant-scoped audit history for organisation administrators."""
+    if membership.role != "admin":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Administrator role required",
+        )
+    rows = await session.scalars(
+        select(OrganizationAuditEvent)
+        .where(OrganizationAuditEvent.organization_id == organization_id)
+        .order_by(OrganizationAuditEvent.created_at.desc())
+        .limit(limit)
+    )
+    return [
+        {
+            "id": event.id,
+            "action": event.action,
+            "actor_user_id": event.actor_user_id,
+            "subject_user_id": event.subject_user_id,
+            "changes": event.changes,
+            "created_at": event.created_at,
+        }
+        for event in rows.all()
+    ]
