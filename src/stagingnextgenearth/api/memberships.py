@@ -9,7 +9,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import User
-from stagingnextgenearth.platform.models import Membership, Organization
+from stagingnextgenearth.platform.models import (
+    Membership,
+    Organization,
+    OrganizationAuditEvent,
+)
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -201,7 +205,17 @@ async def update_member_role(
                 status.HTTP_409_CONFLICT,
                 "The last active administrator cannot be demoted",
             )
+    previous_role = target.role
     target.role = body.role
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=membership.user_id,
+            subject_user_id=target.user_id,
+            action="membership.role_changed",
+            changes={"role": {"before": previous_role, "after": body.role}},
+        )
+    )
     await session.commit()
     await session.refresh(target)
     return MembershipRead.model_validate(target)
@@ -241,7 +255,17 @@ async def update_member_status(
                 status.HTTP_409_CONFLICT,
                 "The last active administrator cannot be suspended",
             )
+    previous_status = target.status
     target.status = body.status
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=membership.user_id,
+            subject_user_id=target.user_id,
+            action="membership.status_changed",
+            changes={"status": {"before": previous_status, "after": body.status}},
+        )
+    )
     await session.commit()
     await session.refresh(target)
     return MembershipRead.model_validate(target)
