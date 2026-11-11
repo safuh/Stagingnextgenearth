@@ -14,7 +14,7 @@ type Tokens = { access_token: string; refresh_token: string };
 
 // Share a single rotating refresh operation across concurrent requests in this
 // Node.js process; refresh tokens are single-use and parallel rotations race.
-const refreshInFlight = new Map<string, Promise<Tokens | null>>();
+const refreshInFlight = new Map<string, { promise: Promise<Tokens | null>; expiresAt: number }>();
 
 function cookieOptions(maxAge: number) {
   return {
@@ -86,14 +86,20 @@ async function refreshTokens(refreshToken: string): Promise<Tokens | null> {
 
 function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
   const existing = refreshInFlight.get(refreshToken);
-  if (existing) return existing;
+  if (existing && existing.expiresAt > Date.now()) return existing.promise;
+  if (existing) refreshInFlight.delete(refreshToken);
 
-  const pending = refreshTokens(refreshToken).finally(() => {
-    if (refreshInFlight.get(refreshToken) === pending) {
+  const pending = refreshTokens(refreshToken);
+  refreshInFlight.set(refreshToken, {
+    promise: pending,
+    expiresAt: Date.now() + 30_000,
+  });
+  const cleanup = setTimeout(() => {
+    if (refreshInFlight.get(refreshToken)?.promise === pending) {
       refreshInFlight.delete(refreshToken);
     }
-  });
-  refreshInFlight.set(refreshToken, pending);
+  }, 30_000);
+  cleanup.unref?.();
   return pending;
 }
 
