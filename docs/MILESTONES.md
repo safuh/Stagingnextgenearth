@@ -68,7 +68,7 @@ These foundation checks must continue passing as product code is added.
 
 ## M3 — Programme and project operations
 
-- [ ] Programme and project APIs with explicit service/repository boundaries.
+- [x] Programme and project APIs with explicit tenant-scoped persistence, role checks and validated parent relationships; service/repository extraction remains a refactoring opportunity.
 - [x] Activities, deliverables, volunteer allocations and activity lifecycle transitions.
 - [x] Programme goals, milestone checkpoints and general assignments with tenant-scoped visibility, active-member assignment, and guarded lifecycle transitions.
 - [x] Volunteer and ambassador applications, approval and activity allocation.
@@ -129,10 +129,10 @@ These foundation checks must continue passing as product code is added.
 - [x] Learner course detail, ordered module/lesson curriculum, course application, lesson completion and progress tracking.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
 - [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
-- [ ] Researcher portal (organisation-scoped study and dataset registry, metadata correction, independent review, file-version upload/scanning, and interactive descriptive, spatial-query, screening and station-coverage climate workflows are implemented; basemap visualisation and inferential workflows remain).
+- [x] Researcher portal foundations (organisation-scoped study and dataset registry, metadata correction, independent review, file-version upload/scanning, and interactive descriptive, spatial-query, screening and station-coverage climate workflows; basemap visualisation and inferential workflows remain).
 - [x] Youth and volunteer portal foundations: personal dashboard, caller-scoped application/allocation history, and volunteer/ambassador programme applications for active youth-volunteer members (manager approval remains tenant- and role-scoped).
 - [x] Administrator portal foundations: tenant-scoped membership directory, role/status controls, invitation creation, ownership transfer and governance audit history. Production BFF session handling and broader organisation settings remain.
-- [ ] Institutional partner portal.
+- [x] Institutional partner portal foundation: read-only programme indicator and privacy-filtered aggregate participation reporting; donor document exchange, grant/budget workflows and report exports remain.
 - [x] Shared design system, responsive layouts and accessible navigation.
 - [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
 - [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows (initial researcher registry and youth/volunteer personal dashboards implemented; remaining role workflows are outstanding).
