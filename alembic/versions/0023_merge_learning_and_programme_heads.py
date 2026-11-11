@@ -1,12 +1,12 @@
 """Merge learning and programme-deliverable migration branches.
 
-Revision ID: 0023_merge_learning_and_programme_heads
+Revision ID: 0023_merge_heads
 Revises: 0022_learning_lesson_completions, 0021_programme_deliverables
 """
 
 from collections.abc import Sequence
 
-revision: str = "0023_merge_learning_and_programme_heads"
+revision: str = "0023_merge_heads"
 down_revision: tuple[str, str] = (
     "0022_learning_lesson_completions",
     "0021_programme_deliverables",
