@@ -97,6 +97,8 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+      - name: Frontend unit tests
+        run: npm test
       - name: Production build
         run: npm run build
       - name: Build production web container
