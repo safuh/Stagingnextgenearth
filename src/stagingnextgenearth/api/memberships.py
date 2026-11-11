@@ -156,6 +156,24 @@ async def _organization_owner(session: AsyncSession, organization_id: str) -> st
     return owner_id
 
 
+async def _current_admin(
+    session: AsyncSession,
+    membership_id: str,
+) -> Membership:
+    """Reload and lock the actor membership after locking the tenant row."""
+    actor = await session.scalar(
+        select(Membership)
+        .where(Membership.id == membership_id)
+        .with_for_update()
+    )
+    if actor is None or actor.status != "active" or actor.role != "admin":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Active administrator role required",
+        )
+    return actor
+
+
 async def _active_admin_count(session: AsyncSession, organization_id: str) -> int:
     """Count active administrators before a potentially demoting operation."""
     count = await session.scalar(
@@ -180,6 +198,7 @@ async def update_member_role(
     if membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
+    actor = await _current_admin(session, membership.id)
     target = await session.scalar(
         select(Membership)
         .where(
@@ -214,7 +233,7 @@ async def update_member_role(
     session.add(
         OrganizationAuditEvent(
             organization_id=organization_id,
-            actor_user_id=membership.user_id,
+            actor_user_id=actor.user_id,
             subject_user_id=target.user_id,
             action="membership.role_changed",
             changes={"role": {"before": previous_role, "after": body.role}},
@@ -237,6 +256,7 @@ async def update_member_status(
     if membership.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
+    actor = await _current_admin(session, membership.id)
     target = await session.scalar(
         select(Membership)
         .where(
@@ -266,7 +286,7 @@ async def update_member_status(
     session.add(
         OrganizationAuditEvent(
             organization_id=organization_id,
-            actor_user_id=membership.user_id,
+            actor_user_id=actor.user_id,
             subject_user_id=target.user_id,
             action="membership.status_changed",
             changes={"status": {"before": previous_status, "after": body.status}},
