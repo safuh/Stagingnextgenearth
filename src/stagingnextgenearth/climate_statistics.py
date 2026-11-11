@@ -3,6 +3,7 @@
 These summaries are descriptive only. They do not infer causality, fill gaps,
 correct bias, or quantify model/measurement uncertainty.
 """
+
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import isfinite, sqrt
@@ -12,6 +13,7 @@ from statistics import fmean, median
 @dataclass(frozen=True, slots=True)
 class ClimateSeriesStatistics:
     """Descriptive statistics for one homogeneous variable/unit series."""
+
     count: int
     missing_count: int
     mean: float | None
@@ -53,10 +55,18 @@ def summarize_climate_series(values: Iterable[float | None]) -> ClimateSeriesSta
 
     if not observed:
         return ClimateSeriesStatistics(
-            count=0, missing_count=missing_count, mean=None, median=None,
-            sample_standard_deviation=None, standard_error=None, minimum=None,
-            maximum=None, percentile_05=None, percentile_25=None,
-            percentile_75=None, percentile_95=None,
+            count=0,
+            missing_count=missing_count,
+            mean=None,
+            median=None,
+            sample_standard_deviation=None,
+            standard_error=None,
+            minimum=None,
+            maximum=None,
+            percentile_05=None,
+            percentile_25=None,
+            percentile_75=None,
+            percentile_95=None,
             median_absolute_deviation=None,
         )
 
@@ -66,14 +76,23 @@ def summarize_climate_series(values: Iterable[float | None]) -> ClimateSeriesSta
     deviations = sorted(abs(value - centre) for value in ordered)
     sample_stddev = (
         sqrt(sum((value - average) ** 2 for value in ordered) / (len(ordered) - 1))
-        if len(ordered) > 1 else None
+        if len(ordered) > 1
+        else None
     )
     return ClimateSeriesStatistics(
-        count=len(ordered), missing_count=missing_count, mean=average, median=centre,
+        count=len(ordered),
+        missing_count=missing_count,
+        mean=average,
+        median=centre,
         sample_standard_deviation=sample_stddev,
-        standard_error=sample_stddev / sqrt(len(ordered)) if sample_stddev is not None else None,
-        minimum=ordered[0], maximum=ordered[-1],
-        percentile_05=_quantile(ordered, 0.05), percentile_25=_quantile(ordered, 0.25),
-        percentile_75=_quantile(ordered, 0.75), percentile_95=_quantile(ordered, 0.95),
+        standard_error=(
+            sample_stddev / sqrt(len(ordered)) if sample_stddev is not None else None
+        ),
+        minimum=ordered[0],
+        maximum=ordered[-1],
+        percentile_05=_quantile(ordered, 0.05),
+        percentile_25=_quantile(ordered, 0.25),
+        percentile_75=_quantile(ordered, 0.75),
+        percentile_95=_quantile(ordered, 0.95),
         median_absolute_deviation=median(deviations),
     )
