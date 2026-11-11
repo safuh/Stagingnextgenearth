@@ -43,6 +43,7 @@ PostgreSQL workflow.
 ~~~bash
 uv sync --extra dev
 cp .env.example .env
+cp web/.env.example web/.env.local
 make check
 make run
 ~~~
@@ -72,6 +73,7 @@ Do not run migrations automatically in API workers.
 - [Milestones](docs/MILESTONES.md)
 - [Security](docs/SECURITY.md)
 - [PostgreSQL/PostGIS deployment](docs/operations/postgis.md)
+- [Web BFF/session deployment](docs/operations/web-deployment.md)
 
 ## Development checks
 
