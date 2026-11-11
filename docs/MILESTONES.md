@@ -129,13 +129,13 @@ These foundation checks must continue passing as product code is added.
 - [x] Learner course detail, ordered module/lesson curriculum, course application, lesson completion and progress tracking.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
 - [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
-- [ ] Researcher portal.
+- [ ] Researcher portal (initial organisation-scoped study and dataset registry dashboard is implemented; study/dataset authoring, review queues, file workflows and interactive climate analysis remain).
 - [ ] Youth and volunteer portal.
 - [ ] Administrator portal.
 - [ ] Institutional partner portal.
 - [x] Shared design system, responsive layouts and accessible navigation.
 - [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
-- [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows.
+- [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows (initial read-only researcher registry dashboard implemented; remaining role workflows are outstanding).
 - [x] Typed API client, authenticated requests, explicit in-memory session lifecycle and user-visible loading/error states (production BFF/HttpOnly-cookie session remains a hardening item).
 
 ## M7 — Integrations and organisational intelligence
