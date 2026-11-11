@@ -336,7 +336,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learner_attendance_access.status_code == 403
         own_attendance = client.get(f"{base}/my-attendance", headers=learner_headers)
         assert own_attendance.status_code == 200
-        assert own_attendance.json() == []
+        assert len(own_attendance.json()) == 1
+        assert own_attendance.json()[0]["attendance_status"] == "present"
 
         admin_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
             client.post(
