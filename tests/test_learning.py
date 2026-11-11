@@ -238,9 +238,45 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert overdue.status_code == 201
+
+        late_learner_headers = _register(client, "learning-late@example.org")
+        late_invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=admin_headers,
+            json={"identifier": "learning-late@example.org", "role": "youth_volunteer"},
+        )
+        assert late_invitation.status_code == 201
+        late_acceptance = client.post(
+            f"/api/organizations/{org_id}/memberships/"
+            f"{late_invitation.json()['id']}/accept",
+            headers=late_learner_headers,
+        )
+        assert late_acceptance.status_code == 200
+        late_application = client.post(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=late_learner_headers,
+        )
+        assert late_application.status_code == 201
+        late_login = client.post(
+            "/api/auth/login",
+            json={
+                "identifier": "learning-late@example.org",
+                "password": "correct horse battery staple",
+            },
+        )
+        late_learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
+            late_login.json()["access_token"], expected_type="access"
+        )["sub"]
+        late_approval = client.post(
+            f"{base}/courses/{course_id}/enrollments/{late_learner_id}/decision",
+            headers=admin_headers,
+            json={"decision": "approved"},
+        )
+        assert late_approval.status_code == 200
+
         rejected_late = client.post(
             f"{base}/assessments/{overdue.json()['id']}/submissions",
-            headers=learner_headers,
+            headers=late_learner_headers,
             json={"submission": {"text": "late"}},
         )
         assert rejected_late.status_code == 409
