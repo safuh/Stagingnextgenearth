@@ -219,7 +219,10 @@ async def apply_to_volunteer(
         )
     )
     if existing_membership is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Existing members cannot apply as new volunteers")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Existing members cannot apply as new volunteers",
+        )
     item = ProgrammeVolunteerApplication(
         organization_id=organization_id,
         programme_id=programme_id,
@@ -301,7 +304,10 @@ async def decide_volunteer_application(
             )
         )
         if existing is not None:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Applicant already has an organisation membership")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Applicant already has an organisation membership",
+            )
         session.add(
             Membership(
                 organization_id=organization_id,
@@ -370,7 +376,10 @@ async def allocate_volunteer(
         await session.refresh(item)
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Volunteer is already allocated to this activity") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Volunteer is already allocated to this activity",
+        ) from exc
     return VolunteerAllocationRead.model_validate(item)
 
 
