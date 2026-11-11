@@ -17,7 +17,6 @@ from stagingnextgenearth.platform.models import (
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
-
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 class OrganizationCreate(BaseModel):
