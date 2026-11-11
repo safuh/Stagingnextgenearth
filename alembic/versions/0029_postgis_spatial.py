@@ -32,14 +32,14 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE FUNCTION sync_climate_observation_location()
-        RETURNS trigger AS $
+        RETURNS trigger AS $body$
         BEGIN
             NEW.location := ST_SetSRID(
                 ST_MakePoint(NEW.longitude, NEW.latitude), 4326
             );
             RETURN NEW;
         END;
-        $ LANGUAGE plpgsql
+        $body$ LANGUAGE plpgsql
         """
     )
     op.execute(
