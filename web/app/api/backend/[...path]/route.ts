@@ -50,6 +50,7 @@ async function sendUpstream(
   request: NextRequest,
   path: string,
   accessToken: string | undefined,
+  body: ArrayBuffer | undefined,
 ): Promise<Response> {
   const headers = new Headers();
   const accept = request.headers.get("accept");
@@ -62,7 +63,7 @@ async function sendUpstream(
   return fetch(`${API_BASE}/${path}${request.nextUrl.search}`, {
     method: request.method,
     headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
+    body: hasBody ? body : undefined,
     cache: "no-store",
     redirect: "manual",
   });
@@ -95,14 +96,15 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
-  let upstream = await sendUpstream(request, path, accessToken);
+  const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
+  let upstream = await sendUpstream(request, path, accessToken, body);
   let rotated: Tokens | null = null;
 
   if (upstream.status === 401 && refreshToken) {
     rotated = await refreshTokens(refreshToken);
     if (rotated) {
       accessToken = rotated.access_token;
-      upstream = await sendUpstream(request, path, accessToken);
+      upstream = await sendUpstream(request, path, accessToken, body);
     }
   }
 
