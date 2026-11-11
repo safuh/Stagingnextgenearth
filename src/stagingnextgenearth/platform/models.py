@@ -1318,3 +1318,75 @@ class ProgrammeVolunteerAllocation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class ProgrammeIndicator(Base):
+    """A measurable programme outcome or output indicator."""
+
+    __tablename__ = "programme_indicators"
+    __table_args__ = (
+        UniqueConstraint("programme_id", "key", name="uq_programme_indicator_key"),
+        CheckConstraint(
+            "direction IN ('increase', 'decrease', 'monitor')",
+            name="ck_programme_indicator_direction",
+        ),
+        Index("ix_programme_indicators_programme", "programme_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    key: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    unit: Mapped[str] = mapped_column(String(40), nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False, default="increase")
+    baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeIndicatorMeasurement(Base):
+    """Append-only, period-based measurement of a programme indicator."""
+
+    __tablename__ = "programme_indicator_measurements"
+    __table_args__ = (
+        CheckConstraint("period_end >= period_start", name="ck_indicator_period_order"),
+        Index(
+            "ix_indicator_measurements_indicator_period",
+            "indicator_id",
+            "period_end",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    indicator_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_indicators.id", ondelete="CASCADE"), nullable=False
+    )
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reported_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
