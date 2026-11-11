@@ -71,6 +71,40 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert programme.status_code == 201
         base = f"{programmes}/{programme.json()['id']}"
 
+        # Existing active youth volunteers can apply to additional programmes.
+        member_volunteer = _auth(client, "ops-member-volunteer@example.org")
+        member_invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=manager,
+            json={"identifier": "ops-member-volunteer@example.org", "role": "youth_volunteer"},
+        )
+        assert member_invitation.status_code == 201
+        member_acceptance = client.post(
+            f"/api/organizations/{org_id}/memberships/{member_invitation.json()['id']}/accept",
+            headers=member_volunteer,
+        )
+        assert member_acceptance.status_code == 200
+        member_application = client.post(
+            f"{base}/volunteer-applications",
+            headers=member_volunteer,
+            json={
+                "participation_type": "ambassador",
+                "interest": "I can support local outreach and environmental learning activities.",
+                "availability": "School holidays",
+            },
+        )
+        assert member_application.status_code == 201
+        member_approval = client.post(
+            f"{base}/volunteer-applications/{member_application.json()['id']}/decision",
+            headers=manager,
+            json={"decision": "approved"},
+        )
+        assert member_approval.status_code == 200
+        assert member_approval.json()["status"] == "approved"
+        assert client.get(
+            f"/api/organizations/{org_id}/memberships/me", headers=member_volunteer
+        ).json()["role"] == "youth_volunteer"
+
         application = client.post(
             f"{base}/volunteer-applications",
             headers=participant,
