@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,15 +58,11 @@ async def list_flagged_climate_observations(
 ) -> FlaggedObservationReport:
     """Report provider screening flags; flags are not scientific validation."""
     if start is not None and (start.tzinfo is None or start.utcoffset() is None):
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "start must include a timezone"
         )
     if end is not None and (end.tzinfo is None or end.utcoffset() is None):
-        from fastapi import HTTPException, status
-
-        raise HTTPException(
+            raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "end must include a timezone"
         )
     if start is not None and end is not None and end < start:
