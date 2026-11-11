@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -213,7 +213,7 @@ async def query_climate_observations_spatially(
     if session.get_bind().dialect.name == "postgresql":
         envelope = func.ST_MakeEnvelope(west, south, east, north, 4326)
         statement = statement.where(
-            func.ST_Intersects(literal_column("location"), envelope)
+            func.ST_Intersects(ClimateObservation.location, envelope)
         )
     if variable is not None:
         statement = statement.where(ClimateObservation.variable == variable)
