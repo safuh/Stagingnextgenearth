@@ -1043,7 +1043,7 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
     )
     assert memberships.status_code == 200
     owner_membership = next(
-        item for item in memberships.json() if item["user_id"] != member_id
+        item for item in memberships.json() if item["role"] == "admin"
     )
     # The organisation owner cannot be demoted or suspended before ownership transfer.
     owner_demotion = client.patch(
