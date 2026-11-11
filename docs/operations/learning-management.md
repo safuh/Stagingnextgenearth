@@ -3,7 +3,9 @@
 The learning API is tenant-scoped under
 `/api/organizations/{organization_id}/learning`. Every operation requires an
 active organisation membership. The API, not the browser, enforces role
-permissions.
+permissions. The authenticated member can retrieve their own active role using
+`GET /api/organizations/{organization_id}/memberships/me`; this endpoint does
+not expose other members or private profile data.
 
 ## Roles
 
