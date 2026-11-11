@@ -50,7 +50,7 @@ export default function AdministrationPage() {
       .then((items) => {
         setOrganizations(items);
         if (items[0]) setOrganizationId(items[0].id);
-        else setError("No active organisation membership was found.");
+        else { setError("No active organisation membership was found."); setAccessLoading(false); }
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load organisations."))
       .finally(() => setLoading(false));
@@ -132,7 +132,7 @@ export default function AdministrationPage() {
                 <h2>Invite an existing account</h2>
                 <p>Invitations do not create accounts or grant access until the invited user accepts.</p>
                 <form onSubmit={invite}>
-                  <label>Account email / identifier<input name="identifier" type="email" maxLength={320} required /></label>
+                  <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
                   <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
