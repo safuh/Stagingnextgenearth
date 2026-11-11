@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSameOriginMutation, safeApiPath } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +43,6 @@ function applyTokens(response: NextResponse, tokens: Tokens) {
 function clearTokens(response: NextResponse) {
   response.cookies.set(ACCESS_COOKIE, "", cookieOptions(0));
   response.cookies.set(REFRESH_COOKIE, "", cookieOptions(0));
-}
-
-function isSameOriginMutation(request: NextRequest): boolean {
-  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;
-  const origin = request.headers.get("origin");
-  return origin === null || origin === request.nextUrl.origin;
 }
 
 async function sendUpstream(
@@ -104,15 +99,15 @@ function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  if (!isSameOriginMutation(request)) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 
   const { path: segments } = await context.params;
-  if (!segments?.length || segments.some((segment) => segment === "." || segment === "..")) {
+  const path = safeApiPath(segments ?? []);
+  if (!path) {
     return NextResponse.json({ detail: "Invalid API path" }, { status: 400 });
   }
-  const path = segments.map((segment) => encodeURIComponent(segment)).join("/");
   if (["auth/login", "auth/refresh", "auth/logout"].includes(path)) {
     return NextResponse.json({ detail: "Use the session endpoints for authentication" }, { status: 404 });
   }
