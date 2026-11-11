@@ -1,6 +1,6 @@
 """Organisation creation and membership-scoped discovery endpoints."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
