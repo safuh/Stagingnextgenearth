@@ -67,7 +67,7 @@ The production Compose file includes the FastAPI API, the Next.js BFF/web
 service and the optional dataset-scanner worker. PostgreSQL/PostGIS is managed
 as an external database service.
 
-1. Copy `.env.example` to `.env`.
+1. Copy `.env.production.example` to `.env`. The root `.env.example` is for local development and defaults to SQLite.
 2. Set a unique `JWT_SECRET_KEY` of at least 32 characters, a production
    `DATABASE_URL`, object-storage credentials when file uploads are enabled,
    and the web/API host ports.
