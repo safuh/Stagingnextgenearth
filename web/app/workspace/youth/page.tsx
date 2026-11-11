@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet, clearSession, hasSession } from "@/lib/api";
+import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization { id: string; name: string; country_code: string; }
 interface Membership { role: string; status: string; }
@@ -25,6 +25,12 @@ export default function YouthWorkspacePage() {
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [mentorships, setMentorships] = useState<Mentorship[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [applicationProgrammeId, setApplicationProgrammeId] = useState("");
+  const [participationType, setParticipationType] = useState<"volunteer" | "ambassador">("volunteer");
+  const [interest, setInterest] = useState("");
+  const [availabilityText, setAvailabilityText] = useState("");
+  const [applicationBusy, setApplicationBusy] = useState(false);
+  const [applicationNotice, setApplicationNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -83,6 +89,29 @@ export default function YouthWorkspacePage() {
     });
     return () => { active = false; };
   }, [organizationId]);
+
+  async function submitProgrammeApplication(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!applicationProgrammeId || interest.trim().length < 20) return;
+    setApplicationBusy(true);
+    setError("");
+    setApplicationNotice("");
+    try {
+      const result = await apiPost<Application>(
+        `/organizations/${organizationId}/programmes/${applicationProgrammeId}/volunteer-applications`,
+        { participation_type: participationType, interest: interest.trim(), availability: availabilityText.trim() || null },
+      );
+      setApplications((current) => [result, ...current]);
+      setApplicationProgrammeId("");
+      setInterest("");
+      setAvailabilityText("");
+      setApplicationNotice("Your programme application has been submitted. Its status will appear in your application history.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit this programme application.");
+    } finally {
+      setApplicationBusy(false);
+    }
+  }
 
   if (loading) return <main className="workspace-shell"><p>Loading your volunteer workspace…</p></main>;
 
@@ -158,7 +187,16 @@ export default function YouthWorkspacePage() {
                   </div>
                 </section>
                 <section className="research-section"><div className="section-heading"><div><p className="eyebrow">PROGRAMMES</p><h2>Organisation programmes</h2></div><span>{programmes.length} records</span></div>
-                  <div className="research-record-grid">{programmes.map((programme) => <article className="research-record" key={programme.id}><span className="status-chip">{programme.status}</span><h3>{programme.title}</h3><p>{programme.summary || "Programme details have not been published."}</p></article>)}</div>
+                  <div className="research-record-grid">{programmes.map((programme) => <article className="research-record" key={programme.id}><span className="status-chip">{programme.status}</span><h3>{programme.title}</h3><p>{programme.summary || "Programme details have not been published."}</p>
+                      {applications.some((item) => item.programme_id === programme.id && ["pending", "approved"].includes(item.status)) ? <small>You already have an active application for this programme.</small> : applicationProgrammeId === programme.id ? (
+                        <form className="volunteer-application-form" onSubmit={submitProgrammeApplication}>
+                          <label>Participation type<select value={participationType} onChange={(event) => setParticipationType(event.target.value as "volunteer" | "ambassador")}><option value="volunteer">Volunteer</option><option value="ambassador">Ambassador</option></select></label>
+                          <label>Why are you interested?<textarea required minLength={20} maxLength={5000} value={interest} onChange={(event) => setInterest(event.target.value)} placeholder="Describe the contribution you would like to make (at least 20 characters)." /></label>
+                          <label>Availability (optional)<input maxLength={500} value={availabilityText} onChange={(event) => setAvailabilityText(event.target.value)} placeholder="e.g. Weekends or school holidays" /></label>
+                          <div className="staff-actions"><button type="submit" disabled={applicationBusy || interest.trim().length < 20}>{applicationBusy ? "Submitting…" : "Submit application"}</button><button type="button" onClick={() => setApplicationProgrammeId("")}>Cancel</button></div>
+                        </form>
+                      ) : <button className="secondary-action" type="button" onClick={() => { setApplicationProgrammeId(programme.id); setApplicationNotice(""); }}>Apply to participate</button>}</article>)}</div>
+                  {applicationNotice && <p className="workspace-notice" role="status">{applicationNotice}</p>}
                 </section>
               </>
             )}
