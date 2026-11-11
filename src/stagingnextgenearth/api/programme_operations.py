@@ -198,6 +198,66 @@ async def list_activities(
     return [ActivityRead.model_validate(row) for row in rows.all()]
 
 
+@router.get(
+    "/organizations/{organization_id}/my-volunteer-applications",
+    response_model=list[VolunteerApplicationRead],
+)
+async def list_my_volunteer_applications(
+    organization_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[VolunteerApplicationRead]:
+    """Return only the authenticated caller's volunteer applications in this tenant."""
+    rows = await session.scalars(
+        select(ProgrammeVolunteerApplication)
+        .where(
+            ProgrammeVolunteerApplication.organization_id == organization_id,
+            ProgrammeVolunteerApplication.user_id == principal.user_id,
+        )
+        .order_by(ProgrammeVolunteerApplication.created_at.desc())
+        .limit(100)
+    )
+    return [VolunteerApplicationRead.model_validate(row) for row in rows.all()]
+
+
+@router.get("/organizations/{organization_id}/my-volunteer-allocations")
+async def list_my_volunteer_allocations(
+    organization_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """Return activity assignments belonging only to the authenticated caller."""
+    rows = await session.execute(
+        select(ProgrammeVolunteerAllocation, ProgrammeActivity, Programme)
+        .join(ProgrammeActivity, ProgrammeActivity.id == ProgrammeVolunteerAllocation.activity_id)
+        .join(Programme, Programme.id == ProgrammeVolunteerAllocation.programme_id)
+        .where(
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.user_id == principal.user_id,
+            ProgrammeActivity.organization_id == organization_id,
+            Programme.organization_id == organization_id,
+        )
+        .order_by(ProgrammeActivity.start_at)
+        .limit(200)
+    )
+    return [
+        {
+            "id": allocation.id,
+            "programme_id": allocation.programme_id,
+            "programme_title": programme.title,
+            "activity_id": activity.id,
+            "activity_title": activity.title,
+            "activity_description": activity.description,
+            "location": activity.location,
+            "start_at": activity.start_at,
+            "end_at": activity.end_at,
+            "activity_status": activity.status,
+            "allocation_status": allocation.status,
+        }
+        for allocation, activity, programme in rows.all()
+    ]
+
+
 @router.post(
     "/organizations/{organization_id}/programmes/{programme_id}/volunteer-applications",
     response_model=VolunteerApplicationRead,
