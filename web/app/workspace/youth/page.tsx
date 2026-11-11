@@ -111,7 +111,7 @@ export default function YouthWorkspacePage() {
             {membership && (
               <>
                 <section className="role-workspace">
-                  <div><span className="eyebrow">YOUR MEMBERSHIP</span><h2>Youth volunteer</h2><p>Your personal records are loaded using your authenticated account. Other members' application, learning and attendance records are not returned.</p></div>
+                  <div><span className="eyebrow">YOUR MEMBERSHIP</span><h2>Youth volunteer</h2><p>Your personal records are loaded using your authenticated account. Other members&apos; application, learning and attendance records are not returned.</p></div>
                   <div className="role-workspace-links"><Link href="/workspace">Organisation workspace →</Link></div>
                 </section>
                 <div className="research-metrics" aria-label="Your learning summary">
