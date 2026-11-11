@@ -4,6 +4,10 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
+interface MemberChoice {
+  user_id: string;
+  role: string;
+}
 interface ModuleChoice {
   id: string;
   title: string;
@@ -53,6 +57,7 @@ export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<ModuleChoice[]>([]);
+  const [members, setMembers] = useState<MemberChoice[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -82,12 +87,16 @@ export default function LearningAdminPage() {
 
   useEffect(() => {
     if (!organizationId) return;
-    apiGet<Course[]>(`/organizations/${organizationId}/learning/courses?include_drafts=true`)
-      .then((items) => {
+    Promise.all([
+      apiGet<Course[]>(`/organizations/${organizationId}/learning/courses?include_drafts=true`),
+      apiGet<MemberChoice[]>(`/organizations/${organizationId}/memberships/directory`),
+    ])
+      .then(([items, memberItems]) => {
         setCourses(items);
+        setMembers(memberItems);
         if (items[0]) setCourseId(items[0].id);
       })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load courses."));
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load staff workspace data."));
   }, [organizationId]);
 
   const refreshReports = useCallback(async (id = courseId) => {
@@ -323,8 +332,18 @@ export default function LearningAdminPage() {
           <section className="staff-card">
             <h2>Mentorship assignments</h2>
             <form onSubmit={assignMentor}>
-              <label>Mentor user ID<input name="mentor_id" required /></label>
-              <label>Mentee user ID<input name="mentee_id" required /></label>
+              <label>Mentor<select name="mentor_id" required defaultValue="">
+                <option value="" disabled>Select an active mentor</option>
+                {members.filter((member) => ["admin", "programme_manager", "researcher"].includes(member.role)).map((member) => (
+                  <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>
+                ))}
+              </select></label>
+              <label>Mentee<select name="mentee_id" required defaultValue="">
+                <option value="" disabled>Select an active mentee</option>
+                {members.map((member) => (
+                  <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>
+                ))}
+              </select></label>
               <label>Notes<textarea name="notes" /></label>
               <button className="primary-action" disabled={busy || !courseId}>Assign mentor</button>
             </form>
@@ -336,7 +355,12 @@ export default function LearningAdminPage() {
               <label>Session key<input name="session_key" required /></label>
               <label>Session title<input name="session_title" required /></label>
               <label>Date<input name="session_date" type="date" required /></label>
-              <label>Learner user ID<input name="learner_id" required /></label>
+              <label>Enrolled learner<select name="learner_id" required defaultValue="">
+                <option value="" disabled>Select a learner</option>
+                {enrollments.filter((item) => ["approved", "completed"].includes(item.status)).map((item) => (
+                  <option key={item.learner_id} value={item.learner_id}>{item.learner_id} · {item.status}</option>
+                ))}
+              </select></label>
               <label>Status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record attendance</button>
             </form>
