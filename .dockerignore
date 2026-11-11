@@ -14,3 +14,8 @@ build
 *.db
 *.sqlite
 *.sqlite3
+
+web/node_modules
+web/.next
+web/.env.local
+web/.env.*.local
