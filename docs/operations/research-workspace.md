@@ -123,3 +123,27 @@ in a table. It does not render a basemap, interpolate a continuous surface, or
 infer values between stations. Bounding boxes crossing the antimeridian are
 not supported by this API. Use the separate daily coverage report for
 station-level missing-day summaries; no missing observations are imputed.
+
+
+## Climate quality and station coverage reports
+
+The workspace includes two additional bounded reports:
+
+- **Flagged observations** calls `GET /organizations/{organization_id}/climate-observations/flagged`
+  with an optional exact screening flag and quality-status filter. The response
+  shows scan count, matched count, returned rows and whether the 5,000-row
+  screening scan was truncated. A truncated scan is explicitly non-exhaustive.
+  The UI requests the first 200 matches; the endpoint supports offsets for
+  subsequent pages. Screening flags are triage metadata, not scientific
+  validation or an automatic quality decision.
+- **Daily station coverage** calls
+  `GET /organizations/{organization_id}/climate-observations/coverage`
+  for one variable, WGS84 station coordinate and inclusive date range. The
+  report displays expected, observed and missing calendar days and the
+  coverage ratio. The API caps the range at 366 days and matches coordinates
+  within 0.0001 degrees. Any non-rejected observation, including pending
+  observations, counts as a day with data; rejected records do not.
+
+Coverage is a completeness indicator, not a claim that each day's measurement
+is valid or representative. Missing dates are listed explicitly and are never
+filled, interpolated or converted to zero.
