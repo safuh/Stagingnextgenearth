@@ -351,3 +351,67 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
     align-self: flex-start;
   }
 }
+
+
+.assessment-list {
+  margin: 24px 0;
+}
+.assessment-list > h3 {
+  margin-bottom: 12px;
+  color: #193e30;
+  font-family: Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 500;
+}
+.assessment-card {
+  margin: 12px 0;
+  padding: 19px 21px;
+  border: 1px solid #e0e9e2;
+  border-radius: 14px;
+  background: #fff;
+}
+.assessment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.assessment-meta strong {
+  color: #254735;
+}
+.assessment-meta span, .assessment-card > small {
+  color: #78867d;
+  font-size: .8rem;
+  text-transform: capitalize;
+}
+.assessment-card > p {
+  margin: 12px 0;
+  color: #63736a;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.assessment-submit {
+  display: grid;
+  gap: 9px;
+  margin-top: 17px;
+}
+.assessment-submit label {
+  color: #425b4b;
+  font-size: .86rem;
+  font-weight: 650;
+}
+.assessment-submit textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #dce6de;
+  border-radius: 10px;
+  background: #fbfdfb;
+  color: #253c2f;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+.assessment-submit textarea:focus {
+  outline: 2px solid #8eae98;
+  outline-offset: 2px;
+}
