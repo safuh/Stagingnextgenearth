@@ -567,3 +567,41 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+.learner-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.history-panel {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line, #dce4df);
+  border-radius: 1rem;
+  background: var(--surface, #fff);
+}
+
+.history-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+
+.history-row {
+  display: grid;
+  gap: .3rem;
+  padding: .85rem 0;
+  border-top: 1px solid var(--line, #dce4df);
+}
+
+.history-row strong { font-size: .95rem; }
+.history-row span, .history-row small {
+  color: var(--muted, #64736a);
+  font-size: .84rem;
+}
+
+@media (max-width: 680px) {
+  .learner-history-grid { grid-template-columns: 1fr; }
+}
