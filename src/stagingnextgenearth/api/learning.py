@@ -427,6 +427,101 @@ async def evaluate_submission(
     return {"id": attempt.id, "score": attempt.score, "evaluated_at": attempt.evaluated_at}
 
 
+
+@router.get("/courses/{course_id}/submissions")
+async def list_course_submissions(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List learner submissions for staff review within the active tenant."""
+    if membership.role not in _MANAGE:
+        raise HTTPException(403, "Assessment review permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.execute(
+        select(LearningAssessmentAttempt, LearningAssessment)
+        .join(LearningAssessment, LearningAssessment.id == LearningAssessmentAttempt.assessment_id)
+        .where(LearningAssessment.course_id == course_id)
+        .order_by(LearningAssessmentAttempt.submitted_at.desc())
+        .limit(500)
+    )
+    return [
+        {
+            "id": attempt.id,
+            "assessment_id": assessment.id,
+            "assessment_title": assessment.title,
+            "learner_id": attempt.learner_id,
+            "submission": attempt.submission,
+            "score": attempt.score,
+            "feedback": attempt.feedback,
+            "submitted_at": attempt.submitted_at,
+            "evaluated_at": attempt.evaluated_at,
+        }
+        for attempt, assessment in rows.all()
+    ]
+
+
+@router.get("/courses/{course_id}/attendance")
+async def list_course_attendance(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List course attendance records for authorised programme staff."""
+    if membership.role not in _MANAGE:
+        raise HTTPException(403, "Attendance reporting permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.scalars(
+        select(LearningAttendance)
+        .where(LearningAttendance.course_id == course_id)
+        .order_by(LearningAttendance.session_date.desc(), LearningAttendance.session_title)
+        .limit(500)
+    )
+    return [
+        {
+            "id": row.id,
+            "session_key": row.session_key,
+            "session_title": row.session_title,
+            "session_date": row.session_date,
+            "learner_id": row.learner_id,
+            "attendance_status": row.attendance_status,
+        }
+        for row in rows.all()
+    ]
+
+
+@router.get("/courses/{course_id}/mentorships")
+async def list_course_mentorships(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List course mentorship assignments for authorised programme staff."""
+    if membership.role not in _MANAGE:
+        raise HTTPException(403, "Mentorship reporting permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.scalars(
+        select(LearningMentorship)
+        .where(LearningMentorship.course_id == course_id)
+        .order_by(LearningMentorship.created_at.desc())
+        .limit(500)
+    )
+    return [
+        {
+            "id": row.id,
+            "mentor_id": row.mentor_id,
+            "mentee_id": row.mentee_id,
+            "status": row.status,
+            "notes": row.notes,
+            "created_at": row.created_at,
+        }
+        for row in rows.all()
+    ]
+
+
 @router.post("/courses/{course_id}/mentorships", status_code=201)
 async def assign_mentor(
     organization_id: str, course_id: str, body: MentorAssign,
