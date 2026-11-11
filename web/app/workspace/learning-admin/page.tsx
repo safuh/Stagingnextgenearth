@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Course {
@@ -56,8 +56,8 @@ export default function LearningAdminPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const base = courseId ? `/organizations/${organizationId}/learning` : "";
   const [organizationId, setOrganizationId] = useState("");
+  const base = `/organizations/${organizationId}/learning`;
 
   useEffect(() => {
     if (!hasSession()) {
@@ -84,7 +84,7 @@ export default function LearningAdminPage() {
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load courses."));
   }, [organizationId]);
 
-  async function refreshReports(id = courseId) {
+  const refreshReports = useCallback(async (id = courseId) => {
     if (!organizationId || !id) return;
     const root = `/organizations/${organizationId}/learning/courses/${id}`;
     const [applications, work, attendanceRows, mentoring] = await Promise.all([
@@ -97,13 +97,13 @@ export default function LearningAdminPage() {
     setSubmissions(work);
     setAttendance(attendanceRows);
     setMentorships(mentoring);
-  }
+  }, [courseId, organizationId]);
 
   useEffect(() => {
     if (!courseId || !organizationId) return;
     setError("");
     refreshReports().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Staff permissions are required to view learning operations."));
-  }, [courseId, organizationId]);
+  }, [courseId, organizationId, refreshReports]);
 
   async function action(label: string, work: () => Promise<unknown>) {
     setBusy(true);
@@ -135,7 +135,6 @@ export default function LearningAdminPage() {
       setCourses(next);
       setCourseId(created.id);
     });
-    event.currentTarget.reset();
   }
 
   async function createModule(event: FormEvent<HTMLFormElement>) {
