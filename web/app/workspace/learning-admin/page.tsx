@@ -4,6 +4,11 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
+interface ModuleChoice {
+  id: string;
+  title: string;
+  position: number;
+}
 interface Course {
   id: string;
   title: string;
@@ -47,6 +52,7 @@ interface Mentorship {
 export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState("");
+  const [modules, setModules] = useState<ModuleChoice[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -103,6 +109,10 @@ export default function LearningAdminPage() {
     if (!courseId || !organizationId) return;
     setError("");
     refreshReports().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Staff permissions are required to view learning operations."));
+    apiGet<{ modules: ModuleChoice[] }>(
+      `/organizations/${organizationId}/learning/courses/${courseId}/curriculum`,
+    ).then((outline) => setModules(outline.modules))
+      .catch(() => setModules([]));
   }, [courseId, organizationId, refreshReports]);
 
   async function action(label: string, work: () => Promise<unknown>) {
@@ -141,11 +151,15 @@ export default function LearningAdminPage() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     await action("Module added to the selected course.", async () => {
-      await apiPost(base + `/courses/${courseId}/modules`, {
-        title: data.get("title"),
-        description: data.get("description") || null,
-        position: Number(data.get("position")),
-      });
+      const created = await apiPost<ModuleChoice & { course_id: string }>(
+        base + `/courses/${courseId}/modules`,
+        {
+          title: data.get("title"),
+          description: data.get("description") || null,
+          position: Number(data.get("position")),
+        },
+      );
+      setModules((current) => [...current, created].sort((a, b) => a.position - b.position));
     });
     event.currentTarget.reset();
   }
@@ -264,7 +278,7 @@ export default function LearningAdminPage() {
             </form>
             <form onSubmit={createLesson}>
               <h3>Add lesson</h3>
-              <label>Module ID<input name="module_id" required /></label>
+              <label>Module<select name="module_id" required disabled={modules.length === 0}><option value="">Choose a module</option>{modules.map((module) => <option key={module.id} value={module.id}>{module.position}. {module.title}</option>)}</select></label>
               <label>Lesson title<input name="title" minLength={2} required /></label>
               <label>Type<select name="content_type"><option value="text">Text</option><option value="video">Video</option><option value="document">Document</option><option value="link">Link</option><option value="workshop">Workshop</option></select></label>
               <label>Content<textarea name="content" /></label>
