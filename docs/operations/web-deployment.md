@@ -70,7 +70,7 @@ as an external database service.
 1. Copy `.env.production.example` to `.env`. The root `.env.example` is for local development and defaults to SQLite.
 2. Set a unique `JWT_SECRET_KEY` of at least 32 characters, a production
    `DATABASE_URL`, object-storage credentials when file uploads are enabled,
-   and the web/API host ports.
+   and the web host port.
 3. Set `BACKEND_API_URL` only in the web service environment when deploying
    outside Compose. Compose wires it to `http://api:8000/api` on the private
    service network.
