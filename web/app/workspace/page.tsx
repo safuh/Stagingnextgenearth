@@ -49,6 +49,14 @@ interface Curriculum {
   title: string;
   modules: Module[];
 }
+interface Assessment {
+  id: string;
+  title: string;
+  assessment_type: "quiz" | "assignment" | "evaluation";
+  instructions: string;
+  pass_mark: number;
+  due_at: string | null;
+}
 interface CourseProgress {
   course_id: string;
   enrollment_status: string;
@@ -67,6 +75,8 @@ export default function WorkspacePage() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [curriculum, setCurriculum] = useState<Curriculum | null>(null);
   const [progress, setProgress] = useState<CourseProgress | null>(null);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [assessmentResponses, setAssessmentResponses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -112,6 +122,8 @@ export default function WorkspacePage() {
     setSelectedCourse(course);
     setCurriculum(null);
     setProgress(null);
+    setAssessments([]);
+    setAssessmentResponses({});
     setNotice("");
     setError("");
     setDetailLoading(true);
@@ -125,6 +137,12 @@ export default function WorkspacePage() {
           `/organizations/${organizationId}/learning/courses/${course.id}/my-progress`,
         );
         setProgress(learnerProgress);
+        if (["approved", "completed"].includes(learnerProgress.enrollment_status)) {
+          const items = await apiGet<Assessment[]>(
+            `/organizations/${organizationId}/learning/courses/${course.id}/assessments`,
+          );
+          setAssessments(items);
+        }
       } catch {
         // A learner without an application has no progress record yet.
       }
@@ -155,6 +173,30 @@ export default function WorkspacePage() {
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to submit your application.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function submitAssessment(assessmentId: string) {
+    if (!selectedCourse) return;
+    const response = assessmentResponses[assessmentId]?.trim();
+    if (!response) {
+      setError("Add your response before submitting the assessment.");
+      return;
+    }
+    setActionLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiPost<{ id: string; status: string }>(
+        `/organizations/${organizationId}/learning/assessments/${assessmentId}/submissions`,
+        { submission: { response } },
+      );
+      setNotice("Assessment submitted successfully. Your course team can now review it.");
+      setAssessmentResponses((current) => ({ ...current, [assessmentId]: "" }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit this assessment.");
     } finally {
       setActionLoading(false);
     }
@@ -235,6 +277,25 @@ export default function WorkspacePage() {
                     <div className="course-heading"><div><p className="eyebrow">COURSE CURRICULUM</p><h2>{selectedCourse.title}</h2><p>{selectedCourse.description}</p></div><span className="status-pill">{selectedCourse.delivery_mode.replace("_", " ")}</span></div>
                     {progress && <div className="course-progress"><div><span>Your progress</span><strong>{progress.progress_percent}%</strong></div><div className="progress-track"><span style={{ width: `${progress.progress_percent}%` }} /></div><small>Enrollment: {progress.enrollment_status}</small></div>}
                     {!progress && selectedCourse.status === "published" && <button className="primary-action" onClick={applyToCourse} disabled={actionLoading}>{actionLoading ? "Submitting…" : "Apply for this course"}</button>}
+                    {assessments.length > 0 && (
+                      <section className="assessment-list">
+                        <h3>Course assessments</h3>
+                        {assessments.map((assessment) => (
+                          <article className="assessment-card" key={assessment.id}>
+                            <div className="assessment-meta"><strong>{assessment.title}</strong><span>{assessment.assessment_type} · pass mark {assessment.pass_mark}%</span></div>
+                            <p>{assessment.instructions}</p>
+                            {assessment.due_at && <small>Due {new Date(assessment.due_at).toLocaleString()}</small>}
+                            {progress?.enrollment_status === "approved" && (
+                              <div className="assessment-submit">
+                                <label htmlFor={`assessment-${assessment.id}`}>Your response</label>
+                                <textarea id={`assessment-${assessment.id}`} rows={4} value={assessmentResponses[assessment.id] ?? ""} onChange={(event) => setAssessmentResponses((current) => ({ ...current, [assessment.id]: event.target.value }))} placeholder="Write your response…" />
+                                <button className="lesson-action" disabled={actionLoading} onClick={() => submitAssessment(assessment.id)}>Submit assessment</button>
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </section>
+                    )}
                     {detailLoading ? <p className="workspace-muted">Loading curriculum…</p> : curriculum?.modules.length ? curriculum.modules.map((module) => (
                       <article className="module-card" key={module.id}>
                         <div className="module-title"><span>MODULE {module.position}</span><h3>{module.title}</h3>{module.description && <p>{module.description}</p>}</div>
