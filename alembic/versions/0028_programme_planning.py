@@ -9,6 +9,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+# fmt: off
+
 revision: str = "0028_programme_planning"
 down_revision: str | None = "0027_programme_participation"
 branch_labels: str | Sequence[str] | None = None
@@ -70,6 +72,8 @@ def upgrade() -> None:
     )
     op.create_index("ix_programme_assignments_programme_status", "programme_assignments", ["programme_id", "status"])  # noqa: E501
     op.create_index("ix_programme_assignments_assignee_status", "programme_assignments", ["assigned_to", "status"])  # noqa: E501
+
+# fmt: on
 
 
 def downgrade() -> None:
