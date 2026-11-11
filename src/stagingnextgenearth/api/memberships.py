@@ -85,6 +85,17 @@ async def invite_member(
     return MembershipRead.model_validate(invitation)
 
 
+@router.get("/me", response_model=MembershipRead)
+async def get_my_membership(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+) -> MembershipRead:
+    """Return the caller's own active tenant membership and role."""
+    if membership.organization_id != organization_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
+    return MembershipRead.model_validate(membership)
+
+
 @router.get("", response_model=list[MembershipRead])
 async def list_memberships(
     organization_id: str,
