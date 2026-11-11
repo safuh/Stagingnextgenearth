@@ -37,3 +37,13 @@ review queues, file upload/scanning, authorised downloads, analysis manifests
 and analysis-run provenance remain in their dedicated API workflows. Dedicated
 researcher workflow forms and interactive climate analysis/map views remain
 follow-on frontend work.
+
+
+## Research authoring
+
+The dashboard now includes two API-backed forms for users with an eligible research role:
+
+- Study registration creates a tenant-scoped study in `concept` status and assigns the caller as lead researcher. Optional abstract, study type and ethics reference are captured as metadata.
+- Dataset registration creates a metadata-only draft with optional study link, description, version, format, source, licence and access classification.
+
+Dataset registration does not upload bytes or make a dataset approved. Drafts must follow the existing submission and independent review workflow. File upload intents, malware scanning, download grants and object-storage access remain separate, authorised operations. The UI refreshes its local registry after successful creation and reports API validation/permission errors without bypassing server checks.
