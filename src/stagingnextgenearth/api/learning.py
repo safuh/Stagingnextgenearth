@@ -834,6 +834,75 @@ async def my_course_progress(
     }
 
 
+@router.get("/my-mentorships")
+async def my_mentorships(
+    organization_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """Return mentorship relationships involving the authenticated member only."""
+    if membership.role not in _LEARN:
+        raise HTTPException(403, "Learner access required")
+    rows = await session.execute(
+        select(LearningMentorship, LearningCourse.title)
+        .join(LearningCourse, LearningCourse.id == LearningMentorship.course_id)
+        .where(
+            LearningCourse.organization_id == organization_id,
+            (LearningMentorship.mentor_id == principal.user_id)
+            | (LearningMentorship.mentee_id == principal.user_id),
+        )
+        .order_by(LearningMentorship.created_at.desc())
+        .limit(200)
+    )
+    return [
+        {
+            "id": item.id,
+            "course_id": item.course_id,
+            "course_title": title,
+            "relationship": "mentor" if item.mentor_id == principal.user_id else "mentee",
+            "status": item.status,
+            "notes": item.notes,
+            "created_at": item.created_at,
+        }
+        for item, title in rows.all()
+    ]
+
+
+@router.get("/my-attendance")
+async def my_attendance(
+    organization_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """Return attendance history for the authenticated learner only."""
+    if membership.role not in _LEARN:
+        raise HTTPException(403, "Learner access required")
+    rows = await session.execute(
+        select(LearningAttendance, LearningCourse.title)
+        .join(LearningCourse, LearningCourse.id == LearningAttendance.course_id)
+        .where(
+            LearningCourse.organization_id == organization_id,
+            LearningAttendance.learner_id == principal.user_id,
+        )
+        .order_by(LearningAttendance.session_date.desc())
+        .limit(500)
+    )
+    return [
+        {
+            "id": item.id,
+            "course_id": item.course_id,
+            "course_title": title,
+            "session_key": item.session_key,
+            "session_title": item.session_title,
+            "session_date": item.session_date,
+            "attendance_status": item.attendance_status,
+        }
+        for item, title in rows.all()
+    ]
+
+
 @router.get("/courses/{course_id}/resources")
 async def list_learning_resources(
     organization_id: str,
