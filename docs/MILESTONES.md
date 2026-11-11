@@ -60,8 +60,9 @@ These foundation checks must continue passing as product code is added.
 - [x] Existing-account membership invitation and invitee-only acceptance.
 - [x] Cross-organisation access denial and initial role-escalation tests.
 - [x] Administrator-controlled membership role changes and suspension, with owner and last-admin safeguards.
-- [ ] Organisation ownership transfer with atomic owner/admin hand-off.
-- [ ] Account lifecycle, audit events and privileged-action logging.
+- [x] Organisation ownership transfer with atomic owner/admin hand-off and former-owner access retention.
+- [x] Append-only organisation audit events for membership role/status changes and ownership transfers.
+- [ ] Account lifecycle controls, broader security audit coverage and rate limiting/abuse protection.
 - [ ] Rate limiting and abuse protection at the application or edge.
 - [x] Initial security tests for cross-organisation access and role escalation.
 
