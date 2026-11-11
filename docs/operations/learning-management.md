@@ -75,6 +75,13 @@ member directory; do not expose private profile fields to other learners.
 
 ## Staff workspace
 
+Authorised administrators and programme managers can retrieve a minimal active
+member directory using `GET /api/organizations/{organization_id}/memberships/directory`.
+It returns only user IDs and organisation roles, never account identifiers or
+private profile fields. Learner roles receive HTTP 403. The staff workspace
+uses this directory to select mentors and mentees and uses approved/completed
+enrollment records to select attendance participants.
+
 The Next.js staff workspace is available at
 `/workspace/learning-admin`. It provides course authoring and publishing,
 enrollment decisions, assessment creation and evaluation, mentorship
