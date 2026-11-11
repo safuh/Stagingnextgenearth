@@ -116,7 +116,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   responseHeaders.set("Cache-Control", "no-store");
 
   const response = new NextResponse(
-    upstream.status === 204 ? null : await upstream.arrayBuffer(),
+    upstream.status === 204 ? null : upstream.body,
     { status: upstream.status, headers: responseHeaders },
   );
   if (rotated) applyTokens(response, rotated);
