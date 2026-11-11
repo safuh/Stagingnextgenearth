@@ -354,7 +354,8 @@ export default function ResearchWorkspacePage() {
     setCoverageReport(null);
     const latitude = Number(coverageQuery.latitude);
     const longitude = Number(coverageQuery.longitude);
-    if (!coverageQuery.variable.trim() || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+    if (!coverageQuery.variable.trim() || !coverageQuery.latitude.trim() || !coverageQuery.longitude.trim() ||
+        !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
         !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
       setCoverageError("Enter a variable and valid station coordinates (latitude −90 to 90, longitude −180 to 180).");
       return;
