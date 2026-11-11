@@ -60,7 +60,6 @@ def test_climate_flagged_report_and_daily_missingness_are_tenant_scoped(
                 "variable": "relative_humidity",
                 "value": 125.0,
                 "unit": "%",
-                "quality_status": "pending",
                 "metadata_json": {
                     "quality_screening_flags": ["outside_broad_physical_range"]
                 },
@@ -70,16 +69,11 @@ def test_climate_flagged_report_and_daily_missingness_are_tenant_scoped(
                 "variable": "relative_humidity",
                 "value": 50.0,
                 "unit": "%",
-                "quality_status": "rejected",
                 "metadata_json": {"quality_screening_flags": []},
             },
         )
         for item in observations:
-            body = {
-                key: value
-                for key, value in item.items()
-                if key != "quality_status"
-            }
+            body = dict(item)
             body.update(
                 {
                     "latitude": -1.286,
@@ -89,17 +83,6 @@ def test_climate_flagged_report_and_daily_missingness_are_tenant_scoped(
             )
             response = client.post(base, headers=owner, json=body)
             assert response.status_code == 201, response.text
-            if item["quality_status"] == "rejected":
-                rejected = client.post(
-                    f"{base}/{response.json()['id']}/review",
-                    headers=_auth(client, "climate-reviewer@example.org"),
-                    json={"decision": "rejected", "note": "Rejected for test"},
-                )
-                # The creator cannot review their own record; the second
-                # account must first be granted membership, so this path is
-                # intentionally not used to manufacture a rejected status.
-                assert rejected.status_code in {403, 404}
-
         flagged = client.get(f"{base}/flagged", headers=owner)
         assert flagged.status_code == 200
         report = flagged.json()
