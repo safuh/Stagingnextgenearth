@@ -86,8 +86,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package.json
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
       - name: Type-check
