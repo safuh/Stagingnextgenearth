@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization { id: string; name: string; country_code: string; }
@@ -90,7 +90,7 @@ export default function YouthWorkspacePage() {
     return () => { active = false; };
   }, [organizationId]);
 
-  async function submitProgrammeApplication(event: React.FormEvent<HTMLFormElement>) {
+  async function submitProgrammeApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!applicationProgrammeId || interest.trim().length < 20) return;
     setApplicationBusy(true);
