@@ -1119,6 +1119,42 @@ class LearningCertificate(Base):
     )
 
 
+
+
+class OrganizationAuditEvent(Base):
+    """Append-only audit history for privileged organisation operations."""
+
+    __tablename__ = "organization_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('membership.role_changed', 'membership.status_changed', "
+            "'organization.ownership_transferred')",
+            name="ck_organization_audit_event_action",
+        ),
+        Index(
+            "ix_organization_audit_events_org_time",
+            "organization_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    subject_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ProgrammeDeliverable(Base):
     """Track an assigned programme output and its evidence review lifecycle."""
 
