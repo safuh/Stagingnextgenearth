@@ -132,6 +132,12 @@ export default function ResearchWorkspacePage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+  useEffect(() => {
+    if (organizationId && membership) void loadClimateObservations();
+    // Reload when the active organisation or membership changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, membership?.role, membership?.status]);
+
 
   async function loadClimateObservations() {
     setClimateListLoading(true);
