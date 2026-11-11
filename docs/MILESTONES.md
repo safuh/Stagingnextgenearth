@@ -109,15 +109,15 @@ These foundation checks must continue passing as product code is added.
 
 ## M5 — Climate and geospatial intelligence
 
-- [ ] PostGIS deployment and spatial migrations.
+- [x] PostGIS deployment and spatial migrations (PostgreSQL 17/PostGIS 3.5, geometry backfill, coordinate-sync trigger and GiST index; migration integration tests pass).
 - [x] Provider-neutral climate ingestion contract, point/area request validation and provenance tracking.
 - [x] NASA POWER daily point adapter for precipitation and 2 m air temperature, with UTC normalization and missing-value filtering.
 - [x] CHIRPS v3 daily GeoTIFF adapter for point and bounding-box cell extraction, with variant, date-label, licence and raster provenance.
 - [ ] Copernicus climate-data adapters.
 - [ ] Administrative boundaries and geocoding strategy.
-- [ ] Spatial and temporal query APIs.
+- [x] Spatial and temporal query APIs (tenant-scoped WGS84 bounding-box and time filters with bounded pagination).
 - [x] Initial independent review workflow for field-observation quality status.
-- [ ] Quality assurance, missing-data handling and unit normalisation.
+- [ ] Quality assurance, missing-data handling and unit normalisation (conservative unit conversion and broad-range screening service added; ingestion integration, explicit missing-data policies and review reporting remain).
 - [ ] Research-grade statistical and geospatial analysis pipelines.
 - [ ] Interactive map and climate research dashboards.
 - [ ] Uncertainty, model limitations and data lineage shown in outputs.
