@@ -334,7 +334,7 @@ async def list_course_assessments(
     rows = await session.scalars(
         select(LearningAssessment)
         .where(LearningAssessment.course_id == course_id)
-        .order_by(LearningAssessment.created_at)
+        .order_by(LearningAssessment.title)
         .limit(200)
     )
     return [
