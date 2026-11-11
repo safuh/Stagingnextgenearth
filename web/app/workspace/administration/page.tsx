@@ -85,22 +85,24 @@ export default function AdministrationPage() {
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const identifier = String(data.get("identifier") ?? "").trim();
     const role = String(data.get("role") ?? "") as InvitableRole;
     await perform("invite", "Invitation created. The invited account must accept it before access becomes active.", () =>
       apiPost(`/organizations/${organizationId}/memberships`, { identifier, role }));
-    event.currentTarget.reset();
+    form.reset();
   }
 
   async function transferOwnership(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const userId = String(data.get("user_id") ?? "").trim();
     if (!window.confirm("Transfer organisation ownership to this active member? This changes both owners' roles.")) return;
     await perform("ownership", "Ownership transfer completed.", () =>
       apiPost(`/organizations/${organizationId}/ownership-transfer`, { new_owner_user_id: userId }));
-    event.currentTarget.reset();
+    form.reset();
   }
 
   if (loading) return <main className="workspace-shell"><p>Loading organisation administration…</p></main>;
