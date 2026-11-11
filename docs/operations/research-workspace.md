@@ -133,9 +133,10 @@ The workspace includes two additional bounded reports:
   with an optional exact screening flag and quality-status filter. The response
   shows scan count, matched count, returned rows and whether the 5,000-row
   screening scan was truncated. A truncated scan is explicitly non-exhaustive.
-  The UI requests the first 200 matches; the endpoint supports offsets for
-  subsequent pages. Screening flags are triage metadata, not scientific
-  validation or an automatic quality decision.
+  The UI pages through matches in batches of 200 using the endpoint's offset
+  parameter, with previous/next controls and a displayed range. Changing a
+  filter starts a new scan at offset zero. Screening flags are triage metadata,
+  not scientific validation or an automatic quality decision.
 - **Daily station coverage** calls
   `GET /organizations/{organization_id}/climate-observations/coverage`
   for one variable, WGS84 station coordinate and inclusive date range. The
