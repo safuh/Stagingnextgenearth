@@ -86,3 +86,24 @@ receive an audited, short-lived download grant through the separate download end
 
 The browser displays safe file-version metadata and scan state only. It does not persist
 upload credentials, expose storage keys, or request download URLs in the registry.
+
+
+## Interactive climate analysis
+
+The research workspace now provides a bounded descriptive-analysis form backed by
+`GET /organizations/{organization_id}/climate-observations/analysis-summary`.
+Researchers select one variable, a local start/end time, and either verified
+(default) or pending observations. The browser converts the entered local
+timestamps to timezone-aware ISO-8601 values before requesting the API.
+
+The results show the observation count and per-unit descriptive statistics:
+mean, median, sample standard deviation, standard error, minimum, maximum,
+type-7 percentiles and median absolute deviation. Distinct measurement units
+remain separate. Pending results are explicitly labelled provisional; rejected
+observations are excluded by the API. Empty result sets and bounded-query errors
+are presented without fabricating partial summaries.
+
+This is a descriptive workspace, not an inferential climate model. The API
+limits requests to 10,000 observations, performs no missing-value imputation,
+and does not establish temporal independence, trend significance, attribution,
+or uncertainty bounds. The selected end timestamp is exclusive.
