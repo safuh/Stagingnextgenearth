@@ -61,9 +61,9 @@ async def climate_analysis_summary(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    variable: str = Query(min_length=2, max_length=80),
     start: datetime,
     end: datetime,
+    variable: str = Query(min_length=2, max_length=80),
     quality_status: Literal["verified", "pending"] = "verified",
 ) -> ClimateAnalysisSummary:
     """Summarise one variable over an explicit bounded time window.
