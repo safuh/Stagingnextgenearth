@@ -282,8 +282,8 @@ export default function ResearchWorkspacePage() {
                           <td><span className="status-chip">{dataset.status.replace(/_/g, " ")}</span></td>
                           <td>{dataset.collection_start || "—"} – {dataset.collection_end || "—"}</td>
                           <td>
-                            {dataset.owner_user_id && dataset.status === "draft" && dataset.owner_user_id && <button type="button" className="secondary-action" disabled={saving} onClick={() => submitDataset(dataset.id)}>Submit for review</button>}
-                            {isReviewer && dataset.status === "submitted" && (
+                            {dataset.status === "draft" && dataset.owner_user_id && <button type="button" className="secondary-action" disabled={saving} onClick={() => submitDataset(dataset.id)}>Submit for review</button>}
+                            {isReviewer && dataset.status === "submitted" && (dataset.access_classification !== "restricted" || membership.role === "admin") && (
                               <div className="dataset-review-controls">
                                 <label>Review note<textarea rows={2} maxLength={2000} value={reviewNotes[dataset.id] || ""} onChange={(event) => setReviewNotes((notes) => ({ ...notes, [dataset.id]: event.target.value }))} /></label>
                                 <div className="dataset-review-actions">
