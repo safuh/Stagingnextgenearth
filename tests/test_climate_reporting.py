@@ -89,6 +89,36 @@ def test_climate_flagged_report_and_daily_missingness_are_tenant_scoped(
         assert report["matched_count"] == 1
         assert report["items"][0]["flags"] == ["outside_broad_physical_range"]
         assert report["scan_truncated"] is False
+        assert report["offset"] == 0
+        assert report["limit"] == 100
+
+        paged = client.get(
+            f"{base}/flagged",
+            headers=owner,
+            params={"offset": 1, "limit": 1},
+        )
+        assert paged.status_code == 200
+        assert paged.json()["items"] == []
+        assert paged.json()["matched_count"] == 1
+        assert paged.json()["offset"] == 1
+
+        date_filtered = client.get(
+            f"{base}/flagged",
+            headers=owner,
+            params={
+                "start": "2026-01-02T00:00:00Z",
+                "end": "2026-01-03T00:00:00Z",
+            },
+        )
+        assert date_filtered.status_code == 200
+        assert date_filtered.json()["matched_count"] == 0
+
+        invalid_flag = client.get(
+            f"{base}/flagged",
+            headers=owner,
+            params={"flag": "x"},
+        )
+        assert invalid_flag.status_code == 422
 
         filtered = client.get(
             f"{base}/flagged",
