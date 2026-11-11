@@ -1392,6 +1392,114 @@ class ProgrammeIndicatorMeasurement(Base):
     )
 
 
+
+
+class ProgrammeGoal(Base):
+    """A measurable strategic goal owned by one programme."""
+
+    __tablename__ = "programme_goals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'active', 'achieved', 'cancelled')",
+            name="ck_programme_goal_status",
+        ),
+        Index("ix_programme_goals_programme_status", "programme_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeMilestone(Base):
+    """A dated checkpoint contributing to a programme goal."""
+
+    __tablename__ = "programme_milestones"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'completed', 'blocked', 'cancelled')",
+            name="ck_programme_milestone_status",
+        ),
+        Index("ix_programme_milestones_goal_status", "goal_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_goals.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeAssignment(Base):
+    """A general programme task assigned to an active organisation member."""
+
+    __tablename__ = "programme_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'completed', 'cancelled')",
+            name="ck_programme_assignment_status",
+        ),
+        CheckConstraint("priority IN ('low', 'normal', 'high')", name="ck_programme_assignment_priority"),
+        Index("ix_programme_assignments_programme_status", "programme_id", "status"),
+        Index("ix_programme_assignments_assignee_status", "assigned_to", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    milestone_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programme_milestones.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    priority: Mapped[str] = mapped_column(String(8), nullable=False, default="normal")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ProgrammeParticipationRecord(Base):
     """Aggregate school/community participation record without child-level PII."""
 
