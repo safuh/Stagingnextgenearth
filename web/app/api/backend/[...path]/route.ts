@@ -12,6 +12,10 @@ const REFRESH_COOKIE = "nfe_refresh";
 
 type Tokens = { access_token: string; refresh_token: string };
 
+// Share a single rotating refresh operation across concurrent requests in this
+// Node.js process; refresh tokens are single-use and parallel rotations race.
+const refreshInFlight = new Map<string, Promise<Tokens | null>>();
+
 function cookieOptions(maxAge: number) {
   return {
     httpOnly: true,
@@ -80,6 +84,19 @@ async function refreshTokens(refreshToken: string): Promise<Tokens | null> {
   return (await response.json()) as Tokens;
 }
 
+function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
+  const existing = refreshInFlight.get(refreshToken);
+  if (existing) return existing;
+
+  const pending = refreshTokens(refreshToken).finally(() => {
+    if (refreshInFlight.get(refreshToken) === pending) {
+      refreshInFlight.delete(refreshToken);
+    }
+  });
+  refreshInFlight.set(refreshToken, pending);
+  return pending;
+}
+
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   if (!isSameOriginMutation(request)) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
@@ -101,7 +118,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   let rotated: Tokens | null = null;
 
   if (upstream.status === 401 && refreshToken) {
-    rotated = await refreshTokens(refreshToken);
+    rotated = await rotateRefreshToken(refreshToken);
     if (rotated) {
       accessToken = rotated.access_token;
       upstream = await sendUpstream(request, path, accessToken, body);
