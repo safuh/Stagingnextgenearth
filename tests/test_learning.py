@@ -62,6 +62,13 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert accepted.status_code == 200
+        own_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=learner_headers,
+        )
+        assert own_membership.status_code == 200
+        assert own_membership.json()["role"] == "youth_volunteer"
+        assert own_membership.json()["user_id"]
 
         base = f"/api/organizations/{org_id}/learning"
         course_response = client.post(
