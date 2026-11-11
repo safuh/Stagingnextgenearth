@@ -292,8 +292,8 @@ export default function WorkspacePage() {
                   {(membership.role === "admin" || membership.role === "programme_manager") && (
                     <Link href="/workspace/learning-admin">Learning operations →</Link>
                   )}
-                  {membership.role === "researcher" && (
-                    <span>Research access · dataset and study services are available through authorised APIs.</span>
+                  {["admin", "programme_manager", "researcher", "institutional_partner"].includes(membership.role) && (
+                    <Link href="/workspace/research">Research workspace →</Link>
                   )}
                   {membership.role === "youth_volunteer" && (
                     <span>Learner access · browse courses, apply and track your learning.</span>
