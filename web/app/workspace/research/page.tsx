@@ -92,6 +92,50 @@ export default function ResearchWorkspacePage() {
     return () => { active = false; };
   }, [organizationId]);
 
+
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [reviewHistory, setReviewHistory] = useState<Record<string, { id: string; decision: string; note: string | null; reviewed_at: string }[]>>({});
+  const [historyLoading, setHistoryLoading] = useState<string | null>(null);
+  const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+
+  async function submitDataset(datasetId: string) {
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const updated = await apiPost<Dataset>(`/organizations/${organizationId}/research-datasets/${datasetId}/submit`, {});
+      setDatasets((items) => items.map((item) => item.id === datasetId ? updated : item));
+      setNotice("Dataset submitted. It is now awaiting an independent governance decision.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit dataset.");
+    } finally { setSaving(false); }
+  }
+
+  async function decideDataset(datasetId: string, decision: "approved" | "rejected") {
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const updated = await apiPost<Dataset>(`/organizations/${organizationId}/research-datasets/${datasetId}/review`, {
+        decision, note: reviewNotes[datasetId]?.trim() || null,
+      });
+      setDatasets((items) => items.map((item) => item.id === datasetId ? updated : item));
+      setNotice(`Dataset ${decision}. The decision has been recorded in review history.`);
+      setReviewNotes((notes) => ({ ...notes, [datasetId]: "" }));
+      await loadReviewHistory(datasetId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record review decision.");
+    } finally { setSaving(false); }
+  }
+
+  async function loadReviewHistory(datasetId: string) {
+    setHistoryLoading(datasetId);
+    try {
+      const history = await apiGet<{ id: string; decision: string; note: string | null; reviewed_at: string }[]>(
+        `/organizations/${organizationId}/research-datasets/${datasetId}/reviews`,
+      );
+      setReviewHistory((current) => ({ ...current, [datasetId]: history }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load review history.");
+    } finally { setHistoryLoading(null); }
+  }
+
   async function createStudy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -230,9 +274,28 @@ export default function ResearchWorkspacePage() {
                 <section className="research-section">
                   <div className="section-heading"><div><p className="eyebrow">DATA GOVERNANCE</p><h2>Dataset registry</h2></div><span>{datasets.length} records</span></div>
                   {datasets.length === 0 ? <p className="workspace-muted">No datasets are registered in this organisation yet.</p> : (
-                    <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Dataset</th><th>Version</th><th>Format</th><th>Classification</th><th>Status</th><th>Collection period</th></tr></thead>
+                    <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Dataset</th><th>Version</th><th>Format</th><th>Classification</th><th>Status</th><th>Collection period</th><th>Actions / review</th></tr></thead>
                       <tbody>{datasets.map((dataset) => (
-                        <tr key={dataset.id}><td><strong>{dataset.title}</strong><small>{dataset.source}</small>{dataset.license && <small>Licence: {dataset.license}</small>}</td><td>{dataset.version}</td><td>{dataset.format.toUpperCase()}</td><td>{dataset.access_classification}</td><td><span className="status-chip">{dataset.status.replace(/_/g, " ")}</span></td><td>{dataset.collection_start || "—"} – {dataset.collection_end || "—"}</td></tr>
+                        <tr key={dataset.id}>
+                          <td><strong>{dataset.title}</strong><small>{dataset.source}</small>{dataset.license && <small>Licence: {dataset.license}</small>}</td>
+                          <td>{dataset.version}</td><td>{dataset.format.toUpperCase()}</td><td>{dataset.access_classification}</td>
+                          <td><span className="status-chip">{dataset.status.replace(/_/g, " ")}</span></td>
+                          <td>{dataset.collection_start || "—"} – {dataset.collection_end || "—"}</td>
+                          <td>
+                            {dataset.owner_user_id && dataset.status === "draft" && dataset.owner_user_id && <button type="button" className="secondary-action" disabled={saving} onClick={() => submitDataset(dataset.id)}>Submit for review</button>}
+                            {isReviewer && dataset.status === "submitted" && (
+                              <div className="dataset-review-controls">
+                                <label>Review note<textarea rows={2} maxLength={2000} value={reviewNotes[dataset.id] || ""} onChange={(event) => setReviewNotes((notes) => ({ ...notes, [dataset.id]: event.target.value }))} /></label>
+                                <div className="dataset-review-actions">
+                                  <button type="button" className="primary-action" disabled={saving} onClick={() => decideDataset(dataset.id, "approved")}>Approve</button>
+                                  <button type="button" className="secondary-action" disabled={saving || !(reviewNotes[dataset.id] || "").trim()} onClick={() => decideDataset(dataset.id, "rejected")}>Request corrections</button>
+                                </div>
+                              </div>
+                            )}
+                            <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
+                            {reviewHistory[dataset.id] && <ol className="dataset-review-history">{reviewHistory[dataset.id].map((event) => <li key={event.id}><strong>{event.decision}</strong> · {new Date(event.reviewed_at).toLocaleString()}{event.note && <p>{event.note}</p>}</li>)}</ol>}
+                          </td>
+                        </tr>
                       ))}</tbody>
                     </table></div>
                   )}
