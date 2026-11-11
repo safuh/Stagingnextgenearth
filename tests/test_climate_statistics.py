@@ -1,6 +1,9 @@
 """Tests for descriptive climate-series statistics."""
+
 import math
+
 import pytest
+
 from stagingnextgenearth.climate_statistics import summarize_climate_series
 
 
@@ -51,4 +54,6 @@ def test_non_numeric_observations_are_rejected(value: object) -> None:
 
 
 def test_input_order_does_not_change_statistics() -> None:
-    assert summarize_climate_series([1, 2, 3, 4, 5]) == summarize_climate_series([5, 4, 3, 2, 1])
+    ascending = summarize_climate_series([1, 2, 3, 4, 5])
+    descending = summarize_climate_series([5, 4, 3, 2, 1])
+    assert ascending == descending
