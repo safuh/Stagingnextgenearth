@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization {
   id: string;
@@ -37,6 +37,7 @@ interface Dataset {
   collection_end: string | null;
   owner_user_id: string;
 }
+interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }
 
 const RESEARCH_ROLES = ["admin", "programme_manager", "researcher", "institutional_partner"];
 
@@ -96,6 +97,10 @@ export default function ResearchWorkspacePage() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [reviewHistory, setReviewHistory] = useState<Record<string, { id: string; decision: string; note: string | null; reviewed_at: string }[]>>({});
   const [historyLoading, setHistoryLoading] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, { title: string; description: string; version: string; format: string; source: string; license: string; access_classification: string }>>({});
+  const [datasetFiles, setDatasetFiles] = useState<Record<string, DatasetFile[]>>({});
+  const [fileLoading, setFileLoading] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
   const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
 
   async function submitDataset(datasetId: string) {
@@ -136,6 +141,42 @@ export default function ResearchWorkspacePage() {
     } finally { setHistoryLoading(null); }
   }
 
+  function beginDatasetEdit(dataset: Dataset) {
+    setEditValues((current) => ({ ...current, [dataset.id]: { title: dataset.title, description: dataset.description || "", version: dataset.version, format: dataset.format, source: dataset.source, license: dataset.license || "", access_classification: dataset.access_classification } }));
+  }
+
+  async function saveDatasetCorrections(datasetId: string) {
+    const values = editValues[datasetId]; if (!values) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const updated = await apiPatch<Dataset>("/organizations/" + organizationId + "/research-datasets/" + datasetId, { ...values, description: values.description || null, license: values.license || null });
+      setDatasets((items) => items.map((item) => item.id === datasetId ? updated : item));
+      setEditValues((current) => { const next = { ...current }; delete next[datasetId]; return next; });
+      setNotice("Corrections saved. Submit the revised draft when ready.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save corrections."); } finally { setSaving(false); }
+  }
+
+  async function loadDatasetFiles(datasetId: string) {
+    setFileLoading(datasetId);
+    try { const files = await apiGet<DatasetFile[]>("/organizations/" + organizationId + "/research-datasets/" + datasetId + "/files"); setDatasetFiles((current) => ({ ...current, [datasetId]: files })); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load dataset files."); } finally { setFileLoading(null); }
+  }
+
+  async function uploadDatasetFile(datasetId: string, file: File) {
+    const allowed: Record<string, string> = { "text/csv": ".csv", "application/json": ".json", "application/pdf": ".pdf", "application/zip": ".zip", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx" };
+    const extension = allowed[file.type];
+    if (!extension || !file.name.toLowerCase().endsWith(extension)) { setError("Unsupported file type. Allowed: CSV, JSON, PDF, ZIP and XLSX."); return; }
+    if (file.size < 1 || file.size > 100 * 1024 * 1024) { setError("File size must be between 1 byte and 100 MB."); return; }
+    setUploading(datasetId); setError(""); setNotice("");
+    try {
+      const intent = await apiPost<{ file_id: string; upload_url: string; upload_fields: Record<string, string> }>("/organizations/" + organizationId + "/research-datasets/" + datasetId + "/files/upload-intents", { filename: file.name, media_type: file.type, size_bytes: file.size });
+      const payload = new FormData(); Object.entries(intent.upload_fields).forEach(([key, value]) => payload.append(key, value)); payload.append("file", file);
+      const response = await fetch(intent.upload_url, { method: "POST", body: payload });
+      if (!response.ok) throw new Error("Private storage upload failed (" + response.status + ").");
+      await apiPost<DatasetFile>("/organizations/" + organizationId + "/research-datasets/" + datasetId + "/files/" + intent.file_id + "/complete", {});
+      await loadDatasetFiles(datasetId); setNotice("Upload received. Quarantined files are not downloadable until scanning completes.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to upload dataset file."); } finally { setUploading(null); }
+  }
   async function createStudy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -292,6 +333,18 @@ export default function ResearchWorkspacePage() {
                                 </div>
                               </div>
                             )}
+                            {dataset.status === "rejected" && dataset.owner_user_id && (
+                              !editValues[dataset.id] ? <button type="button" className="text-action" onClick={() => beginDatasetEdit(dataset)}>Correct rejected dataset</button> : (
+                                <div className="dataset-review-controls">
+                                  {(["title", "description", "version", "format", "source", "license"] as const).map((field) => <label key={field}>{field.replace(/_/g, " ")}{field === "description" ? <textarea rows={3} value={editValues[dataset.id][field]} onChange={(event) => setEditValues((items) => ({ ...items, [dataset.id]: { ...items[dataset.id], [field]: event.target.value } }))} /> : <input value={editValues[dataset.id][field]} onChange={(event) => setEditValues((items) => ({ ...items, [dataset.id]: { ...items[dataset.id], [field]: event.target.value } }))} />}</label>)}
+                                  <label>Classification<select value={editValues[dataset.id].access_classification} onChange={(event) => setEditValues((items) => ({ ...items, [dataset.id]: { ...items[dataset.id], access_classification: event.target.value } }))}><option value="organization">Organisation</option><option value="restricted">Restricted</option><option value="public">Public</option></select></label>
+                                  <button type="button" className="primary-action" disabled={saving} onClick={() => saveDatasetCorrections(dataset.id)}>Save corrections</button>
+                                </div>
+                              )
+                            )}
+                            {(dataset.status === "draft" || dataset.status === "rejected") && dataset.owner_user_id && <label className="dataset-file-picker">Add file version<input type="file" disabled={uploading === dataset.id || saving} accept=".csv,.json,.pdf,.zip,.xlsx" onChange={(event) => { const selected = event.currentTarget.files?.[0]; if (selected) void uploadDatasetFile(dataset.id, selected); event.currentTarget.value = ""; }} /><small>Maximum 100 MB. Files remain quarantined until scanning completes.</small></label>}
+                            <button type="button" className="text-action" disabled={fileLoading === dataset.id} onClick={() => loadDatasetFiles(dataset.id)}>{fileLoading === dataset.id ? "Loading files…" : "File versions"}</button>
+                            {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span><small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
                             <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
                             {reviewHistory[dataset.id] && <ol className="dataset-review-history">{reviewHistory[dataset.id].map((event) => <li key={event.id}><strong>{event.decision}</strong> · {new Date(event.reviewed_at).toLocaleString()}{event.note && <p>{event.note}</p>}</li>)}</ol>}
                           </td>
