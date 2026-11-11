@@ -130,3 +130,39 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             json={"user_id": application.json()["user_id"]},
         )
         assert duplicate.status_code == 409
+
+        indicator = client.post(
+            f"{base}/indicators",
+            headers=manager,
+            json={
+                "key": "trees_established",
+                "title": "Trees established",
+                "unit": "trees",
+                "direction": "increase",
+                "baseline_value": 0,
+                "target_value": 1000,
+            },
+        )
+        assert indicator.status_code == 201
+        indicator_id = indicator.json()["id"]
+        measurement = client.post(
+            f"{base}/indicators/{indicator_id}/measurements",
+            headers=manager,
+            json={
+                "period_start": "2026-11-01",
+                "period_end": "2026-11-30",
+                "value": 250,
+                "notes": "Verified planting register total",
+            },
+        )
+        assert measurement.status_code == 201
+        progress = client.get(f"{base}/indicators", headers=participant)
+        assert progress.status_code == 200
+        assert progress.json()[0]["latest_measurement"]["value"] == 250
+        assert progress.json()[0]["progress_percent"] == 25
+        history = client.get(
+            f"{base}/indicators/{indicator_id}/measurements",
+            headers=participant,
+        )
+        assert history.status_code == 200
+        assert len(history.json()) == 1
