@@ -10,6 +10,7 @@ interface Organization {
   country_code: string;
 }
 interface Membership {
+  user_id: string;
   role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
   status: string;
 }
@@ -323,8 +324,8 @@ export default function ResearchWorkspacePage() {
                           <td><span className="status-chip">{dataset.status.replace(/_/g, " ")}</span></td>
                           <td>{dataset.collection_start || "—"} – {dataset.collection_end || "—"}</td>
                           <td>
-                            {dataset.status === "draft" && dataset.owner_user_id && <button type="button" className="secondary-action" disabled={saving} onClick={() => submitDataset(dataset.id)}>Submit for review</button>}
-                            {isReviewer && dataset.status === "submitted" && (dataset.access_classification !== "restricted" || membership.role === "admin") && (
+                            {dataset.status === "draft" && (dataset.owner_user_id === membership.user_id || membership.role === "admin") && <button type="button" className="secondary-action" disabled={saving} onClick={() => submitDataset(dataset.id)}>Submit for review</button>}
+                            {isReviewer && dataset.owner_user_id !== membership.user_id && dataset.status === "submitted" && (dataset.access_classification !== "restricted" || membership.role === "admin") && (
                               <div className="dataset-review-controls">
                                 <label>Review note<textarea rows={2} maxLength={2000} value={reviewNotes[dataset.id] || ""} onChange={(event) => setReviewNotes((notes) => ({ ...notes, [dataset.id]: event.target.value }))} /></label>
                                 <div className="dataset-review-actions">
@@ -333,7 +334,7 @@ export default function ResearchWorkspacePage() {
                                 </div>
                               </div>
                             )}
-                            {dataset.status === "rejected" && dataset.owner_user_id && (
+                            {dataset.status === "rejected" && dataset.owner_user_id === membership.user_id && (
                               !editValues[dataset.id] ? <button type="button" className="text-action" onClick={() => beginDatasetEdit(dataset)}>Correct rejected dataset</button> : (
                                 <div className="dataset-review-controls">
                                   {(["title", "description", "version", "format", "source", "license"] as const).map((field) => <label key={field}>{field.replace(/_/g, " ")}{field === "description" ? <textarea rows={3} value={editValues[dataset.id][field]} onChange={(event) => setEditValues((items) => ({ ...items, [dataset.id]: { ...items[dataset.id], [field]: event.target.value } }))} /> : <input value={editValues[dataset.id][field]} onChange={(event) => setEditValues((items) => ({ ...items, [dataset.id]: { ...items[dataset.id], [field]: event.target.value } }))} />}</label>)}
@@ -342,7 +343,7 @@ export default function ResearchWorkspacePage() {
                                 </div>
                               )
                             )}
-                            {(dataset.status === "draft" || dataset.status === "rejected") && dataset.owner_user_id && <label className="dataset-file-picker">Add file version<input type="file" disabled={uploading === dataset.id || saving} accept=".csv,.json,.pdf,.zip,.xlsx" onChange={(event) => { const selected = event.currentTarget.files?.[0]; if (selected) void uploadDatasetFile(dataset.id, selected); event.currentTarget.value = ""; }} /><small>Maximum 100 MB. Files remain quarantined until scanning completes.</small></label>}
+                            {(dataset.status === "draft" || dataset.status === "rejected") && (dataset.owner_user_id === membership.user_id || membership.role === "admin") && <label className="dataset-file-picker">Add file version<input type="file" disabled={uploading === dataset.id || saving} accept=".csv,.json,.pdf,.zip,.xlsx" onChange={(event) => { const selected = event.currentTarget.files?.[0]; if (selected) void uploadDatasetFile(dataset.id, selected); event.currentTarget.value = ""; }} /><small>Maximum 100 MB. Files remain quarantined until scanning completes.</small></label>}
                             <button type="button" className="text-action" disabled={fileLoading === dataset.id} onClick={() => loadDatasetFiles(dataset.id)}>{fileLoading === dataset.id ? "Loading files…" : "File versions"}</button>
                             {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span><small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
                             <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
