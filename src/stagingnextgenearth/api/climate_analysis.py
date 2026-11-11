@@ -1,6 +1,7 @@
 """Tenant-scoped descriptive climate summaries over bounded verified data."""
 
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -110,7 +111,7 @@ async def climate_analysis_summary(
     summaries = []
     for unit, values in sorted(grouped.items()):
         stats = summarize_climate_series(values)
-        summaries.append(ClimateUnitSummary(unit=unit, **stats.__dict__))
+        summaries.append(ClimateUnitSummary(unit=unit, **asdict(stats)))
 
     return ClimateAnalysisSummary(
         variable=variable,
