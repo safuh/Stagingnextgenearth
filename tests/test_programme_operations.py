@@ -194,3 +194,59 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         participation_list = client.get(f"{base}/participation", headers=participant)
         assert participation_list.status_code == 200
         assert participation_list.json()[0]["participant_group"] == "school"
+
+        goal = client.post(
+            f"{base}/goals",
+            headers=manager,
+            json={"title": "Restore native woodland", "target_date": "2027-12-31"},
+        )
+        assert goal.status_code == 201
+        goal_id = goal.json()["id"]
+        assert client.post(
+            f"{base}/goals/{goal_id}/status",
+            headers=manager,
+            json={"status": "active"},
+        ).json()["status"] == "active"
+        milestone = client.post(
+            f"{base}/goals/{goal_id}/milestones",
+            headers=manager,
+            json={"title": "Complete baseline survey", "due_date": "2027-02-01"},
+        )
+        assert milestone.status_code == 201
+        milestone_id = milestone.json()["id"]
+        assert client.post(
+            f"{base}/milestones/{milestone_id}/status",
+            headers=manager,
+            json={"status": "in_progress"},
+        ).json()["status"] == "in_progress"
+        task = client.post(
+            f"{base}/assignments",
+            headers=manager,
+            json={
+                "title": "Collect site observations",
+                "assigned_to": application.json()["user_id"],
+                "milestone_id": milestone_id,
+                "priority": "high",
+                "due_date": "2027-01-20",
+            },
+        )
+        assert task.status_code == 201
+        task_id = task.json()["id"]
+        assert client.get(f"{base}/assignments", headers=participant).json()[0]["id"] == task_id
+        assert client.post(
+            f"{base}/assignments/{task_id}/status",
+            headers=participant,
+            json={"status": "in_progress"},
+        ).json()["status"] == "in_progress"
+        assert client.post(
+            f"{base}/assignments/{task_id}/status",
+            headers=participant,
+            json={"status": "completed"},
+        ).json()["completed_at"] is not None
+        assert client.post(
+            f"{base}/assignments/{task_id}/status",
+            headers=participant,
+            json={"status": "in_progress"},
+        ).status_code == 409
+        assert client.get(f"{base}/goals", headers=participant).status_code == 200
+        assert client.get(f"{base}/milestones", headers=participant).status_code == 200
