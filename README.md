@@ -178,3 +178,26 @@ sub-daily rainfall intensity product. The adapter does not aggregate an area
 to a single mean or total: it emits one observation per selected raster cell.
 Copernicus adapters, unit harmonisation, quality assessment and
 spatial/temporal query APIs remain planned work.
+
+
+## Web application (M6)
+
+The initial Next.js application lives in `web/`. It includes a responsive public
+landing page, entry points for the researcher, youth/volunteer, administrator and
+institutional-partner experiences, and a sign-in form wired to the FastAPI
+`/auth/login` endpoint.
+
+Run the web application separately from the API:
+
+```bash
+cd web
+npm install
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev
+```
+
+The initial authentication client deliberately keeps access and refresh tokens
+in module memory only; a browser reload ends the client session rather than
+persisting bearer credentials in local or session storage. This is a transitional
+MVP client, not a substitute for a production BFF/HttpOnly-cookie session design.
+The current portal cards are entry points, not completed role-specific workspaces.
+The frontend CI job runs TypeScript, ESLint and a production Next.js build.
