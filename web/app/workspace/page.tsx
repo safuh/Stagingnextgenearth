@@ -299,7 +299,7 @@ export default function WorkspacePage() {
                     <Link href="/workspace/youth">Youth & volunteer portal →</Link>
                   )}
                   {membership.role === "institutional_partner" && (
-                    <span>Partner access · review organisation programmes and published learning.</span>
+                    <Link href="/workspace/partner">Institutional partner portal →</Link>
                   )}
                   {membership.role === "admin" && (
                     <span>Organisation administration · membership and governance controls.</span>
