@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { clearSession, hasSession, login, logout } from "@/lib/api";
+import { clearSession, login, logout, restoreSession } from "@/lib/api";
 
 const portals = [
   {
@@ -34,10 +34,22 @@ const portals = [
 export default function HomePage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [signedIn, setSignedIn] = useState(hasSession());
+  const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    restoreSession().then((session) => {
+      if (!active || !session) return;
+      setSubject(session.subject);
+      setSignedIn(true);
+    }).catch(() => {
+      if (active) setSignedIn(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
