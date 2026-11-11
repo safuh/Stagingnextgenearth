@@ -792,3 +792,15 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .dataset-file-list li small { font-size: .7rem; }
 .dataset-review-controls input, .dataset-review-controls select { width: 100%; min-width: 0; padding: .55rem .65rem; border: 1px solid #dce6de; border-radius: 8px; background: #fff; color: #253c2f; font: inherit; }
 .dataset-review-controls .primary-action { margin: .25rem 0; }
+
+
+.climate-analysis-panel { margin-top: 2rem; }
+.climate-analysis-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: end; margin: 1.25rem 0; }
+.climate-analysis-form label { display: grid; gap: .45rem; color: var(--ink, #18251f); font-size: .9rem; font-weight: 600; }
+.climate-analysis-form input, .climate-analysis-form select { width: 100%; min-height: 2.8rem; border: 1px solid var(--line, #d8dfda); border-radius: .55rem; padding: .65rem .75rem; background: white; color: inherit; font: inherit; }
+.climate-analysis-form button { justify-self: start; }
+.climate-analysis-results { margin-top: 1.5rem; }
+.climate-unit-result { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line, #d8dfda); }
+.climate-unit-result h3 { margin-bottom: .35rem; }
+.climate-unit-result > p { color: var(--muted, #64736b); font-size: .9rem; }
+@media (max-width: 680px) { .climate-analysis-form { grid-template-columns: 1fr; } }
