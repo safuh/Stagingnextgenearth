@@ -129,7 +129,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Learner course detail, ordered module/lesson curriculum, course application, lesson completion and progress tracking.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
 - [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
-- [ ] Researcher portal (organisation-scoped study and dataset registry dashboard, concept-study creation, metadata-only draft dataset registration, draft submission, administrator/programme-manager review decisions and per-dataset review history are implemented; owner correction UI, file workflows and interactive climate analysis remain).
+- [ ] Researcher portal (organisation-scoped study and dataset registry dashboard, concept-study creation, metadata-only draft dataset registration, draft submission, administrator/programme-manager review decisions and per-dataset review history are implemented; interactive climate analysis remains).
 - [x] Youth and volunteer portal foundations: personal dashboard, caller-scoped application/allocation history, and volunteer/ambassador programme applications for active youth-volunteer members (manager approval remains tenant- and role-scoped).
 - [x] Administrator portal foundations: tenant-scoped membership directory, role/status controls, invitation creation, ownership transfer and governance audit history. Production BFF session handling and broader organisation settings remain.
 - [ ] Institutional partner portal.
