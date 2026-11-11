@@ -10,6 +10,7 @@ from .health import router as health_router
 from .learning import router as learning_router
 from .memberships import router as memberships_router
 from .organizations import router as organizations_router
+from .partner_reporting import router as partner_reporting_router
 from .programme_deliverables import router as programme_deliverables_router
 from .programme_indicators import router as programme_indicators_router
 from .programme_operations import router as programme_operations_router
@@ -40,6 +41,7 @@ api_router.include_router(programme_operations_router)
 api_router.include_router(programme_participation_router)
 api_router.include_router(programme_planning_router)
 api_router.include_router(programme_indicators_router)
+api_router.include_router(partner_reporting_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
 api_router.include_router(researcher_profiles_router)
