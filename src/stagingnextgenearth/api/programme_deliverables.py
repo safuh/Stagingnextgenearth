@@ -115,7 +115,10 @@ async def create_deliverable(
             )
         )
         if assignee is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Assignee must be an active organisation member")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Assignee must be an active organisation member",
+            )
     item = ProgrammeDeliverable(
         organization_id=organization_id,
         programme_id=programme_id,
@@ -175,9 +178,15 @@ async def submit_deliverable_evidence(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
     if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the assignee or a manager may submit evidence")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the assignee or a manager may submit evidence",
+        )
     if item.status not in {"planned", "in_progress", "revisions_required"}:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Deliverable cannot be submitted in its current state")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Deliverable cannot be submitted in its current state",
+        )
     if not body.evidence_url.startswith("https://"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Evidence URL must use HTTPS")
     item.evidence_url = body.evidence_url
