@@ -136,7 +136,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Shared design system, responsive layouts and accessible navigation.
 - [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
 - [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows (initial researcher registry and youth/volunteer personal dashboards implemented; remaining role workflows are outstanding).
-- [x] Typed API client, authenticated requests, explicit in-memory session lifecycle and user-visible loading/error states (production BFF/HttpOnly-cookie session remains a hardening item).
+- [x] Typed API client, authenticated requests, same-origin BFF with HttpOnly access/refresh cookies, refresh rotation, session restoration and sign-out, plus user-visible loading/error states.
 
 ## M7 — Integrations and organisational intelligence
 
