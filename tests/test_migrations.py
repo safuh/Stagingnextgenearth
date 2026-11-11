@@ -231,6 +231,17 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     engine = create_async_engine(url)
     try:
         async with engine.connect() as connection:
+            for table_name, required in expected_columns.items():
+                result = await connection.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table_name"
+                    ),
+                    {"table_name": table_name},
+                )
+                actual = {row[0] for row in result}
+                assert required <= actual, f"{table_name} is missing {required - actual}"
+
             geometry_type = await connection.scalar(
                 text(
                     "SELECT type FROM geometry_columns "
@@ -255,21 +266,6 @@ async def test_alembic_upgrade_and_downgrade() -> None:
                 )
             )
             assert trigger_exists is True
-    finally:
-        await engine.dispose()
-
-    try:
-        async with engine.connect() as connection:
-            for table_name, required in expected_columns.items():
-                result = await connection.execute(
-                    text(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_name = :table_name"
-                    ),
-                    {"table_name": table_name},
-                )
-                actual = {row[0] for row in result}
-                assert required <= actual, f"{table_name} is missing {required - actual}"
     finally:
         await engine.dispose()
 
