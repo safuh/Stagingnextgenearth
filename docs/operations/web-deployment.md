@@ -60,3 +60,35 @@ do not run migrations in Next.js or API worker startup.
 6. Verify that sign-out invalidates the refresh token and clears both cookies.
 7. Verify that the Next.js server can reach FastAPI and that the browser does
    not need direct API-origin access for authenticated workflows.
+
+## Container deployment
+
+The production Compose file includes the FastAPI API, the Next.js BFF/web
+service and the optional dataset-scanner worker. PostgreSQL/PostGIS is managed
+as an external database service.
+
+1. Copy `.env.example` to `.env`.
+2. Set a unique `JWT_SECRET_KEY` of at least 32 characters, a production
+   `DATABASE_URL`, object-storage credentials when file uploads are enabled,
+   and the web/API host ports.
+3. Set `BACKEND_API_URL` only in the web service environment when deploying
+   outside Compose. Compose wires it to `http://api:8000/api` on the private
+   service network.
+4. Validate and start the stack:
+
+   ```bash
+   docker compose -f docker/compose.production.yml config --quiet
+   docker compose -f docker/compose.production.yml up -d --build api web
+   ```
+
+5. Apply Alembic migrations as a separate release step before enabling traffic.
+6. When object storage and ClamAV are configured, start the scanner profile:
+
+   ```bash
+   docker compose --profile scanning -f docker/compose.production.yml up -d dataset-scanner
+   ```
+
+The web container uses the Next.js standalone build and runs as an unprivileged
+user. Put a TLS-terminating reverse proxy or managed ingress in front of the
+web service; do not expose the internal API or database directly to the public
+internet unless an explicit network/security design requires it.
