@@ -130,7 +130,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
 - [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
 - [ ] Researcher portal (initial organisation-scoped study and dataset registry dashboard is implemented; study/dataset authoring, review queues, file workflows and interactive climate analysis remain).
-- [ ] Youth and volunteer portal (initial personal dashboard and caller-scoped application/allocation history APIs are implemented; learner interactions and application actions remain).
+- [x] Youth and volunteer portal foundations: personal dashboard, caller-scoped application/allocation history, and volunteer/ambassador programme applications for active youth-volunteer members (manager approval remains tenant- and role-scoped).
 - [ ] Administrator portal.
 - [ ] Institutional partner portal.
 - [x] Shared design system, responsive layouts and accessible navigation.
