@@ -8,6 +8,9 @@ services:
       APP_VERSION: ${APP_VERSION:-0.1.0}
       ENVIRONMENT: production
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-14}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_JSON: "true"
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
@@ -31,6 +34,30 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  web:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      BACKEND_API_URL: http://api:8000/api
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-14}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   dataset-scanner:
     profiles: ["scanning"]
