@@ -25,8 +25,8 @@ services:
       CLAMAV_HOST: ${CLAMAV_HOST:-}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}
       CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
-    ports:
-      - "${APP_PORT:-8000}:8000"
+    expose:
+      - "8000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/live', timeout=2)"]
