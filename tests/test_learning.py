@@ -118,6 +118,17 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert application.status_code == 201
+        pending_enrollments = client.get(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=admin_headers,
+        )
+        assert pending_enrollments.status_code == 200
+        assert pending_enrollments.json()[0]["status"] == "applied"
+        learner_enrollment_access = client.get(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=learner_headers,
+        )
+        assert learner_enrollment_access.status_code == 403
         from stagingnextgenearth.auth import TokenService
 
         learner_login = client.post(
@@ -172,6 +183,13 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"score": 85, "feedback": "Good application of the concepts."},
         )
         assert evaluated.status_code == 200
+        assessments = client.get(
+            f"{base}/courses/{course_id}/assessments",
+            headers=learner_headers,
+        )
+        assert assessments.status_code == 200
+        assert assessments.json()[0]["title"] == "Climate foundations quiz"
+        assert "configuration" not in assessments.json()[0]
 
         learner_login = client.post(
             "/api/auth/login",
