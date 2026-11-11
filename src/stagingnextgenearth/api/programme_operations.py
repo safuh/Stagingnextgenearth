@@ -270,18 +270,21 @@ async def apply_to_volunteer(
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VolunteerApplicationRead:
-    """Allow an authenticated non-member to apply to a programme."""
+    """Allow a new applicant or active youth volunteer to apply to a programme."""
     await _programme(session, organization_id, programme_id)
     existing_membership = await session.scalar(
-        select(Membership.id).where(
+        select(Membership).where(
             Membership.organization_id == organization_id,
             Membership.user_id == principal.user_id,
         )
     )
-    if existing_membership is not None:
+    if existing_membership is not None and (
+        existing_membership.role != "youth_volunteer"
+        or existing_membership.status != "active"
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "Existing members cannot apply as new volunteers",
+            "Only active youth volunteers can apply as existing organisation members",
         )
     item = ProgrammeVolunteerApplication(
         organization_id=organization_id,
@@ -363,19 +366,22 @@ async def decide_volunteer_application(
                 Membership.user_id == item.user_id,
             )
         )
-        if existing is not None:
+        if existing is not None and (
+            existing.role != "youth_volunteer" or existing.status != "active"
+        ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "Applicant already has an organisation membership",
+                "Applicant already has a non-volunteer or inactive organisation membership",
             )
-        session.add(
-            Membership(
-                organization_id=organization_id,
-                user_id=item.user_id,
-                role="youth_volunteer",
-                status="active",
+        if existing is None:
+            session.add(
+                Membership(
+                    organization_id=organization_id,
+                    user_id=item.user_id,
+                    role="youth_volunteer",
+                    status="active",
+                )
             )
-        )
     item.status = body.decision
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
