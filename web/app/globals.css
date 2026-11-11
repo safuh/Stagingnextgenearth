@@ -781,3 +781,14 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .dataset-review-history { margin: 0.5rem 0 0; padding-left: 1.2rem; min-width: 14rem; font-size: 0.8rem; }
 .dataset-review-history li { margin: 0.35rem 0; }
 .dataset-review-history p { margin: 0.2rem 0; white-space: normal; }
+
+
+.dataset-file-picker { display: grid; gap: .4rem; margin: .75rem 0; color: #425b4b; font-size: .82rem; font-weight: 650; }
+.dataset-file-picker input { max-width: 100%; min-width: 0; padding: .5rem; border: 1px solid #dce6de; border-radius: 8px; background: #fff; font: inherit; }
+.dataset-file-picker small { color: #78867d; font-size: .74rem; font-weight: 400; line-height: 1.45; }
+.dataset-file-list { display: grid; gap: .55rem; margin: .55rem 0; padding: .7rem; list-style: none; background: #f7faf7; border: 1px solid #e0e9e2; border-radius: 9px; }
+.dataset-file-list li { display: grid; gap: .2rem; overflow-wrap: anywhere; font-size: .78rem; }
+.dataset-file-list li span, .dataset-file-list li small { color: #718077; }
+.dataset-file-list li small { font-size: .7rem; }
+.dataset-review-controls input, .dataset-review-controls select { width: 100%; min-width: 0; padding: .55rem .65rem; border: 1px solid #dce6de; border-radius: 8px; background: #fff; color: #253c2f; font: inherit; }
+.dataset-review-controls .primary-action { margin: .25rem 0; }
