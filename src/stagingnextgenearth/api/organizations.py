@@ -99,7 +99,10 @@ class OrganizationAdministrationSummary(BaseModel):
     created_at: datetime
 
 
-@router.get("/{organization_id}/administration-summary", response_model=OrganizationAdministrationSummary)
+@router.get(
+    "/{organization_id}/administration-summary",
+    response_model=OrganizationAdministrationSummary,
+)
 async def get_organization_administration_summary(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
