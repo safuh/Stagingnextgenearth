@@ -120,7 +120,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Initial independent review workflow for field-observation quality status.
 - [ ] Quality assurance, missing-data handling and unit normalisation (conservative conversions and broad-range screening are integrated into provider persistence with original-value provenance; tenant-scoped status/variable summaries, bounded flagged-observation reports and daily station coverage reports are implemented; coverage uses an explicit report-only/no-imputation policy; descriptive statistics preserve missingness; dashboard presentation and configurable domain-specific thresholds remain).
 - [ ] Research-grade statistical and geospatial analysis pipelines (tested descriptive statistics primitive and tenant-scoped, bounded, unit-grouped verified-data analysis summary API implemented; inferential and spatial/temporal dependence methods remain) (deterministic descriptive statistics are implemented as a tested calculation primitive; inferential methods, spatial/temporal dependence handling and API integration remain).
-- [ ] Interactive map and climate research dashboards.
+- [ ] Interactive map and advanced climate research dashboards.\n- [x] Interactive tenant-scoped descriptive climate analysis dashboard for bounded verified/pending series, with unit-separated statistics and explicit no-imputation/provisional-data messaging.
 - [ ] Uncertainty, model limitations and data lineage shown in outputs.
 
 ## M6 — Public website and four portals
@@ -129,7 +129,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Learner course detail, ordered module/lesson curriculum, course application, lesson completion and progress tracking.
 - [x] Learner assessment instructions and submission workflow, gated by approved enrolment.
 - [x] Staff learning operations workspace for course/module/lesson authoring, publishing, application decisions, assessment creation/evaluation, mentorship assignment and attendance recording/reporting.
-- [ ] Researcher portal (organisation-scoped study and dataset registry dashboard, concept-study creation, metadata-only draft dataset registration, draft submission, administrator/programme-manager review decisions and per-dataset review history are implemented; interactive climate analysis remains).
+- [ ] Researcher portal (organisation-scoped study and dataset registry, metadata correction, independent review, file-version upload/scanning, and interactive bounded descriptive climate analysis are implemented; richer map-based and inferential workflows remain).
 - [x] Youth and volunteer portal foundations: personal dashboard, caller-scoped application/allocation history, and volunteer/ambassador programme applications for active youth-volunteer members (manager approval remains tenant- and role-scoped).
 - [x] Administrator portal foundations: tenant-scoped membership directory, role/status controls, invitation creation, ownership transfer and governance audit history. Production BFF session handling and broader organisation settings remain.
 - [ ] Institutional partner portal.
