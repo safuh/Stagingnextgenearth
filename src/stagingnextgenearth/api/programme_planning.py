@@ -347,7 +347,10 @@ async def create_assignment(
         )
     )
     if assignee is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Assignee must be an active organisation member")  # noqa: E501
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Assignee must be an active organisation member",
+        )
     if body.milestone_id is not None:
         milestone = await session.scalar(
             select(ProgrammeMilestone.id).where(
@@ -424,7 +427,10 @@ async def update_assignment_status(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Assignment not found")
     if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the assignee or a manager may update this task")  # noqa: E501
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the assignee or a manager may update this task",
+        )
     transitions = {"open": {"in_progress", "cancelled"}, "in_progress": {"completed", "cancelled"}}
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid assignment status transition")
