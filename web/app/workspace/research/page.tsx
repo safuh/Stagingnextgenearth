@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { apiGet, clearSession, hasSession } from "@/lib/api";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization {
   id: string;
@@ -46,6 +46,8 @@ export default function ResearchWorkspacePage() {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [studies, setStudies] = useState<Study[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -90,6 +92,59 @@ export default function ResearchWorkspacePage() {
     return () => { active = false; };
   }, [organizationId]);
 
+  async function createStudy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await apiPost<Study>(`/organizations/${organizationId}/research-studies`, {
+        title: String(values.get("title") || ""),
+        abstract: String(values.get("abstract") || "") || null,
+        study_type: String(values.get("study_type") || "") || null,
+        ethics_reference: String(values.get("ethics_reference") || "") || null,
+      });
+      setStudies((current) => [created, ...current]);
+      form.reset();
+      setNotice("Study registered as a concept. Add the required governance and ethics records before field activity.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create the study.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createDataset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const studyId = String(values.get("study_id") || "");
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await apiPost<Dataset>(`/organizations/${organizationId}/research-datasets`, {
+        title: String(values.get("title") || ""),
+        description: String(values.get("description") || "") || null,
+        version: String(values.get("version") || "1.0"),
+        format: String(values.get("format") || ""),
+        source: String(values.get("source") || ""),
+        license: String(values.get("license") || "") || null,
+        access_classification: String(values.get("access_classification") || "organization"),
+        study_id: studyId || null,
+      });
+      setDatasets((current) => [created, ...current]);
+      form.reset();
+      setNotice("Dataset metadata registered as a draft. Submit it for independent review before treating it as approved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to register the dataset.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <main className="workspace-shell"><p>Loading research workspace…</p></main>;
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
@@ -104,6 +159,7 @@ export default function ResearchWorkspacePage() {
         <h1 className="workspace-title">Research workspace.<br /><em>Evidence, with provenance.</em></h1>
         <p className="workspace-intro">Manage study discovery and inspect the governance state of organisation datasets. File contents remain behind separate, authorised access workflows.</p>
         {error && <p className="workspace-error" role="alert">{error}</p>}
+        {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {organizations.length === 0 && !error ? (
           <div className="workspace-empty"><h2>No organisation access yet</h2><p>Ask an organisation administrator to invite your account.</p></div>
         ) : (
@@ -123,6 +179,40 @@ export default function ResearchWorkspacePage() {
                   <article><span>Datasets</span><strong>{datasets.length}</strong></article>
                   <article><span>Awaiting review</span><strong>{count(datasets, "submitted")}</strong></article>
                   <article><span>Approved</span><strong>{count(datasets, "approved")}</strong></article>
+                </div>
+                <div className="staff-grid research-authoring-grid">
+                  <section className="staff-card">
+                    <p className="eyebrow">RESEARCH DESIGN</p>
+                    <h2>Register a study</h2>
+                    <p>New studies begin in concept status and are owned by the creating researcher.</p>
+                    <form onSubmit={createStudy}>
+                      <label>Study title<input name="title" minLength={3} maxLength={240} required /></label>
+                      <label>Study type<input name="study_type" maxLength={80} placeholder="e.g. observational, field study" /></label>
+                      <label>Abstract<textarea name="abstract" rows={4} maxLength={20000} /></label>
+                      <label>Ethics reference<input name="ethics_reference" maxLength={160} /></label>
+                      <button className="primary-action" disabled={saving}>{saving ? "Saving…" : "Create study"}</button>
+                    </form>
+                  </section>
+                  <section className="staff-card">
+                    <p className="eyebrow">DATA GOVERNANCE</p>
+                    <h2>Register dataset metadata</h2>
+                    <p>Registration creates a draft only. File uploads and access grants use separate controlled workflows.</p>
+                    <form onSubmit={createDataset}>
+                      <label>Dataset title<input name="title" minLength={3} maxLength={240} required /></label>
+                      <label>Linked study<select name="study_id" defaultValue=""><option value="">No linked study</option>{studies.map((study) => <option value={study.id} key={study.id}>{study.title}</option>)}</select></label>
+                      <label>Description<textarea name="description" rows={3} maxLength={20000} /></label>
+                      <div className="research-form-pair">
+                        <label>Version<input name="version" defaultValue="1.0" maxLength={40} required /></label>
+                        <label>Format<input name="format" placeholder="CSV, GeoTIFF…" minLength={2} maxLength={40} required /></label>
+                      </div>
+                      <label>Source<input name="source" minLength={2} maxLength={200} required /></label>
+                      <div className="research-form-pair">
+                        <label>Licence<input name="license" maxLength={120} /></label>
+                        <label>Classification<select name="access_classification" defaultValue="organization"><option value="organization">Organisation</option><option value="restricted">Restricted</option><option value="public">Public</option></select></label>
+                      </div>
+                      <button className="primary-action" disabled={saving}>{saving ? "Saving…" : "Register draft dataset"}</button>
+                    </form>
+                  </section>
                 </div>
                 <section className="research-section">
                   <div className="section-heading"><div><p className="eyebrow">STUDY REGISTRY</p><h2>Research studies</h2></div><span>{studies.length} records</span></div>
