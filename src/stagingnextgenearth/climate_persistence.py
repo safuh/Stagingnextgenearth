@@ -6,11 +6,11 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.climate_quality import normalize_climate_value
 from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
     ClimateProviderRequest,
 )
+from stagingnextgenearth.climate_quality import normalize_climate_value
 from stagingnextgenearth.platform.models import ClimateIngestionRun, ClimateObservation
 
 
