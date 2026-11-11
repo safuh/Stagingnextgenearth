@@ -134,8 +134,10 @@ The workspace includes two additional bounded reports:
   shows scan count, matched count, returned rows and whether the 5,000-row
   screening scan was truncated. A truncated scan is explicitly non-exhaustive.
   The UI pages through matches in batches of 200 using the endpoint's offset
-  parameter, with previous/next controls and a displayed range. Changing a
-  filter starts a new scan at offset zero. Screening flags are triage metadata,
+  parameter, with previous/next controls and a displayed range. Optional
+  timezone-aware start/end filters bound the scan window (end-exclusive), which
+  helps inspect a narrower period when the 5,000-row cap is reached. Changing
+  filters starts a new scan at offset zero. Screening flags are triage metadata,
   not scientific validation or an automatic quality decision.
 - **Daily station coverage** calls
   `GET /organizations/{organization_id}/climate-observations/coverage`
