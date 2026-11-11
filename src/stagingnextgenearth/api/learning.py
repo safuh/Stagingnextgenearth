@@ -263,6 +263,37 @@ async def apply_for_course(
     return {"id": enrollment.id, "status": enrollment.status, "applied_at": enrollment.applied_at}
 
 
+
+@router.get("/courses/{course_id}/enrollments")
+async def list_course_enrollments(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List learner applications for authorised course administrators."""
+    if membership.role not in _MANAGE:
+        raise HTTPException(403, "Enrollment reporting permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.scalars(
+        select(LearningEnrollment)
+        .where(LearningEnrollment.course_id == course_id)
+        .order_by(LearningEnrollment.applied_at.desc())
+        .limit(500)
+    )
+    return [
+        {
+            "id": row.id,
+            "learner_id": row.learner_id,
+            "status": row.status,
+            "progress_percent": row.progress_percent,
+            "applied_at": row.applied_at,
+            "reviewed_at": row.reviewed_at,
+        }
+        for row in rows.all()
+    ]
+
+
 @router.post("/courses/{course_id}/enrollments/{learner_id}/decision")
 async def decide_enrollment(
     organization_id: str, course_id: str, learner_id: str, body: EnrollmentDecision,
@@ -281,6 +312,42 @@ async def decide_enrollment(
     enrollment.reviewed_at = datetime.now(UTC)
     await session.commit()
     return {"id": enrollment.id, "status": enrollment.status}
+
+
+
+@router.get("/courses/{course_id}/assessments")
+async def list_course_assessments(
+    organization_id: str,
+    course_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List assessment instructions without exposing private configuration payloads."""
+    course = await _course(session, organization_id, course_id)
+    if course.status != "published" and membership.role not in _MANAGE:
+        raise HTTPException(404, "Course not found")
+    if membership.role not in _MANAGE:
+        enrollment = await _enrollment(session, course_id, principal.user_id)
+        if enrollment.status not in {"approved", "completed"}:
+            raise HTTPException(403, "An approved enrollment is required")
+    rows = await session.scalars(
+        select(LearningAssessment)
+        .where(LearningAssessment.course_id == course_id)
+        .order_by(LearningAssessment.created_at)
+        .limit(200)
+    )
+    return [
+        {
+            "id": row.id,
+            "title": row.title,
+            "assessment_type": row.assessment_type,
+            "instructions": row.instructions,
+            "pass_mark": row.pass_mark,
+            "due_at": row.due_at,
+        }
+        for row in rows.all()
+    ]
 
 
 @router.post("/courses/{course_id}/assessments", status_code=201)
