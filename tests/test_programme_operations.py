@@ -22,7 +22,7 @@ def _auth(client: TestClient, identifier: str) -> dict[str, str]:
         json={"identifier": identifier, "password": password},
     )
     assert login.status_code == 200
-    return {"Authorization": f"Bearer {login.json()['access_token']}"
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
 def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
