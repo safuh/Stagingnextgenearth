@@ -124,6 +124,15 @@ Ingestion is idempotent for provider record identifiers within an organisation;
 new observations enter review as pending and ingestion does not imply scientific
 validation.
 
+A tenant-scoped spatial query is available at
+`GET /api/organizations/{organization_id}/climate-observations/spatial`.
+Supply `west`, `south`, `east`, and `north` as WGS84 longitude/latitude
+bounds; optional `variable`, `quality_status`, `start`, `end`, `limit`,
+and `offset` filters constrain the result. The API uses the PostGIS geometry
+and GiST index on PostgreSQL, with coordinate predicates as a SQLite
+development fallback. Bounding boxes crossing the antimeridian are not yet
+supported. Results are organisation-scoped and capped at 500 per page.
+
 The first adapter, `NASAPowerProvider`, requests daily point data from the NASA
 POWER API. It currently maps `PRECTOTCORR` to precipitation and `T2M` to
 2-metre air temperature by default. Requests explicitly use UTC; the platform's
