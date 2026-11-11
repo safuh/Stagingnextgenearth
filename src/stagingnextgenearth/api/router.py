@@ -9,6 +9,7 @@ from .learning import router as learning_router
 from .memberships import router as memberships_router
 from .organizations import router as organizations_router
 from .programme_deliverables import router as programme_deliverables_router
+from .programme_operations import router as programme_operations_router
 from .programmes import router as programmes_router
 from .projects import router as projects_router
 from .research import router as research_router
@@ -30,6 +31,7 @@ api_router.include_router(memberships_router)
 api_router.include_router(learning_router)
 api_router.include_router(programmes_router)
 api_router.include_router(programme_deliverables_router)
+api_router.include_router(programme_operations_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
 api_router.include_router(researcher_profiles_router)
