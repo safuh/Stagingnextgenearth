@@ -233,7 +233,10 @@ async def update_member_status(
             "Transfer organisation ownership before suspending the owner",
         )
     if target.status == "active" and target.role == "admin" and body.status == "suspended":
-        if target.user_id == membership.user_id or await _active_admin_count(session, organization_id) <= 1:
+        if (
+            target.user_id == membership.user_id
+            or await _active_admin_count(session, organization_id) <= 1
+        ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 "The last active administrator cannot be suspended",
