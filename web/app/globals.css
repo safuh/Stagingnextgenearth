@@ -716,3 +716,10 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 /* Institutional partner reporting */
 .partner-indicator, .partner-participation > div { display: grid; gap: 0.35rem; padding: 0.8rem 0; border-top: 1px solid var(--line, #e5e7eb); }
 .partner-indicator span, .partner-participation span, .partner-indicator small, .partner-participation small { color: var(--muted, #64748b); font-size: 0.88rem; }
+
+
+.volunteer-application-form { display: grid; gap: .85rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line, #dce4df); }
+.volunteer-application-form label { display: grid; gap: .4rem; color: var(--muted, #64736a); font-size: .84rem; font-weight: 650; }
+.volunteer-application-form input, .volunteer-application-form select, .volunteer-application-form textarea { width: 100%; min-width: 0; padding: .7rem .8rem; border: 1px solid var(--line, #dce4df); border-radius: .6rem; background: var(--surface, #fff); color: var(--foreground, #17382b); font: inherit; }
+.volunteer-application-form textarea { min-height: 110px; resize: vertical; }
+.volunteer-application-form input:focus, .volunteer-application-form select:focus, .volunteer-application-form textarea:focus { outline: 2px solid #8eae98; outline-offset: 2px; }
