@@ -107,3 +107,19 @@ This is a descriptive workspace, not an inferential climate model. The API
 limits requests to 10,000 observations, performs no missing-value imputation,
 and does not establish temporal independence, trend significance, attribution,
 or uncertainty bounds. The selected end timestamp is exclusive.
+
+
+## Spatial climate observation workspace
+
+The research workspace exposes a bounded WGS84 bounding-box query backed by
+`GET /api/organizations/{organization_id}/climate-observations/spatial`.
+The default extent is Kenya (west 33.9, south -4.7, east 41.9, north 5.2);
+researchers can narrow or replace it. Optional filters include variable,
+quality status, and timezone-aware start/end timestamps. Each request returns
+at most 500 tenant-scoped observations and starts at offset zero.
+
+The interface presents returned point coordinates and measurement provenance
+in a table. It does not render a basemap, interpolate a continuous surface, or
+infer values between stations. Bounding boxes crossing the antimeridian are
+not supported by this API. Use the separate daily coverage report for
+station-level missing-day summaries; no missing observations are imputed.
