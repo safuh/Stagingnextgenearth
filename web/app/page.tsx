@@ -138,7 +138,8 @@ export default function HomePage() {
               <p className="eyebrow">SESSION ACTIVE</p>
               <h3>Signed in</h3>
               <p className="muted">{subject || "Your account"} is authenticated in this browser session.</p>
-              <p className="session-note">Choose an authorised portal from your organisation workspace. Portal data views are being connected in this release.</p>
+              <p className="session-note">Your active organisation memberships and published learning programmes are available in the workspace.</p>
+              <Link className="button button-primary full" href="/workspace">Open organisation workspace <span>→</span></Link>
               <button className="button button-primary full" onClick={handleLogout}>Sign out</button>
             </div>
           ) : (
