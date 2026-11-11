@@ -135,7 +135,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Institutional partner portal foundation: read-only programme indicator and privacy-filtered aggregate participation reporting; donor document exchange, grant/budget workflows and report exports remain.
 - [x] Shared design system, responsive layouts and accessible navigation.
 - [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
-- [ ] Dedicated researcher, youth/volunteer, administrator and institutional-partner dashboards with their complete workflows (initial researcher registry and youth/volunteer personal dashboards implemented; remaining role workflows are outstanding).
+- [x] Core researcher, youth/volunteer, administrator and institutional-partner dashboards with role-aware navigation and their primary MVP workflows; advanced organisation settings, donor/grant operations and deeper researcher analysis remain.
 - [x] Typed API client, authenticated requests, same-origin BFF with HttpOnly access/refresh cookies, refresh rotation, session restoration and sign-out, plus user-visible loading/error states.
 
 ## M7 — Integrations and organisational intelligence
