@@ -173,24 +173,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert evaluated.status_code == 200
 
-        overdue = client.post(
-            f"{base}/courses/{course_id}/assessments",
-            headers=admin_headers,
-            json={
-                "title": "Late submission check",
-                "assessment_type": "assignment",
-                "instructions": "This deadline has passed.",
-                "due_at": "2020-01-01T00:00:00Z",
-            },
-        )
-        assert overdue.status_code == 201
-        rejected_late = client.post(
-            f"{base}/assessments/{overdue.json()['id']}/submissions",
-            headers=learner_headers,
-            json={"submission": {"text": "late"}},
-        )
-        assert rejected_late.status_code == 409
-
         learner_login = client.post(
             "/api/auth/login",
             json={
@@ -244,6 +226,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert revoked_verification.status_code == 200
         assert revoked_verification.json()["valid"] is False
+
+        overdue = client.post(
+            f"{base}/courses/{course_id}/assessments",
+            headers=admin_headers,
+            json={
+                "title": "Late submission check",
+                "assessment_type": "assignment",
+                "instructions": "This deadline has passed.",
+                "due_at": "2020-01-01T00:00:00Z",
+            },
+        )
+        assert overdue.status_code == 201
+        rejected_late = client.post(
+            f"{base}/assessments/{overdue.json()['id']}/submissions",
+            headers=learner_headers,
+            json={"submission": {"text": "late"}},
+        )
+        assert rejected_late.status_code == 409
 
         attendance = client.post(
             f"{base}/courses/{course_id}/attendance",
