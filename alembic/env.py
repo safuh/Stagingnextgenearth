@@ -29,6 +29,8 @@ from stagingnextgenearth.platform import (  # noqa: F401
     OrganizationAuditEvent,
     Programme,
     ProgrammeActivity,
+    ProgrammeIndicator,
+    ProgrammeIndicatorMeasurement,
     ProgrammeDeliverable,
     ProgrammeVolunteerAllocation,
     ProgrammeVolunteerApplication,
