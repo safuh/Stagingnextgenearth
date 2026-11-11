@@ -45,6 +45,9 @@ jobs:
       - name: Validate production Compose profiles
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/backbone
+          POSTGRES_DB: backbone
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         run: |
           docker compose -f docker/compose.production.yml config --quiet
           docker compose --profile scanning -f docker/compose.production.yml config --quiet
