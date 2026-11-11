@@ -162,6 +162,8 @@ export default function ResearchWorkspacePage() {
   const [flaggedError, setFlaggedError] = useState("");
   const [flaggedQuality, setFlaggedQuality] = useState<"" | "pending" | "verified" | "rejected">("");
   const [flaggedName, setFlaggedName] = useState("");
+  const [flaggedStart, setFlaggedStart] = useState("");
+  const [flaggedEnd, setFlaggedEnd] = useState("");
   const [coverageQuery, setCoverageQuery] = useState({
     variable: "precipitation", latitude: "", longitude: "",
     start_date: "2026-01-01", end_date: "2026-12-31",
@@ -330,11 +332,24 @@ export default function ResearchWorkspacePage() {
   }
 
   async function loadFlaggedObservations(offset = 0) {
-    setFlaggedLoading(true);
     setFlaggedError("");
+    const start = flaggedStart ? new Date(flaggedStart) : null;
+    const end = flaggedEnd ? new Date(flaggedEnd) : null;
+    if (flaggedName.trim() && flaggedName.trim().length < 2) {
+      setFlaggedError("An exact flag must contain at least two characters.");
+      return;
+    }
+    if ((start && !Number.isFinite(start.getTime())) || (end && !Number.isFinite(end.getTime())) ||
+        (start && end && end < start)) {
+      setFlaggedError("Enter valid dates; the end must not precede the start.");
+      return;
+    }
+    setFlaggedLoading(true);
     const params = new URLSearchParams({ limit: "200", offset: String(offset) });
     if (flaggedName.trim()) params.set("flag", flaggedName.trim());
     if (flaggedQuality) params.set("quality_status", flaggedQuality);
+    if (start) params.set("start", start.toISOString());
+    if (end) params.set("end", end.toISOString());
     try {
       const report = await apiGet<FlaggedObservationReport>(
         "/organizations/" + organizationId + "/climate-observations/flagged?" + params.toString(),
@@ -668,8 +683,10 @@ export default function ResearchWorkspacePage() {
                   <div className="section-heading"><div><p className="eyebrow">QUALITY SCREENING</p><h2>Flagged observations</h2></div><span>Scan cap 5,000 · page size 200</span></div>
                   <p className="workspace-muted">Provider screening flags identify records for further review. They are not scientific validation or an automatic rejection decision.</p>
                   <div className="climate-analysis-form">
-                    <label>Exact flag (optional)<input value={flaggedName} onChange={(event) => setFlaggedName(event.target.value)} maxLength={80} placeholder="e.g. outside_expected_range" /></label>
+                    <label>Exact flag (optional)<input value={flaggedName} onChange={(event) => setFlaggedName(event.target.value)} minLength={2} maxLength={80} placeholder="e.g. outside_expected_range" /></label>
                     <label>Quality status<select value={flaggedQuality} onChange={(event) => setFlaggedQuality(event.target.value as typeof flaggedQuality)}><option value="">All statuses</option><option value="pending">Pending</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></label>
+                    <label>Start (optional)<input type="datetime-local" value={flaggedStart} onChange={(event) => setFlaggedStart(event.target.value)} /></label>
+                    <label>End (optional, exclusive)<input type="datetime-local" value={flaggedEnd} onChange={(event) => setFlaggedEnd(event.target.value)} /></label>
                     <button type="button" className="primary-action" disabled={flaggedLoading} onClick={() => void loadFlaggedObservations()}>{flaggedLoading ? "Scanning…" : "Load flagged observations"}</button>
                   </div>
                   {flaggedError && <p className="workspace-error" role="alert">{flaggedError}</p>}
