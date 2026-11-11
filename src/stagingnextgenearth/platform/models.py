@@ -23,7 +23,6 @@ from sqlalchemy.types import UserDefinedType
 from stagingnextgenearth.core.database import Base
 
 
-
 class GeometryPoint(UserDefinedType):
     """PostGIS WGS84 point type with a SQLite BLOB test/development fallback."""
 
@@ -38,6 +37,7 @@ def _compile_geometry_point_sqlite(
     element: GeometryPoint, compiler: object, **kw: object
 ) -> str:
     return "BLOB"
+
 
 def _uuid() -> str:
     return str(uuid4())
