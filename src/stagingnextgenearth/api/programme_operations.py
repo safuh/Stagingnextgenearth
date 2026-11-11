@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
     Membership,
-    Organization,
     Programme,
     ProgrammeActivity,
     ProgrammeVolunteerAllocation,
