@@ -1468,7 +1468,7 @@ class ProgrammeAssignment(Base):
             "status IN ('open', 'in_progress', 'completed', 'cancelled')",
             name="ck_programme_assignment_status",
         ),
-        CheckConstraint("priority IN ('low', 'normal', 'high')", name="ck_programme_assignment_priority"),
+        CheckConstraint("priority IN ('low', 'normal', 'high')", name="ck_programme_assignment_priority"),  # noqa: E501
         Index("ix_programme_assignments_programme_status", "programme_id", "status"),
         Index("ix_programme_assignments_assignee_status", "assigned_to", "status"),
     )
