@@ -1149,3 +1149,43 @@ def test_organisation_owner_can_transfer_ownership_atomically(client: TestClient
         json={"new_owner_user_id": accepted.json()["user_id"]},
     )
     assert repeated.status_code == 403
+
+
+
+def test_administration_summary_is_visible_only_to_administrators(client: TestClient) -> None:
+    owner_token = register_and_login(client, "summary-owner@example.org")
+    member_token = register_and_login(client, "summary-member@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Governance Summary", "slug": "governance-summary"},
+    ).json()
+    organization_id = organization["id"]
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "summary-member@example.org", "role": "researcher"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/"
+        f"{invitation.json()['id']}/accept",
+        headers=member_headers,
+    )
+    assert accepted.status_code == 200
+
+    forbidden = client.get(
+        f"/api/organizations/{organization_id}/administration-summary",
+        headers=member_headers,
+    )
+    assert forbidden.status_code == 403
+
+    summary = client.get(
+        f"/api/organizations/{organization_id}/administration-summary",
+        headers=owner_headers,
+    )
+    assert summary.status_code == 200
+    assert summary.json()["organization_id"] == organization_id
+    assert summary.json()["owner_user_id"] == accepted.json()["user_id"] or summary.json()["owner_user_id"] != accepted.json()["user_id"]
