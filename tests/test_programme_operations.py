@@ -166,3 +166,21 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert history.status_code == 200
         assert len(history.json()) == 1
+
+        participation = client.post(
+            f"{base}/participation",
+            headers=manager,
+            json={
+                "participant_group": "school",
+                "group_name": "Local school environmental club",
+                "participant_count": 32,
+                "period_start": "2026-11-01",
+                "period_end": "2026-11-30",
+                "notes": "Aggregate attendance from the club register",
+            },
+        )
+        assert participation.status_code == 201
+        assert participation.json()["participant_count"] == 32
+        participation_list = client.get(f"{base}/participation", headers=participant)
+        assert participation_list.status_code == 200
+        assert participation_list.json()[0]["participant_group"] == "school"
