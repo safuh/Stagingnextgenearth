@@ -26,6 +26,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     LearningResource,
     Membership,
     Organization,
+    OrganizationAuditEvent,
     Programme,
     ProgrammeDeliverable,
     Project,
