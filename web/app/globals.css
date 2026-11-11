@@ -804,3 +804,17 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .climate-unit-result h3 { margin-bottom: .35rem; }
 .climate-unit-result > p { color: var(--muted, #64736b); font-size: .9rem; }
 @media (max-width: 680px) { .climate-analysis-form { grid-template-columns: 1fr; } }
+
+
+.climate-submission-panel { margin-top: 2rem; }
+.climate-submission-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: end; margin: 1.25rem 0 2rem; }
+.climate-submission-form label, .climate-review-controls label { display: grid; gap: .45rem; color: var(--ink, #18251f); font-size: .9rem; font-weight: 600; }
+.climate-submission-form input, .climate-submission-form select, .climate-review-controls textarea { width: 100%; min-height: 2.8rem; border: 1px solid var(--line, #d8dfda); border-radius: .55rem; padding: .65rem .75rem; background: white; color: inherit; font: inherit; }
+.climate-submission-form button { justify-self: start; }
+.climate-queue-heading { margin-top: 1.75rem; }
+.climate-observation-list { display: grid; gap: .85rem; }
+.climate-observation-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .8fr); gap: 1rem; padding: 1rem; border: 1px solid var(--line, #d8dfda); border-radius: .7rem; }
+.climate-observation-card > div:first-child { display: grid; align-content: start; gap: .4rem; }
+.climate-observation-card span { color: var(--muted, #64736b); font-size: .88rem; }
+.climate-review-controls { display: grid; gap: .65rem; }
+@media (max-width: 680px) { .climate-submission-form { grid-template-columns: 1fr; } .climate-observation-card { grid-template-columns: 1fr; } }
