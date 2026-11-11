@@ -646,3 +646,50 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 @media (max-width: 680px) {
   .role-workspace { grid-template-columns: 1fr; }
 }
+
+
+/* Research registry workspace */
+.research-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+.research-metrics article,
+.research-record {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line, #deded8);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+}
+.research-metrics article { display: grid; gap: .5rem; }
+.research-metrics article span,
+.section-heading > span,
+.research-record-top,
+.research-record dl dt {
+  color: var(--muted, #6b7069);
+  font-size: .82rem;
+}
+.research-metrics article strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; }
+.research-section { margin-top: 2.5rem; }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.section-heading h2 { margin: .25rem 0 0; }
+.research-record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.research-record h3 { margin: .8rem 0 .5rem; }
+.research-record p { color: var(--muted, #6b7069); line-height: 1.55; }
+.research-record-top { display: flex; justify-content: space-between; gap: .75rem; }
+.status-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: .25rem .6rem; background: var(--soft, #f1f2ed); color: var(--ink, #30352f); font-size: .75rem; }
+.research-record dl { display: grid; gap: .75rem; margin-top: 1rem; }
+.research-record dl div { display: grid; gap: .2rem; }
+.research-record dl dd { margin: 0; overflow-wrap: anywhere; font-size: .88rem; }
+.research-table-wrap { overflow-x: auto; border: 1px solid var(--line, #deded8); border-radius: 14px; }
+.research-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .88rem; }
+.research-table th, .research-table td { padding: .9rem 1rem; border-bottom: 1px solid var(--line, #deded8); vertical-align: top; }
+.research-table th { color: var(--muted, #6b7069); font-weight: 600; white-space: nowrap; }
+.research-table td small { display: block; margin-top: .25rem; color: var(--muted, #6b7069); }
+@media (max-width: 720px) {
+  .research-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .research-record-grid { grid-template-columns: 1fr; }
+  .section-heading { align-items: start; flex-direction: column; }
+}
