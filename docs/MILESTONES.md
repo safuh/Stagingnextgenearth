@@ -199,7 +199,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Lesson completion, assessment-derived progress and verifiable certificates.
 - [x] Staff-only, tenant-scoped enrollment queue, assessment catalogue/submission review, mentorship and attendance reporting APIs; assessment configuration remains withheld from learner responses.
 - [x] Staff learning operations UI for course authoring, enrollment decisions, assessment evaluation, mentorship assignment and attendance recording, using an authorised minimal member directory rather than free-form identity entry.
-- [x] Initial institutional-partner reporting portal for programme indicators and aggregate participation; read-only presentation of existing tenant-scoped member reporting endpoints.
+- [x] Institutional-partner portal backed by a dedicated role-enforced reporting API, tenant-scoped indicator summaries and minimum-cohort suppression.
 - [ ] Automated quiz execution, learner notifications, certificate PDF rendering,
       safeguarding/guardian consent and dedicated role-specific portal dashboards.
 - [x] Learner-owned mentorship and attendance history endpoints and workspace panels (identity is derived from the authenticated principal and records are tenant-scoped).
