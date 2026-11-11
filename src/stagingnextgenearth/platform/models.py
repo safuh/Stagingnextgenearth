@@ -1198,3 +1198,123 @@ class ProgrammeDeliverable(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+
+class ProgrammeActivity(Base):
+    """A scheduled operational activity within a programme."""
+
+    __tablename__ = "programme_activities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'completed', 'cancelled')",
+            name="ck_programme_activity_status",
+        ),
+        CheckConstraint(
+            "end_at IS NULL OR end_at >= start_at",
+            name="ck_programme_activity_time_order",
+        ),
+        Index("ix_programme_activities_programme_start", "programme_id", "start_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeVolunteerApplication(Base):
+    """A volunteer's application to participate in an organisation programme."""
+
+    __tablename__ = "programme_volunteer_applications"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "programme_id", "user_id",
+            name="uq_programme_volunteer_application_user",
+        ),
+        CheckConstraint(
+            "participation_type IN ('volunteer', 'ambassador')",
+            name="ck_volunteer_application_type",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'withdrawn')",
+            name="ck_volunteer_application_status",
+        ),
+        Index("ix_volunteer_applications_programme_status", "programme_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    participation_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    interest: Mapped[str] = mapped_column(Text, nullable=False)
+    availability: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeVolunteerAllocation(Base):
+    """Assignment of an active volunteer member to a programme activity."""
+
+    __tablename__ = "programme_volunteer_allocations"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_activity_volunteer"),
+        CheckConstraint(
+            "status IN ('assigned', 'completed', 'withdrawn')",
+            name="ck_volunteer_allocation_status",
+        ),
+        Index("ix_volunteer_allocations_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="assigned")
+    assigned_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
