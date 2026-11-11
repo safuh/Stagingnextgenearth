@@ -125,14 +125,14 @@ These foundation checks must continue passing as product code is added.
 
 ## M6 — Public website and four portals
 
-- [x] Initial responsive Next.js public landing page, four portal entry points and API-backed sign-in shell (portal-specific data views and content management remain).
+- [x] Responsive Next.js public landing page, four portal entry points, API-backed sign-in and authenticated organisation workspace with server-filtered membership discovery, programme listing and published-course listing (dedicated role-specific workflows and content management remain).
 - [ ] Researcher portal.
 - [ ] Youth and volunteer portal.
 - [ ] Administrator portal.
 - [ ] Institutional partner portal.
-- [ ] Shared design system, responsive layouts and accessible navigation.
+- [x] Shared design system, responsive layouts and accessible navigation.
 - [ ] Role-aware navigation driven by server-authorised memberships.
-- [ ] API client, typed contracts, error states and session handling.
+- [x] Typed API client, authenticated requests, explicit in-memory session lifecycle and user-visible loading/error states (production BFF/HttpOnly-cookie session remains a hardening item).
 
 ## M7 — Integrations and organisational intelligence
 
