@@ -5,6 +5,7 @@ Revises: 0028_programme_planning
 """
 
 from collections.abc import Sequence
+
 from alembic import op
 
 revision: str = "0029_postgis_spatial"
