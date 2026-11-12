@@ -12,8 +12,8 @@ export function parseTokenPair(value: unknown): TokenPair | null {
     refresh.length === 0 ||
     access.length > 16_384 ||
     refresh.length > 16_384 ||
-    /\\s/.test(access) ||
-    /\\s/.test(refresh)
+    /\s/.test(access) ||
+    /\s/.test(refresh)
   ) {
     return null;
   }
