@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation, safeApiPath } from "@/lib/session-policy";
+import { isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ const API_BASE = (
 const ACCESS_COOKIE = "nfe_access";
 const REFRESH_COOKIE = "nfe_refresh";
 
-type Tokens = { access_token: string; refresh_token: string };
+type Tokens = TokenPair;
 
 // Share a single rotating refresh operation across concurrent requests in this
 // Node.js process; refresh tokens are single-use and parallel rotations race.
@@ -76,7 +76,8 @@ async function refreshTokens(refreshToken: string): Promise<Tokens | null> {
     cache: "no-store",
   });
   if (!response.ok) return null;
-  return (await response.json()) as Tokens;
+  const payload: unknown = await response.json().catch(() => null);
+  return parseTokenPair(payload);
 }
 
 function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
