@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation } from "@/lib/session-policy";
+import { isSameOriginMutation, parseTokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -40,21 +40,26 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify(credentials),
     cache: "no-store",
   });
-  const payload = await upstream.json().catch(() => ({})) as {
-    subject?: string; access_token?: string; refresh_token?: string; detail?: string;
-  };
-  if (!upstream.ok || !payload.access_token || !payload.refresh_token || !payload.subject) {
+  const payload: unknown = await upstream.json().catch(() => null);
+  const tokenPair = parseTokenPair(payload);
+  const subject = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>).subject
+    : null;
+  const detail = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>).detail
+    : null;
+  if (!upstream.ok || !tokenPair || typeof subject !== "string" || subject.length === 0) {
     return NextResponse.json(
-      { detail: payload.detail ?? "Unable to sign in" },
+      { detail: typeof detail === "string" ? detail : "Unable to sign in" },
       { status: upstream.ok ? 502 : upstream.status },
     );
   }
 
-  const response = NextResponse.json({ subject: payload.subject });
-  response.cookies.set("nfe_access", payload.access_token, cookieOptions(
+  const response = NextResponse.json({ subject });
+  response.cookies.set("nfe_access", tokenPair.access_token, cookieOptions(
     Number(process.env.ACCESS_TOKEN_MINUTES ?? 15) * 60,
   ));
-  response.cookies.set("nfe_refresh", payload.refresh_token, cookieOptions(
+  response.cookies.set("nfe_refresh", tokenPair.refresh_token, cookieOptions(
     Number(process.env.REFRESH_TOKEN_DAYS ?? 14) * 86400,
   ));
   response.headers.set("Cache-Control", "no-store");
