@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: backbone
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backbone"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/backbone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+      - name: Validate production Compose profiles
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/backbone
+          JWT_SECRET_KEY: ci-only-secret-that-is-long-enough-for-testing
+          POSTGRES_DB: backbone
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: |
+          docker compose -f docker/compose.production.yml config --quiet
+          docker compose --profile scanning -f docker/compose.production.yml config --quiet
+          docker compose -f docker/compose.postgis.yml config --quiet
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Mypy
+        run: uv run mypy src
+      - name: Tests
+        run: uv run pytest -q
+
+  geospatial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install locked test dependencies
+        run: uv sync --locked --extra dev
+      - name: Install optional raster dependencies
+        run: uv pip install rasterio
+      - name: Test synthetic GeoTIFF extraction
+        run: uv run pytest -q tests/test_chirps_raster.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Frontend unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Build production web container
+        working-directory: .
+        run: docker build -f web/Dockerfile -t nextgen-for-earth-web:${{ github.sha }} .

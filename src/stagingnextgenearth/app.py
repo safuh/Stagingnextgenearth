@@ -1,6 +1,7 @@
 """Application factory and composition root."""
 
 from collections.abc import Callable
+from datetime import timedelta
 from typing import cast
 
 from fastapi import FastAPI
@@ -23,6 +24,9 @@ from .core.errors import (
 from .core.lifespan import lifespan
 from .core.logging import configure_logging
 from .core.middleware import RequestContextMiddleware
+from .identity import create_sqlalchemy_auth_application
+from .scanning import ClamAVScanner
+from .storage import S3ObjectStorage
 
 AuthApplicationFactory = Callable[[AsyncSession], AuthenticationApplication]
 
@@ -31,11 +35,7 @@ def create_app(
     settings: Settings | None = None,
     auth_application_factory: AuthApplicationFactory | None = None,
 ) -> FastAPI:
-    """Create a configured FastAPI application with optional auth composition.
-
-    Authentication dependencies are supplied by the consuming application so
-    secrets, token lifetimes, and persistence remain explicit composition concerns.
-    """
+    """Create a configured FastAPI application with optional auth composition."""
     resolved = settings or get_settings()
     configure_logging(resolved)
 
@@ -46,6 +46,41 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = resolved
+    app.state.object_storage = None
+    app.state.dataset_file_scanner = None
+    if resolved.object_storage_enabled and resolved.object_storage_bucket:
+        if (
+            resolved.object_storage_access_key_id is None
+            or resolved.object_storage_secret_access_key is None
+        ):
+            raise ValueError(
+                "Enabled object storage requires explicit access and secret credentials"
+            )
+        app.state.object_storage = S3ObjectStorage(
+            bucket=resolved.object_storage_bucket,
+            region=resolved.object_storage_region,
+            endpoint_url=resolved.object_storage_endpoint_url,
+            access_key_id=resolved.object_storage_access_key_id.get_secret_value(),
+            secret_access_key=resolved.object_storage_secret_access_key.get_secret_value(),
+        )
+    if resolved.malware_scanning_enabled and resolved.clamav_host:
+        app.state.dataset_file_scanner = ClamAVScanner(
+            host=resolved.clamav_host,
+            port=resolved.clamav_port,
+            timeout_seconds=resolved.clamav_timeout_seconds,
+        )
+    if auth_application_factory is None and resolved.jwt_secret_key is not None:
+        secret = resolved.jwt_secret_key.get_secret_value()
+
+        def configured_auth_factory(session: AsyncSession) -> AuthenticationApplication:
+            return create_sqlalchemy_auth_application(
+                session,
+                secret_key=secret,
+                access_token_lifetime=timedelta(minutes=resolved.access_token_minutes),
+                refresh_token_lifetime=timedelta(days=resolved.refresh_token_days),
+            )
+
+        auth_application_factory = configured_auth_factory
     app.state.auth_application_factory = auth_application_factory
 
     app.add_middleware(RequestContextMiddleware)
@@ -58,17 +93,12 @@ def create_app(
             allow_headers=resolved.cors_allow_headers,
         )
 
+    app.add_exception_handler(BackboneError, cast(ExceptionHandler, backbone_error_handler))
     app.add_exception_handler(
-        BackboneError,
-        cast(ExceptionHandler, backbone_error_handler),
+        RequestValidationError, cast(ExceptionHandler, validation_error_handler)
     )
     app.add_exception_handler(
-        RequestValidationError,
-        cast(ExceptionHandler, validation_error_handler),
-    )
-    app.add_exception_handler(
-        StarletteHTTPException,
-        cast(ExceptionHandler, http_error_handler),
+        StarletteHTTPException, cast(ExceptionHandler, http_error_handler)
     )
     app.add_exception_handler(Exception, unhandled_error_handler)
 

@@ -14,4 +14,6 @@ The repository contains separate Docker Compose definitions for development and 
 
 The production image is built by `docker/Dockerfile`. The reference production deployment is defined by `docker/compose.production.yml` and orchestrated by `scripts/docker-production.sh` / `make docker-prod`.
 
-Production credentials are supplied externally. The production Compose definition requires `DATABASE_URL` and does not define database credentials or other secrets.
+Production credentials are supplied externally. The production Compose definition requires `DATABASE_URL` and does not bake credentials into the image. When object storage and ClamAV scanning are enabled, activate the `scanning` Compose profile to run the API and a separate `dataset-scanner` service from the same image. The worker is opt-in and is not started by a default production `up`. To include it when using `scripts/docker-production.sh` / `make docker-prod`, set `COMPOSE_PROFILES=scanning` in the deployment environment before invoking the script. Alternatively, use the explicit `docker compose --profile scanning` commands in the runbook. Configure the worker's database, object-storage and ClamAV settings through the deployment environment.
+
+See [the dataset scanner production runbook](../docs/operations/dataset-scanner.md) for configuration, deployment, capacity, monitoring and recovery procedures.

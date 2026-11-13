@@ -32,6 +32,14 @@ async def test_refresh_token_store_create_and_consume() -> None:
         )
         await session.commit()
 
+        persisted_before_consume = await session.scalar(
+            select(RefreshToken).where(RefreshToken.token_id == str(token_id))
+        )
+        assert persisted_before_consume is not None
+        # The schema column is TIMESTAMP WITHOUT TIME ZONE and stores UTC-naive
+        # values to remain compatible with PostgreSQL asyncpg binding rules.
+        assert persisted_before_consume.expires_at.tzinfo is None
+
         consumed = await store.consume(token_id, "user-123")
         await session.commit()
 

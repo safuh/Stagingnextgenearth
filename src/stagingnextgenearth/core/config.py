@@ -3,7 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         case_sensitive=False,
         extra="ignore",
         validate_default=True,
@@ -38,8 +39,21 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1)
     database_max_overflow: int = Field(default=10, ge=0)
     database_pool_pre_ping: bool = True
+    jwt_secret_key: SecretStr | None = Field(default=None, min_length=32)
+    access_token_minutes: int = Field(default=15, ge=1, le=60)
+    refresh_token_days: int = Field(default=14, ge=1, le=90)
     log_level: str = "INFO"
     log_json: bool = False
+    object_storage_enabled: bool = False
+    object_storage_bucket: str | None = None
+    object_storage_region: str = "af-south-1"
+    object_storage_endpoint_url: str | None = None
+    object_storage_access_key_id: SecretStr | None = None
+    object_storage_secret_access_key: SecretStr | None = None
+    malware_scanning_enabled: bool = False
+    clamav_host: str | None = None
+    clamav_port: int = Field(default=3310, ge=1, le=65535)
+    clamav_timeout_seconds: float = Field(default=30, gt=0, le=300)
     cors_origins: list[str] = Field(default_factory=list)
     cors_allow_credentials: bool = False
     cors_allow_methods: list[str] = Field(
@@ -64,6 +78,19 @@ class Settings(BaseSettings):
             if not self.database_url.startswith("postgresql+asyncpg://"):
                 raise ValueError("production requires a PostgreSQL asyncpg DATABASE_URL")
             self.log_json = True
+            if self.jwt_secret_key is None or len(self.jwt_secret_key.get_secret_value()) < 32:
+                raise ValueError("production requires JWT_SECRET_KEY with at least 32 characters")
+        if self.object_storage_enabled and not self.object_storage_bucket:
+            raise ValueError("OBJECT_STORAGE_BUCKET is required when object storage is enabled")
+        if self.object_storage_enabled and (
+            self.object_storage_access_key_id is None
+            or self.object_storage_secret_access_key is None
+        ):
+            raise ValueError("S3-compatible storage requires explicit access credentials")
+        if self.malware_scanning_enabled and not self.object_storage_enabled:
+            raise ValueError("Malware scanning requires object storage to be enabled")
+        if self.malware_scanning_enabled and not self.clamav_host:
+            raise ValueError("CLAMAV_HOST is required when malware scanning is enabled")
         if self.environment is Environment.TEST:
             self.debug = False
         return self
