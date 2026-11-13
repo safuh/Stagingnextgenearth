@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import DateTime, delete, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -20,7 +20,11 @@ class RefreshToken(Base):
 
     token_id: Mapped[str] = mapped_column(primary_key=True)
     subject: Mapped[str] = mapped_column(nullable=False, index=True)
-    expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
+    # Existing schema uses TIMESTAMP WITHOUT TIME ZONE. Values are stored as
+    # naive UTC consistently; convert to aware UTC at the application boundary.
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, index=True
+    )
     revoked: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 
@@ -32,7 +36,7 @@ class SqlAlchemyRefreshTokenStore(RefreshTokenStore):
 
     async def create(self, record: RefreshTokenRecord) -> None:
         """Persist a newly issued refresh-token record."""
-        expires_at = datetime.now(UTC) + record.expires_in
+        expires_at = datetime.now(UTC).replace(tzinfo=None) + record.expires_in
         self.session.add(
             RefreshToken(
                 token_id=str(record.token_id),
@@ -46,7 +50,8 @@ class SqlAlchemyRefreshTokenStore(RefreshTokenStore):
         self, token_id: UUID, subject: str
     ) -> RefreshTokenRecord | None:
         """Atomically consume a valid, unexpired token for its subject."""
-        now = datetime.now(UTC)
+        now_utc = datetime.now(UTC)
+        now_db = now_utc.replace(tzinfo=None)
         result = cast(
             CursorResult[Any],
             await self.session.execute(
@@ -55,7 +60,7 @@ class SqlAlchemyRefreshTokenStore(RefreshTokenStore):
                     RefreshToken.token_id == str(token_id),
                     RefreshToken.subject == subject,
                     RefreshToken.revoked.is_(False),
-                    RefreshToken.expires_at > now,
+                    RefreshToken.expires_at > now_db,
                 )
                 .values(revoked=True)
             ),
@@ -74,7 +79,7 @@ class SqlAlchemyRefreshTokenStore(RefreshTokenStore):
         return RefreshTokenRecord(
             token_id=UUID(record.token_id),
             subject=record.subject,
-            expires_in=max(expires_at - now, timedelta(0)),
+            expires_in=max(expires_at - now_utc, timedelta(0)),
         )
 
     async def revoke(self, token_id: UUID) -> bool:
