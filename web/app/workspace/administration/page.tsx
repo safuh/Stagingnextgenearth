@@ -17,7 +17,7 @@ interface AuditEvent {
 interface AdministrationSummary {
   organization_id: string; organization_name: string; owner_user_id: string; created_at: string;
 }
-type InvitableRole = "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+type InvitableRole = "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "founder" | "executive";
 
 export default function AdministrationPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -149,7 +149,7 @@ export default function AdministrationPage() {
                 <p>Invitations do not create accounts or grant access until the invited user accepts.</p>
                 <form onSubmit={invite}>
                   <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
-                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
+                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
               </section>
