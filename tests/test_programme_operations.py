@@ -124,7 +124,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert application.json()["status"] == "pending"
         manager_queue = client.get(f"{base}/volunteer-applications", headers=manager)
         assert manager_queue.status_code == 200
-        assert manager_queue.json()[0]["applicant_identifier"] == "ops-participant@example.org"
+        assert next(row for row in manager_queue.json() if row["id"] == application_id)["applicant_identifier"] == "ops-participant@example.org"
         personal_applications = client.get(
             f"/api/organizations/{org_id}/my-volunteer-applications",
             headers=participant,

@@ -15,7 +15,7 @@ interface MyMembership {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
   status: string;
 }
 interface Programme {
@@ -289,10 +289,10 @@ export default function WorkspacePage() {
                   <p>Workspace sections are shown according to your active organisation role. The API independently enforces every permission.</p>
                 </div>
                 <div className="role-workspace-links">
-                  {(membership.role === "admin" || membership.role === "programme_manager") && (
+                  {(["admin", "founder", "executive", "programme_manager"].includes(membership.role)) && (
                     <Link href="/workspace/learning-admin">Learning operations →</Link>
                   )}
-                  {["admin", "programme_manager", "researcher", "institutional_partner"].includes(membership.role) && (
+                  {["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"].includes(membership.role) && (
                     <Link href="/workspace/research">Research workspace →</Link>
                   )}
                   {membership.role === "youth_volunteer" && (
@@ -301,7 +301,7 @@ export default function WorkspacePage() {
                   {membership.role === "institutional_partner" && (
                     <Link href="/workspace/partner">Institutional partner portal →</Link>
                   )}
-                  {membership.role === "admin" && (
+                  {["admin", "founder", "executive"].includes(membership.role) && (
                     <Link href="/workspace/administration">Organisation administration →</Link>
                   )}
                 </div>
