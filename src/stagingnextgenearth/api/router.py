@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Top-level API router."""
 
 from fastapi import APIRouter
@@ -66,3 +68,5 @@ api_router.include_router(research_exports_router)
 api_router.include_router(climate_router)
 api_router.include_router(climate_reporting_router)
 api_router.include_router(climate_analysis_router)
+
+# fmt: on

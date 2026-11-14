@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Partner registry and public CMS moderation tests."""
 import asyncio
 from pathlib import Path
@@ -91,3 +93,5 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         public_content = client.get("/api/public/organizations/nextgen-for-earth/content")
         assert public_content.status_code == 200
         assert [row["title"] for row in public_content.json()] == ["Research Capacity Building"]
+
+# fmt: on
