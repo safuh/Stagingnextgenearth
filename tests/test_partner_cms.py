@@ -63,7 +63,11 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         verified = client.patch(
             f"/api/organizations/{org_id}/partners/{partner_id}",
             headers=headers,
-            json={"verification_state": "verified", "relationship_status": "active", "visibility": "public"},
+            json={
+                "verification_state": "verified",
+                "relationship_status": "active",
+                "visibility": "public",
+            },
         )
         assert verified.status_code == 200
         public_partners = client.get("/api/public/organizations/nextgen-for-earth/partners")

@@ -168,7 +168,10 @@ async def _study(session: AsyncSession, organization_id: str, study_id: str) -> 
 async def _study_role(
     session: AsyncSession, study: ResearchStudy, principal: Principal, membership: Membership
 ) -> str:
-    if membership.role in {"admin", "founder", "executive"} or study.lead_researcher_id == principal.user_id:
+    if (
+        membership.role in {"admin", "founder", "executive"}
+        or study.lead_researcher_id == principal.user_id
+    ):
         return "editor"
     if membership.role in _REVIEW_ROLES:
         return "reviewer"

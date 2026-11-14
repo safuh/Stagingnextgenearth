@@ -147,18 +147,26 @@ class PublicProgrammeRead(BaseModel):
     end_date: date | None
 
 
-@public_router.get("/public/organizations/{organization_slug}/programmes", response_model=list[PublicProgrammeRead])
+@public_router.get(
+    "/public/organizations/{organization_slug}/programmes",
+    response_model=list[PublicProgrammeRead],
+)
 async def list_public_programmes(
     organization_slug: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PublicProgrammeRead]:
     """Expose planned and active programmes without requiring membership."""
-    organization = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
     if organization is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
     rows = await session.scalars(
         select(Programme)
-        .where(Programme.organization_id == organization.id, Programme.status.in_({"planned", "active"}))
+        .where(
+            Programme.organization_id == organization.id,
+            Programme.status.in_({"planned", "active"}),
+        )
         .order_by(Programme.title)
         .limit(250)
     )
