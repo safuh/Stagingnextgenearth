@@ -70,8 +70,10 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert programme.status_code == 201
         base = f"{programmes}/{programme.json()['id']}"
-        assert client.post(f"{base}/status", headers=manager, json={"status": "planned"}).status_code == 200
-        assert client.post(f"{base}/status", headers=manager, json={"status": "active"}).status_code == 200
+        planned = client.post(f"{base}/status", headers=manager, json={"status": "planned"})
+        assert planned.status_code == 200
+        activated = client.post(f"{base}/status", headers=manager, json={"status": "active"})
+        assert activated.status_code == 200
         public_programmes = client.get("/api/public/organizations/operations-test/programmes")
         assert public_programmes.status_code == 200
         assert [row["id"] for row in public_programmes.json()] == [programme.json()["id"]]
@@ -124,7 +126,8 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert application.json()["status"] == "pending"
         manager_queue = client.get(f"{base}/volunteer-applications", headers=manager)
         assert manager_queue.status_code == 200
-        assert next(row for row in manager_queue.json() if row["id"] == application_id)["applicant_identifier"] == "ops-participant@example.org"
+        applicant = next(row for row in manager_queue.json() if row["id"] == application_id)
+        assert applicant["applicant_identifier"] == "ops-participant@example.org"
         personal_applications = client.get(
             f"/api/organizations/{org_id}/my-volunteer-applications",
             headers=participant,
