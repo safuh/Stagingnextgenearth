@@ -111,6 +111,7 @@ export default function HomePage() {
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
           <a href="#portals">Portals</a>
+          <a href="/volunteer/apply">Volunteer</a>
           <a href="#access">Sign in</a>
         </nav>
         <a className="nav-cta" href="#access">Access platform <span aria-hidden="true">↗</span></a>

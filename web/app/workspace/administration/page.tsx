@@ -130,7 +130,7 @@ export default function AdministrationPage() {
         <p className="eyebrow">ORGANISATION GOVERNANCE</p>
         <h1 className="workspace-title">Administration <em>workspace.</em></h1>
         <p className="workspace-muted">Manage membership access, roles, ownership and the organisation audit trail.</p>
-        <p><Link className="secondary-action" href="/workspace/administration/people">Manage people directory →</Link> · <Link className="secondary-action" href="/workspace/administration/partners">Manage partners & website content →</Link></p>
+        <p><Link className="secondary-action" href="/workspace/administration/people">Manage people directory →</Link> · <Link className="secondary-action" href="/workspace/administration/partners">Manage partners & website content →</Link> · <Link className="secondary-action" href="/workspace/administration/applications">Review volunteer applications →</Link></p>
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
