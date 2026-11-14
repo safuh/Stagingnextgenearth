@@ -21,7 +21,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/programmes/{programme_id}/deliverables",
     tags=["programme-deliverables"],
 )
-_MANAGERS = {"admin", "programme_manager"}
+_MANAGERS = {"admin", "founder", "executive", "programme_manager"}
 
 
 class DeliverableCreate(BaseModel):
