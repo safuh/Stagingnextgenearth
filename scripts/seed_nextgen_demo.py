@@ -57,17 +57,17 @@ PARTNERS = [
 ("Ministry of Environment & Climate Change — Kilifi","government"),
 ]
 CONTENT = [
-("programme","research-capacity-building","Research Capacity Building","Research capability and locally relevant research."),
-("programme","healthcare-worker-training","Healthcare Worker Training","Capacity strengthening for healthcare workers."),
-("programme","youth-climate-stewardship","Youth Climate Stewardship","Youth-led climate stewardship and environmental action."),
-("programme","indigenous-knowledge-transfer","Indigenous Knowledge Transfer","Intergenerational knowledge exchange and community learning."),
+("programme","research-capacity-building","Research Capacity Building","Weekly training for early-career researchers in methods, systematic reviews, grant writing, data synthesis and research ethics."),
+("programme","healthcare-worker-training","Healthcare Worker Training","Monthly training equipping frontline health workers to understand and respond to climate-driven health challenges."),
+("programme","youth-climate-stewardship","Youth Climate Stewardship","School students mentored by trained youth peers on climate literacy, tree planting and environmental action."),
+("programme","indigenous-knowledge-transfer","Indigenous Knowledge Transfer","Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience."),
 ("training_track","early-career-researchers","Early Career Researchers","Weekly workshops covering research methods, study design, systematic reviews, data management, evidence synthesis, grant writing and research ethics."),
 ("training_track","healthcare-workers","Healthcare Workers","Monthly workshops on climate and health, heat impacts, extreme weather, service delivery, resilience and climate stress."),
 ("training_track","youth-climate-stewards","Youth Climate Stewards","Weekly workshops on climate science, environmental stewardship, restoration, peer mentorship and community engagement."),
-("initiative","youth-research-fellowship","Youth Research Fellowship","Support young researchers and emerging leaders."),
-("initiative","school-climate-stewardship","School Climate Stewardship","Support school-based climate stewardship."),
-("initiative","healthcare-training-initiative","Healthcare Worker Training","Support training for healthcare workers."),
-("initiative","global-youth-science-network","Global Youth Science Network","Connect young people through science."),
+("initiative","youth-research-fellowship","Youth Research Fellowship","US$7,000 fellowship supporting an early-career researcher through a year of mentorship, training and a first peer-reviewed publication."),
+("initiative","school-climate-stewardship","School Climate Stewardship","US$1,000–5,000 initiative supporting weekly climate workshops and tree-planting drives; website states 500 children per school and 1,000 trees per term."),
+("initiative","healthcare-training-initiative","Healthcare Worker Training","US$4,000–10,000 initiative to train healthcare-worker cohorts; the website describes 20 workers trained and service to 5,000+ patients."),
+("initiative","global-youth-science-network","Global Youth Science Network","US$5,000–10,000 initiative connecting 15 youth ambassadors across four countries through networking and international collaboration."),
 ("research_area","climate-health","Climate and Health","Research at the intersection of climate and health."),
 ("research_area","maternal-health","Maternal Health","Research focused on maternal health."),
 ("research_area","youth-health","Youth Health","Research focused on youth health."),
@@ -130,19 +130,28 @@ async def seed(slug: str) -> None:
                 ))
 
         legacy_tracks = {
-            "research-methods": ("early-career-researchers", "Early Career Researchers"),
-            "healthcare-training": ("healthcare-workers", "Healthcare Workers"),
-            "climate-stewardship-training": ("youth-climate-stewards", "Youth Climate Stewards"),
+            "research-methods": ("early-career-researchers", "Early Career Researchers", "Weekly research methods, systematic review, data synthesis, grant writing and ethics workshops."),
+            "healthcare-training": ("healthcare-workers", "Healthcare Workers", "Monthly climate-health training for frontline healthcare workers."),
+            "climate-stewardship-training": ("youth-climate-stewards", "Youth Climate Stewards", "Weekly climate science, stewardship, restoration and peer-mentorship workshops."),
         }
-        for old_slug, (new_slug, new_title) in legacy_tracks.items():
+        for old_slug, (new_slug, new_title, new_summary) in legacy_tracks.items():
             legacy = await session.scalar(select(PublicContentEntry).where(
                 PublicContentEntry.organization_id == org.id,
                 PublicContentEntry.content_type == "training_track",
                 PublicContentEntry.slug == old_slug,
             ))
             if legacy is not None:
-                legacy.slug = new_slug
-                legacy.title = new_title
+                new_exists = await session.scalar(select(PublicContentEntry.id).where(
+                    PublicContentEntry.organization_id == org.id,
+                    PublicContentEntry.content_type == "training_track",
+                    PublicContentEntry.slug == new_slug,
+                ))
+                if new_exists is None:
+                    legacy.slug = new_slug
+                    legacy.title = new_title
+                    legacy.summary = new_summary
+                else:
+                    legacy.publication_state = "archived"
                 legacy.updated_by = actor
 
         for kind, item_slug, title, summary in CONTENT:
