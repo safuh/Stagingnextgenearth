@@ -41,7 +41,27 @@ export default function HomePage() {
   const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);\n  const [catalogue, setCatalogue] = useState<PublicContent[]>([]);\n  const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);\n  const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [catalogue, setCatalogue] = useState<PublicContent[]>([]);
+  const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
+  const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      apiGet<PublicContent[]>("/public/organizations/nextgen-for-earth/content"),
+      apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people"),
+      apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners"),
+    ]).then(([items, people, partners]) => {
+      if (!active) return;
+      setCatalogue(items);
+      setPublicPeople(people);
+      setPublicPartners(partners);
+    }).catch(() => {
+      if (active) { setCatalogue([]); setPublicPeople([]); setPublicPartners([]); }
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
