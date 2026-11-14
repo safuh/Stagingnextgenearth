@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """NextGen for Earth platform domain and persistence models."""
 
 from .models import (
@@ -97,3 +99,5 @@ __all__ = [
     "ResearchStudyCollaborator",
     "ResearchStudyProposal",
 ]
+
+# fmt: on

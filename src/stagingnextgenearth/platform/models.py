@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Core organisational, programme, research, and climate data models."""
 
 from datetime import date, datetime
@@ -1712,3 +1714,5 @@ class PublicContentEntry(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+# fmt: on
