@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.identity.models import User
+
 from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
@@ -100,6 +102,8 @@ class VolunteerApplicationRead(BaseModel):
     reviewed_by: str | None
     reviewed_at: datetime | None
     review_note: str | None
+    safeguarding_confirmed: bool = False
+    applicant_identifier: str | None = None
 
 
 class ApplicationDecision(BaseModel):
@@ -107,6 +111,7 @@ class ApplicationDecision(BaseModel):
 
     decision: str = Field(pattern=r"^(approved|rejected)$")
     note: str | None = Field(default=None, max_length=4000)
+    safeguarding_confirmed: bool = False
 
 
 class VolunteerAllocationCreate(BaseModel):
@@ -319,8 +324,9 @@ async def list_volunteer_applications(
     if membership.role not in _MANAGERS:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
-    rows = await session.scalars(
-        select(ProgrammeVolunteerApplication)
+    rows = await session.execute(
+        select(ProgrammeVolunteerApplication, User.identifier)
+        .join(User, User.id == ProgrammeVolunteerApplication.user_id)
         .where(
             ProgrammeVolunteerApplication.organization_id == organization_id,
             ProgrammeVolunteerApplication.programme_id == programme_id,
@@ -328,7 +334,12 @@ async def list_volunteer_applications(
         .order_by(ProgrammeVolunteerApplication.created_at.desc())
         .limit(500)
     )
-    return [VolunteerApplicationRead.model_validate(row) for row in rows.all()]
+    return [
+        VolunteerApplicationRead.model_validate(application).model_copy(
+            update={"applicant_identifier": identifier}
+        )
+        for application, identifier in rows.all()
+    ]
 
 
 @router.post(
@@ -360,6 +371,11 @@ async def decide_volunteer_application(
     if item.status != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Application has already been decided")
     if body.decision == "approved":
+        if not body.safeguarding_confirmed:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Confirm safeguarding and any required guardian consent before approval",
+            )
         existing = await session.scalar(
             select(Membership).where(
                 Membership.organization_id == organization_id,
@@ -386,6 +402,7 @@ async def decide_volunteer_application(
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
     item.review_note = body.note
+    item.safeguarding_confirmed = body.safeguarding_confirmed
     await session.commit()
     await session.refresh(item)
     return VolunteerApplicationRead.model_validate(item)

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -387,6 +388,7 @@ class ClimateObservation(Base):
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    safeguarding_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(
