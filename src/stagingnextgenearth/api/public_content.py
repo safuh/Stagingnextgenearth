@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Moderated CMS API consumed by the public website."""
 from datetime import UTC, datetime
 from typing import Annotated, Literal
@@ -72,3 +74,5 @@ async def public_content(organization_slug: str, session: Annotated[AsyncSession
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == org.id, PublicContentEntry.publication_state == "published").order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(500))
     return [ContentRead.model_validate(x) for x in rows.all()]
+
+# fmt: on

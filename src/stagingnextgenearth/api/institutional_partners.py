@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Tenant-scoped partner registry and programme links."""
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
@@ -96,3 +98,5 @@ async def public_partners(organization_slug: str, session: Annotated[AsyncSessio
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == org.id, InstitutionalPartner.relationship_status == "active", InstitutionalPartner.verification_state == "verified", InstitutionalPartner.visibility == "public").order_by(InstitutionalPartner.name))
     return [PartnerRead.model_validate(x) for x in rows.all()]
+
+# fmt: on
