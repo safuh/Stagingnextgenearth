@@ -2,7 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { clearSession, login, logout, restoreSession } from "@/lib/api";
+import { apiGet, clearSession, login, logout, restoreSession } from "@/lib/api";
+
+type PublicContent = { id: string; content_type: string; title: string; summary: string | null; slug: string };
+type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
+type PublicPartner = { id: string; name: string; partner_type: string; website_url: string | null };
 
 const portals = [
   {
@@ -37,7 +41,7 @@ export default function HomePage() {
   const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);\n  const [catalogue, setCatalogue] = useState<PublicContent[]>([]);\n  const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);\n  const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -133,6 +137,24 @@ export default function HomePage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="portals section-wrap" id="programmes">
+        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area"].includes(item.content_type)).map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary}</p></article>
+          ))}
+        </div>
+        {catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="people">
+        <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
+        <div className="portal-grid">
+          {publicPeople.map((person) => <article className="portal-card" key={person.id}><p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p></article>)}
+          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Institutional partner</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}</p>{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
+        </div>
+        {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Verified public profiles and partner relationships will appear here after approval.</p>}
       </section>
 
       <section className="access-section" id="access">
