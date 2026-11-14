@@ -67,6 +67,12 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
     assert created.status_code == 201
     person = created.json()
     assert len(person["positions"]) == 2
+    creation_audit = client.get(
+        f"/api/organizations/{organisation_id}/people/{person['id']}/audit-events",
+        headers=owner_headers,
+    )
+    assert creation_audit.status_code == 200
+    assert creation_audit.json()[0]["action"] == "person.created"
     assert person["review_state"] == "pending"
     assert person["visibility"] == "private"
 
@@ -97,6 +103,12 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
         json={"review_state": "verified", "visibility": "public"},
     )
     assert published.status_code == 200
+    audit = client.get(
+        f"/api/organizations/{organisation_id}/people/{person['id']}/audit-events",
+        headers=owner_headers,
+    )
+    assert audit.status_code == 200
+    assert any(event["action"] == "person.review_changed" for event in audit.json())
     public = client.get("/api/public/organizations/nextgen-for-earth/people")
     assert public.status_code == 200
     assert len(public.json()) == 1

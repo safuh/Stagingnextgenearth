@@ -7,7 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Organization, OrganizationPerson
+from stagingnextgenearth.platform.models import (
+    Membership,
+    Organization,
+    OrganizationPerson,
+    OrganizationPersonAuditEvent,
+)
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -165,6 +170,17 @@ async def create_person(
     )
     session.add(person)
     await session.flush()
+    session.add(
+        OrganizationPersonAuditEvent(
+            organization_id=organization_id,
+            person_id=person.id,
+            actor_user_id=principal.user_id,
+            action="person.created",
+            changed_fields=["full_name", "positions", "person_types", "source_url"],
+            state={"review_state": person.review_state, "visibility": person.visibility,
+                   "status": person.status},
+        )
+    )
     await session.commit()
     await session.refresh(person)
     return PersonRead.model_validate(person)
@@ -190,6 +206,12 @@ async def update_person(
     if person is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Directory profile not found")
     changes = body.model_dump(exclude_unset=True)
+    before_state = {
+        "review_state": person.review_state,
+        "visibility": person.visibility,
+        "status": person.status,
+    }
+    before_values = {field: getattr(person, field) for field in changes}
     if "person_types" in changes and changes["person_types"] is not None:
         changes["person_types"] = _validate_person_types(changes["person_types"])
     if "positions" in changes and changes["positions"] is not None:
@@ -208,6 +230,34 @@ async def update_person(
         if value is not None or field in nullable_fields:
             setattr(person, field, value)
     person.updated_by = principal.user_id
+    after_state = {
+        "review_state": person.review_state,
+        "visibility": person.visibility,
+        "status": person.status,
+    }
+    changed_fields = sorted(
+        field for field, previous in before_values.items()
+        if previous != getattr(person, field)
+    )
+    if changed_fields:
+        if "review_state" in changed_fields:
+            action = "person.review_changed"
+        elif "visibility" in changed_fields:
+            action = "person.publication_changed"
+        elif "status" in changed_fields:
+            action = "person.archived" if person.status == "inactive" else "person.reactivated"
+        else:
+            action = "person.updated"
+        session.add(
+            OrganizationPersonAuditEvent(
+                organization_id=organization_id,
+                person_id=person.id,
+                actor_user_id=principal.user_id,
+                action=action,
+                changed_fields=changed_fields,
+                state={"before": before_state, "after": after_state},
+            )
+        )
     await session.commit()
     await session.refresh(person)
     return PersonRead.model_validate(person)
@@ -238,3 +288,58 @@ async def list_public_people(
         .order_by(OrganizationPerson.full_name)
     )
     return [PublicPersonRead.model_validate(row) for row in rows.all()]
+
+
+class PersonAuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    person_id: str
+    actor_user_id: str
+    action: str
+    changed_fields: list[str]
+    state: dict[str, object]
+    created_at: str
+
+
+@router.get(
+    "/organizations/{organization_id}/people/{person_id}/audit-events",
+    response_model=list[PersonAuditRead],
+)
+async def list_person_audit_events(
+    organization_id: str,
+    person_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PersonAuditRead]:
+    """Return a bounded audit trail to organisation administrators only."""
+    _require_admin(membership)
+    person = await session.scalar(
+        select(OrganizationPerson.id).where(
+            OrganizationPerson.id == person_id,
+            OrganizationPerson.organization_id == organization_id,
+        )
+    )
+    if person is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Directory profile not found")
+    rows = await session.scalars(
+        select(OrganizationPersonAuditEvent)
+        .where(
+            OrganizationPersonAuditEvent.organization_id == organization_id,
+            OrganizationPersonAuditEvent.person_id == person_id,
+        )
+        .order_by(OrganizationPersonAuditEvent.created_at.desc())
+        .limit(100)
+    )
+    return [
+        PersonAuditRead(
+            id=row.id,
+            person_id=row.person_id,
+            actor_user_id=row.actor_user_id,
+            action=row.action,
+            changed_fields=row.changed_fields,
+            state=row.state,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows.all()
+    ]

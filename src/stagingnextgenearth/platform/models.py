@@ -1603,3 +1603,39 @@ class OrganizationPerson(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class OrganizationPersonAuditEvent(Base):
+    """Append-only audit event for organisation directory profile changes."""
+
+    __tablename__ = "organization_person_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('person.created', 'person.updated', 'person.review_changed', "
+            "'person.publication_changed', 'person.archived', 'person.reactivated')",
+            name="ck_org_person_audit_action",
+        ),
+        Index(
+            "ix_org_person_audit_org_person_time",
+            "organization_id",
+            "person_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    person_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization_people.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
