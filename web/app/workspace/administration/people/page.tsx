@@ -116,6 +116,19 @@ export default function PeopleDirectoryPage() {
     }
   }
 
+  async function editPerson(event: FormEvent<HTMLFormElement>, person: Person) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const positions = String(data.get("positions") ?? "")
+      .split("\\n").map((item) => item.trim()).filter(Boolean);
+    await updatePerson(person, {
+      full_name: String(data.get("full_name") ?? "").trim(),
+      biography: String(data.get("biography") ?? "").trim() || null,
+      positions,
+      region: String(data.get("region") ?? "").trim() || null,
+    });
+  }
+
   async function updatePerson(person: Person, patch: Partial<Person>) {
     setBusy(true);
     setError("");
@@ -179,6 +192,16 @@ export default function PeopleDirectoryPage() {
                       <span>{person.positions.join(" · ") || "No position assigned"} · {person.person_types.join(", ") || "Unclassified"}</span>
                       <span>Review: {person.review_state} · Visibility: {person.visibility} · Status: {person.status}</span>
                       {person.source_url && <a href={person.source_url} target="_blank" rel="noreferrer">{person.source_label || "Source record"}</a>}
+                      <details>
+                        <summary>Edit profile</summary>
+                        <form onSubmit={(event) => void editPerson(event, person)}>
+                          <label>Name<input name="full_name" defaultValue={person.full_name} minLength={2} maxLength={200} required /></label>
+                          <label>Positions (one per line)<textarea name="positions" defaultValue={person.positions.join("\\n")} rows={3} /></label>
+                          <label>Biography<textarea name="biography" defaultValue={person.biography ?? ""} rows={3} maxLength={5000} /></label>
+                          <label>County / region<input name="region" defaultValue={person.region ?? ""} maxLength={120} /></label>
+                          <button className="secondary-action" disabled={busy}>Save profile</button>
+                        </form>
+                      </details>
                     </div>
                     <div className="admin-member-actions">
                       <label>Review<select value={person.review_state} disabled={busy} onChange={(event) => void updatePerson(person, { review_state: event.target.value as Person["review_state"] })}><option value="pending">Pending</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></label>
