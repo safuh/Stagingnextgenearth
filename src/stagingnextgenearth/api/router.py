@@ -9,8 +9,8 @@ from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
 from .learning import router as learning_router
 from .memberships import router as memberships_router
-from .organizations import router as organizations_router
 from .organization_people import router as organization_people_router
+from .organizations import router as organizations_router
 from .partner_reporting import router as partner_reporting_router
 from .programme_deliverables import router as programme_deliverables_router
 from .programme_indicators import router as programme_indicators_router
