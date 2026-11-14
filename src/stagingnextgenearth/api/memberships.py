@@ -25,6 +25,7 @@ InvitableRole = Literal[
     "programme_manager",
     "founder",
     "executive",
+    "employee",
     "researcher",
     "youth_volunteer",
     "institutional_partner",
@@ -60,6 +61,10 @@ async def invite_member(
     """Invite an existing user; administrator privileges cannot be delegated here."""
     if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    if body.role in {"founder", "executive"}:
+        owner_id = await session.scalar(select(Organization.owner_user_id).where(Organization.id == organization_id))
+        if owner_id != membership.user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the organisation owner can invite founders or executives")
     user = await session.scalar(select(User).where(User.identifier == body.identifier))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
@@ -174,6 +179,7 @@ class MembershipRoleUpdate(BaseModel):
         "programme_manager",
         "founder",
         "executive",
+        "employee",
         "researcher",
         "youth_volunteer",
         "institutional_partner",
@@ -208,7 +214,7 @@ async def _current_admin(
         .where(Membership.id == membership_id)
         .with_for_update()
     )
-    if actor is None or actor.status != "active" or actor.role != "admin":
+    if actor is None or actor.status != "active" or actor.role not in {"admin", "founder", "executive"}:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Active administrator role required",
@@ -256,7 +262,7 @@ async def update_member_role(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before changing the owner's role",
         )
-    if body.role == "admin" and membership.user_id != owner_id:
+    if body.role in {"admin", "founder", "executive"} and membership.user_id != owner_id:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can grant administrator access",
