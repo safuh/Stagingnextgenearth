@@ -61,9 +61,9 @@ CONTENT = [
 ("programme","healthcare-worker-training","Healthcare Worker Training","Capacity strengthening for healthcare workers."),
 ("programme","youth-climate-stewardship","Youth Climate Stewardship","Youth-led climate stewardship and environmental action."),
 ("programme","indigenous-knowledge-transfer","Indigenous Knowledge Transfer","Intergenerational knowledge exchange and community learning."),
-("training_track","research-methods","Research Methods Training","Research skills and methods training."),
-("training_track","healthcare-training","Healthcare Worker Training Track","Professional development for healthcare workers."),
-("training_track","climate-stewardship-training","Climate Stewardship Training","Climate and environmental stewardship learning."),
+("training_track","early-career-researchers","Early Career Researchers","Weekly workshops covering research methods, study design, systematic reviews, data management, evidence synthesis, grant writing and research ethics."),
+("training_track","healthcare-workers","Healthcare Workers","Monthly workshops on climate and health, heat impacts, extreme weather, service delivery, resilience and climate stress."),
+("training_track","youth-climate-stewards","Youth Climate Stewards","Weekly workshops on climate science, environmental stewardship, restoration, peer mentorship and community engagement."),
 ("initiative","youth-research-fellowship","Youth Research Fellowship","Support young researchers and emerging leaders."),
 ("initiative","school-climate-stewardship","School Climate Stewardship","Support school-based climate stewardship."),
 ("initiative","healthcare-training-initiative","Healthcare Worker Training","Support training for healthcare workers."),
@@ -76,9 +76,27 @@ CONTENT = [
 ("research_area","ageing","Ageing","Research on ageing and related health outcomes."),
 ("impact_metric","youth-trained","100+ youth trained","Website-reported claim; verify before publication."),
 ("impact_metric","children-reached","4,000+ children reached","Website-reported claim; verify before publication."),
-("impact_metric","publications","12 publications","Website-reported total; 10 individually identifiable entries were extracted."),
+("impact_metric","publications","12 publications","Website-reported total; all 12 entries currently listed on the website are loaded below."),
+("impact_metric","youth-mentored","35+ youth mentored","Website-reported claim for systematic data synthesis; verify before publication."),
 ("impact_metric","trees-planted","40,000+ trees planted","Website-reported claim; verify before publication."),
 ]
+
+
+PUBLICATIONS = [
+("aware-but-unprepared-healthcare-workers-africa","Aware but unprepared: climate change impacts on healthcare workers in Africa — a scoping review","Lusambili A et al. · Frontiers in Public Health · 13, 1693703","https://doi.org/10.3389/fpubh.2025.1693703"),
+("youth-inclusive-climate-health-research","Towards youth-inclusive strategies for climate change and health research in sub-Saharan Africa","Lusambili AM et al. · Journal of Climate Change and Health · 22, 100418","https://doi.org/10.1016/j.joclim.2025.100418"),
+("seniors-climate-seasonality-busia-kilifi","Climate seasonality and health of older adults in rural Busia and Kilifi, Kenya: SENIORS study","Shumba CS et al. · BMJ Open · 15(10), e103956","https://doi.org/10.1136/bmjopen-2025-103956"),
+("ten-new-insights-climate-science-2024","Ten new insights in climate science 2024","Schaeffer R et al. · One Earth · 8(6)","https://doi.org/10.1016/j.oneear.2025.101285"),
+("extreme-heat-pregnant-women-infants-kilifi","Reducing extreme heat impacts on pregnant women and infants: community intervention in Kilifi, Kenya","Lusambili A et al. · Health Policy and Planning · 40(9), 943–954","https://doi.org/10.1093/heapol/czaf028"),
+("heat-weather-warnings-pregnant-postpartum-kilifi","Community perspectives of heat and weather warnings for pregnant and postpartum women in Kilifi, Kenya","Lusambili A et al. · PLOS ONE · 19(11), e0313781","https://doi.org/10.1371/journal.pone.0313781"),
+("art-adherence-barriers-nairobi","Socio-ecological barriers to ART adherence: qualitative insights from Nairobi’s informal settlements","Muhenje O et al. · Frontiers in Public Health · 13, 1650966","https://doi.org/10.3389/fpubh.2025.1650966"),
+("art-adherence-young-adults-kibera","Resilient in adversity: ART adherence interventions among young adults in Kibera, Nairobi","Muhenje O et al. · PLOS ONE · 21(3), e0322823","https://doi.org/10.1371/journal.pone.0322823"),
+("too-hot-to-thrive-postpartum-kilifi","Too hot to thrive: community perspectives on high ambient temperature for postpartum women in Kilifi","Lusambili A et al. · BMC Pediatrics · 24(1), 36","https://doi.org/10.1186/s12887-023-04517-w"),
+("mothers-get-really-exhausted-pregnancy-heat","‘Mothers get really exhausted!’ Lived experience of pregnancy in extreme heat: Kilifi, Kenya","Scorgie F et al. · Social Science & Medicine · 335, 116223","https://doi.org/10.1016/j.socscimed.2023.116223"),
+("community-codesign-heat-exposure-kilifi","Community co-design workshop on reducing heat exposure impacts on pregnant and postpartum women and newborns in Kilifi, Kenya","Lusambili A et al. · Frontiers in Public Health · 11, 1146048","https://doi.org/10.3389/fpubh.2023.1146048"),
+("dehydration-pregnant-women-newborns-rural-kenya","Awareness and interventions to reduce dehydration in pregnant women and newborns in rural Kenya","Lusambili A, Nakstad B · African Journal of Primary Health Care & Family Medicine · 15(1), e1–e3","https://doi.org/10.4102/phcfm.v15i1.3991"),
+]
+
 
 async def seed(slug: str) -> None:
     engine = create_async_engine(get_settings().database_url)
@@ -110,6 +128,23 @@ async def seed(slug: str) -> None:
                     relationship_status="prospect", verification_state="pending", visibility="private",
                     created_by=actor, updated_by=actor,
                 ))
+
+        legacy_tracks = {
+            "research-methods": ("early-career-researchers", "Early Career Researchers"),
+            "healthcare-training": ("healthcare-workers", "Healthcare Workers"),
+            "climate-stewardship-training": ("youth-climate-stewards", "Youth Climate Stewards"),
+        }
+        for old_slug, (new_slug, new_title) in legacy_tracks.items():
+            legacy = await session.scalar(select(PublicContentEntry).where(
+                PublicContentEntry.organization_id == org.id,
+                PublicContentEntry.content_type == "training_track",
+                PublicContentEntry.slug == old_slug,
+            ))
+            if legacy is not None:
+                legacy.slug = new_slug
+                legacy.title = new_title
+                legacy.updated_by = actor
+
         for kind, item_slug, title, summary in CONTENT:
             exists = await session.scalar(select(PublicContentEntry.id).where(
                 PublicContentEntry.organization_id == org.id,
@@ -122,6 +157,23 @@ async def seed(slug: str) -> None:
                     publication_state="draft", source_url=SOURCE,
                     source_label="NextGen For Earth public website", created_by=actor, updated_by=actor,
                 ))
+
+        for item_slug, title, summary, doi in PUBLICATIONS:
+            exists = await session.scalar(select(PublicContentEntry.id).where(
+                PublicContentEntry.organization_id == org.id,
+                PublicContentEntry.content_type == "publication",
+                PublicContentEntry.slug == item_slug,
+            ))
+            if exists is None:
+                session.add(PublicContentEntry(
+                    organization_id=org.id, content_type="publication", slug=item_slug,
+                    title=title, summary=summary,
+                    metadata_json={"source_status": "listed on the public website"},
+                    publication_state="draft", source_url=doi,
+                    source_label="NextGen For Earth publication listing",
+                    created_by=actor, updated_by=actor,
+                ))
+
         for title, item_slug, summary in [
             ("Research Capacity Building","research-capacity-building","Research capacity building."),
             ("Healthcare Worker Training","healthcare-worker-training","Healthcare worker training."),
@@ -137,7 +189,7 @@ async def seed(slug: str) -> None:
                     status="draft", created_by=actor,
                 ))
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT)} CMS entries and four programme records.")
+        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS)} CMS entries including {len(PUBLICATIONS)} publications, and four programme records.")
     await engine.dispose()
 
 if __name__ == "__main__":
