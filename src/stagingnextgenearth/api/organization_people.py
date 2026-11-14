@@ -67,6 +67,8 @@ class PersonRead(BaseModel):
 
 
 class PublicPersonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     full_name: str
     biography: str | None
