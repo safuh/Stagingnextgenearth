@@ -37,6 +37,8 @@ class ContentRead(BaseModel):
     publication_state: str
     source_url: str | None
     published_at: datetime | None
+    approved_by: str | None
+    approved_at: datetime | None
 def _admin(m: Membership) -> None:
     if m.role not in {"admin", "founder", "executive"}:
         raise HTTPException(403, "Administrator role required")
@@ -59,10 +61,36 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
     row = await session.scalar(select(PublicContentEntry).where(PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id))
     if row is None:
         raise HTTPException(404, "Content entry not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
-        if value is not None or key in {"summary","body"}:
+    changes = body.model_dump(exclude_unset=True)
+    next_state = changes.pop("publication_state", None)
+    for key, value in changes.items():
+        if value is not None or key in {"summary", "body"}:
             setattr(row, key, value)
-    row.published_at = datetime.now(UTC) if row.publication_state == "published" else None
+    if next_state is not None:
+        allowed = {
+            "draft": {"review"},
+            "review": {"draft", "approved"},
+            "approved": {"draft", "published"},
+            "published": {"draft", "archived"},
+            "archived": {"draft"},
+        }
+        if next_state not in allowed[row.publication_state]:
+            raise HTTPException(409, f"Invalid CMS transition: {row.publication_state} -> {next_state}")
+        if next_state == "approved":
+            row.approved_by = principal.user_id
+            row.approved_at = datetime.now(UTC)
+        elif next_state == "published":
+            if row.approved_at is None or row.approved_by is None:
+                raise HTTPException(409, "Content must be approved before publication")
+            row.published_at = datetime.now(UTC)
+        elif next_state == "draft":
+            row.approved_by = None
+            row.approved_at = None
+            row.published_at = None
+        elif next_state == "archived":
+            row.published_at = None
+        row.publication_state = next_state
+    row.published_at = row.published_at if row.publication_state == "published" else None
     row.updated_by = principal.user_id
     await session.commit()
     await session.refresh(row)
