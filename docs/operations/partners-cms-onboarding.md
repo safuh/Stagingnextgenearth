@@ -14,7 +14,7 @@ Create the organisation in the portal with the slug \`nextgen-for-earth\`, then 
 uv run python scripts/seed_nextgen_demo.py --organization-slug nextgen-for-earth
 \`\`\`
 
-The loader is idempotent. It adds missing people, partner, CMS and programme records; it does not create portal accounts or overwrite records that an administrator has already reviewed.
+The loader is idempotent. It adds missing people, partner, CMS and programme records, including the 12 publication entries currently listed on the public website; it does not create portal accounts or overwrite records that an administrator has already reviewed.
 
 ## Founder-facing workspace
 

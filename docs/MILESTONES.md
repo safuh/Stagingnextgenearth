@@ -140,29 +140,25 @@ These foundation checks must continue passing as product code is added.
 
 ## M7 — Organisation directory, integrations and organisational intelligence
 
-**Organisation directory foundation: implemented; awaiting CI and local PostgreSQL verification.**
+**Implemented on the feature branch; full CI and local PostgreSQL verification remain pending.**
 
-- [ ] Independent organisation-person profiles, separate from portal login accounts.
-- [ ] Multiple concurrent positions and person classifications per person.
-- [ ] Administrator-only tenant-scoped directory create/list/update APIs.
-- [ ] Pending/private defaults, explicit verification and publication controls.
-- [ ] Public directory feed restricted to active, verified, explicitly public profiles.
-- [ ] Directory administration UI for creating, editing, reviewing, publishing and archiving profiles.
-- [ ] Regression tests for moderation, non-admin denial and tenant isolation.
-- [ ] Reviewed import of public website people, programme, partner and publication catalogues.
-- [ ] Invitation onboarding and permission-based HR/role assignment workflows.
-
-**Remaining integrations and organisational intelligence**
-
-- [ ] KoboToolbox/ODK field data integration.
-- [ ] Email and calendar notifications.
-- [ ] Zoom/meeting integration where required.
-- [ ] M-Pesa and approved international donation providers.
-- [ ] Grant, budget and donor reporting.
-- [ ] Impact verification and indicator dashboards.
-- [ ] CSV/XLSX/PDF exports with access controls.
-
-
+- [x] Independent organisation-person profiles, separate from portal login accounts.
+- [x] Multiple concurrent positions and person classifications, including founder.
+- [x] Tenant-scoped directory create/list/update and audit-history APIs.
+- [x] Pending/private defaults, explicit verification and publication controls.
+- [x] Public people feed restricted to active, verified, explicitly public profiles.
+- [x] Directory administration UI for creating, editing, reviewing, publishing and archiving profiles.
+- [x] Regression tests for moderation, non-admin denial, tenant isolation and audit events.
+- [x] Idempotent website seed loader for people, partners, four programme records, four programme areas, three training tracks, fundraising initiatives, research areas, impact claims and all 12 currently listed publications.
+- [x] Founder and executive organisation roles with administration access; only the organisation owner can grant elevated roles.
+- [x] Existing-account employee and volunteer membership invitation with acceptance before activation.
+- [x] Institutional partner registry, verification, visibility controls and programme relationships.
+- [x] Public CMS with draft, review, approved, published and archived transitions plus approval provenance.
+- [x] Public partner and CMS feeds use reduced schemas that omit moderation and internal source metadata.
+- [x] Public volunteer/ambassador expression-of-interest flow and administration review queue.
+- [x] Volunteer approval requires a recorded safeguarding and any required guardian-consent confirmation.
+- [ ] New-candidate employee application workflow and automated invitation notifications.
+- [ ] Partner/CMS audit-event history and partner-contact consent workflows.
 - [ ] KoboToolbox/ODK field data integration.
 - [ ] Email and calendar notifications.
 - [ ] Zoom/meeting integration where required.
