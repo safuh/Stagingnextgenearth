@@ -1639,3 +1639,76 @@ class OrganizationPersonAuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class InstitutionalPartner(Base):
+    """Moderated organisation-level partner record."""
+    __tablename__ = "institutional_partners"
+    __table_args__ = (
+        CheckConstraint("partner_type IN ('university','government','ngo','private_sector','network','funder','community_org','other')", name="ck_institutional_partner_type"),
+        CheckConstraint("relationship_status IN ('prospect','active','paused','ended')", name="ck_institutional_partner_status"),
+        CheckConstraint("verification_state IN ('pending','verified','rejected')", name="ck_institutional_partner_verification"),
+        CheckConstraint("visibility IN ('private','public')", name="ck_institutional_partner_visibility"),
+        Index("ix_institutional_partners_org_status", "organization_id", "relationship_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    partner_type: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    description: Mapped[str | None] = mapped_column(Text)
+    website_url: Mapped[str | None] = mapped_column(String(1000))
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120))
+    relationship_status: Mapped[str] = mapped_column(String(16), nullable=False, default="prospect")
+    verification_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class ProgrammePartner(Base):
+    """Link a programme to a partner and define the relationship."""
+    __tablename__ = "programme_partners"
+    __table_args__ = (
+        UniqueConstraint("programme_id", "partner_id", name="uq_programme_partner"),
+        CheckConstraint("partner_role IN ('implementing_partner','funding_partner','technical_partner','research_partner','community_partner')", name="ck_programme_partner_role"),
+        CheckConstraint("status IN ('planned','active','ended')", name="ck_programme_partner_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    programme_id: Mapped[str] = mapped_column(String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    partner_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PublicContentEntry(Base):
+    """Moderated CMS record for public website consumption."""
+    __tablename__ = "public_content_entries"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "content_type", "slug", name="uq_public_content_slug"),
+        CheckConstraint("content_type IN ('page','programme','training_track','initiative','research_area','impact_metric','publication')", name="ck_public_content_type"),
+        CheckConstraint("publication_state IN ('draft','review','approved','published','archived')", name="ck_public_content_state"),
+        Index("ix_public_content_org_state", "organization_id", "publication_state"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    publication_state: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

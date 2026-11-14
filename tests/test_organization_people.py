@@ -100,7 +100,7 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
     forbidden = client.get(
         f"/api/organizations/{organisation_id}/people", headers=researcher_headers
     )
-    assert forbidden.status_code == 403
+    assert forbidden.status_code == 404
 
     published = client.patch(
         f"/api/organizations/{organisation_id}/people/{person['id']}",
