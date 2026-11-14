@@ -23,7 +23,6 @@ PERSON_TYPES = {
     "board_member",
     "executive",
     "founder",
-    "founder",
     "volunteer",
     "ambassador",
     "researcher",
