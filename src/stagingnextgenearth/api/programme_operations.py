@@ -10,7 +10,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import User
-
 from stagingnextgenearth.platform.models import (
     Membership,
     Programme,

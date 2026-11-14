@@ -285,7 +285,11 @@ async def update_member_role(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can revoke elevated administrator access",
         )
-    if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.role not in {"admin", "founder", "executive"}:
+    if (
+        target.status == "active"
+        and target.role in {"admin", "founder", "executive"}
+        and body.role not in {"admin", "founder", "executive"}
+    ):
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1
@@ -347,7 +351,11 @@ async def update_member_status(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can suspend an elevated administrator",
         )
-    if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.status == "suspended":
+    if (
+        target.status == "active"
+        and target.role in {"admin", "founder", "executive"}
+        and body.status == "suspended"
+    ):
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1

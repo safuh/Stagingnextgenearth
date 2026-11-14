@@ -13,7 +13,12 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "programme_volunteer_applications",
-        sa.Column("safeguarding_confirmed", sa.Boolean(), server_default=sa.false(), nullable=False),
+        sa.Column(
+            "safeguarding_confirmed",
+            sa.Boolean(),
+            server_default=sa.false(),
+            nullable=False,
+        ),
     )
 
 
