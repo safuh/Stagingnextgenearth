@@ -37,7 +37,7 @@ interface PersonAudit {
 }
 
 const PERSON_TYPES = [
-  "employee", "board_member", "executive", "volunteer", "ambassador",
+  "employee", "board_member", "founder", "executive", "volunteer", "ambassador",
   "researcher", "mentor", "advisor", "intern", "trainee", "consultant", "alumnus",
 ];
 
@@ -184,7 +184,7 @@ export default function PeopleDirectoryPage() {
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
-        {membership?.role !== "admin" ? (
+        {!["admin", "founder", "executive"].includes(membership?.role ?? "") ? (
           <section className="staff-card"><h2>Administrator access required</h2><p>Only organisation administrators can manage directory profiles.</p></section>
         ) : (
           <>
