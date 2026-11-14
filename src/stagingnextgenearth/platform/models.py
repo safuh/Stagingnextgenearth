@@ -72,7 +72,7 @@ class Membership(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
         CheckConstraint(
-            "role IN ('admin', 'programme_manager', 'researcher', "
+            "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
             "'youth_volunteer', 'institutional_partner')",
             name="ck_membership_role",
         ),
