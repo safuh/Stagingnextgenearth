@@ -9,6 +9,8 @@ from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
 from .institutional_partners import router as institutional_partners_router
 from .public_content import router as public_content_router
+from .institutional_partners import router as institutional_partners_router
+from .public_content import router as public_content_router
 from .learning import router as learning_router
 from .memberships import router as memberships_router
 from .organization_people import router as organization_people_router
@@ -37,6 +39,8 @@ api_router.include_router(health_router)
 api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
 api_router.include_router(organization_people_router)
+api_router.include_router(institutional_partners_router)
+api_router.include_router(public_content_router)
 api_router.include_router(institutional_partners_router)
 api_router.include_router(public_content_router)
 api_router.include_router(memberships_router)
