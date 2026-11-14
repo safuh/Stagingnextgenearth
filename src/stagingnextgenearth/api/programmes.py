@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Programme
+from stagingnextgenearth.platform.models import Membership, Organization, Programme
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -152,8 +152,6 @@ async def list_public_programmes(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PublicProgrammeRead]:
     """Expose planned and active programmes without requiring membership."""
-    from stagingnextgenearth.platform.models import Organization
-
     organization = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if organization is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
