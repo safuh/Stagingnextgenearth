@@ -136,6 +136,7 @@ async def update_programme_status(
 
 class PublicProgrammeRead(BaseModel):
     """Public programme catalogue fields."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     organization_id: str
     title: str

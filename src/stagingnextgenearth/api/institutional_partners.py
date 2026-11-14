@@ -93,6 +93,7 @@ async def link_partner_programme(organization_id: str, partner_id: str, body: Pa
     return {"id": link.id, "partner_id": partner_id, "programme_id": programme.id}
 class PublicPartnerRead(BaseModel):
     """Public partner fields; moderation and source metadata remain private."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     name: str
     partner_type: str

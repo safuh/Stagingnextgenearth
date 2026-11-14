@@ -97,6 +97,7 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
     return ContentRead.model_validate(row)
 class PublicContentRead(BaseModel):
     """Public content fields without internal source or moderation metadata."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     content_type: str
     slug: str
