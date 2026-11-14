@@ -1,5 +1,6 @@
 """Organisation people directory with moderated public publication."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -176,7 +177,7 @@ async def create_person(
             person_id=person.id,
             actor_user_id=principal.user_id,
             action="person.created",
-            changed_fields=["full_name", "positions", "person_types", "source_url"],
+            changed_fields=sorted(body.model_dump(exclude_unset=True).keys()),
             state={"review_state": person.review_state, "visibility": person.visibility,
                    "status": person.status},
         )
@@ -299,7 +300,7 @@ class PersonAuditRead(BaseModel):
     action: str
     changed_fields: list[str]
     state: dict[str, object]
-    created_at: str
+    created_at: datetime
 
 
 @router.get(
@@ -339,7 +340,7 @@ async def list_person_audit_events(
             action=row.action,
             changed_fields=row.changed_fields,
             state=row.state,
-            created_at=row.created_at.isoformat(),
+            created_at=row.created_at,
         )
         for row in rows.all()
     ]

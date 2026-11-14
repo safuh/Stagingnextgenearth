@@ -105,3 +105,20 @@ uv run pytest -q
 The public feed is not a substitute for a reviewed CMS publishing workflow.
 Website catalogue import, append-only per-profile audit history, invitations
 for new accounts, and broader permission-based HR workflows remain follow-on work.
+
+
+## Audit history
+
+Directory changes generate append-only application audit records. The record
+stores the actor, action, changed field names, moderation-state transition and
+timestamp; it deliberately does not duplicate biography or other profile text.
+Only organisation administrators can read a profile's history:
+
+```http
+GET /api/organizations/{organization_id}/people/{person_id}/audit-events
+```
+
+The administration screen's **Change history** panel loads these events on
+demand. Profile changes and their audit event are committed in the same database
+transaction. Database operators remain privileged and must be governed through
+production database access controls and backup retention.
