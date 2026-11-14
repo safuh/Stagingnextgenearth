@@ -276,6 +276,15 @@ async def update_member_role(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can grant administrator access",
         )
+    if (
+        target.role in {"admin", "founder", "executive"}
+        and body.role not in {"admin", "founder", "executive"}
+        and membership.user_id != owner_id
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can revoke elevated administrator access",
+        )
     if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.role not in {"admin", "founder", "executive"}:
         if (
             target.user_id == membership.user_id
@@ -328,6 +337,15 @@ async def update_member_status(
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before suspending the owner",
+        )
+    if (
+        target.role in {"admin", "founder", "executive"}
+        and body.status == "suspended"
+        and membership.user_id != owner_id
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can suspend an elevated administrator",
         )
     if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.status == "suspended":
         if (
