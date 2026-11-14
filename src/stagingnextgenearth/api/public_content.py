@@ -46,7 +46,7 @@ def _admin(m: Membership) -> None:
 async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
     _admin(membership)
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == organization_id).order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000))
-    return [PublicContentRead.model_validate(x) for x in rows.all()]
+    return [ContentRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/content", response_model=ContentRead, status_code=201)
 async def create_content(organization_id: str, body: ContentCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
     _admin(membership)
@@ -111,6 +111,6 @@ async def public_content(organization_slug: str, session: Annotated[AsyncSession
     if org is None:
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == org.id, PublicContentEntry.publication_state == "published").order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(500))
-    return [ContentRead.model_validate(x) for x in rows.all()]
+    return [PublicContentRead.model_validate(x) for x in rows.all()]
 
 # fmt: on

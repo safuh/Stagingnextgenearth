@@ -107,6 +107,6 @@ async def public_partners(organization_slug: str, session: Annotated[AsyncSessio
     if org is None:
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == org.id, InstitutionalPartner.relationship_status == "active", InstitutionalPartner.verification_state == "verified", InstitutionalPartner.visibility == "public").order_by(InstitutionalPartner.name))
-    return [PartnerRead.model_validate(x) for x in rows.all()]
+    return [PublicPartnerRead.model_validate(x) for x in rows.all()]
 
 # fmt: on
