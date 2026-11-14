@@ -7,14 +7,24 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, OrganizationPerson
+from stagingnextgenearth.platform.models import Membership, Organization, OrganizationPerson
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["organisation-directory"])
 PERSON_TYPES = {
-    "employee", "board_member", "executive", "volunteer", "ambassador",
-    "researcher", "mentor", "advisor", "intern", "trainee", "consultant", "alumnus",
+    "employee",
+    "board_member",
+    "executive",
+    "volunteer",
+    "ambassador",
+    "researcher",
+    "mentor",
+    "advisor",
+    "intern",
+    "trainee",
+    "consultant",
+    "alumnus",
 }
 
 
@@ -36,7 +46,12 @@ class PersonUpdate(BaseModel):
     biography: str | None = Field(default=None, max_length=5000)
     positions: list[str] | None = Field(default=None, max_length=12)
     person_types: list[str] | None = Field(default=None, max_length=12)
-    country_code: str | None = Field(default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+    country_code: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=2,
+        pattern=r"^[A-Za-z]{2}$",
+    )
     region: str | None = Field(default=None, max_length=120)
     profile_image_url: str | None = Field(default=None, max_length=1000)
     website_url: str | None = Field(default=None, max_length=1000)
@@ -49,6 +64,7 @@ class PersonUpdate(BaseModel):
 
 class PersonRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     id: str
     organization_id: str
     full_name: str
@@ -95,7 +111,10 @@ def _validate_person_types(values: list[str]) -> list[str]:
 def _validate_positions(values: list[str]) -> list[str]:
     normalized = list(dict.fromkeys(value.strip() for value in values if value.strip()))
     if any(len(value) > 120 for value in normalized):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Position titles must be 120 characters or fewer")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Position titles must be 120 characters or fewer",
+        )
     return normalized
 
 
@@ -177,8 +196,16 @@ async def update_person(
         changes["positions"] = _validate_positions(changes["positions"])
     if "country_code" in changes and changes["country_code"] is not None:
         changes["country_code"] = changes["country_code"].upper()
+    nullable_fields = {
+        "biography",
+        "region",
+        "profile_image_url",
+        "website_url",
+        "source_url",
+        "source_label",
+    }
     for field, value in changes.items():
-        if value is not None or field in {"biography", "region", "profile_image_url", "website_url", "source_url", "source_label"}:
+        if value is not None or field in nullable_fields:
             setattr(person, field, value)
     person.updated_by = principal.user_id
     await session.commit()
@@ -186,15 +213,18 @@ async def update_person(
     return PersonRead.model_validate(person)
 
 
-@router.get("/public/organizations/{organization_slug}/people", response_model=list[PublicPersonRead])
+@router.get(
+    "/public/organizations/{organization_slug}/people",
+    response_model=list[PublicPersonRead],
+)
 async def list_public_people(
     organization_slug: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PublicPersonRead]:
     """Expose only active, verified, explicitly public directory profiles."""
-    from stagingnextgenearth.platform.models import Organization
-
-    organization = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
     if organization is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
     rows = await session.scalars(
