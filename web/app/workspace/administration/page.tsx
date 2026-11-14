@@ -134,7 +134,7 @@ export default function AdministrationPage() {
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
-        {accessLoading ? <p className="workspace-muted">Checking organisation permissions…</p> : !["admin", "founder", "executive"].includes(membership?.role ?? "") ? (
+        {accessLoading ? <p className="workspace-muted">Checking organisation permissions…</p> : !membership || !["admin", "founder", "executive"].includes(membership.role) ? (
           <section className="staff-card"><h2>Administrator access required</h2><p>Your current organisation role does not permit membership administration. Ask an organisation administrator for access.</p><Link className="secondary-action" href="/workspace">Return to workspace</Link></section>
         ) : (
           <>
