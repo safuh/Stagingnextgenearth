@@ -147,7 +147,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Administrator-only tenant-scoped directory create/list/update APIs.
 - [ ] Pending/private defaults, explicit verification and publication controls.
 - [ ] Public directory feed restricted to active, verified, explicitly public profiles.
-- [ ] Directory administration UI for creating, reviewing, publishing and archiving profiles.
+- [ ] Directory administration UI for creating, editing, reviewing, publishing and archiving profiles.
 - [ ] Regression tests for moderation, non-admin denial and tenant isolation.
 - [ ] Reviewed import of public website people, programme, partner and publication catalogues.
 - [ ] Invitation onboarding and permission-based HR/role assignment workflows.
