@@ -70,6 +70,11 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert programme.status_code == 201
         base = f"{programmes}/{programme.json()['id']}"
+        assert client.post(f"{base}/status", headers=manager, json={"status": "planned"}).status_code == 200
+        assert client.post(f"{base}/status", headers=manager, json={"status": "active"}).status_code == 200
+        public_programmes = client.get("/api/public/organizations/operations-test/programmes")
+        assert public_programmes.status_code == 200
+        assert [row["id"] for row in public_programmes.json()] == [programme.json()["id"]]
 
         # Existing active youth volunteers can apply to additional programmes.
         member_volunteer = _auth(client, "ops-member-volunteer@example.org")
@@ -97,7 +102,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         member_approval = client.post(
             f"{base}/volunteer-applications/{member_application.json()['id']}/decision",
             headers=manager,
-            json={"decision": "approved"},
+            json={"decision": "approved", "safeguarding_confirmed": True},
         )
         assert member_approval.status_code == 200
         assert member_approval.json()["status"] == "approved"
@@ -117,6 +122,9 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert application.status_code == 201
         application_id = application.json()["id"]
         assert application.json()["status"] == "pending"
+        manager_queue = client.get(f"{base}/volunteer-applications", headers=manager)
+        assert manager_queue.status_code == 200
+        assert manager_queue.json()[0]["applicant_identifier"] == "ops-participant@example.org"
         personal_applications = client.get(
             f"/api/organizations/{org_id}/my-volunteer-applications",
             headers=participant,
@@ -139,7 +147,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         approved = client.post(
             f"{base}/volunteer-applications/{application_id}/decision",
             headers=manager,
-            json={"decision": "approved"},
+            json={"decision": "approved", "safeguarding_confirmed": True},
         )
         assert approved.status_code == 200
         activity = client.post(
