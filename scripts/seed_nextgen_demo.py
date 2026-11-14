@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Idempotently seed a reviewable NextGen for Earth demo catalogue."""
 import argparse
 import asyncio
@@ -142,3 +144,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--organization-slug", required=True)
     asyncio.run(seed(parser.parse_args().organization_slug))
+
+# fmt: on
