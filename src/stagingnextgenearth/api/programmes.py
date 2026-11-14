@@ -14,6 +14,7 @@ from stagingnextgenearth.platform.models import Membership, Programme
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(prefix="/organizations/{organization_id}/programmes", tags=["programmes"])
+public_router = APIRouter(tags=["public-programmes"])
 
 
 class ProgrammeCreate(BaseModel):
@@ -131,3 +132,35 @@ async def update_programme_status(
     await session.commit()
     await session.refresh(programme)
     return ProgrammeRead.model_validate(programme)
+
+
+class PublicProgrammeRead(BaseModel):
+    """Public programme catalogue fields."""
+    id: str
+    organization_id: str
+    title: str
+    slug: str
+    summary: str | None
+    status: str
+    start_date: date | None
+    end_date: date | None
+
+
+@public_router.get("/public/organizations/{organization_slug}/programmes", response_model=list[PublicProgrammeRead])
+async def list_public_programmes(
+    organization_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicProgrammeRead]:
+    """Expose planned and active programmes without requiring membership."""
+    from stagingnextgenearth.platform.models import Organization
+
+    organization = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    rows = await session.scalars(
+        select(Programme)
+        .where(Programme.organization_id == organization.id, Programme.status.in_({"planned", "active"}))
+        .order_by(Programme.title)
+        .limit(250)
+    )
+    return [PublicProgrammeRead.model_validate(item) for item in rows.all()]

@@ -21,6 +21,7 @@ from .programme_indicators import router as programme_indicators_router
 from .programme_operations import router as programme_operations_router
 from .programme_participation import router as programme_participation_router
 from .programme_planning import router as programme_planning_router
+from .programmes import public_router as public_programmes_router
 from .programmes import router as programmes_router
 from .projects import router as projects_router
 from .research import router as research_router
@@ -44,6 +45,7 @@ api_router.include_router(public_content_router)
 api_router.include_router(memberships_router)
 api_router.include_router(learning_router)
 api_router.include_router(programmes_router)
+api_router.include_router(public_programmes_router)
 api_router.include_router(programme_deliverables_router)
 api_router.include_router(programme_operations_router)
 api_router.include_router(programme_participation_router)
