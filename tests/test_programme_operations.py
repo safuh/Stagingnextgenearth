@@ -144,6 +144,12 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             },
         ).status_code == 409
 
+        approved_without_safeguarding = client.post(
+            f"{base}/volunteer-applications/{application_id}/decision",
+            headers=manager,
+            json={"decision": "approved"},
+        )
+        assert approved_without_safeguarding.status_code == 409
         approved = client.post(
             f"{base}/volunteer-applications/{application_id}/decision",
             headers=manager,
