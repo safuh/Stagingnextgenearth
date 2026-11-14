@@ -44,7 +44,7 @@ def _admin(m: Membership) -> None:
 async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
     _admin(membership)
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == organization_id).order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000))
-    return [ContentRead.model_validate(x) for x in rows.all()]
+    return [PublicContentRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/content", response_model=ContentRead, status_code=201)
 async def create_content(organization_id: str, body: ContentCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
     _admin(membership)
@@ -67,8 +67,18 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
     await session.commit()
     await session.refresh(row)
     return ContentRead.model_validate(row)
-@router.get("/public/organizations/{organization_slug}/content", response_model=list[ContentRead])
-async def public_content(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
+class PublicContentRead(BaseModel):
+    """Public content fields without internal source or moderation metadata."""
+    id: str
+    content_type: str
+    slug: str
+    title: str
+    summary: str | None
+    body: str | None
+    published_at: datetime | None
+
+@router.get("/public/organizations/{organization_slug}/content", response_model=list[PublicContentRead])
+async def public_content(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PublicContentRead]:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")

@@ -54,7 +54,7 @@ def _admin(m: Membership) -> None:
 async def list_partners(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
     _admin(membership)
     rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == organization_id).order_by(InstitutionalPartner.name).limit(500))
-    return [PartnerRead.model_validate(x) for x in rows.all()]
+    return [PublicPartnerRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/partners", response_model=PartnerRead, status_code=201)
 async def create_partner(organization_id: str, body: PartnerCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
     _admin(membership)
@@ -91,8 +91,18 @@ async def link_partner_programme(organization_id: str, partner_id: str, body: Pa
         await session.rollback()
         raise HTTPException(409, "Partner is already linked to this programme") from exc
     return {"id": link.id, "partner_id": partner_id, "programme_id": programme.id}
-@router.get("/public/organizations/{organization_slug}/partners", response_model=list[PartnerRead])
-async def public_partners(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
+class PublicPartnerRead(BaseModel):
+    """Public partner fields; moderation and source metadata remain private."""
+    id: str
+    name: str
+    partner_type: str
+    description: str | None
+    website_url: str | None
+    country_code: str
+    region: str | None
+
+@router.get("/public/organizations/{organization_slug}/partners", response_model=list[PublicPartnerRead])
+async def public_partners(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PublicPartnerRead]:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
