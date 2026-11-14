@@ -1563,3 +1563,43 @@ class ProgrammeParticipationRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class OrganizationPerson(Base):
+    """Organisation directory record, independent of a portal login account."""
+
+    __tablename__ = "organization_people"
+    __table_args__ = (
+        Index("ix_org_people_org_visibility", "organization_id", "visibility", "review_state"),
+        Index("ix_org_people_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    biography: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positions: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    person_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    profile_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    review_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    updated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
