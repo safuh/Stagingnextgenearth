@@ -23,6 +23,7 @@ PERSON_TYPES = {
     "board_member",
     "executive",
     "founder",
+    "founder",
     "volunteer",
     "ambassador",
     "researcher",
@@ -104,7 +105,7 @@ class PublicPersonRead(BaseModel):
 
 
 def _require_admin(membership: Membership) -> None:
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
 
 

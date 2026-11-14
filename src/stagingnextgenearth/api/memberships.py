@@ -23,6 +23,8 @@ router = APIRouter(
 )
 InvitableRole = Literal[
     "programme_manager",
+    "founder",
+    "executive",
     "researcher",
     "youth_volunteer",
     "institutional_partner",
@@ -56,7 +58,7 @@ async def invite_member(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Invite an existing user; administrator privileges cannot be delegated here."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     user = await session.scalar(select(User).where(User.identifier == body.identifier))
     if user is None:
@@ -170,6 +172,8 @@ class MembershipRoleUpdate(BaseModel):
     role: Literal[
         "admin",
         "programme_manager",
+        "founder",
+        "executive",
         "researcher",
         "youth_volunteer",
         "institutional_partner",
