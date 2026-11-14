@@ -138,7 +138,30 @@ These foundation checks must continue passing as product code is added.
 - [x] Core researcher, youth/volunteer, administrator and institutional-partner dashboards with role-aware navigation and their primary MVP workflows; advanced organisation settings, donor/grant operations and deeper researcher analysis remain.
 - [x] Typed API client, authenticated requests, same-origin BFF with HttpOnly access/refresh cookies, refresh rotation, session restoration and sign-out, plus user-visible loading/error states.
 
-## M7 — Integrations and organisational intelligence
+## M7 — Organisation directory, integrations and organisational intelligence
+
+**Organisation directory foundation: implemented; awaiting CI and local PostgreSQL verification.**
+
+- [ ] Independent organisation-person profiles, separate from portal login accounts.
+- [ ] Multiple concurrent positions and person classifications per person.
+- [ ] Administrator-only tenant-scoped directory create/list/update APIs.
+- [ ] Pending/private defaults, explicit verification and publication controls.
+- [ ] Public directory feed restricted to active, verified, explicitly public profiles.
+- [ ] Directory administration UI for creating, reviewing, publishing and archiving profiles.
+- [ ] Regression tests for moderation, non-admin denial and tenant isolation.
+- [ ] Reviewed import of public website people, programme, partner and publication catalogues.
+- [ ] Invitation onboarding and permission-based HR/role assignment workflows.
+
+**Remaining integrations and organisational intelligence**
+
+- [ ] KoboToolbox/ODK field data integration.
+- [ ] Email and calendar notifications.
+- [ ] Zoom/meeting integration where required.
+- [ ] M-Pesa and approved international donation providers.
+- [ ] Grant, budget and donor reporting.
+- [ ] Impact verification and indicator dashboards.
+- [ ] CSV/XLSX/PDF exports with access controls.
+
 
 - [ ] KoboToolbox/ODK field data integration.
 - [ ] Email and calendar notifications.
