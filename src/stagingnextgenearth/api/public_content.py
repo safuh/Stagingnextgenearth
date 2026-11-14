@@ -36,7 +36,7 @@ class ContentRead(BaseModel):
     source_url: str | None
     published_at: datetime | None
 def _admin(m: Membership) -> None:
-    if m.role != "admin":
+    if m.role not in {"admin", "founder", "executive"}:
         raise HTTPException(403, "Administrator role required")
 @router.get("/organizations/{organization_id}/content", response_model=list[ContentRead])
 async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:

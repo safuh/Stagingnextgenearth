@@ -46,7 +46,7 @@ class PartnerProgrammeLink(BaseModel):
     partner_role: Literal["implementing_partner","funding_partner","technical_partner","research_partner","community_partner"]
     status: Literal["planned","active","ended"] = "planned"
 def _admin(m: Membership) -> None:
-    if m.role != "admin":
+    if m.role not in {"admin", "founder", "executive"}:
         raise HTTPException(403, "Administrator role required")
 @router.get("/organizations/{organization_id}/partners", response_model=list[PartnerRead])
 async def list_partners(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
