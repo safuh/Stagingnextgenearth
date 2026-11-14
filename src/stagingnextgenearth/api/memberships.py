@@ -115,7 +115,7 @@ async def list_staff_directory(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, str]]:
     """Return minimal active-member identities to authorised programme staff."""
-    if membership.role not in {"admin", "programme_manager"}:
+    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme staff access required",
@@ -236,7 +236,7 @@ async def _active_admin_count(session: AsyncSession, organization_id: str) -> in
     count = await session.scalar(
         select(func.count(Membership.id)).where(
             Membership.organization_id == organization_id,
-            Membership.role == "admin",
+            Membership.role.in_({"admin", "founder", "executive"}),
             Membership.status == "active",
         )
     )
@@ -276,7 +276,7 @@ async def update_member_role(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can grant administrator access",
         )
-    if target.status == "active" and target.role == "admin" and body.role != "admin":
+    if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.role not in {"admin", "founder", "executive"}:
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1
@@ -329,7 +329,7 @@ async def update_member_status(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before suspending the owner",
         )
-    if target.status == "active" and target.role == "admin" and body.status == "suspended":
+    if target.status == "active" and target.role in {"admin", "founder", "executive"} and body.status == "suspended":
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1

@@ -68,9 +68,9 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
             setattr(row, key, value)
     if next_state is not None:
         allowed = {
-            "draft": {"review"},
-            "review": {"draft", "approved"},
-            "approved": {"draft", "published"},
+            "draft": {"review", "archived"},
+            "review": {"draft", "approved", "archived"},
+            "approved": {"draft", "published", "archived"},
             "published": {"draft", "archived"},
             "archived": {"draft"},
         }
