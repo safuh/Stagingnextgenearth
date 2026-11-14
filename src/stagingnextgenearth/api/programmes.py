@@ -56,7 +56,7 @@ async def create_programme(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Create a draft programme; only administrators and programme managers may write."""
-    if membership.role not in {"admin", "programme_manager"}:
+    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient organisation permissions")
     programme = Programme(
         organization_id=organization_id,
@@ -108,7 +108,7 @@ async def update_programme_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Apply a guarded lifecycle transition to an organisation's programme."""
-    if membership.role not in {"admin", "programme_manager"}:
+    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     programme = await session.scalar(
         select(Programme).where(
