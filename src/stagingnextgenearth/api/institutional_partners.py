@@ -1,0 +1,98 @@
+"""Tenant-scoped partner registry and programme links."""
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from stagingnextgenearth.platform.models import InstitutionalPartner, Membership, Organization, Programme, ProgrammePartner
+from .dependencies import Principal, get_current_principal, get_session, require_membership
+
+router = APIRouter(tags=["institutional-partners"])
+PartnerType = Literal["university","government","ngo","private_sector","network","funder","community_org","other"]
+class PartnerCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=240)
+    partner_type: PartnerType = "other"
+    description: str | None = Field(default=None, max_length=5000)
+    website_url: str | None = Field(default=None, max_length=1000)
+    country_code: str = Field(default="KE", min_length=2, max_length=2)
+    region: str | None = Field(default=None, max_length=120)
+    source_url: str | None = Field(default=None, max_length=1000)
+class PartnerUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=240)
+    partner_type: PartnerType | None = None
+    description: str | None = Field(default=None, max_length=5000)
+    website_url: str | None = Field(default=None, max_length=1000)
+    region: str | None = Field(default=None, max_length=120)
+    relationship_status: Literal["prospect","active","paused","ended"] | None = None
+    verification_state: Literal["pending","verified","rejected"] | None = None
+    visibility: Literal["private","public"] | None = None
+class PartnerRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    name: str
+    partner_type: str
+    description: str | None
+    website_url: str | None
+    country_code: str
+    region: str | None
+    relationship_status: str
+    verification_state: str
+    visibility: str
+    source_url: str | None
+class PartnerProgrammeLink(BaseModel):
+    programme_id: str
+    partner_role: Literal["implementing_partner","funding_partner","technical_partner","research_partner","community_partner"]
+    status: Literal["planned","active","ended"] = "planned"
+def _admin(m: Membership) -> None:
+    if m.role != "admin":
+        raise HTTPException(403, "Administrator role required")
+@router.get("/organizations/{organization_id}/partners", response_model=list[PartnerRead])
+async def list_partners(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
+    _admin(membership)
+    rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == organization_id).order_by(InstitutionalPartner.name).limit(500))
+    return [PartnerRead.model_validate(x) for x in rows.all()]
+@router.post("/organizations/{organization_id}/partners", response_model=PartnerRead, status_code=201)
+async def create_partner(organization_id: str, body: PartnerCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
+    _admin(membership)
+    row = InstitutionalPartner(organization_id=organization_id, name=body.name.strip(), partner_type=body.partner_type, description=body.description, website_url=body.website_url, country_code=body.country_code.upper(), region=body.region, source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return PartnerRead.model_validate(row)
+@router.patch("/organizations/{organization_id}/partners/{partner_id}", response_model=PartnerRead)
+async def update_partner(organization_id: str, partner_id: str, body: PartnerUpdate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
+    _admin(membership)
+    row = await session.scalar(select(InstitutionalPartner).where(InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id))
+    if row is None:
+        raise HTTPException(404, "Partner not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        if value is not None or key == "description":
+            setattr(row, key, value)
+    row.updated_by = principal.user_id
+    await session.commit()
+    await session.refresh(row)
+    return PartnerRead.model_validate(row)
+@router.post("/organizations/{organization_id}/partners/{partner_id}/programmes", status_code=201)
+async def link_partner_programme(organization_id: str, partner_id: str, body: PartnerProgrammeLink, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str,str]:
+    _admin(membership)
+    partner_row = await session.scalar(select(InstitutionalPartner).where(InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id))
+    programme = await session.scalar(select(Programme).where(Programme.id == body.programme_id, Programme.organization_id == organization_id))
+    if partner_row is None or programme is None:
+        raise HTTPException(404, "Partner or programme not found")
+    link = ProgrammePartner(organization_id=organization_id, partner_id=partner_id, programme_id=programme.id, partner_role=body.partner_role, status=body.status)
+    session.add(link)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Partner is already linked to this programme") from exc
+    return {"id": link.id, "partner_id": partner_id, "programme_id": programme.id}
+@router.get("/public/organizations/{organization_slug}/partners", response_model=list[PartnerRead])
+async def public_partners(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
+    org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    if org is None:
+        raise HTTPException(404, "Organisation not found")
+    rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == org.id, InstitutionalPartner.relationship_status == "active", InstitutionalPartner.verification_state == "verified", InstitutionalPartner.visibility == "public").order_by(InstitutionalPartner.name))
+    return [PartnerRead.model_validate(x) for x in rows.all()]

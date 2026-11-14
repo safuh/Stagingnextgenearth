@@ -1,0 +1,74 @@
+"""Moderated CMS API consumed by the public website."""
+from datetime import UTC, datetime
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry
+from .dependencies import Principal, get_current_principal, get_session, require_membership
+router = APIRouter(tags=["public-content"])
+ContentType = Literal["page","programme","training_track","initiative","research_area","impact_metric","publication"]
+class ContentCreate(BaseModel):
+    content_type: ContentType
+    slug: str = Field(min_length=2, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    title: str = Field(min_length=2, max_length=240)
+    summary: str | None = Field(default=None, max_length=5000)
+    body: str | None = Field(default=None, max_length=30000)
+    metadata_json: dict[str, object] = Field(default_factory=dict)
+    source_url: str | None = Field(default=None, max_length=1000)
+class ContentUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=240)
+    summary: str | None = Field(default=None, max_length=5000)
+    body: str | None = Field(default=None, max_length=30000)
+    metadata_json: dict[str, object] | None = None
+    publication_state: Literal["draft","review","approved","published","archived"] | None = None
+class ContentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    content_type: str
+    slug: str
+    title: str
+    summary: str | None
+    body: str | None
+    metadata_json: dict[str, object]
+    publication_state: str
+    source_url: str | None
+    published_at: datetime | None
+def _admin(m: Membership) -> None:
+    if m.role != "admin":
+        raise HTTPException(403, "Administrator role required")
+@router.get("/organizations/{organization_id}/content", response_model=list[ContentRead])
+async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
+    _admin(membership)
+    rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == organization_id).order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000))
+    return [ContentRead.model_validate(x) for x in rows.all()]
+@router.post("/organizations/{organization_id}/content", response_model=ContentRead, status_code=201)
+async def create_content(organization_id: str, body: ContentCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
+    _admin(membership)
+    row = PublicContentEntry(organization_id=organization_id, content_type=body.content_type, slug=body.slug, title=body.title.strip(), summary=body.summary, body=body.body, metadata_json=body.metadata_json, publication_state="draft", source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return ContentRead.model_validate(row)
+@router.patch("/organizations/{organization_id}/content/{content_id}", response_model=ContentRead)
+async def update_content(organization_id: str, content_id: str, body: ContentUpdate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
+    _admin(membership)
+    row = await session.scalar(select(PublicContentEntry).where(PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id))
+    if row is None:
+        raise HTTPException(404, "Content entry not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        if value is not None or key in {"summary","body"}:
+            setattr(row, key, value)
+    row.published_at = datetime.now(UTC) if row.publication_state == "published" else None
+    row.updated_by = principal.user_id
+    await session.commit()
+    await session.refresh(row)
+    return ContentRead.model_validate(row)
+@router.get("/public/organizations/{organization_slug}/content", response_model=list[ContentRead])
+async def public_content(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
+    org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    if org is None:
+        raise HTTPException(404, "Organisation not found")
+    rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == org.id, PublicContentEntry.publication_state == "published").order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(500))
+    return [ContentRead.model_validate(x) for x in rows.all()]
