@@ -62,9 +62,9 @@ async def invite_member(
     if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     if body.role in {"founder", "executive"}:
-        owner_id = await session.scalar(select(Organization.owner_user_id).where(Organization.id == organization_id))
+        owner_id = await session.scalar(\n            select(Organization.owner_user_id).where(Organization.id == organization_id)\n        )
         if owner_id != membership.user_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the organisation owner can invite founders or executives")
+            raise HTTPException(\n                status.HTTP_403_FORBIDDEN,\n                "Only the organisation owner can invite founders or executives",\n            )
     user = await session.scalar(select(User).where(User.identifier == body.identifier))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
@@ -214,7 +214,7 @@ async def _current_admin(
         .where(Membership.id == membership_id)
         .with_for_update()
     )
-    if actor is None or actor.status != "active" or actor.role not in {"admin", "founder", "executive"}:
+    if (\n        actor is None\n        or actor.status != "active"\n        or actor.role not in {"admin", "founder", "executive"}\n    ):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Active administrator role required",
