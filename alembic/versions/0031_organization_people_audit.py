@@ -40,7 +40,12 @@ def upgrade() -> None:
         sa.Column("action", sa.String(length=48), nullable=False),
         sa.Column("changed_fields", sa.JSON(), nullable=False),
         sa.Column("state", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.CheckConstraint(
             "action IN ('person.created', 'person.updated', 'person.review_changed', "
             "'person.publication_changed', 'person.archived', 'person.reactivated')",

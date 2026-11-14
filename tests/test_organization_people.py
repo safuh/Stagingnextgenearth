@@ -72,6 +72,11 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
         headers=owner_headers,
     )
     assert creation_audit.status_code == 200
+    forbidden_audit = client.get(
+        f"/api/organizations/{organisation_id}/people/{person['id']}/audit-events",
+        headers=researcher_headers,
+    )
+    assert forbidden_audit.status_code == 403
     assert creation_audit.json()[0]["action"] == "person.created"
     assert person["review_state"] == "pending"
     assert person["visibility"] == "private"

@@ -27,6 +27,14 @@ interface Person {
   visibility: "private" | "internal" | "public";
   status: "active" | "inactive";
 }
+interface PersonAudit {
+  id: string;
+  action: string;
+  actor_user_id: string;
+  changed_fields: string[];
+  state: Record<string, unknown>;
+  created_at: string;
+}
 
 const PERSON_TYPES = [
   "employee", "board_member", "executive", "volunteer", "ambassador",
@@ -43,6 +51,7 @@ export default function PeopleDirectoryPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [auditByPerson, setAuditByPerson] = useState<Record<string, PersonAudit[]>>({});
 
   async function loadPeople(id: string) {
     const rows = await apiGet<Person[]>(`/organizations/${id}/people`);
@@ -120,13 +129,25 @@ export default function PeopleDirectoryPage() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const positions = String(data.get("positions") ?? "")
-      .split("\\n").map((item) => item.trim()).filter(Boolean);
+      .split("\n").map((item) => item.trim()).filter(Boolean);
     await updatePerson(person, {
       full_name: String(data.get("full_name") ?? "").trim(),
       biography: String(data.get("biography") ?? "").trim() || null,
       positions,
       region: String(data.get("region") ?? "").trim() || null,
     });
+  }
+
+  async function loadAudit(personId: string) {
+    setError("");
+    try {
+      const events = await apiGet<PersonAudit[]>(
+        `/organizations/${organizationId}/people/${personId}/audit-events`,
+      );
+      setAuditByPerson((current) => ({ ...current, [personId]: events }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load profile history.");
+    }
   }
 
   async function updatePerson(person: Person, patch: Partial<Person>) {
@@ -193,10 +214,21 @@ export default function PeopleDirectoryPage() {
                       <span>Review: {person.review_state} · Visibility: {person.visibility} · Status: {person.status}</span>
                       {person.source_url && <a href={person.source_url} target="_blank" rel="noreferrer">{person.source_label || "Source record"}</a>}
                       <details>
+                        <summary>Change history</summary>
+                        <button className="secondary-action" type="button" onClick={() => void loadAudit(person.id)}>Load audit history</button>
+                        {(auditByPerson[person.id] ?? []).map((event) => (
+                          <p key={event.id}>
+                            <strong>{event.action}</strong> · {new Date(event.created_at).toLocaleString()}
+                            <br />Fields: {event.changed_fields.join(", ")}
+                          </p>
+                        ))}
+                        {auditByPerson[person.id]?.length === 0 && <p>No audit events recorded.</p>}
+                      </details>
+                      <details>
                         <summary>Edit profile</summary>
                         <form onSubmit={(event) => void editPerson(event, person)}>
                           <label>Name<input name="full_name" defaultValue={person.full_name} minLength={2} maxLength={200} required /></label>
-                          <label>Positions (one per line)<textarea name="positions" defaultValue={person.positions.join("\\n")} rows={3} /></label>
+                          <label>Positions (one per line)<textarea name="positions" defaultValue={person.positions.join("\n")} rows={3} /></label>
                           <label>Biography<textarea name="biography" defaultValue={person.biography ?? ""} rows={3} maxLength={5000} /></label>
                           <label>County / region<input name="region" defaultValue={person.region ?? ""} maxLength={120} /></label>
                           <button className="secondary-action" disabled={busy}>Save profile</button>
