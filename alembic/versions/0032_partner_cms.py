@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Partner registry and moderated public content."""
 from collections.abc import Sequence
 import sqlalchemy as sa
@@ -67,3 +69,5 @@ def downgrade() -> None:
     op.drop_table("programme_partners")
     op.drop_index("ix_institutional_partners_org_status", table_name="institutional_partners")
     op.drop_table("institutional_partners")
+
+# fmt: on

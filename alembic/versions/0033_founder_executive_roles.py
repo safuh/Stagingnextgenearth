@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Add founder and executive organisation roles."""
 from collections.abc import Sequence
 from alembic import op
@@ -17,3 +19,5 @@ def downgrade() -> None:
     op.drop_constraint("ck_membership_role", "organization_memberships", type_="check")
     op.create_check_constraint("ck_membership_role", "organization_memberships",
         "role IN ('admin','programme_manager','researcher','youth_volunteer','institutional_partner')")
+
+# fmt: on
