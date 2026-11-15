@@ -73,10 +73,23 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
     next_state = changes.pop("publication_state", None)
     changed_fields = sorted([*changes, *([ "publication_state" ] if next_state is not None else [])])
     previous_state = row.publication_state
+    if changes and previous_state in {"review", "approved", "published"}:
+        if next_state is not None:
+            raise HTTPException(
+                409,
+                "Edit content separately; changes invalidate the current review and publication state",
+            )
     for key, value in changes.items():
         if value is not None or key in {"summary", "body"}:
             setattr(row, key, value)
+    if changes and previous_state in {"review", "approved", "published"}:
+        row.publication_state = "draft"
+        row.approved_by = None
+        row.approved_at = None
+        row.published_at = None
     if next_state is not None:
+        if next_state == "approved" and row.created_by == principal.user_id:
+            raise HTTPException(403, "A different authorised reviewer must approve this content")
         allowed = {
             "draft": {"review", "archived"},
             "review": {"draft", "approved", "archived"},
