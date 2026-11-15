@@ -14,6 +14,14 @@ type Programme = {
   start_date: string | null;
   end_date: string | null;
 };
+type ProgrammeProject = {
+  id: string;
+  title: string;
+  summary: string | null;
+  status: string;
+  country_code: string;
+  county: string | null;
+};
 type Course = {
   id: string;
   title: string;
@@ -28,6 +36,7 @@ export default function ProgrammeDetailPage() {
   const slug = params.slug;
   const [programme, setProgramme] = useState<Programme | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [projects, setProjects] = useState<ProgrammeProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -45,12 +54,18 @@ export default function ProgrammeDetailPage() {
           if (active) setProgramme(null);
           return;
         }
-        const linkedCourses = await apiGet<Course[]>(
-          `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/courses`,
-        );
+        const [linkedCourses, linkedProjects] = await Promise.all([
+          apiGet<Course[]>(
+            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/courses`,
+          ),
+          apiGet<ProgrammeProject[]>(
+            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/projects`,
+          ),
+        ]);
         if (active) {
           setProgramme(selected);
           setCourses(linkedCourses);
+          setProjects(linkedProjects);
         }
       } catch (cause) {
         if (active) {
@@ -93,6 +108,26 @@ export default function ProgrammeDetailPage() {
               {programme.start_date ? ` · Starts ${programme.start_date}` : ""}
               {programme.end_date ? ` · Ends ${programme.end_date}` : ""}
             </p>
+            <section className="staff-card">
+              <h2>Projects and implementation</h2>
+              {projects.length === 0 ? (
+                <p className="workspace-muted">Project information will be published here as implementation records are added.</p>
+              ) : (
+                <div className="portal-grid">
+                  {projects.map((project) => (
+                    <article className="portal-card" key={project.id}>
+                      <p className="portal-tag">
+                        {project.status.replaceAll("_", " ")}
+                        {project.county ? ` · ${project.county}` : ""}
+                        {project.country_code ? ` · ${project.country_code}` : ""}
+                      </p>
+                      <h3>{project.title}</h3>
+                      <p className="portal-description">{project.summary || "Project details will be updated by the programme team."}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
             <section className="staff-card">
               <h2>Learning opportunities</h2>
               {courses.length === 0 ? (
