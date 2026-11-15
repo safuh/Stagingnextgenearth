@@ -14,6 +14,12 @@ type Project = {
 };
 type Goal = { id: string; title: string; description: string | null; target_date: string | null; status: string };
 type Milestone = { id: string; goal_id: string; title: string; description: string | null; due_date: string | null; status: string };
+type IndicatorProgress = {
+  indicator: { id: string; key: string; title: string; description: string | null; unit: string; direction: string; baseline_value: number | null; target_value: number | null };
+  latest_measurement: { value: number; period_start: string; period_end: string } | null;
+  progress_percent: number | null;
+};
+type Deliverable = { id: string; title: string; description: string | null; due_date: string | null; status: string; evidence_url: string | null; review_note: string | null };
 const transitions: Record<string, string[]> = {
   draft: ["planned", "archived"],
   planned: ["active", "archived"],
@@ -30,6 +36,8 @@ export default function ProgrammeAdminPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState("");
+  const [indicators, setIndicators] = useState<IndicatorProgress[]>([]);
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -76,26 +84,36 @@ export default function ProgrammeAdminPage() {
       setGoals([]);
       setMilestones([]);
       setSelectedGoalId("");
+      setIndicators([]);
+      setDeliverables([]);
       return;
     }
     Promise.all([
       apiGet<Goal[]>(`/organizations/${organizationId}/programmes/${selectedId}/goals`),
       apiGet<Milestone[]>(`/organizations/${organizationId}/programmes/${selectedId}/milestones`),
-    ]).then(([goalRows, milestoneRows]) => {
+      apiGet<IndicatorProgress[]>(`/organizations/${organizationId}/programmes/${selectedId}/indicators`),
+      apiGet<Deliverable[]>(`/organizations/${organizationId}/programmes/${selectedId}/deliverables`),
+    ]).then(([goalRows, milestoneRows, indicatorRows, deliverableRows]) => {
       setGoals(goalRows);
       setMilestones(milestoneRows);
+      setIndicators(indicatorRows);
+      setDeliverables(deliverableRows);
       setSelectedGoalId((current) => goalRows.some((goal) => goal.id === current) ? current : goalRows[0]?.id ?? "");
     }).catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load programme plan."));
   }, [organizationId, selectedId]);
 
   async function refreshPlan() {
     if (!organizationId || !selectedId) return;
-    const [goalRows, milestoneRows] = await Promise.all([
+    const [goalRows, milestoneRows, indicatorRows, deliverableRows] = await Promise.all([
       apiGet<Goal[]>(`/organizations/${organizationId}/programmes/${selectedId}/goals`),
       apiGet<Milestone[]>(`/organizations/${organizationId}/programmes/${selectedId}/milestones`),
+      apiGet<IndicatorProgress[]>(`/organizations/${organizationId}/programmes/${selectedId}/indicators`),
+      apiGet<Deliverable[]>(`/organizations/${organizationId}/programmes/${selectedId}/deliverables`),
     ]);
     setGoals(goalRows);
     setMilestones(milestoneRows);
+    setIndicators(indicatorRows);
+    setDeliverables(deliverableRows);
     setSelectedGoalId((current) => goalRows.some((goal) => goal.id === current) ? current : goalRows[0]?.id ?? "");
   }
 
@@ -141,6 +159,74 @@ export default function ProgrammeAdminPage() {
       setNotice(kind === "goals" ? "Goal status updated." : "Milestone status updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update programme plan.");
+    } finally { setBusy(false); }
+  }
+
+  async function createIndicator(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/indicators`, {
+        key: data.get("indicator_key"), title: data.get("indicator_title"),
+        description: data.get("indicator_description") || null, unit: data.get("indicator_unit"),
+        direction: data.get("indicator_direction"),
+        baseline_value: data.get("baseline_value") === "" ? null : Number(data.get("baseline_value")),
+        target_value: data.get("target_value") === "" ? null : Number(data.get("target_value")),
+      });
+      event.currentTarget.reset();
+      await refreshPlan();
+      setNotice("Programme indicator created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create indicator.");
+    } finally { setBusy(false); }
+  }
+
+  async function recordMeasurement(event: FormEvent<HTMLFormElement>, indicatorId: string) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/indicators/${indicatorId}/measurements`, {
+        period_start: data.get("period_start"), period_end: data.get("period_end"),
+        value: Number(data.get("measurement_value")), notes: data.get("measurement_notes") || null,
+      });
+      event.currentTarget.reset();
+      await refreshPlan();
+      setNotice("Indicator measurement recorded.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record measurement.");
+    } finally { setBusy(false); }
+  }
+
+  async function createDeliverable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/deliverables`, {
+        title: data.get("deliverable_title"), description: data.get("deliverable_description") || null,
+        due_date: data.get("deliverable_due_date") || null,
+      });
+      event.currentTarget.reset();
+      await refreshPlan();
+      setNotice("Deliverable created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create deliverable.");
+    } finally { setBusy(false); }
+  }
+
+  async function reviewDeliverable(deliverableId: string, decision: "accepted" | "revisions_required") {
+    const note = window.prompt("Review note (optional):") ?? "";
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/deliverables/${deliverableId}/decision`, {
+        decision, note: note || null,
+      });
+      await refreshPlan();
+      setNotice(decision === "accepted" ? "Deliverable accepted." : "Revisions requested.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to review deliverable.");
     } finally { setBusy(false); }
   }
 
@@ -286,6 +372,58 @@ export default function ProgrammeAdminPage() {
                         {["in_progress", "blocked"].includes(milestone.status) && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "completed")}>Mark completed</button>}
                         {milestone.status === "in_progress" && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "blocked")}>Mark blocked</button>}
                       </div>
+                    </article>
+                  ))}
+                </section>
+                <section className="staff-record">
+                  <h2>Impact indicators</h2>
+                  <form onSubmit={createIndicator}>
+                    <label>Indicator key<input name="indicator_key" pattern="[a-z][a-z0-9_]{1,79}" required /></label>
+                    <label>Indicator title<input name="indicator_title" minLength={2} maxLength={240} required /></label>
+                    <label>Description<textarea name="indicator_description" maxLength={5000} /></label>
+                    <label>Unit<input name="indicator_unit" maxLength={40} placeholder="trees, people, hectares…" required /></label>
+                    <label>Direction<select name="indicator_direction"><option value="increase">Increase</option><option value="decrease">Decrease</option><option value="monitor">Monitor only</option></select></label>
+                    <label>Baseline<input name="baseline_value" type="number" step="any" /></label>
+                    <label>Target<input name="target_value" type="number" step="any" /></label>
+                    <button className="primary-action" disabled={busy}>Create indicator</button>
+                  </form>
+                  {indicators.map((entry) => (
+                    <article className="staff-record" key={entry.indicator.id}>
+                      <strong>{entry.indicator.title}</strong>
+                      <small>{entry.indicator.key} · {entry.indicator.direction} · {entry.indicator.unit}</small>
+                      <p>{entry.latest_measurement ? `Latest: ${entry.latest_measurement.value} ${entry.indicator.unit} (period ending ${entry.latest_measurement.period_end})` : "No measurement recorded yet"}</p>
+                      {entry.progress_percent !== null && <p>Progress against target: {entry.progress_percent}%</p>}
+                      <form onSubmit={(event) => void recordMeasurement(event, entry.indicator.id)}>
+                        <label>Period start<input name="period_start" type="date" required /></label>
+                        <label>Period end<input name="period_end" type="date" required /></label>
+                        <label>Measured value<input name="measurement_value" type="number" step="any" required /></label>
+                        <label>Notes<textarea name="measurement_notes" maxLength={5000} /></label>
+                        <button className="secondary-action" disabled={busy}>Record measurement</button>
+                      </form>
+                    </article>
+                  ))}
+                </section>
+                <section className="staff-record">
+                  <h2>Deliverables and evidence review</h2>
+                  <form onSubmit={createDeliverable}>
+                    <label>Deliverable title<input name="deliverable_title" minLength={2} maxLength={240} required /></label>
+                    <label>Description<textarea name="deliverable_description" maxLength={10000} /></label>
+                    <label>Due date<input name="deliverable_due_date" type="date" /></label>
+                    <button className="primary-action" disabled={busy}>Create deliverable</button>
+                  </form>
+                  {deliverables.length === 0 ? <p className="workspace-muted">No deliverables have been registered.</p> : deliverables.map((item) => (
+                    <article className="staff-record" key={item.id}>
+                      <strong>{item.title}</strong>
+                      <small>{item.status}{item.due_date ? ` · Due ${item.due_date}` : ""}</small>
+                      {item.description && <p>{item.description}</p>}
+                      {item.evidence_url && <p><a href={item.evidence_url} target="_blank" rel="noreferrer">Open submitted evidence</a></p>}
+                      {item.review_note && <p>Review note: {item.review_note}</p>}
+                      {item.status === "submitted" && (
+                        <div className="staff-actions">
+                          <button className="secondary-action" disabled={busy} onClick={() => void reviewDeliverable(item.id, "accepted")}>Accept evidence</button>
+                          <button className="secondary-action" disabled={busy} onClick={() => void reviewDeliverable(item.id, "revisions_required")}>Request revisions</button>
+                        </div>
+                      )}
                     </article>
                   ))}
                 </section>
