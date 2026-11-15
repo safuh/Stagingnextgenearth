@@ -14,8 +14,14 @@ def upgrade() -> None:
     op.create_table(
         "institutional_partner_contacts",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("organization_id", sa.String(36), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("partner_id", sa.String(36), sa.ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "organization_id", sa.String(36),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False,
+        ),
+        sa.Column(
+            "partner_id", sa.String(36),
+            sa.ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False,
+        ),
         sa.Column("full_name", sa.String(200), nullable=False),
         sa.Column("job_title", sa.String(160), nullable=True),
         sa.Column("email", sa.String(320), nullable=True),
@@ -23,10 +29,22 @@ def upgrade() -> None:
         sa.Column("contact_permission", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("permission_recorded_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("status", sa.String(16), nullable=False, server_default="active"),
-        sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("updated_by", sa.String(36), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_by", sa.String(36),
+            sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,
+        ),
+        sa.Column(
+            "updated_by", sa.String(36),
+            sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True),
+            server_default=sa.func.now(), nullable=False,
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True),
+            server_default=sa.func.now(), nullable=False,
+        ),
         sa.CheckConstraint("status IN ('active','inactive')", name="ck_partner_contact_status"),
     )
     op.create_index(
