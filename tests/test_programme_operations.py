@@ -423,6 +423,30 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             headers=participant,
             json={"status": "in_progress"},
         ).status_code == 409
+        assignment_activity = client.get(
+            f"{base}/planning-activity",
+            headers=manager,
+        )
+        assert assignment_activity.status_code == 200
+        assignment_events = [
+            event for event in assignment_activity.json()
+            if event["entity_type"] == "assignment"
+            and event["entity_id"] == task_id
+        ]
+        assert [event["action"] for event in assignment_events] == [
+            "status_changed",
+            "status_changed",
+            "assigned",
+        ]
+        assert assignment_events[0]["details"] == {
+            "from": "in_progress",
+            "to": "completed",
+        }
+        assert assignment_events[-1]["details"]["assigned_to"] == application.json()["user_id"]
+        assert client.get(
+            f"{base}/planning-activity",
+            headers=participant,
+        ).status_code == 403
         assert client.get(f"{base}/goals", headers=participant).status_code == 200
         assert client.get(f"{base}/milestones", headers=participant).status_code == 200
         completed_milestone = client.post(
