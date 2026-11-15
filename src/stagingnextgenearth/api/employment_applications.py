@@ -93,6 +93,52 @@ async def submit_employment_application(
     return EmploymentApplicationRead.model_validate(application)
 
 
+@router.post(
+    "/public/organizations/{organization_slug}/employment-applications",
+    response_model=EmploymentApplicationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_public_employment_application(
+    organization_slug: str,
+    body: EmploymentApplicationCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> EmploymentApplicationRead:
+    """Publicly discoverable application endpoint; authentication is still mandatory."""
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    existing_membership = await session.scalar(
+        select(Membership.id).where(
+            Membership.organization_id == organization.id,
+            Membership.user_id == principal.user_id,
+        )
+    )
+    if existing_membership is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Existing organisation members must use the internal role-management process",
+        )
+    application = OrganizationEmploymentApplication(
+        organization_id=organization.id,
+        user_id=principal.user_id,
+        full_name=body.full_name.strip(),
+        desired_position=body.desired_position.strip(),
+        qualifications=body.qualifications.strip(),
+        experience_summary=body.experience_summary.strip() if body.experience_summary else None,
+    )
+    session.add(application)
+    try:
+        await session.commit()
+        await session.refresh(application)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "An employment application already exists") from exc
+    return EmploymentApplicationRead.model_validate(application)
+
+
 @router.get(
     "/organizations/{organization_id}/my-employment-applications",
     response_model=list[EmploymentApplicationRead],
