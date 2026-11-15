@@ -276,3 +276,53 @@ async def list_public_programmes(
         .limit(250)
     )
     return [PublicProgrammeRead.model_validate(item) for item in rows.all()]
+
+
+class PublicProgrammeProjectRead(BaseModel):
+    """Non-sensitive project summary for a published programme page."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    summary: str | None
+    status: str
+    country_code: str
+    county: str | None
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}/programmes/{programme_slug}/projects",
+    response_model=list[PublicProgrammeProjectRead],
+)
+async def list_public_programme_projects(
+    organization_slug: str,
+    programme_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicProgrammeProjectRead]:
+    """Expose public-safe project summaries only for published programmes."""
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    programme = await session.scalar(
+        select(Programme.id).where(
+            Programme.organization_id == organization.id,
+            Programme.slug == programme_slug,
+            Programme.status.in_({"planned", "active"}),
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    rows = await session.scalars(
+        select(Project)
+        .where(
+            Project.organization_id == organization.id,
+            Project.programme_id == programme,
+            Project.status.in_({"planned", "in_progress", "completed"}),
+        )
+        .order_by(Project.title)
+        .limit(500)
+    )
+    return [PublicProgrammeProjectRead.model_validate(item) for item in rows.all()]
