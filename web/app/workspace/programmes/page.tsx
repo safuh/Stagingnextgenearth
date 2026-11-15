@@ -262,8 +262,7 @@ export default function ProgrammeAdminPage() {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
     await run("Programme details saved.", () => apiPatch(
       `/organizations/${organizationId}/programmes/${selectedId}`,
       {
