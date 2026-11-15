@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Append-only partner and CMS audit history."""
 from collections.abc import Sequence
 
