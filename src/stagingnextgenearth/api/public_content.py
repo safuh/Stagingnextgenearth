@@ -83,6 +83,7 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
         if value is not None or key in {"summary", "body"}:
             setattr(row, key, value)
     if changes and previous_state in {"review", "approved", "published"}:
+        changed_fields = sorted([*changed_fields, "publication_state"])
         row.publication_state = "draft"
         row.approved_by = None
         row.approved_at = None
