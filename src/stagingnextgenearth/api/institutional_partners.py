@@ -1,6 +1,7 @@
 # ruff: noqa: E501, I001
 # fmt: off
 """Tenant-scoped partner registry and programme links."""
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -243,8 +244,7 @@ async def update_partner_contact(
         raise HTTPException(404, "Partner contact not found")
     changes = body.model_dump(exclude_unset=True)
     if changes.get("contact_permission") is True:
-        from datetime import datetime, timezone
-        row.permission_recorded_at = datetime.now(timezone.utc)
+        row.permission_recorded_at = datetime.now(UTC)
     elif changes.get("contact_permission") is False:
         row.permission_recorded_at = None
     for key, value in changes.items():
