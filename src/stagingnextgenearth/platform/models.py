@@ -1371,6 +1371,42 @@ class ProgrammeVolunteerAllocation(Base):
     )
 
 
+class ProgrammeActivityAttendance(Base):
+    """Individual attendance record for an allocated programme volunteer."""
+
+    __tablename__ = "programme_activity_attendance"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_activity_attendance_user"),
+        CheckConstraint(
+            "attendance_status IN ('present', 'late', 'absent', 'excused')",
+            name="ck_activity_attendance_status",
+        ),
+        Index("ix_activity_attendance_org_activity", "organization_id", "activity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    attendance_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ProgrammeIndicator(Base):
     """A measurable programme outcome or output indicator."""
 
