@@ -13,11 +13,17 @@ interface ModuleChoice {
   title: string;
   position: number;
 }
+interface ProgrammeChoice {
+  id: string;
+  title: string;
+  status: string;
+}
 interface Course {
   id: string;
   title: string;
   slug: string;
   description: string;
+  programme_id: string | null;
   status: string;
 }
 interface Enrollment {
@@ -55,6 +61,7 @@ interface Mentorship {
 
 export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [programmes, setProgrammes] = useState<ProgrammeChoice[]>([]);
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<ModuleChoice[]>([]);
   const [members, setMembers] = useState<MemberChoice[]>([]);
@@ -90,10 +97,12 @@ export default function LearningAdminPage() {
     Promise.all([
       apiGet<Course[]>(`/organizations/${organizationId}/learning/courses?include_drafts=true`),
       apiGet<MemberChoice[]>(`/organizations/${organizationId}/memberships/directory`),
+      apiGet<ProgrammeChoice[]>(`/organizations/${organizationId}/programmes`),
     ])
-      .then(([items, memberItems]) => {
+      .then(([items, memberItems, programmeItems]) => {
         setCourses(items);
         setMembers(memberItems);
+        setProgrammes(programmeItems);
         if (items[0]) setCourseId(items[0].id);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load staff workspace data."));
@@ -148,6 +157,7 @@ export default function LearningAdminPage() {
         slug: data.get("slug"),
         description: data.get("description"),
         category: data.get("category") || null,
+        programme_id: data.get("programme_id") || null,
         delivery_mode: data.get("delivery_mode"),
       });
       const next = [...courses, created];
@@ -260,7 +270,7 @@ export default function LearningAdminPage() {
           <div className="staff-course-picker">
             <label htmlFor="staff-course">Manage course</label>
             <select id="staff-course" value={courseId} onChange={(event) => setCourseId(event.target.value)}>
-              {courses.map((course) => <option key={course.id} value={course.id}>{course.title} · {course.status}</option>)}
+              {courses.map((course) => <option key={course.id} value={course.id}>{course.title}{course.programme_id ? ` · ${programmes.find((item) => item.id === course.programme_id)?.title ?? "Linked programme"}` : ""} · {course.status}</option>)}
             </select>
           </div>
         )}
@@ -272,6 +282,7 @@ export default function LearningAdminPage() {
               <label>URL slug<input name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
               <label>Description<textarea name="description" maxLength={12000} required /></label>
               <label>Category<input name="category" maxLength={100} /></label>
+              <label>Programme<select name="programme_id" defaultValue=""><option value="">Standalone course</option>{programmes.map((programme) => <option key={programme.id} value={programme.id}>{programme.title} · {programme.status}</option>)}</select></label>
               <label>Delivery<select name="delivery_mode"><option value="blended">Blended</option><option value="online">Online</option><option value="in_person">In person</option></select></label>
               <button className="primary-action" disabled={busy}>Create draft</button>
             </form>
