@@ -472,6 +472,23 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             json={"decision": "accepted", "note": "Evidence reviewed."},
         )
         assert accepted.status_code == 200
+        deliverable_events_url = f"{deliverable_url}/{deliverable_id}/events"
+        manager_history = client.get(deliverable_events_url, headers=manager)
+        assert manager_history.status_code == 200
+        assert [event["action"] for event in manager_history.json()] == [
+            "created",
+            "assigned",
+            "evidence_submitted",
+            "accepted",
+        ]
+        contributor_history = client.get(
+            deliverable_events_url, headers=participant
+        )
+        assert contributor_history.status_code == 200
+        assert contributor_history.json()[-1]["action"] == "accepted"
+        assert client.get(
+            deliverable_events_url, headers=partner
+        ).status_code == 403
 
         public_report = client.get(
             "/api/public/organizations/operations-test/programmes/tree-growing/report"
