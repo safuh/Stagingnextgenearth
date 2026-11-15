@@ -340,7 +340,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         partner_report = client.get(f"{base}/partner-reporting", headers=partner)
         assert partner_report.status_code == 200
         report_body = partner_report.json()
-        assert report_body["programme_title"] == "Tree growing programme"
+        assert report_body["programme_title"] == "Community tree restoration"
         assert report_body["indicators"][0]["latest_value"] == 250
         assert report_body["participation"] == [{
             "participant_group": "school",
