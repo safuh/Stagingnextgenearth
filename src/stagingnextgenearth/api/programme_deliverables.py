@@ -12,6 +12,7 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeDeliverable,
+    ProgrammeDeliverableEvent,
     Project,
 )
 
@@ -67,6 +68,38 @@ class DeliverableRead(BaseModel):
     reviewed_by: str | None
     reviewed_at: datetime | None
     review_note: str | None
+
+
+class DeliverableEventRead(BaseModel):
+    """Auditable lifecycle event for a programme deliverable."""
+
+    id: str
+    actor_user_id: str
+    action: str
+    details: dict[str, object]
+    created_at: datetime
+
+
+async def _record_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    deliverable_id: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammeDeliverableEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            deliverable_id=deliverable_id,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+        )
+    )
 
 
 async def _programme(
@@ -131,6 +164,26 @@ async def create_deliverable(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        deliverable_id=item.id,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"title": item.title, "assigned_to": item.assigned_to},
+    )
+    if item.assigned_to is not None:
+        await _record_event(
+            session,
+            organization_id=organization_id,
+            programme_id=programme_id,
+            deliverable_id=item.id,
+            actor_user_id=principal.user_id,
+            action="assigned",
+            details={"assigned_to": item.assigned_to},
+        )
     await session.commit()
     await session.refresh(item)
     return DeliverableRead.model_validate(item)
@@ -198,6 +251,15 @@ async def submit_deliverable_evidence(
     item.status = "submitted"
     item.submitted_at = datetime.now(UTC)
     item.review_note = body.note
+    await _record_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        deliverable_id=item.id,
+        actor_user_id=principal.user_id,
+        action="evidence_submitted",
+        details={"evidence_url": body.evidence_url, "note": body.note},
+    )
     await session.commit()
     await session.refresh(item)
     return DeliverableRead.model_validate(item)
@@ -231,6 +293,49 @@ async def review_deliverable_evidence(
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
     item.review_note = body.note
+    await _record_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        deliverable_id=item.id,
+        actor_user_id=principal.user_id,
+        action=body.decision,
+        details={"note": body.note},
+    )
     await session.commit()
     await session.refresh(item)
     return DeliverableRead.model_validate(item)
+
+
+@router.get("/{deliverable_id}/events", response_model=list[DeliverableEventRead])
+async def list_deliverable_events(
+    organization_id: str,
+    programme_id: str,
+    deliverable_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[DeliverableEventRead]:
+    """Return lifecycle history to managers and the deliverable's assignee only."""
+    item = await session.scalar(
+        select(ProgrammeDeliverable).where(
+            ProgrammeDeliverable.id == deliverable_id,
+            ProgrammeDeliverable.organization_id == organization_id,
+            ProgrammeDeliverable.programme_id == programme_id,
+        )
+    )
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
+    if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Deliverable history access denied")
+    events = await session.scalars(
+        select(ProgrammeDeliverableEvent)
+        .where(
+            ProgrammeDeliverableEvent.organization_id == organization_id,
+            ProgrammeDeliverableEvent.programme_id == programme_id,
+            ProgrammeDeliverableEvent.deliverable_id == deliverable_id,
+        )
+        .order_by(ProgrammeDeliverableEvent.created_at, ProgrammeDeliverableEvent.id)
+        .limit(200)
+    )
+    return [DeliverableEventRead.model_validate(event) for event in events.all()]
