@@ -73,6 +73,8 @@ class DeliverableRead(BaseModel):
 class DeliverableEventRead(BaseModel):
     """Auditable lifecycle event for a programme deliverable."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     actor_user_id: str
     action: str
