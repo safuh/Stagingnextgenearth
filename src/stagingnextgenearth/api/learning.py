@@ -28,8 +28,8 @@ from stagingnextgenearth.platform.models import (
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
-_MANAGE = {"admin", "programme_manager"}
-_LEARN = {"admin", "programme_manager", "researcher", "youth_volunteer", "institutional_partner"}
+_MANAGE = {"admin", "founder", "executive", "programme_manager"}
+_LEARN = {"admin", "founder", "executive", "programme_manager", "researcher", "youth_volunteer", "employee", "institutional_partner"}
 
 
 class CourseCreate(BaseModel):
