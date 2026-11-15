@@ -145,13 +145,18 @@ async def list_deliverables(
 ) -> list[DeliverableRead]:
     """List programme deliverables within the caller's active tenant."""
     await _programme(session, organization_id, programme_id)
-    rows = await session.scalars(
-        select(ProgrammeDeliverable)
-        .where(
-            ProgrammeDeliverable.organization_id == organization_id,
-            ProgrammeDeliverable.programme_id == programme_id,
+    statement = select(ProgrammeDeliverable).where(
+        ProgrammeDeliverable.organization_id == organization_id,
+        ProgrammeDeliverable.programme_id == programme_id,
+    )
+    # Contributors see only work assigned to their own account. In particular,
+    # evidence references and reviewer notes for other members stay private.
+    if membership.role not in _MANAGERS:
+        statement = statement.where(
+            ProgrammeDeliverable.assigned_to == membership.user_id
         )
-        .order_by(ProgrammeDeliverable.due_date, ProgrammeDeliverable.created_at)
+    rows = await session.scalars(
+        statement.order_by(ProgrammeDeliverable.due_date, ProgrammeDeliverable.created_at)
         .limit(500)
     )
     return [DeliverableRead.model_validate(row) for row in rows.all()]
