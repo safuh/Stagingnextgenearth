@@ -518,6 +518,72 @@ async def allocate_volunteer(
     return VolunteerAllocationRead.model_validate(item)
 
 
+class VolunteerAllocationStatusUpdate(BaseModel):
+    """Terminal state requested for an existing volunteer allocation."""
+
+    status: str = Field(pattern=r"^(completed|withdrawn)$")
+
+
+@router.post(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/volunteers/{allocation_id}/status",
+    response_model=VolunteerAllocationRead,
+)
+async def update_volunteer_allocation_status(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    allocation_id: str,
+    body: VolunteerAllocationStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> VolunteerAllocationRead:
+    """Close an allocation as completed or withdrawn; retain its unique assignment record."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    allocation = await session.scalar(
+        select(ProgrammeVolunteerAllocation).where(
+            ProgrammeVolunteerAllocation.id == allocation_id,
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+            ProgrammeVolunteerAllocation.activity_id == activity_id,
+        )
+    )
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Volunteer allocation not found")
+    if allocation.status != "assigned":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Volunteer allocation is already closed")
+    activity = await session.scalar(
+        select(ProgrammeActivity).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    allocation.status = body.status
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="volunteer_allocation",
+        entity_id=allocation.id,
+        entity_title=activity.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={
+            "user_id": allocation.user_id,
+            "activity_id": activity.id,
+            "from": "assigned",
+            "to": body.status,
+        },
+    )
+    await session.commit()
+    await session.refresh(allocation)
+    return VolunteerAllocationRead.model_validate(allocation)
+
+
 class ActivityStatusUpdate(BaseModel):
     """Requested activity lifecycle state."""
 
