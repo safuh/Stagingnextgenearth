@@ -49,7 +49,9 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
         payload = {
             "full_name": "Example Candidate",
             "desired_position": "Climate Research Associate",
-            "qualifications": "I have relevant environmental science training and research experience.",
+            "qualifications": (
+                "I have relevant environmental science training and research experience."
+            ),
             "experience_summary": "Supported community climate data collection projects.",
         }
         created = client.post(base, headers=candidate, json=payload)
