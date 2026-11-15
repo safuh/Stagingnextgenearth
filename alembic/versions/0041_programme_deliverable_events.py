@@ -48,7 +48,8 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
         sa.CheckConstraint(
-            "action IN ('created', 'assigned', 'evidence_submitted', 'accepted', 'revisions_required')",
+            "action IN ('created', 'assigned', 'evidence_submitted', "
+            "'accepted', 'revisions_required')",
             name="ck_programme_deliverable_event_action",
         ),
     )
