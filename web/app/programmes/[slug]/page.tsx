@@ -30,6 +30,16 @@ type Course = {
   category: string | null;
   delivery_mode: string;
 };
+type ProgrammeReport = {
+  milestones: Array<{ title: string; description: string | null; due_date: string | null; goal_title: string }>;
+  deliverables: Array<{ title: string; description: string | null; due_date: string | null }>;
+  indicators: Array<{
+    key: string; title: string; description: string | null; unit: string;
+    direction: string; baseline_value: number | null; target_value: number | null;
+    latest_value: number | null; latest_period_start: string | null;
+    latest_period_end: string | null; progress_percent: number | null;
+  }>;
+};
 
 export default function ProgrammeDetailPage() {
   const params = useParams<{ slug: string }>();
@@ -37,6 +47,7 @@ export default function ProgrammeDetailPage() {
   const [programme, setProgramme] = useState<Programme | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [projects, setProjects] = useState<ProgrammeProject[]>([]);
+  const [report, setReport] = useState<ProgrammeReport>({ milestones: [], deliverables: [], indicators: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -54,18 +65,22 @@ export default function ProgrammeDetailPage() {
           if (active) setProgramme(null);
           return;
         }
-        const [linkedCourses, linkedProjects] = await Promise.all([
+        const [linkedCourses, linkedProjects, programmeReport] = await Promise.all([
           apiGet<Course[]>(
             `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/courses`,
           ),
           apiGet<ProgrammeProject[]>(
             `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/projects`,
           ),
+          apiGet<ProgrammeReport>(
+            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/report`,
+          ),
         ]);
         if (active) {
           setProgramme(selected);
           setCourses(linkedCourses);
           setProjects(linkedProjects);
+          setReport(programmeReport);
         }
       } catch (cause) {
         if (active) {
@@ -123,6 +138,45 @@ export default function ProgrammeDetailPage() {
                       </p>
                       <h3>{project.title}</h3>
                       <p className="portal-description">{project.summary || "Project details will be updated by the programme team."}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="staff-card">
+              <h2>Implementation results</h2>
+              {report.milestones.length === 0 && report.deliverables.length === 0 && report.indicators.length === 0 ? (
+                <p className="workspace-muted">Verified results and programme indicators will appear here as they are reviewed and reported.</p>
+              ) : (
+                <div className="portal-grid">
+                  {report.indicators.map((indicator) => (
+                    <article className="portal-card" key={indicator.key}>
+                      <p className="portal-tag">Impact indicator</p>
+                      <h3>{indicator.title}</h3>
+                      <p className="portal-description">
+                        {indicator.latest_value === null ? "No measurement reported yet" : `${indicator.latest_value.toLocaleString()} ${indicator.unit}`}
+                        {indicator.target_value !== null ? ` · Target ${indicator.target_value.toLocaleString()} ${indicator.unit}` : ""}
+                      </p>
+                      {indicator.progress_percent !== null && (
+                        <p className="portal-description">Progress against target: {indicator.progress_percent}%</p>
+                      )}
+                      {indicator.latest_period_end && <p className="portal-tag">Reported through {indicator.latest_period_end}</p>}
+                    </article>
+                  ))}
+                  {report.milestones.map((milestone) => (
+                    <article className="portal-card" key={milestone.title}>
+                      <p className="portal-tag">Completed milestone · {milestone.goal_title}</p>
+                      <h3>{milestone.title}</h3>
+                      {milestone.description && <p className="portal-description">{milestone.description}</p>}
+                      {milestone.due_date && <p className="portal-tag">Target date {milestone.due_date}</p>}
+                    </article>
+                  ))}
+                  {report.deliverables.map((deliverable) => (
+                    <article className="portal-card" key={deliverable.title}>
+                      <p className="portal-tag">Accepted deliverable</p>
+                      <h3>{deliverable.title}</h3>
+                      {deliverable.description && <p className="portal-description">{deliverable.description}</p>}
+                      {deliverable.due_date && <p className="portal-tag">Due {deliverable.due_date}</p>}
                     </article>
                   ))}
                 </div>
