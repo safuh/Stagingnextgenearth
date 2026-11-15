@@ -23,6 +23,7 @@ type MemberOption = { user_id: string; role: string };
 type Deliverable = { id: string; title: string; description: string | null; due_date: string | null; status: string; project_id: string | null; assigned_to: string | null; evidence_url: string | null; review_note: string | null };
 type DeliverableEvent = { id: string; actor_user_id: string | null; action: string; details: Record<string, unknown>; created_at: string };
 type ProgrammeActivity = DeliverableEvent & { deliverable_id: string; deliverable_title: string };
+type PlanningActivity = { id: string; entity_type: string; entity_title: string; actor_user_id: string; action: string; details: Record<string, unknown>; created_at: string };
 const transitions: Record<string, string[]> = {
   draft: ["planned", "archived"],
   planned: ["active", "archived"],
@@ -43,6 +44,7 @@ export default function ProgrammeAdminPage() {
   const [indicators, setIndicators] = useState<IndicatorProgress[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [programmeActivity, setProgrammeActivity] = useState<ProgrammeActivity[]>([]);
+  const [planningActivity, setPlanningActivity] = useState<PlanningActivity[]>([]);
   const [deliverableEvents, setDeliverableEvents] = useState<Record<string, DeliverableEvent[]>>({});
   const [historyOpen, setHistoryOpen] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
@@ -102,11 +104,15 @@ export default function ProgrammeAdminPage() {
       setIndicators([]);
       setDeliverables([]);
       setProgrammeActivity([]);
+      setPlanningActivity([]);
       return;
     }
     apiGet<ProgrammeActivity[]>(`/organizations/${organizationId}/programmes/${selectedId}/deliverables/activity`)
       .then(setProgrammeActivity)
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load programme activity."));
+    apiGet<PlanningActivity[]>(`/organizations/${organizationId}/programmes/${selectedId}/planning-activity`)
+      .then(setPlanningActivity)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load planning history."));
     Promise.all([
       apiGet<Goal[]>(`/organizations/${organizationId}/programmes/${selectedId}/goals`),
       apiGet<Milestone[]>(`/organizations/${organizationId}/programmes/${selectedId}/milestones`),
@@ -539,6 +545,20 @@ export default function ProgrammeAdminPage() {
                         <strong>{entry.action.replaceAll("_", " ")} · {entry.deliverable_title}</strong>
                         <small>{new Date(entry.created_at).toLocaleString()} · Actor {entry.actor_user_id}</small>
                         {typeof entry.details.note === "string" && <p>{entry.details.note}</p>}
+                      </article>
+                    ))
+                  }
+                </section>
+                <section className="staff-record">
+                  <h2>Planning and indicator history</h2>
+                  <p className="workspace-muted">Goal, milestone and indicator changes, including recorded measurements. Visible to programme managers.</p>
+                  {planningActivity.length === 0 ? <p className="workspace-muted">No planning changes have been recorded yet.</p> :
+                    planningActivity.map((entry) => (
+                      <article key={entry.id}>
+                        <strong>{entry.action.replaceAll("_", " ")} · {entry.entity_type}: {entry.entity_title}</strong>
+                        <small>{new Date(entry.created_at).toLocaleString()} · Actor {entry.actor_user_id}</small>
+                        {typeof entry.details.from === "string" && typeof entry.details.to === "string" && <p>{entry.details.from} → {entry.details.to}</p>}
+                        {typeof entry.details.value === "number" && <p>Recorded value: {entry.details.value}{typeof entry.details.unit === "string" ? " " + entry.details.unit : ""}</p>}
                       </article>
                     ))
                   }
