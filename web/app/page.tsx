@@ -8,6 +8,7 @@ type PublicContent = { id: string; content_type: string; title: string; summary:
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; website_url: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
+type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string };
 
 const portals = [
   {
@@ -47,6 +48,7 @@ export default function HomePage() {
   const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
   const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
   const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
+  const [publicCourses, setPublicCourses] = useState<PublicCourse[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -55,14 +57,16 @@ export default function HomePage() {
       apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people"),
       apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners"),
       apiGet<PublicProgramme[]>("/public/organizations/nextgen-for-earth/programmes"),
-    ]).then(([items, people, partners, programmes]) => {
+      apiGet<PublicCourse[]>("/public/organizations/nextgen-for-earth/courses"),
+    ]).then(([items, people, partners, programmes, courses]) => {
       if (!active) return;
       setCatalogue(items);
       setPublicPeople(people);
       setPublicPartners(partners);
       setPublicProgrammes(programmes);
+      setPublicCourses(courses);
     }).catch(() => {
-      if (active) { setCatalogue([]); setPublicPeople([]); setPublicPartners([]); setPublicProgrammes([]); }
+      if (active) { setCatalogue([]); setPublicPeople([]); setPublicPartners([]); setPublicProgrammes([]); setPublicCourses([]); }
     });
     return () => { active = false; };
   }, []);
@@ -171,11 +175,14 @@ export default function HomePage() {
           {publicProgrammes.map((programme) => (
             <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3>{programme.title}</h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
           ))}
+          {publicCourses.map((course) => (
+            <article className="portal-card" key={`course-${course.id}`}><p className="portal-tag">Training course · {course.delivery_mode.replaceAll("_", " ")}</p><h3>{course.title}</h3><p className="portal-description">{course.description}</p>{course.category && <p className="portal-description">Category: {course.category}</p>}<a href="#access">Sign in to access learning <span>↗</span></a></article>
+          ))}
           {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area"].includes(item.content_type)).map((item) => (
             <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary}</p></article>
           ))}
         </div>
-        {publicProgrammes.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+        {publicProgrammes.length === 0 && publicCourses.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
       </section>
       <section className="portals section-wrap" id="people">
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
