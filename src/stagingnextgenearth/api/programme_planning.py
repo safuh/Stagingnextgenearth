@@ -471,6 +471,23 @@ async def create_assignment(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="assignment",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="assigned",
+        details={
+            "assigned_to": item.assigned_to,
+            "milestone_id": item.milestone_id,
+            "priority": item.priority,
+            "status": item.status,
+        },
+    )
     await session.commit()
     await session.refresh(item)
     return AssignmentRead.model_validate(item)
@@ -531,8 +548,20 @@ async def update_assignment_status(
     transitions = {"open": {"in_progress", "cancelled"}, "in_progress": {"completed", "cancelled"}}
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid assignment status transition")
+    previous_status = item.status
     item.status = body.status
     item.completed_at = datetime.now(UTC) if body.status == "completed" else None
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="assignment",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return AssignmentRead.model_validate(item)
