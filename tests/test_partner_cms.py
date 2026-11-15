@@ -47,6 +47,12 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert partner.status_code == 201
         partner_id = partner.json()["id"]
         assert partner.json()["verification_state"] == "pending"
+        partner_audit = client.get(
+            f"/api/organizations/{org_id}/partners/{partner_id}/audit-events",
+            headers=headers,
+        )
+        assert partner_audit.status_code == 200
+        assert partner_audit.json()[0]["action"] == "record.created"
         assert client.get("/api/public/organizations/nextgen-for-earth/partners").json() == []
 
         programme = client.post(f"/api/organizations/{org_id}/programmes", headers=headers, json={
@@ -72,6 +78,13 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert verified.status_code == 200
         public_partners = client.get("/api/public/organizations/nextgen-for-earth/partners")
         assert public_partners.status_code == 200
+        partner_audit = client.get(
+            f"/api/organizations/{org_id}/partners/{partner_id}/audit-events",
+            headers=headers,
+        )
+        assert partner_audit.status_code == 200
+        assert partner_audit.json()[0]["action"] == "record.state_changed"
+        assert "verification_state" in partner_audit.json()[0]["changed_fields"]
         assert [row["name"] for row in public_partners.json()] == ["University of Nairobi"]
         assert "verification_state" not in public_partners.json()[0]
         assert "source_url" not in public_partners.json()[0]
@@ -85,6 +98,12 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         })
         assert entry.status_code == 201
         assert entry.json()["publication_state"] == "draft"
+        content_audit = client.get(
+            f"/api/organizations/{org_id}/content/{entry.json()['id']}/audit-events",
+            headers=headers,
+        )
+        assert content_audit.status_code == 200
+        assert content_audit.json()[0]["action"] == "record.created"
         assert client.get("/api/public/organizations/nextgen-for-earth/content").json() == []
 
         entry_id = entry.json()["id"]
@@ -115,6 +134,13 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert published.status_code == 200
         public_content = client.get("/api/public/organizations/nextgen-for-earth/content")
         assert public_content.status_code == 200
+        content_audit = client.get(
+            f"/api/organizations/{org_id}/content/{entry_id}/audit-events",
+            headers=headers,
+        )
+        assert content_audit.status_code == 200
+        assert content_audit.json()[0]["action"] == "record.state_changed"
+        assert "publication_state" in content_audit.json()[0]["changed_fields"]
         assert [row["title"] for row in public_content.json()] == ["Research Capacity Building"]
         assert "source_url" not in public_content.json()[0]
         assert "metadata_json" not in public_content.json()[0]

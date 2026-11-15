@@ -158,7 +158,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Public volunteer/ambassador expression-of-interest flow and administration review queue.
 - [x] Volunteer approval requires a recorded safeguarding and any required guardian-consent confirmation.
 - [ ] New-candidate employee application workflow and automated invitation notifications.
-- [ ] Partner/CMS audit-event history and partner-contact consent workflows.
+- [x] Append-only partner/CMS audit-event history with tenant-scoped admin read endpoints; partner-contact consent workflows remain.
 - [ ] KoboToolbox/ODK field data integration.
 - [ ] Email and calendar notifications.
 - [ ] Zoom/meeting integration where required.
