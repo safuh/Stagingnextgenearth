@@ -255,6 +255,26 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             f"/api/organizations/{org_id}/my-volunteer-allocations",
             headers=manager,
         ).json() == []
+        allocation_status_url = (
+            f"{base}/activities/{activity_id}/volunteers/{assignment.json()['id']}/status"
+        )
+        assert client.post(
+            allocation_status_url,
+            headers=participant,
+            json={"status": "completed"},
+        ).status_code == 403
+        allocation_completed = client.post(
+            allocation_status_url,
+            headers=manager,
+            json={"status": "completed"},
+        )
+        assert allocation_completed.status_code == 200
+        assert allocation_completed.json()["status"] == "completed"
+        assert client.post(
+            allocation_status_url,
+            headers=manager,
+            json={"status": "withdrawn"},
+        ).status_code == 409
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
             headers=manager,
