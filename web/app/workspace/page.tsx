@@ -301,6 +301,9 @@ export default function WorkspacePage() {
                   {membership.role === "institutional_partner" && (
                     <Link href="/workspace/partner">Institutional partner portal →</Link>
                   )}
+                  {membership.role === "programme_manager" && (
+                    <Link href="/workspace/administration/applications">Review volunteer applications →</Link>
+                  )}
                   {["admin", "founder", "executive"].includes(membership.role) && (
                     <Link href="/workspace/administration">Organisation administration →</Link>
                   )}
