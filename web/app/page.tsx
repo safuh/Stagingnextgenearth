@@ -8,7 +8,7 @@ type PublicContent = { id: string; content_type: string; title: string; summary:
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; website_url: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
-type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string };
+type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string; programme_id: string | null };
 
 const portals = [
   {
