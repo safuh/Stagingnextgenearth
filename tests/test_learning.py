@@ -96,6 +96,12 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert programme_response.status_code == 201
         programme_id = programme_response.json()["id"]
+        planned_programme = client.post(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/status",
+            headers=admin_headers,
+            json={"status": "planned"},
+        )
+        assert planned_programme.status_code == 200
 
         base = f"/api/organizations/{org_id}/learning"
         course_response = client.post(
