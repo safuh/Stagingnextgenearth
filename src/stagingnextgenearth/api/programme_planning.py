@@ -12,6 +12,8 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeAssignment,
+    ProgrammeDeliverable,
+    ProgrammeDeliverableEvent,
     ProgrammeGoal,
     ProgrammeMilestone,
     ProgrammePlanningEvent,
@@ -72,6 +74,21 @@ class PlanningEventRead(BaseModel):
     """Manager-visible programme planning audit event."""
 
     model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    entity_type: str
+    entity_id: str
+    entity_title: str
+    actor_user_id: str
+    action: str
+    details: dict[str, object]
+    created_at: datetime
+
+
+
+
+class ProgrammeTimelineEventRead(BaseModel):
+    """Unified manager-facing event across programme planning and delivery."""
 
     id: str
     entity_type: str
@@ -598,3 +615,80 @@ async def list_planning_activity(
         .limit(100)
     )
     return [PlanningEventRead.model_validate(row) for row in rows.all()]
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/activity-timeline",
+    response_model=list[ProgrammeTimelineEventRead],
+)
+async def list_programme_activity_timeline(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ProgrammeTimelineEventRead]:
+    """Combine planning, assignment, activity and deliverable events for managers."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme management permission required",
+        )
+    await _programme(session, organization_id, programme_id)
+
+    planning_rows = await session.scalars(
+        select(ProgrammePlanningEvent)
+        .where(
+            ProgrammePlanningEvent.organization_id == organization_id,
+            ProgrammePlanningEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammePlanningEvent.created_at.desc(),
+            ProgrammePlanningEvent.id.desc(),
+        )
+        .limit(100)
+    )
+    deliverable_rows = await session.execute(
+        select(ProgrammeDeliverableEvent, ProgrammeDeliverable.title)
+        .join(
+            ProgrammeDeliverable,
+            ProgrammeDeliverable.id == ProgrammeDeliverableEvent.deliverable_id,
+        )
+        .where(
+            ProgrammeDeliverableEvent.organization_id == organization_id,
+            ProgrammeDeliverableEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammeDeliverableEvent.created_at.desc(),
+            ProgrammeDeliverableEvent.id.desc(),
+        )
+        .limit(100)
+    )
+
+    events = [
+        ProgrammeTimelineEventRead(
+            id=event.id,
+            entity_type=event.entity_type,
+            entity_id=event.entity_id,
+            entity_title=event.entity_title,
+            actor_user_id=event.actor_user_id,
+            action=event.action,
+            details=event.details,
+            created_at=event.created_at,
+        )
+        for event in planning_rows.all()
+    ]
+    events.extend(
+        ProgrammeTimelineEventRead(
+            id=event.id,
+            entity_type="deliverable",
+            entity_id=event.deliverable_id,
+            entity_title=title,
+            actor_user_id=event.actor_user_id,
+            action=event.action,
+            details=event.details,
+            created_at=event.created_at,
+        )
+        for event, title in deliverable_rows.all()
+    )
+    events.sort(key=lambda event: (event.created_at, event.id), reverse=True)
+    return events[:100]
