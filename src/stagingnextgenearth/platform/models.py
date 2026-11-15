@@ -1264,6 +1264,29 @@ class ProgrammeActivity(Base):
     )
 
 
+class OrganizationEmploymentApplication(Base):
+    """Private employment application reviewed before employee membership is granted."""
+    __tablename__ = "organization_employment_applications"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','approved','rejected','withdrawn')",
+                        name="ck_employment_application_status"),
+        Index("ix_employment_applications_org_status", "organization_id", "status"),
+        UniqueConstraint("organization_id", "user_id", name="uq_employment_application_org_user"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    desired_position: Mapped[str] = mapped_column(String(160), nullable=False)
+    qualifications: Mapped[str] = mapped_column(Text, nullable=False)
+    experience_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class ProgrammeVolunteerApplication(Base):
     """A volunteer's application to participate in an organisation programme."""
 
