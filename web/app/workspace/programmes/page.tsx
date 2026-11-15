@@ -207,6 +207,7 @@ export default function ProgrammeAdminPage() {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/deliverables`, {
         title: data.get("deliverable_title"), description: data.get("deliverable_description") || null,
         due_date: data.get("deliverable_due_date") || null,
+        project_id: data.get("deliverable_project_id") || null,
       });
       event.currentTarget.reset();
       await refreshPlan();
@@ -409,6 +410,12 @@ export default function ProgrammeAdminPage() {
                     <label>Deliverable title<input name="deliverable_title" minLength={2} maxLength={240} required /></label>
                     <label>Description<textarea name="deliverable_description" maxLength={10000} /></label>
                     <label>Due date<input name="deliverable_due_date" type="date" /></label>
+                    <label>Related project
+                      <select name="deliverable_project_id" defaultValue="">
+                        <option value="">No project link</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+                      </select>
+                    </label>
                     <button className="primary-action" disabled={busy}>Create deliverable</button>
                   </form>
                   {deliverables.length === 0 ? <p className="workspace-muted">No deliverables have been registered.</p> : deliverables.map((item) => (
