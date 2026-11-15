@@ -24,6 +24,7 @@ from stagingnextgenearth.platform.models import (
     LearningResource,
     Membership,
     Organization,
+    Programme,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
@@ -42,6 +43,7 @@ class PublicCourseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     organization_id: str
+    programme_id: str | None
     title: str
     slug: str
     description: str
@@ -80,6 +82,7 @@ class CourseCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: str = Field(min_length=1, max_length=12000)
     category: str | None = Field(default=None, max_length=100)
+    programme_id: str | None = None
     delivery_mode: Literal["online", "in_person", "blended"] = "blended"
 
 
@@ -87,6 +90,7 @@ class CourseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     organization_id: str
+    programme_id: str | None
     title: str
     slug: str
     description: str
@@ -182,8 +186,18 @@ async def create_course(
 ) -> CourseRead:
     if membership.role not in _MANAGE:
         raise HTTPException(403, "Course management permission required")
+    if body.programme_id is not None:
+        programme_exists = await session.scalar(
+            select(Programme.id).where(
+                Programme.id == body.programme_id,
+                Programme.organization_id == organization_id,
+            )
+        )
+        if programme_exists is None:
+            raise HTTPException(404, "Programme not found in this organisation")
     course = LearningCourse(
-        organization_id=organization_id, title=body.title.strip(), slug=body.slug,
+        organization_id=organization_id, programme_id=body.programme_id,
+        title=body.title.strip(), slug=body.slug,
         description=body.description, category=body.category, delivery_mode=body.delivery_mode,
         status="draft", created_by=principal.user_id,
     )
