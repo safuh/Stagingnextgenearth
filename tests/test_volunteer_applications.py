@@ -73,7 +73,10 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
             headers=applicant,
             json={
                 "participation_type": "volunteer",
-                "interest": "I want to support community climate learning and local restoration activities.",
+                "interest": (
+                    "I want to support community climate learning and local "
+                    "restoration activities."
+                ),
                 "availability": "Weekends and school holidays",
             },
         )
@@ -92,7 +95,10 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
 
         queue = client.get(endpoint, headers=owner)
         assert queue.status_code == 200
-        assert queue.json()[0]["applicant_identifier"] == "volunteer-applicant@example.org"
+        assert (
+            queue.json()[0]["applicant_identifier"]
+            == "volunteer-applicant@example.org"
+        )
 
         decision_url = f"{endpoint}/{application_id}/decision"
         blocked = client.post(
