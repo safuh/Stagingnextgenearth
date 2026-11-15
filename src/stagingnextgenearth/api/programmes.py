@@ -9,7 +9,17 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Organization, Programme, Project
+from stagingnextgenearth.platform.models import (
+    Membership,
+    Organization,
+    Programme,
+    ProgrammeDeliverable,
+    ProgrammeGoal,
+    ProgrammeIndicator,
+    ProgrammeIndicatorMeasurement,
+    ProgrammeMilestone,
+    Project,
+)
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -326,3 +336,162 @@ async def list_public_programme_projects(
         .limit(500)
     )
     return [PublicProgrammeProjectRead.model_validate(item) for item in rows.all()]
+
+class PublicProgrammeMilestoneRead(BaseModel):
+    """Completed public milestone without internal ownership metadata."""
+
+    title: str
+    description: str | None
+    due_date: date | None
+    goal_title: str
+
+
+class PublicProgrammeDeliverableRead(BaseModel):
+    """Accepted deliverable summary; evidence and reviewer data stay private."""
+
+    title: str
+    description: str | None
+    due_date: date | None
+
+
+class PublicProgrammeIndicatorRead(BaseModel):
+    """Public indicator definition and latest approved reporting value."""
+
+    key: str
+    title: str
+    description: str | None
+    unit: str
+    direction: str
+    baseline_value: float | None
+    target_value: float | None
+    latest_value: float | None
+    latest_period_start: date | None
+    latest_period_end: date | None
+    progress_percent: float | None
+
+
+class PublicProgrammeReportRead(BaseModel):
+    """Public-safe implementation and impact report for one programme."""
+
+    milestones: list[PublicProgrammeMilestoneRead]
+    deliverables: list[PublicProgrammeDeliverableRead]
+    indicators: list[PublicProgrammeIndicatorRead]
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}/programmes/{programme_slug}/report",
+    response_model=PublicProgrammeReportRead,
+)
+async def get_public_programme_report(
+    organization_slug: str,
+    programme_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PublicProgrammeReportRead:
+    """Publish completed milestones, accepted outputs and measured indicators only."""
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.organization_id == organization.id,
+            Programme.slug == programme_slug,
+            Programme.status.in_({"planned", "active"}),
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+
+    milestone_rows = await session.execute(
+        select(ProgrammeMilestone, ProgrammeGoal.title)
+        .join(ProgrammeGoal, ProgrammeGoal.id == ProgrammeMilestone.goal_id)
+        .where(
+            ProgrammeMilestone.organization_id == organization.id,
+            ProgrammeMilestone.programme_id == programme.id,
+            ProgrammeMilestone.status == "completed",
+            ProgrammeGoal.status.in_({"active", "achieved"}),
+        )
+        .order_by(ProgrammeMilestone.due_date, ProgrammeMilestone.title)
+        .limit(500)
+    )
+    milestones = [
+        PublicProgrammeMilestoneRead(
+            title=item.title,
+            description=item.description,
+            due_date=item.due_date,
+            goal_title=goal_title,
+        )
+        for item, goal_title in milestone_rows.all()
+    ]
+
+    deliverable_rows = await session.scalars(
+        select(ProgrammeDeliverable)
+        .where(
+            ProgrammeDeliverable.organization_id == organization.id,
+            ProgrammeDeliverable.programme_id == programme.id,
+            ProgrammeDeliverable.status == "accepted",
+        )
+        .order_by(ProgrammeDeliverable.due_date, ProgrammeDeliverable.title)
+        .limit(500)
+    )
+    deliverables = [
+        PublicProgrammeDeliverableRead(
+            title=item.title,
+            description=item.description,
+            due_date=item.due_date,
+        )
+        for item in deliverable_rows.all()
+    ]
+
+    indicator_rows = await session.scalars(
+        select(ProgrammeIndicator)
+        .where(
+            ProgrammeIndicator.organization_id == organization.id,
+            ProgrammeIndicator.programme_id == programme.id,
+        )
+        .order_by(ProgrammeIndicator.title)
+        .limit(200)
+    )
+    indicators: list[PublicProgrammeIndicatorRead] = []
+    for indicator in indicator_rows.all():
+        latest = await session.scalar(
+            select(ProgrammeIndicatorMeasurement)
+            .where(
+                ProgrammeIndicatorMeasurement.organization_id == organization.id,
+                ProgrammeIndicatorMeasurement.programme_id == programme.id,
+                ProgrammeIndicatorMeasurement.indicator_id == indicator.id,
+            )
+            .order_by(
+                ProgrammeIndicatorMeasurement.period_end.desc(),
+                ProgrammeIndicatorMeasurement.created_at.desc(),
+            )
+            .limit(1)
+        )
+        progress: float | None = None
+        if latest is not None and indicator.target_value is not None:
+            baseline = indicator.baseline_value or 0.0
+            denominator = indicator.target_value - baseline
+            if denominator != 0 and indicator.direction != "monitor":
+                progress = round(((latest.value - baseline) / denominator) * 100, 2)
+        indicators.append(
+            PublicProgrammeIndicatorRead(
+                key=indicator.key,
+                title=indicator.title,
+                description=indicator.description,
+                unit=indicator.unit,
+                direction=indicator.direction,
+                baseline_value=indicator.baseline_value,
+                target_value=indicator.target_value,
+                latest_value=latest.value if latest is not None else None,
+                latest_period_start=latest.period_start if latest is not None else None,
+                latest_period_end=latest.period_end if latest is not None else None,
+                progress_percent=progress,
+            )
+        )
+    return PublicProgrammeReportRead(
+        milestones=milestones,
+        deliverables=deliverables,
+        indicators=indicators,
+    )
+
