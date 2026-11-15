@@ -12,6 +12,8 @@ type Project = {
   id: string; title: string; summary: string | null; status: string;
   country_code: string; county: string | null;
 };
+type Goal = { id: string; title: string; description: string | null; target_date: string | null; status: string };
+type Milestone = { id: string; goal_id: string; title: string; description: string | null; due_date: string | null; status: string };
 const transitions: Record<string, string[]> = {
   draft: ["planned", "archived"],
   planned: ["active", "archived"],
@@ -25,6 +27,9 @@ export default function ProgrammeAdminPage() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [selectedGoalId, setSelectedGoalId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +70,79 @@ export default function ProgrammeAdminPage() {
       .then(setProjects)
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load linked projects."));
   }, [organizationId, selectedId]);
+
+  useEffect(() => {
+    if (!organizationId || !selectedId) {
+      setGoals([]);
+      setMilestones([]);
+      setSelectedGoalId("");
+      return;
+    }
+    Promise.all([
+      apiGet<Goal[]>(`/organizations/${organizationId}/programmes/${selectedId}/goals`),
+      apiGet<Milestone[]>(`/organizations/${organizationId}/programmes/${selectedId}/milestones`),
+    ]).then(([goalRows, milestoneRows]) => {
+      setGoals(goalRows);
+      setMilestones(milestoneRows);
+      setSelectedGoalId((current) => goalRows.some((goal) => goal.id === current) ? current : goalRows[0]?.id ?? "");
+    }).catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load programme plan."));
+  }, [organizationId, selectedId]);
+
+  async function refreshPlan() {
+    if (!organizationId || !selectedId) return;
+    const [goalRows, milestoneRows] = await Promise.all([
+      apiGet<Goal[]>(`/organizations/${organizationId}/programmes/${selectedId}/goals`),
+      apiGet<Milestone[]>(`/organizations/${organizationId}/programmes/${selectedId}/milestones`),
+    ]);
+    setGoals(goalRows);
+    setMilestones(milestoneRows);
+    setSelectedGoalId((current) => goalRows.some((goal) => goal.id === current) ? current : goalRows[0]?.id ?? "");
+  }
+
+  async function createGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/goals`, {
+        title: data.get("goal_title"), description: data.get("goal_description") || null,
+        target_date: data.get("goal_target_date") || null,
+      });
+      event.currentTarget.reset();
+      await refreshPlan();
+      setNotice("Programme goal created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create goal.");
+    } finally { setBusy(false); }
+  }
+
+  async function createMilestone(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/goals/${selectedGoalId}/milestones`, {
+        title: data.get("milestone_title"), description: data.get("milestone_description") || null,
+        due_date: data.get("milestone_due_date") || null,
+      });
+      event.currentTarget.reset();
+      await refreshPlan();
+      setNotice("Milestone created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create milestone.");
+    } finally { setBusy(false); }
+  }
+
+  async function updatePlanStatus(kind: "goals" | "milestones", itemId: string, status: string) {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/${kind}/${itemId}/status`, { status });
+      await refreshPlan();
+      setNotice(kind === "goals" ? "Goal status updated." : "Milestone status updated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update programme plan.");
+    } finally { setBusy(false); }
+  }
 
   async function run(label: string, work: () => Promise<unknown>) {
     setBusy(true); setError(""); setNotice("");
@@ -161,6 +239,56 @@ export default function ProgrammeAdminPage() {
                       apiPost(`/organizations/${organizationId}/programmes/${selected.id}/status`, { status: control.value }));
                   }}>Apply lifecycle transition</button>
                 </div>
+                <section className="staff-record">
+                  <h2>Goals and milestones</h2>
+                  <p className="workspace-muted">Define programme outcomes, break them into milestones and record progress through controlled lifecycle transitions.</p>
+                  <form onSubmit={createGoal}>
+                    <label>Goal title<input name="goal_title" minLength={2} maxLength={240} required /></label>
+                    <label>Description<textarea name="goal_description" maxLength={10000} /></label>
+                    <label>Target date<input name="goal_target_date" type="date" /></label>
+                    <button className="primary-action" disabled={busy}>Add programme goal</button>
+                  </form>
+                  {goals.length > 0 && (
+                    <>
+                      <label>Goal for new milestone<select value={selectedGoalId} onChange={(event) => setSelectedGoalId(event.target.value)}>
+                        {goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title} · {goal.status}</option>)}
+                      </select></label>
+                      <form onSubmit={createMilestone}>
+                        <label>Milestone title<input name="milestone_title" minLength={2} maxLength={240} required /></label>
+                        <label>Description<textarea name="milestone_description" maxLength={10000} /></label>
+                        <label>Due date<input name="milestone_due_date" type="date" /></label>
+                        <button className="secondary-action" disabled={busy || !selectedGoalId}>Add milestone</button>
+                      </form>
+                    </>
+                  )}
+                  <h3>Programme goals ({goals.length})</h3>
+                  {goals.length === 0 ? <p className="workspace-muted">No goals have been defined.</p> : goals.map((goal) => (
+                    <article key={goal.id} className="staff-record">
+                      <strong>{goal.title}</strong>
+                      <small>{goal.status}{goal.target_date ? ` · Target ${goal.target_date}` : ""}</small>
+                      {goal.description && <p>{goal.description}</p>}
+                      <div className="staff-actions">
+                        {goal.status === "planned" && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("goals", goal.id, "active")}>Start goal</button>}
+                        {goal.status === "active" && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("goals", goal.id, "achieved")}>Mark achieved</button>}
+                        {["planned", "active"].includes(goal.status) && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("goals", goal.id, "cancelled")}>Cancel goal</button>}
+                      </div>
+                    </article>
+                  ))}
+                  <h3>Milestones ({milestones.length})</h3>
+                  {milestones.length === 0 ? <p className="workspace-muted">No milestones have been added.</p> : milestones.map((milestone) => (
+                    <article key={milestone.id} className="staff-record">
+                      <strong>{milestone.title}</strong>
+                      <small>{goals.find((goal) => goal.id === milestone.goal_id)?.title ?? "Programme goal"} · {milestone.status}{milestone.due_date ? ` · Due ${milestone.due_date}` : ""}</small>
+                      {milestone.description && <p>{milestone.description}</p>}
+                      <div className="staff-actions">
+                        {milestone.status === "planned" && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "in_progress")}>Start</button>}
+                        {["planned", "in_progress", "blocked"].includes(milestone.status) && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "cancelled")}>Cancel</button>}
+                        {["in_progress", "blocked"].includes(milestone.status) && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "completed")}>Mark completed</button>}
+                        {milestone.status === "in_progress" && <button className="secondary-action" disabled={busy} onClick={() => void updatePlanStatus("milestones", milestone.id, "blocked")}>Mark blocked</button>}
+                      </div>
+                    </article>
+                  ))}
+                </section>
                 <div className="staff-record">
                   <strong>Linked projects ({projects.length})</strong>
                   {projects.length === 0 ? <p className="workspace-muted">No projects are linked to this programme yet. Create projects with this programme selected in the project workflow.</p> : projects.map((project) => (
