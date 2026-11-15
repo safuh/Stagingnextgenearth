@@ -31,7 +31,10 @@ from .dependencies import Principal, get_current_principal, get_session, require
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
 public_router = APIRouter(tags=["public-learning"])
 _MANAGE = {"admin", "founder", "executive", "programme_manager"}
-_LEARN = {"admin", "founder", "executive", "programme_manager", "researcher", "youth_volunteer", "employee", "institutional_partner"}
+_LEARN = {
+    "admin", "founder", "executive", "programme_manager", "researcher",
+    "youth_volunteer", "employee", "institutional_partner",
+}
 
 
 class PublicCourseRead(BaseModel):
