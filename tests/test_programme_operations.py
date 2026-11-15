@@ -275,6 +275,43 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             headers=manager,
             json={"status": "withdrawn"},
         ).status_code == 409
+        attendance_url = f"{base}/activities/{activity_id}/attendance"
+        attendance_denied = client.post(
+            attendance_url,
+            headers=participant,
+            json={"user_id": application.json()["user_id"], "attendance_status": "present"},
+        )
+        assert attendance_denied.status_code == 403
+        attendance = client.post(
+            attendance_url,
+            headers=manager,
+            json={
+                "user_id": application.json()["user_id"],
+                "attendance_status": "present",
+                "note": "Checked against activity register",
+            },
+        )
+        assert attendance.status_code == 201
+        assert attendance.json()["attendance_status"] == "present"
+        attendance_duplicate = client.post(
+            attendance_url,
+            headers=manager,
+            json={"user_id": application.json()["user_id"], "attendance_status": "late"},
+        )
+        assert attendance_duplicate.status_code == 409
+        attendance_list = client.get(attendance_url, headers=manager)
+        assert attendance_list.status_code == 200
+        assert len(attendance_list.json()) == 1
+        assert attendance_list.json()[0]["user_id"] == application.json()["user_id"]
+        assert client.get(attendance_url, headers=participant).status_code == 403
+        delivery_summary = client.get(f"{base}/delivery-summary", headers=manager)
+        assert delivery_summary.status_code == 200
+        assert delivery_summary.json()["activities_total"] == 1
+        assert delivery_summary.json()["activities_completed"] == 1
+        assert delivery_summary.json()["volunteers_completed"] == 1
+        assert delivery_summary.json()["attendance_total"] == 1
+        assert delivery_summary.json()["attendance_present"] == 1
+
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
             headers=manager,
