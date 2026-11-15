@@ -1853,11 +1853,11 @@ class ProgrammePlanningEvent(Base):
     __tablename__ = "programme_planning_events"
     __table_args__ = (
         CheckConstraint(
-            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement')",
+            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement', 'assignment')",
             name="ck_programme_planning_event_entity",
         ),
         CheckConstraint(
-            "action IN ('created', 'status_changed', 'measurement_recorded')",
+            "action IN ('created', 'assigned', 'status_changed', 'measurement_recorded')",
             name="ck_programme_planning_event_action",
         ),
         Index(
