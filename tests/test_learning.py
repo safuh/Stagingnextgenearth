@@ -124,6 +124,14 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert published.status_code == 200
 
+        public_courses = client.get(
+            "/api/public/organizations/learning-lab/courses",
+        )
+        assert public_courses.status_code == 200
+        assert [item["id"] for item in public_courses.json()] == [course_id]
+        assert all("created_by" not in item for item in public_courses.json())
+        assert all("configuration" not in item for item in public_courses.json())
+
         resource = client.post(
             f"{base}/courses/{course_id}/resources",
             headers=admin_headers,
