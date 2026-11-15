@@ -56,6 +56,12 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
         assert created.status_code == 201
         application_id = created.json()["id"]
         assert created.json()["status"] == "pending"
+        public_duplicate = client.post(
+            "/api/public/organizations/employment-test/employment-applications",
+            headers=candidate,
+            json=payload,
+        )
+        assert public_duplicate.status_code == 409
         assert client.post(base, headers=candidate, json=payload).status_code == 409
         mine = client.get(
             f"/api/organizations/{org_id}/my-employment-applications",
