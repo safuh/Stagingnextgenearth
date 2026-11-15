@@ -23,14 +23,54 @@ from stagingnextgenearth.platform.models import (
     LearningModule,
     LearningResource,
     Membership,
+    Organization,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
+public_router = APIRouter(tags=["public-learning"])
 _MANAGE = {"admin", "founder", "executive", "programme_manager"}
 _LEARN = {"admin", "founder", "executive", "programme_manager", "researcher", "youth_volunteer", "employee", "institutional_partner"}
 
+
+class PublicCourseRead(BaseModel):
+    """Publicly discoverable course fields; excludes learner and internal records."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    title: str
+    slug: str
+    description: str
+    category: str | None
+    delivery_mode: str
+    status: str
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}/courses",
+    response_model=list[PublicCourseRead],
+)
+async def list_public_courses(
+    organization_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicCourseRead]:
+    """List published courses for public discovery without exposing draft courses."""
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    rows = await session.scalars(
+        select(LearningCourse)
+        .where(
+            LearningCourse.organization_id == organization.id,
+            LearningCourse.status == "published",
+        )
+        .order_by(LearningCourse.title)
+        .limit(250)
+    )
+    return [PublicCourseRead.model_validate(item) for item in rows.all()]
 
 class CourseCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
