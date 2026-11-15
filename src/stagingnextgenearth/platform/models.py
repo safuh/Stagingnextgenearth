@@ -1846,4 +1846,45 @@ class ProgrammeDeliverableEvent(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+
+class ProgrammePlanningEvent(Base):
+    """Append-only audit event for programme goals, milestones and indicators."""
+
+    __tablename__ = "programme_planning_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement')",
+            name="ck_programme_planning_event_entity",
+        ),
+        CheckConstraint(
+            "action IN ('created', 'status_changed', 'measurement_recorded')",
+            name="ck_programme_planning_event_action",
+        ),
+        Index(
+            "ix_programme_planning_events_history",
+            "organization_id",
+            "programme_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    entity_title: Mapped[str] = mapped_column(String(240), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
 # fmt: on
