@@ -449,6 +449,10 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert deliverable.status_code == 201
         assert deliverable.json()["assigned_to"] == application.json()["user_id"]
         deliverable_id = deliverable.json()["id"]
+        assert client.get(deliverable_url, headers=partner).json() == []
+        contributor_deliverables = client.get(deliverable_url, headers=participant)
+        assert contributor_deliverables.status_code == 200
+        assert [item["id"] for item in contributor_deliverables.json()] == [deliverable_id]
         denied_submission = client.post(
             f"{deliverable_url}/{deliverable_id}/submit",
             headers=partner,
