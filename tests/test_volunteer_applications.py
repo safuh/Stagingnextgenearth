@@ -110,7 +110,7 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
             json={"decision": "approved"},
         )
         assert blocked.status_code == 409
-        assert "safeguarding" in blocked.json()["detail"].lower()
+        assert "safeguarding" in blocked.text.lower()
 
         approved = client.post(
             decision_url,
