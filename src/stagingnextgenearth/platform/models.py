@@ -1797,7 +1797,7 @@ class OrganizationRecordAuditEvent(Base):
     organization_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
-    entity_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
     actor_user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
@@ -1853,7 +1853,7 @@ class ProgrammePlanningEvent(Base):
     __tablename__ = "programme_planning_events"
     __table_args__ = (
         CheckConstraint(
-            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement', 'assignment')",
+            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement', 'assignment', 'activity', 'volunteer_allocation')",
             name="ck_programme_planning_event_entity",
         ),
         CheckConstraint(
