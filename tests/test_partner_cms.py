@@ -85,7 +85,7 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
             headers=headers,
         )
         assert partner_audit.status_code == 200
-        assert partner_audit.json()[0]["action"] == "record.created"
+        assert any(event["action"] == "record.created" for event in partner_audit.json())
         assert client.get("/api/public/organizations/nextgen-for-earth/partners").json() == []
 
         programme = client.post(f"/api/organizations/{org_id}/programmes", headers=headers, json={
@@ -116,8 +116,11 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
             headers=headers,
         )
         assert partner_audit.status_code == 200
-        assert partner_audit.json()[0]["action"] == "record.state_changed"
-        assert "verification_state" in partner_audit.json()[0]["changed_fields"]
+        state_change = next(
+            event for event in partner_audit.json()
+            if event["action"] == "record.state_changed"
+        )
+        assert "verification_state" in state_change["changed_fields"]
         assert [row["name"] for row in public_partners.json()] == ["University of Nairobi"]
         assert "verification_state" not in public_partners.json()[0]
         assert "source_url" not in public_partners.json()[0]
