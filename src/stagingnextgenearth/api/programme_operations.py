@@ -494,19 +494,19 @@ async def allocate_volunteer(
         assigned_by=principal.user_id,
     )
     session.add(item)
-    await session.flush()
-    await _record_activity_event(
-        session,
-        organization_id=organization_id,
-        programme_id=programme_id,
-        entity_type="volunteer_allocation",
-        entity_id=item.id,
-        entity_title=activity.title,
-        actor_user_id=principal.user_id,
-        action="assigned",
-        details={"user_id": item.user_id, "activity_id": activity.id},
-    )
     try:
+        await session.flush()
+        await _record_activity_event(
+            session,
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type="volunteer_allocation",
+            entity_id=item.id,
+            entity_title=activity.title,
+            actor_user_id=principal.user_id,
+            action="assigned",
+            details={"user_id": item.user_id, "activity_id": activity.id},
+        )
         await session.commit()
         await session.refresh(item)
     except IntegrityError as exc:
