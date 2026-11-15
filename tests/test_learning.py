@@ -85,6 +85,18 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert learner_directory.status_code == 403
 
+        programme_response = client.post(
+            f"/api/organizations/{org_id}/programmes",
+            headers=admin_headers,
+            json={
+                "title": "Climate Learning Programme",
+                "slug": "climate-learning-programme",
+                "summary": "Programme containing the learning curriculum.",
+            },
+        )
+        assert programme_response.status_code == 201
+        programme_id = programme_response.json()["id"]
+
         base = f"/api/organizations/{org_id}/learning"
         course_response = client.post(
             f"{base}/courses",
@@ -94,11 +106,13 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
                 "slug": "community-climate-action",
                 "description": "Practical climate literacy and community action.",
                 "category": "climate",
+                "programme_id": programme_id,
                 "delivery_mode": "blended",
             },
         )
         assert course_response.status_code == 201
         course_id = course_response.json()["id"]
+        assert course_response.json()["programme_id"] == programme_id
 
         module = client.post(
             f"{base}/courses/{course_id}/modules",
@@ -129,6 +143,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert public_courses.status_code == 200
         assert [item["id"] for item in public_courses.json()] == [course_id]
+        assert public_courses.json()[0]["programme_id"] == programme_id
         assert all("created_by" not in item for item in public_courses.json())
         assert all("configuration" not in item for item in public_courses.json())
 
