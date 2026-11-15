@@ -177,9 +177,19 @@ export default function HomePage() {
           {publicProgrammes.map((programme) => (
             <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3>{programme.title}</h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
           ))}
-          {publicCourses.map((course) => (
-            <article className="portal-card" key={`course-${course.id}`}><p className="portal-tag">Training course · {course.delivery_mode.replaceAll("_", " ")}</p><h3>{course.title}</h3><p className="portal-description">{course.description}</p>{course.category && <p className="portal-description">Category: {course.category}</p>}<a href="#access">Sign in to access learning <span>↗</span></a></article>
-          ))}
+          {publicCourses.map((course) => {
+            const programme = publicProgrammes.find((item) => item.id === course.programme_id);
+            return (
+              <article className="portal-card" key={`course-${course.id}`}>
+                <p className="portal-tag">Training course · {course.delivery_mode.replaceAll("_", " ")}</p>
+                <h3>{course.title}</h3>
+                <p className="portal-description">{course.description}</p>
+                {programme && <p className="portal-description">Programme: {programme.title}</p>}
+                {course.category && <p className="portal-description">Category: {course.category}</p>}
+                <a href="#access">Sign in to access learning <span>↗</span></a>
+              </article>
+            );
+          })}
           {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area"].includes(item.content_type)).map((item) => (
             <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary}</p></article>
           ))}
