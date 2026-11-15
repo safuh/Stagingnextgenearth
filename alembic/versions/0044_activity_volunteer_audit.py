@@ -33,6 +33,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Events using the newly introduced entity types cannot satisfy the prior
+    # check constraint. Remove only those rows before narrowing the schema.
+    op.execute(
+        "DELETE FROM programme_planning_events "
+        "WHERE entity_type IN ('activity', 'volunteer_allocation')"
+    )
     op.drop_constraint(
         "ck_programme_planning_event_entity",
         "programme_planning_events",
