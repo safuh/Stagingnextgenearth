@@ -98,6 +98,7 @@ async def _record_event(
             actor_user_id=actor_user_id,
             action=action,
             details=details,
+            created_at=datetime.now(UTC),
         )
     )
 
