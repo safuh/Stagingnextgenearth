@@ -69,6 +69,13 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }
 
+export async function register(identifier: string, password: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ identifier, password }),
+  });
+}
+
 export async function login(identifier: string, password: string): Promise<TokenResponse> {
   const response = await fetch("/api/session/login", {
     method: "POST",
