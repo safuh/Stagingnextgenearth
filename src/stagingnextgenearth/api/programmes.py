@@ -99,7 +99,12 @@ class ProgrammeUpdate(BaseModel):
     """Partial programme metadata update; omitted fields remain unchanged."""
 
     title: str | None = Field(default=None, min_length=2, max_length=240)
-    slug: str | None = Field(default=None, min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    slug: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=140,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
     summary: str | None = Field(default=None, max_length=10000)
     start_date: date | None = None
     end_date: date | None = None
@@ -151,8 +156,15 @@ async def update_programme(
         changes["summary"] = changes["summary"].strip() or None
     for field, value in changes.items():
         setattr(programme, field, value)
-    if programme.start_date and programme.end_date and programme.end_date < programme.start_date:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "end_date must not precede start_date")
+    if (
+        programme.start_date
+        and programme.end_date
+        and programme.end_date < programme.start_date
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "end_date must not precede start_date",
+        )
     try:
         await session.commit()
         await session.refresh(programme)
