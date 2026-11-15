@@ -35,6 +35,7 @@ from .research_planning import router as research_planning_router
 from .research_publications import router as research_publications_router
 from .researcher_profiles import directory_router as researcher_profile_directory_router
 from .researcher_profiles import router as researcher_profiles_router
+from .volunteer_applications import router as volunteer_applications_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -45,6 +46,7 @@ api_router.include_router(institutional_partners_router)
 api_router.include_router(public_content_router)
 api_router.include_router(memberships_router)
 api_router.include_router(employment_applications_router)
+api_router.include_router(volunteer_applications_router)
 api_router.include_router(learning_router)
 api_router.include_router(programmes_router)
 api_router.include_router(public_programmes_router)
