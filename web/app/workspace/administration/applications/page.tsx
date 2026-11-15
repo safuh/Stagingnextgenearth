@@ -21,7 +21,7 @@ export default function VolunteerApplicationsPage(){
   if(decision==="approved"&&!confirmed[item.id]){setError("Confirm safeguarding checks and any required guardian consent before approval.");return;}
   setBusy(true);setError("");setNotice("");
   try{
-   await apiPost("/organizations/"+orgId+"/programmes/"+item.programme_id+"/volunteer-applications/"+item.id+"/decision",{decision,safeguarding_confirmed:decision==="approved"&&Boolean(confirmed[item.id])});
+   await apiPost("/organizations/"+orgId+"/programmes/"+item.programme_id+"/volunteer-applications/"+item.id+"/decision",{decision,safeguarding_verified:decision==="approved"&&Boolean(confirmed[item.id])});
    await load(orgId);setNotice(decision==="approved"?"Applicant approved and youth-volunteer membership activated.":"Application rejected.");
   }catch(e){setError(e instanceof Error?e.message:"Unable to process application.");}finally{setBusy(false);}
  }
