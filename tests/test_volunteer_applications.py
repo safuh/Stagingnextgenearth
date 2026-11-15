@@ -89,7 +89,10 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
             headers=applicant,
             json={
                 "participation_type": "volunteer",
-                "interest": "I want to support community climate learning and local restoration activities.",
+                "interest": (
+                    "I want to support community climate learning and local "
+                    "restoration activities."
+                ),
             },
         ).status_code == 409
 
