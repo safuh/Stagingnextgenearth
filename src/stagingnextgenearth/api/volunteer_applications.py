@@ -78,7 +78,9 @@ async def submit_volunteer_application(
     if programme is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     if programme.status not in {"planned", "active"}:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This programme is not accepting applications")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This programme is not accepting applications"
+        )
     existing_membership = await session.scalar(
         select(Membership.id).where(
             Membership.organization_id == organization_id,
@@ -180,13 +182,18 @@ async def decide_volunteer_application(
     if item.status != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Application has already been decided")
     if item.user_id == principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Applicants cannot review their own applications")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Applicants cannot review their own applications"
+        )
 
     if body.decision == "approved":
         if not body.safeguarding_verified:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "Verify safeguarding requirements and any required parent or guardian consent before approval",
+                (
+                    "Verify safeguarding requirements and any required parent or guardian "
+                    "consent before approval"
+                ),
             )
         existing = await session.scalar(
             select(Membership.id).where(
