@@ -425,3 +425,51 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         ).status_code == 409
         assert client.get(f"{base}/goals", headers=participant).status_code == 200
         assert client.get(f"{base}/milestones", headers=participant).status_code == 200
+        completed_milestone = client.post(
+            f"{base}/milestones/{milestone_id}/status",
+            headers=manager,
+            json={"status": "completed"},
+        )
+        assert completed_milestone.status_code == 200
+
+        deliverable_url = f"/api/organizations/{org_id}/programmes/{programme.json()['id']}/deliverables"
+        deliverable = client.post(
+            deliverable_url,
+            headers=manager,
+            json={
+                "title": "Verified baseline survey",
+                "description": "Baseline survey results for the restoration sites.",
+                "due_date": "2027-02-15",
+            },
+        )
+        assert deliverable.status_code == 201
+        deliverable_id = deliverable.json()["id"]
+        submitted = client.post(
+            f"{deliverable_url}/{deliverable_id}/submit",
+            headers=manager,
+            json={"evidence_url": "https://example.org/evidence/baseline"},
+        )
+        assert submitted.status_code == 200
+        accepted = client.post(
+            f"{deliverable_url}/{deliverable_id}/decision",
+            headers=manager,
+            json={"decision": "accepted", "note": "Evidence reviewed."},
+        )
+        assert accepted.status_code == 200
+
+        public_report = client.get(
+            "/api/public/organizations/operations-test/programmes/tree-growing/report"
+        )
+        assert public_report.status_code == 200
+        report = public_report.json()
+        assert report["milestones"][0]["title"] == "Complete baseline survey"
+        assert report["milestones"][0]["goal_title"] == "Restore native woodland"
+        assert report["deliverables"][0]["title"] == "Verified baseline survey"
+        assert report["indicators"][0]["latest_value"] == 500
+        assert report["indicators"][0]["progress_percent"] == 50
+        assert "evidence_url" not in report["deliverables"][0]
+        assert "assigned_to" not in report["deliverables"][0]
+        assert "reported_by" not in report["indicators"][0]
+        assert client.get(
+            "/api/public/organizations/operations-test/programmes/missing-programme/report"
+        ).status_code == 404
