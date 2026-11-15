@@ -82,15 +82,20 @@ async def submit_volunteer_application(
             status.HTTP_409_CONFLICT, "This programme is not accepting applications"
         )
     existing_membership = await session.scalar(
-        select(Membership.id).where(
+        select(Membership).where(
             Membership.organization_id == organization_id,
             Membership.user_id == principal.user_id,
         )
     )
-    if existing_membership is not None:
+    # Existing active youth volunteers may apply to additional programmes.
+    # Other members must use their organisation's internal assignment workflow.
+    if existing_membership is not None and (
+        existing_membership.role != "youth_volunteer"
+        or existing_membership.status != "active"
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "Existing organisation members should contact their programme manager",
+            "Only active youth volunteers can apply as existing organisation members",
         )
     item = ProgrammeVolunteerApplication(
         organization_id=organization_id,
