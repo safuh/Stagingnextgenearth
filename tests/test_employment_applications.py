@@ -83,13 +83,19 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
         assert decision.json()["status"] == "approved"
         memberships = client.get(f"/api/organizations/{org_id}/memberships", headers=owner)
         assert memberships.status_code == 200
-        employee = next(item for item in memberships.json() if item["user_id"] == created.json()["user_id"])
+        employee = next(
+            item for item in memberships.json()
+            if item["user_id"] == created.json()["user_id"]
+        )
         assert employee["role"] == "employee"
         assert employee["status"] == "active"
 
         people = client.get(f"/api/organizations/{org_id}/people", headers=owner)
         assert people.status_code == 200
-        profile = next(item for item in people.json() if item["full_name"] == "Example Candidate")
+        profile = next(
+            item for item in people.json()
+            if item["full_name"] == "Example Candidate"
+        )
         assert profile["person_types"] == ["employee"]
         assert profile["positions"] == ["Climate Research Associate"]
         assert profile["review_state"] == "pending"
