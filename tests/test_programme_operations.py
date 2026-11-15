@@ -443,16 +443,25 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
                 "title": "Verified baseline survey",
                 "description": "Baseline survey results for the restoration sites.",
                 "due_date": "2027-02-15",
+                "assigned_to": application.json()["user_id"],
             },
         )
         assert deliverable.status_code == 201
+        assert deliverable.json()["assigned_to"] == application.json()["user_id"]
         deliverable_id = deliverable.json()["id"]
+        denied_submission = client.post(
+            f"{deliverable_url}/{deliverable_id}/submit",
+            headers=partner,
+            json={"evidence_url": "https://example.org/evidence/baseline"},
+        )
+        assert denied_submission.status_code == 403
         submitted = client.post(
             f"{deliverable_url}/{deliverable_id}/submit",
-            headers=manager,
+            headers=participant,
             json={"evidence_url": "https://example.org/evidence/baseline"},
         )
         assert submitted.status_code == 200
+        assert submitted.json()["status"] == "submitted"
         accepted = client.post(
             f"{deliverable_url}/{deliverable_id}/decision",
             headers=manager,
