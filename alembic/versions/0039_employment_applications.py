@@ -41,7 +41,10 @@ def upgrade() -> None:
             "status IN ('pending','approved','rejected','withdrawn')",
             name="ck_employment_application_status",
         ),
-        sa.UniqueConstraint("organization_id", "user_id", name="uq_employment_application_org_user"),
+        sa.UniqueConstraint(
+            "organization_id", "user_id",
+            name="uq_employment_application_org_user",
+        ),
     )
     op.create_index(
         "ix_employment_applications_org_status",
