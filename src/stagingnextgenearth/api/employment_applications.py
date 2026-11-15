@@ -138,7 +138,9 @@ async def submit_public_employment_application(
         await session.refresh(application)
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "An employment application already exists") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "An employment application already exists"
+        ) from exc
     return EmploymentApplicationRead.model_validate(application)
 
 
