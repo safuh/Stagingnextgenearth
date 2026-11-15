@@ -37,7 +37,7 @@ export default function EmploymentApplyPage() {
     <main className="workspace-shell">
       <header className="workspace-topbar">
         <Link className="brand" href="/">NextGen For Earth</Link>
-        <Link className="secondary-action" href="/#access">Sign in</Link>
+        <Link className="secondary-action" href="/#access">Sign in / create account</Link>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">CAREERS & OPPORTUNITIES</p>
