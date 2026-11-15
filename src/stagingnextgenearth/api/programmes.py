@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Organization, Programme
+from stagingnextgenearth.platform.models import Membership, Organization, Programme, Project
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
@@ -92,6 +92,99 @@ async def list_programmes(
         .order_by(Programme.created_at.desc())
     )
     return [ProgrammeRead.model_validate(item) for item in result.all()]
+
+
+
+class ProgrammeUpdate(BaseModel):
+    """Partial programme metadata update; omitted fields remain unchanged."""
+
+    title: str | None = Field(default=None, min_length=2, max_length=240)
+    slug: str | None = Field(default=None, min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    summary: str | None = Field(default=None, max_length=10000)
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "ProgrammeUpdate":
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date must not precede start_date")
+        return self
+
+
+class ProgrammeProjectRead(BaseModel):
+    """Project metadata associated with a programme."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    title: str
+    summary: str | None
+    status: str
+    country_code: str
+    county: str | None
+
+
+@router.patch("/{programme_id}", response_model=ProgrammeRead)
+async def update_programme(
+    organization_id: str,
+    programme_id: str,
+    body: ProgrammeUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProgrammeRead:
+    """Update programme metadata without changing its lifecycle state."""
+    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.id == programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    changes = body.model_dump(exclude_unset=True)
+    if "title" in changes and changes["title"] is not None:
+        changes["title"] = changes["title"].strip()
+    if "slug" in changes and changes["slug"] is not None:
+        changes["slug"] = changes["slug"].strip()
+    if "summary" in changes and changes["summary"] is not None:
+        changes["summary"] = changes["summary"].strip() or None
+    for field, value in changes.items():
+        setattr(programme, field, value)
+    if programme.start_date and programme.end_date and programme.end_date < programme.start_date:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "end_date must not precede start_date")
+    try:
+        await session.commit()
+        await session.refresh(programme)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Programme slug already exists") from exc
+    return ProgrammeRead.model_validate(programme)
+
+
+@router.get("/{programme_id}/projects", response_model=list[ProgrammeProjectRead])
+async def list_programme_projects(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ProgrammeProjectRead]:
+    """List projects linked to a programme within the same tenant."""
+    programme = await session.scalar(
+        select(Programme.id).where(
+            Programme.id == programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    rows = await session.scalars(
+        select(Project)
+        .where(Project.organization_id == organization_id, Project.programme_id == programme_id)
+        .order_by(Project.title)
+        .limit(500)
+    )
+    return [ProgrammeProjectRead.model_validate(item) for item in rows.all()]
 
 
 class ProgrammeStatusUpdate(BaseModel):
