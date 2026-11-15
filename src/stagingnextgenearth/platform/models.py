@@ -1720,4 +1720,43 @@ class PublicContentEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
+
+class OrganizationRecordAuditEvent(Base):
+    """Append-only audit history for partner and public CMS record changes."""
+
+    __tablename__ = "organization_record_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('partner', 'content')",
+            name="ck_org_record_audit_entity_type",
+        ),
+        CheckConstraint(
+            "action IN ('record.created', 'record.updated', 'record.state_changed')",
+            name="ck_org_record_audit_action",
+        ),
+        Index(
+            "ix_org_record_audit_entity_time",
+            "organization_id",
+            "entity_type",
+            "entity_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
 # fmt: on

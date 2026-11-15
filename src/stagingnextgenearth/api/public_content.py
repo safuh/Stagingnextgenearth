@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry
+from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry, OrganizationRecordAuditEvent
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 router = APIRouter(tags=["public-content"])
 ContentType = Literal["page","programme","training_track","initiative","research_area","impact_metric","publication"]
@@ -52,6 +52,14 @@ async def create_content(organization_id: str, body: ContentCreate, principal: A
     _admin(membership)
     row = PublicContentEntry(organization_id=organization_id, content_type=body.content_type, slug=body.slug, title=body.title.strip(), summary=body.summary, body=body.body, metadata_json=body.metadata_json, publication_state="draft", source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
     session.add(row)
+    await session.flush()
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="content", entity_id=row.id,
+        actor_user_id=principal.user_id, action="record.created",
+        changed_fields=["content_type", "slug", "title", "summary", "body", "metadata_json", "source_url"],
+        state={"content_type": row.content_type, "slug": row.slug, "title": row.title,
+               "publication_state": row.publication_state},
+    ))
     await session.commit()
     await session.refresh(row)
     return ContentRead.model_validate(row)
@@ -63,6 +71,8 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
         raise HTTPException(404, "Content entry not found")
     changes = body.model_dump(exclude_unset=True)
     next_state = changes.pop("publication_state", None)
+    changed_fields = sorted([*changes, *([ "publication_state" ] if next_state is not None else [])])
+    previous_state = row.publication_state
     for key, value in changes.items():
         if value is not None or key in {"summary", "body"}:
             setattr(row, key, value)
@@ -92,9 +102,51 @@ async def update_content(organization_id: str, content_id: str, body: ContentUpd
         row.publication_state = next_state
     row.published_at = row.published_at if row.publication_state == "published" else None
     row.updated_by = principal.user_id
+    await session.flush()
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="content", entity_id=row.id,
+        actor_user_id=principal.user_id,
+        action="record.state_changed" if previous_state != row.publication_state else "record.updated",
+        changed_fields=changed_fields,
+        state={"content_type": row.content_type, "slug": row.slug, "title": row.title,
+               "publication_state": row.publication_state, "approved_by": row.approved_by,
+               "approved_at": row.approved_at.isoformat() if row.approved_at else None,
+               "published_at": row.published_at.isoformat() if row.published_at else None},
+    ))
     await session.commit()
     await session.refresh(row)
     return ContentRead.model_validate(row)
+
+class ContentAuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    entity_type: str
+    entity_id: str
+    actor_user_id: str
+    action: str
+    changed_fields: list[str]
+    state: dict[str, object]
+    created_at: object
+
+@router.get("/organizations/{organization_id}/content/{content_id}/audit-events", response_model=list[ContentAuditRead])
+async def content_audit_events(
+    organization_id: str, content_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ContentAuditRead]:
+    _admin(membership)
+    entry = await session.scalar(select(PublicContentEntry).where(
+        PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id
+    ))
+    if entry is None:
+        raise HTTPException(404, "Content entry not found")
+    rows = await session.scalars(select(OrganizationRecordAuditEvent).where(
+        OrganizationRecordAuditEvent.organization_id == organization_id,
+        OrganizationRecordAuditEvent.entity_type == "content",
+        OrganizationRecordAuditEvent.entity_id == content_id,
+    ).order_by(OrganizationRecordAuditEvent.created_at.desc()).limit(200))
+    return [ContentAuditRead.model_validate(x) for x in rows.all()]
+
 class PublicContentRead(BaseModel):
     """Public content fields without internal source or moderation metadata."""
     model_config = ConfigDict(from_attributes=True)

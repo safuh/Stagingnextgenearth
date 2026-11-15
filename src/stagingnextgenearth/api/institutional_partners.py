@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from stagingnextgenearth.platform.models import InstitutionalPartner, Membership, Organization, Programme, ProgrammePartner
+from stagingnextgenearth.platform.models import InstitutionalPartner, Membership, Organization, Programme, ProgrammePartner, OrganizationRecordAuditEvent
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["institutional-partners"])
@@ -60,6 +60,14 @@ async def create_partner(organization_id: str, body: PartnerCreate, principal: A
     _admin(membership)
     row = InstitutionalPartner(organization_id=organization_id, name=body.name.strip(), partner_type=body.partner_type, description=body.description, website_url=body.website_url, country_code=body.country_code.upper(), region=body.region, source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
     session.add(row)
+    await session.flush()
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="partner", entity_id=row.id,
+        actor_user_id=principal.user_id, action="record.created",
+        changed_fields=["name", "partner_type", "description", "website_url", "country_code", "region", "source_url"],
+        state={"name": row.name, "partner_type": row.partner_type, "relationship_status": row.relationship_status,
+               "verification_state": row.verification_state, "visibility": row.visibility},
+    ))
     await session.commit()
     await session.refresh(row)
     return PartnerRead.model_validate(row)
@@ -69,13 +77,61 @@ async def update_partner(organization_id: str, partner_id: str, body: PartnerUpd
     row = await session.scalar(select(InstitutionalPartner).where(InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id))
     if row is None:
         raise HTTPException(404, "Partner not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(changes)
+    previous_state = {"relationship_status": row.relationship_status,
+                       "verification_state": row.verification_state, "visibility": row.visibility}
+    for key, value in changes.items():
         if value is not None or key == "description":
             setattr(row, key, value)
     row.updated_by = principal.user_id
+    await session.flush()
+    state_changed = any(
+        key in changes and getattr(row, key) != previous_state.get(key)
+        for key in ("relationship_status", "verification_state", "visibility")
+    )
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="partner", entity_id=row.id,
+        actor_user_id=principal.user_id,
+        action="record.state_changed" if state_changed else "record.updated",
+        changed_fields=changed_fields,
+        state={"name": row.name, "partner_type": row.partner_type, "relationship_status": row.relationship_status,
+               "verification_state": row.verification_state, "visibility": row.visibility},
+    ))
     await session.commit()
     await session.refresh(row)
     return PartnerRead.model_validate(row)
+
+class PartnerAuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    entity_type: str
+    entity_id: str
+    actor_user_id: str
+    action: str
+    changed_fields: list[str]
+    state: dict[str, object]
+    created_at: object
+
+@router.get("/organizations/{organization_id}/partners/{partner_id}/audit-events", response_model=list[PartnerAuditRead])
+async def partner_audit_events(
+    organization_id: str, partner_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PartnerAuditRead]:
+    _admin(membership)
+    partner_row = await session.scalar(select(InstitutionalPartner).where(
+        InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id
+    ))
+    if partner_row is None:
+        raise HTTPException(404, "Partner not found")
+    rows = await session.scalars(select(OrganizationRecordAuditEvent).where(
+        OrganizationRecordAuditEvent.organization_id == organization_id,
+        OrganizationRecordAuditEvent.entity_type == "partner",
+        OrganizationRecordAuditEvent.entity_id == partner_id,
+    ).order_by(OrganizationRecordAuditEvent.created_at.desc()).limit(200))
+    return [PartnerAuditRead.model_validate(x) for x in rows.all()]
+
 @router.post("/organizations/{organization_id}/partners/{partner_id}/programmes", status_code=201)
 async def link_partner_programme(organization_id: str, partner_id: str, body: PartnerProgrammeLink, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str,str]:
     _admin(membership)
