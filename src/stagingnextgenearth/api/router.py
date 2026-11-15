@@ -5,6 +5,7 @@
 from fastapi import APIRouter
 
 from .auth import router as auth_router
+from .employment_applications import router as employment_applications_router
 from .climate import router as climate_router
 from .climate_analysis import router as climate_analysis_router
 from .climate_reporting import router as climate_reporting_router
@@ -43,6 +44,7 @@ api_router.include_router(organization_people_router)
 api_router.include_router(institutional_partners_router)
 api_router.include_router(public_content_router)
 api_router.include_router(memberships_router)
+api_router.include_router(employment_applications_router)
 api_router.include_router(learning_router)
 api_router.include_router(programmes_router)
 api_router.include_router(public_programmes_router)
