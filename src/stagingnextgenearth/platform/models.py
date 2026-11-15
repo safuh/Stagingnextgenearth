@@ -1675,6 +1675,29 @@ class InstitutionalPartner(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class InstitutionalPartnerContact(Base):
+    """Private partner liaison record with explicit contact permission tracking."""
+    __tablename__ = "institutional_partner_contacts"
+    __table_args__ = (
+        CheckConstraint("status IN ('active','inactive')", name="ck_partner_contact_status"),
+        Index("ix_partner_contacts_org_partner", "organization_id", "partner_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    job_title: Mapped[str | None] = mapped_column(String(160))
+    email: Mapped[str | None] = mapped_column(String(320))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    contact_permission: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    permission_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
 class ProgrammePartner(Base):
     """Link a programme to a partner and define the relationship."""
     __tablename__ = "programme_partners"
