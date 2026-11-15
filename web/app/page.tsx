@@ -221,11 +221,12 @@ export default function HomePage() {
                 <label htmlFor="identifier">Email or account identifier</label>
                 <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
                 <label htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+                <input id="password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={creatingAccount ? 12 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
                 {error && <p className="form-error" role="alert">{error}</p>}
                 <button className="button button-primary full" type="submit" disabled={busy}>{busy ? (creatingAccount ? "Creating account…" : "Signing in…") : (creatingAccount ? "Create account securely" : "Continue securely")} <span>→</span></button>
               </form>
-              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>\n              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
+              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>
+              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
             </>
           )}
         </div>
