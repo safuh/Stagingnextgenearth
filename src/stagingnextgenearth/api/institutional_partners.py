@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from stagingnextgenearth.platform.models import InstitutionalPartner, Membership, Organization, Programme, ProgrammePartner, OrganizationRecordAuditEvent
+from stagingnextgenearth.platform.models import InstitutionalPartner, InstitutionalPartnerContact, Membership, Organization, Programme, ProgrammePartner, OrganizationRecordAuditEvent
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["institutional-partners"])
@@ -215,6 +215,7 @@ async def create_partner_contact(
         created_by=principal.user_id, updated_by=principal.user_id,
     )
     session.add(row)
+    await session.flush()
     session.add(OrganizationRecordAuditEvent(
         organization_id=organization_id, entity_type="partner", entity_id=partner_id,
         actor_user_id=principal.user_id, action="record.created",
