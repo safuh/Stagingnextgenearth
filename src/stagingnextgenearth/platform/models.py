@@ -857,6 +857,7 @@ class LearningCourse(Base):
         CheckConstraint("status IN ('draft', 'published', 'archived')",
                         name="ck_learning_course_status"),
         Index("ix_learning_courses_org_status", "organization_id", "status"),
+        Index("ix_learning_courses_programme_id", "programme_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     organization_id: Mapped[str] = mapped_column(
