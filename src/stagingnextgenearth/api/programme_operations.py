@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeActivity,
+    ProgrammeActivityAttendance,
     ProgrammePlanningEvent,
     ProgrammeVolunteerAllocation,
     ProgrammeVolunteerApplication,
@@ -639,3 +640,186 @@ async def update_activity_status(
     await session.commit()
     await session.refresh(item)
     return ActivityRead.model_validate(item)
+
+
+class ActivityAttendanceCreate(BaseModel):
+    """Attendance result for a volunteer allocated to this activity."""
+
+    user_id: str
+    attendance_status: str = Field(pattern=r"^(present|late|absent|excused)$")
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ActivityAttendanceRead(BaseModel):
+    """Attendance record response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    programme_id: str
+    activity_id: str
+    user_id: str
+    attendance_status: str
+    note: str | None
+    recorded_by: str
+    recorded_at: datetime
+
+
+@router.post(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/attendance",
+    response_model=ActivityAttendanceRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_activity_attendance(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    body: ActivityAttendanceCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ActivityAttendanceRead:
+    """Record attendance for an allocated volunteer; managers only."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    activity = await session.scalar(
+        select(ProgrammeActivity).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    allocation = await session.scalar(
+        select(ProgrammeVolunteerAllocation.id).where(
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+            ProgrammeVolunteerAllocation.activity_id == activity_id,
+            ProgrammeVolunteerAllocation.user_id == body.user_id,
+            ProgrammeVolunteerAllocation.status != "withdrawn",
+        )
+    )
+    if allocation is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Attendance can only be recorded for an allocated volunteer",
+        )
+    item = ProgrammeActivityAttendance(
+        organization_id=organization_id,
+        programme_id=programme_id,
+        activity_id=activity_id,
+        user_id=body.user_id,
+        attendance_status=body.attendance_status,
+        note=body.note.strip() if body.note else None,
+        recorded_by=principal.user_id,
+    )
+    session.add(item)
+    try:
+        await session.commit()
+        await session.refresh(item)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Attendance has already been recorded for this volunteer",
+        ) from exc
+    return ActivityAttendanceRead.model_validate(item)
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/attendance",
+    response_model=list[ActivityAttendanceRead],
+)
+async def list_activity_attendance(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ActivityAttendanceRead]:
+    """Return the attendance register to programme managers only."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    activity_id_found = await session.scalar(
+        select(ProgrammeActivity.id).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity_id_found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    rows = await session.scalars(
+        select(ProgrammeActivityAttendance)
+        .where(
+            ProgrammeActivityAttendance.organization_id == organization_id,
+            ProgrammeActivityAttendance.programme_id == programme_id,
+            ProgrammeActivityAttendance.activity_id == activity_id,
+        )
+        .order_by(ProgrammeActivityAttendance.recorded_at, ProgrammeActivityAttendance.user_id)
+        .limit(1000)
+    )
+    return [ActivityAttendanceRead.model_validate(row) for row in rows.all()]
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/delivery-summary",
+)
+async def programme_delivery_summary(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, int | str]:
+    """Aggregate operational delivery counts without exposing participant details."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    await _programme(session, organization_id, programme_id)
+    activity_rows = await session.execute(
+        select(ProgrammeActivity.status, func.count(ProgrammeActivity.id))
+        .where(
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+        .group_by(ProgrammeActivity.status)
+    )
+    allocation_rows = await session.execute(
+        select(ProgrammeVolunteerAllocation.status, func.count(ProgrammeVolunteerAllocation.id))
+        .where(
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+        )
+        .group_by(ProgrammeVolunteerAllocation.status)
+    )
+    attendance_rows = await session.execute(
+        select(
+            ProgrammeActivityAttendance.attendance_status,
+            func.count(ProgrammeActivityAttendance.id),
+        )
+        .where(
+            ProgrammeActivityAttendance.organization_id == organization_id,
+            ProgrammeActivityAttendance.programme_id == programme_id,
+        )
+        .group_by(ProgrammeActivityAttendance.attendance_status)
+    )
+    activities = {str(key): int(value) for key, value in activity_rows.all()}
+    allocations = {str(key): int(value) for key, value in allocation_rows.all()}
+    attendance = {str(key): int(value) for key, value in attendance_rows.all()}
+    return {
+        "programme_id": programme_id,
+        "activities_total": sum(activities.values()),
+        "activities_planned": activities.get("planned", 0),
+        "activities_in_progress": activities.get("in_progress", 0),
+        "activities_completed": activities.get("completed", 0),
+        "activities_cancelled": activities.get("cancelled", 0),
+        "volunteers_assigned": allocations.get("assigned", 0),
+        "volunteers_completed": allocations.get("completed", 0),
+        "volunteers_withdrawn": allocations.get("withdrawn", 0),
+        "attendance_total": sum(attendance.values()),
+        "attendance_present": attendance.get("present", 0),
+        "attendance_late": attendance.get("late", 0),
+        "attendance_absent": attendance.get("absent", 0),
+        "attendance_excused": attendance.get("excused", 0),
+    }
