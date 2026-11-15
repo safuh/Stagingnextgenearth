@@ -79,6 +79,12 @@ class DeliverableEventRead(BaseModel):
     details: dict[str, object]
     created_at: datetime
 
+class ProgrammeActivityRead(DeliverableEventRead):
+    """Programme-wide deliverable activity item."""
+
+    deliverable_id: str
+    deliverable_title: str
+
 
 async def _record_event(
     session: AsyncSession,
@@ -307,6 +313,50 @@ async def review_deliverable_evidence(
     await session.refresh(item)
     return DeliverableRead.model_validate(item)
 
+
+
+@router.get("/activity", response_model=list[ProgrammeActivityRead])
+async def list_programme_deliverable_activity(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ProgrammeActivityRead]:
+    """Return the latest programme deliverable events to programme managers."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme management permission required",
+        )
+    await _programme(session, organization_id, programme_id)
+    rows = await session.execute(
+        select(ProgrammeDeliverableEvent, ProgrammeDeliverable.title)
+        .join(
+            ProgrammeDeliverable,
+            ProgrammeDeliverable.id == ProgrammeDeliverableEvent.deliverable_id,
+        )
+        .where(
+            ProgrammeDeliverableEvent.organization_id == organization_id,
+            ProgrammeDeliverableEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammeDeliverableEvent.created_at.desc(),
+            ProgrammeDeliverableEvent.id.desc(),
+        )
+        .limit(100)
+    )
+    return [
+        ProgrammeActivityRead(
+            id=event.id,
+            actor_user_id=event.actor_user_id,
+            action=event.action,
+            details=event.details,
+            created_at=event.created_at,
+            deliverable_id=event.deliverable_id,
+            deliverable_title=title,
+        )
+        for event, title in rows.all()
+    ]
 
 @router.get("/{deliverable_id}/events", response_model=list[DeliverableEventRead])
 async def list_deliverable_events(
