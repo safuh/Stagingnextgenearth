@@ -78,6 +78,45 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert public_programmes.status_code == 200
         assert [row["id"] for row in public_programmes.json()] == [programme.json()["id"]]
 
+        updated_programme = client.patch(
+            f"{programmes}/{programme.json()['id']}",
+            headers=manager,
+            json={
+                "title": "Community tree restoration",
+                "summary": "Community-led restoration and monitoring.",
+                "start_date": "2026-12-01",
+                "end_date": "2027-12-01",
+            },
+        )
+        assert updated_programme.status_code == 200
+        assert updated_programme.json()["title"] == "Community tree restoration"
+        assert client.patch(
+            f"{programmes}/{programme.json()['id']}",
+            headers=manager,
+            json={"slug": "tree-growing"},
+        ).status_code == 200
+        project = client.post(
+            f"/api/organizations/{org_id}/projects",
+            headers=manager,
+            json={
+                "title": "Community tree nurseries",
+                "summary": "Establish locally managed tree nurseries.",
+                "programme_id": programme.json()["id"],
+                "county": "Kisii",
+            },
+        )
+        assert project.status_code == 201
+        linked_projects = client.get(
+            f"{programmes}/{programme.json()['id']}/projects",
+            headers=manager,
+        )
+        assert linked_projects.status_code == 200
+        assert [row["id"] for row in linked_projects.json()] == [project.json()["id"]]
+        assert client.get(
+            f"{programmes}/missing-programme/projects",
+            headers=manager,
+        ).status_code == 404
+
         # Existing active youth volunteers can apply to additional programmes.
         member_volunteer = _auth(client, "ops-member-volunteer@example.org")
         member_invitation = client.post(
