@@ -21,6 +21,7 @@ type IndicatorProgress = {
 };
 type MemberOption = { user_id: string; role: string };
 type Deliverable = { id: string; title: string; description: string | null; due_date: string | null; status: string; project_id: string | null; assigned_to: string | null; evidence_url: string | null; review_note: string | null };
+type DeliverableEvent = { id: string; actor_user_id: string | null; action: string; details: Record<string, unknown>; created_at: string };
 const transitions: Record<string, string[]> = {
   draft: ["planned", "archived"],
   planned: ["active", "archived"],
@@ -40,6 +41,9 @@ export default function ProgrammeAdminPage() {
   const [selectedGoalId, setSelectedGoalId] = useState("");
   const [indicators, setIndicators] = useState<IndicatorProgress[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [deliverableEvents, setDeliverableEvents] = useState<Record<string, DeliverableEvent[]>>({});
+  const [historyOpen, setHistoryOpen] = useState<Record<string, boolean>>({});
+  const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -230,6 +234,24 @@ export default function ProgrammeAdminPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create deliverable.");
     } finally { setBusy(false); }
+  }
+
+  async function toggleDeliverableHistory(deliverableId: string) {
+    const opening = !historyOpen[deliverableId];
+    setHistoryOpen((current) => ({ ...current, [deliverableId]: opening }));
+    if (!opening || deliverableEvents[deliverableId]) return;
+    setHistoryLoading((current) => ({ ...current, [deliverableId]: true }));
+    try {
+      const rows = await apiGet<DeliverableEvent[]>(
+        `/organizations/${organizationId}/programmes/${selectedId}/deliverables/${deliverableId}/events`,
+      );
+      setDeliverableEvents((current) => ({ ...current, [deliverableId]: rows }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load deliverable audit history.");
+      setHistoryOpen((current) => ({ ...current, [deliverableId]: false }));
+    } finally {
+      setHistoryLoading((current) => ({ ...current, [deliverableId]: false }));
+    }
   }
 
   async function submitEvidence(event: FormEvent<HTMLFormElement>, deliverableId: string) {
@@ -462,6 +484,27 @@ export default function ProgrammeAdminPage() {
                       <strong>{item.title}</strong>
                       <small>{item.status}{item.due_date ? ` · Due ${item.due_date}` : ""}</small>
                       {item.description && <p>{item.description}</p>}
+                      <div className="staff-actions">
+                        <button className="secondary-action" disabled={historyLoading[item.id]} onClick={() => void toggleDeliverableHistory(item.id)}>
+                          {historyLoading[item.id] ? "Loading history…" : historyOpen[item.id] ? "Hide audit history" : "View audit history"}
+                        </button>
+                      </div>
+                      {historyOpen[item.id] && (
+                        <div className="staff-record" aria-label={`Audit history for ${item.title}`}>
+                          <strong>Deliverable audit trail</strong>
+                          {!deliverableEvents[item.id] ? <p className="workspace-muted">Loading events…</p> :
+                            deliverableEvents[item.id].length === 0 ? <p className="workspace-muted">No lifecycle events recorded.</p> :
+                            deliverableEvents[item.id].map((entry) => (
+                              <article key={entry.id}>
+                                <strong>{entry.action.replaceAll("_", " ")}</strong>
+                                <small>{new Date(entry.created_at).toLocaleString()} · {entry.actor_user_id ? `Actor ${entry.actor_user_id}` : "System"}</small>
+                                {typeof entry.details.note === "string" && <p>{entry.details.note}</p>}
+                                {typeof entry.details.evidence_url === "string" && <p><a href={entry.details.evidence_url} target="_blank" rel="noreferrer">View evidence submitted in this event</a></p>}
+                              </article>
+                            ))
+                          }
+                        </div>
+                      )}
                       {item.assigned_to && <small>Assigned to {item.assigned_to}</small>}
                       {item.evidence_url && <p><a href={item.evidence_url} target="_blank" rel="noreferrer">Open submitted evidence</a></p>}
                       {["planned", "in_progress", "revisions_required"].includes(item.status) && (
