@@ -32,6 +32,7 @@ from stagingnextgenearth.platform import (  # noqa: F401
     OrganizationRecordAuditEvent,
     Programme,
     ProgrammeActivity,
+    ProgrammeActivityAttendance,
     ProgrammeAssignment,
     ProgrammeDeliverable,
     ProgrammeGoal,
