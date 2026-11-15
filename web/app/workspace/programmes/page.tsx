@@ -119,14 +119,15 @@ export default function ProgrammeAdminPage() {
 
   async function createGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/goals`, {
         title: data.get("goal_title"), description: data.get("goal_description") || null,
         target_date: data.get("goal_target_date") || null,
       });
-      event.currentTarget.reset();
+      form.reset();
       await refreshPlan();
       setNotice("Programme goal created.");
     } catch (cause) {
@@ -136,14 +137,15 @@ export default function ProgrammeAdminPage() {
 
   async function createMilestone(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/goals/${selectedGoalId}/milestones`, {
         title: data.get("milestone_title"), description: data.get("milestone_description") || null,
         due_date: data.get("milestone_due_date") || null,
       });
-      event.currentTarget.reset();
+      form.reset();
       await refreshPlan();
       setNotice("Milestone created.");
     } catch (cause) {
@@ -164,7 +166,8 @@ export default function ProgrammeAdminPage() {
 
   async function createIndicator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/indicators`, {
@@ -174,7 +177,7 @@ export default function ProgrammeAdminPage() {
         baseline_value: data.get("baseline_value") === "" ? null : Number(data.get("baseline_value")),
         target_value: data.get("target_value") === "" ? null : Number(data.get("target_value")),
       });
-      event.currentTarget.reset();
+      form.reset();
       await refreshPlan();
       setNotice("Programme indicator created.");
     } catch (cause) {
@@ -184,14 +187,15 @@ export default function ProgrammeAdminPage() {
 
   async function recordMeasurement(event: FormEvent<HTMLFormElement>, indicatorId: string) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/indicators/${indicatorId}/measurements`, {
         period_start: data.get("period_start"), period_end: data.get("period_end"),
         value: Number(data.get("measurement_value")), notes: data.get("measurement_notes") || null,
       });
-      event.currentTarget.reset();
+      form.reset();
       await refreshPlan();
       setNotice("Indicator measurement recorded.");
     } catch (cause) {
@@ -201,7 +205,8 @@ export default function ProgrammeAdminPage() {
 
   async function createDeliverable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/deliverables`, {
@@ -209,7 +214,7 @@ export default function ProgrammeAdminPage() {
         due_date: data.get("deliverable_due_date") || null,
         project_id: data.get("deliverable_project_id") || null,
       });
-      event.currentTarget.reset();
+      form.reset();
       await refreshPlan();
       setNotice("Deliverable created.");
     } catch (cause) {
@@ -246,17 +251,19 @@ export default function ProgrammeAdminPage() {
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run("Programme draft created.", () => apiPost(`/organizations/${organizationId}/programmes`, {
       title: data.get("title"), slug: data.get("slug"), summary: data.get("summary") || null,
       start_date: data.get("start_date") || null, end_date: data.get("end_date") || null,
     }));
-    event.currentTarget.reset();
+    form.reset();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run("Programme details saved.", () => apiPatch(
       `/organizations/${organizationId}/programmes/${selectedId}`,
       {
