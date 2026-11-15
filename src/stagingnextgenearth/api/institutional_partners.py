@@ -147,6 +147,124 @@ async def link_partner_programme(organization_id: str, partner_id: str, body: Pa
         await session.rollback()
         raise HTTPException(409, "Partner is already linked to this programme") from exc
     return {"id": link.id, "partner_id": partner_id, "programme_id": programme.id}
+class PartnerContactCreate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=200)
+    job_title: str | None = Field(default=None, max_length=160)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=40)
+
+class PartnerContactUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    job_title: str | None = Field(default=None, max_length=160)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=40)
+    contact_permission: bool | None = None
+    status: Literal["active", "inactive"] | None = None
+
+class PartnerContactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    partner_id: str
+    full_name: str
+    job_title: str | None
+    email: str | None
+    phone: str | None
+    contact_permission: bool
+    permission_recorded_at: object | None
+    status: str
+
+@router.get("/organizations/{organization_id}/partners/{partner_id}/contacts", response_model=list[PartnerContactRead])
+async def list_partner_contacts(
+    organization_id: str, partner_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PartnerContactRead]:
+    _admin(membership)
+    partner = await session.scalar(select(InstitutionalPartner).where(
+        InstitutionalPartner.id == partner_id,
+        InstitutionalPartner.organization_id == organization_id,
+    ))
+    if partner is None:
+        raise HTTPException(404, "Partner not found")
+    rows = await session.scalars(select(InstitutionalPartnerContact).where(
+        InstitutionalPartnerContact.organization_id == organization_id,
+        InstitutionalPartnerContact.partner_id == partner_id,
+        InstitutionalPartnerContact.status == "active",
+    ).order_by(InstitutionalPartnerContact.full_name).limit(200))
+    return [PartnerContactRead.model_validate(row) for row in rows.all()]
+
+@router.post("/organizations/{organization_id}/partners/{partner_id}/contacts", response_model=PartnerContactRead, status_code=201)
+async def create_partner_contact(
+    organization_id: str, partner_id: str, body: PartnerContactCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PartnerContactRead:
+    _admin(membership)
+    partner = await session.scalar(select(InstitutionalPartner).where(
+        InstitutionalPartner.id == partner_id,
+        InstitutionalPartner.organization_id == organization_id,
+    ))
+    if partner is None:
+        raise HTTPException(404, "Partner not found")
+    row = InstitutionalPartnerContact(
+        organization_id=organization_id, partner_id=partner_id,
+        full_name=body.full_name.strip(), job_title=body.job_title,
+        email=body.email.strip().lower() if body.email else None,
+        phone=body.phone, contact_permission=False,
+        created_by=principal.user_id, updated_by=principal.user_id,
+    )
+    session.add(row)
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="partner", entity_id=partner_id,
+        actor_user_id=principal.user_id, action="record.created",
+        changed_fields=["contacts"],
+        state={"contact_id": row.id, "contact_status": row.status, "contact_permission": False},
+    ))
+    await session.commit()
+    await session.refresh(row)
+    return PartnerContactRead.model_validate(row)
+
+@router.patch("/organizations/{organization_id}/partners/{partner_id}/contacts/{contact_id}", response_model=PartnerContactRead)
+async def update_partner_contact(
+    organization_id: str, partner_id: str, contact_id: str, body: PartnerContactUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PartnerContactRead:
+    _admin(membership)
+    row = await session.scalar(select(InstitutionalPartnerContact).where(
+        InstitutionalPartnerContact.id == contact_id,
+        InstitutionalPartnerContact.partner_id == partner_id,
+        InstitutionalPartnerContact.organization_id == organization_id,
+    ))
+    if row is None:
+        raise HTTPException(404, "Partner contact not found")
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("contact_permission") is True:
+        from datetime import datetime, timezone
+        row.permission_recorded_at = datetime.now(timezone.utc)
+    elif changes.get("contact_permission") is False:
+        row.permission_recorded_at = None
+    for key, value in changes.items():
+        if value is not None or key in {"job_title", "email", "phone"}:
+            setattr(row, key, value)
+    if "email" in changes and row.email:
+        row.email = row.email.strip().lower()
+    if "full_name" in changes and row.full_name:
+        row.full_name = row.full_name.strip()
+    row.updated_by = principal.user_id
+    session.add(OrganizationRecordAuditEvent(
+        organization_id=organization_id, entity_type="partner", entity_id=partner_id,
+        actor_user_id=principal.user_id, action="record.updated",
+        changed_fields=["contact." + key for key in sorted(changes)],
+        state={"contact_id": row.id, "contact_status": row.status,
+               "contact_permission": row.contact_permission},
+    ))
+    await session.commit()
+    await session.refresh(row)
+    return PartnerContactRead.model_validate(row)
+
 class PublicPartnerRead(BaseModel):
     """Public partner fields; moderation and source metadata remain private."""
     model_config = ConfigDict(from_attributes=True)
