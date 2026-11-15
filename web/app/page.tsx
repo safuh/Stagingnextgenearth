@@ -7,6 +7,7 @@ import { apiGet, clearSession, login, logout, restoreSession } from "@/lib/api";
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; slug: string };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; website_url: string | null };
+type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
 
 const portals = [
   {
@@ -45,6 +46,7 @@ export default function HomePage() {
   const [catalogue, setCatalogue] = useState<PublicContent[]>([]);
   const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
   const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
+  const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -52,13 +54,15 @@ export default function HomePage() {
       apiGet<PublicContent[]>("/public/organizations/nextgen-for-earth/content"),
       apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people"),
       apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners"),
-    ]).then(([items, people, partners]) => {
+      apiGet<PublicProgramme[]>("/public/organizations/nextgen-for-earth/programmes"),
+    ]).then(([items, people, partners, programmes]) => {
       if (!active) return;
       setCatalogue(items);
       setPublicPeople(people);
       setPublicPartners(partners);
+      setPublicProgrammes(programmes);
     }).catch(() => {
-      if (active) { setCatalogue([]); setPublicPeople([]); setPublicPartners([]); }
+      if (active) { setCatalogue([]); setPublicPeople([]); setPublicPartners([]); setPublicProgrammes([]); }
     });
     return () => { active = false; };
   }, []);
@@ -164,11 +168,14 @@ export default function HomePage() {
       <section className="portals section-wrap" id="programmes">
         <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
         <div className="portal-grid">
+          {publicProgrammes.map((programme) => (
+            <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3>{programme.title}</h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
+          ))}
           {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area"].includes(item.content_type)).map((item) => (
-            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary}</p></article>
+            <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary}</p></article>
           ))}
         </div>
-        {catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+        {publicProgrammes.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
       </section>
       <section className="portals section-wrap" id="people">
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
