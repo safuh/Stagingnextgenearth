@@ -521,6 +521,36 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert activity_feed.json()[0]["action"] == "accepted"
         assert client.get(f"{deliverable_url}/activity", headers=participant).status_code == 403
         assert client.get(f"{deliverable_url}/activity", headers=partner).status_code == 403
+        unified_timeline = client.get(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/activity-timeline",
+            headers=manager,
+        )
+        assert unified_timeline.status_code == 200
+        timeline = unified_timeline.json()
+        timeline_types = {event["entity_type"] for event in timeline}
+        assert {
+            "goal",
+            "milestone",
+            "indicator",
+            "measurement",
+            "assignment",
+            "activity",
+            "volunteer_allocation",
+            "deliverable",
+        }.issubset(timeline_types)
+        assert timeline == sorted(
+            timeline,
+            key=lambda event: (event["created_at"], event["id"]),
+            reverse=True,
+        )
+        assert client.get(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/activity-timeline",
+            headers=participant,
+        ).status_code == 403
+        assert client.get(
+            f"/api/organizations/{org_id}/programmes/missing-programme/activity-timeline",
+            headers=manager,
+        ).status_code == 404
 
         public_report = client.get(
             "/api/public/organizations/operations-test/programmes/tree-growing/report"
