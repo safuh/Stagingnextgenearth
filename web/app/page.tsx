@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, clearSession, login, logout, restoreSession } from "@/lib/api";
+import { apiGet, clearSession, login, logout, register, restoreSession } from "@/lib/api";
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; slug: string };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
@@ -40,6 +40,7 @@ const portals = [
 export default function HomePage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
@@ -88,6 +89,7 @@ export default function HomePage() {
     setError("");
     setBusy(true);
     try {
+      if (creatingAccount) await register(identifier.trim(), password);
       const result = await login(identifier.trim(), password);
       setSubject(result.subject);
       setSignedIn(true);
@@ -214,16 +216,16 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>Sign in</h3></div></div>
+              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>{creatingAccount ? "Create account" : "Sign in"}</h3></div></div>
               <form onSubmit={handleLogin}>
                 <label htmlFor="identifier">Email or account identifier</label>
                 <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
                 <label htmlFor="password">Password</label>
                 <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
                 {error && <p className="form-error" role="alert">{error}</p>}
-                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue securely"} <span>→</span></button>
+                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? (creatingAccount ? "Creating account…" : "Signing in…") : (creatingAccount ? "Create account securely" : "Continue securely")} <span>→</span></button>
               </form>
-              <p className="login-footnote">Access is provided by your organisation administrator.</p>
+              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>\n              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
             </>
           )}
         </div>
