@@ -432,7 +432,10 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert completed_milestone.status_code == 200
 
-        deliverable_url = f"/api/organizations/{org_id}/programmes/{programme.json()['id']}/deliverables"
+        programme_id = programme.json()["id"]
+        deliverable_url = (
+            f"/api/organizations/{org_id}/programmes/{programme_id}/deliverables"
+        )
         deliverable = client.post(
             deliverable_url,
             headers=manager,
