@@ -14,6 +14,7 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeActivity,
+    ProgrammePlanningEvent,
     ProgrammeVolunteerAllocation,
     ProgrammeVolunteerApplication,
     Project,
@@ -37,6 +38,33 @@ async def _programme(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     return item
+
+
+async def _record_activity_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    entity_type: str,
+    entity_id: str,
+    entity_title: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammePlanningEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+            created_at=datetime.now(UTC),
+        )
+    )
 
 
 class ActivityCreate(BaseModel):
@@ -173,6 +201,18 @@ async def create_activity(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="activity",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"location": item.location, "start_at": item.start_at.isoformat()},
+    )
     await session.commit()
     await session.refresh(item)
     return ActivityRead.model_validate(item)
@@ -300,6 +340,18 @@ async def apply_to_volunteer(
         status="pending",
     )
     session.add(item)
+    await session.flush()
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="volunteer_allocation",
+        entity_id=item.id,
+        entity_title=activity.title,
+        actor_user_id=principal.user_id,
+        action="assigned",
+        details={"user_id": item.user_id, "activity_id": activity.id},
+    )
     try:
         await session.commit()
         await session.refresh(item)
@@ -480,6 +532,7 @@ async def update_activity_status(
     programme_id: str,
     activity_id: str,
     body: ActivityStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ActivityRead:
@@ -503,7 +556,19 @@ async def update_activity_status(
     }
     if body.status not in allowed.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid activity status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="activity",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return ActivityRead.model_validate(item)
