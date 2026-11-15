@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
-    Membership, Organization, OrganizationEmploymentApplication, OrganizationPerson,
+    Membership,
+    Organization,
+    OrganizationEmploymentApplication,
+    OrganizationPerson,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
