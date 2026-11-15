@@ -289,8 +289,11 @@ export default function WorkspacePage() {
                   <p>Workspace sections are shown according to your active organisation role. The API independently enforces every permission.</p>
                 </div>
                 <div className="role-workspace-links">
-                  {(["admin", "founder", "executive", "programme_manager"].includes(membership.role)) && (\n                    <Link href="/workspace/programmes">Programme management →</Link>
-                    <Link href="/workspace/learning-admin">Learning operations →</Link>
+                  {["admin", "founder", "executive", "programme_manager"].includes(membership.role) && (
+                    <>
+                      <Link href="/workspace/programmes">Programme management →</Link>
+                      <Link href="/workspace/learning-admin">Learning operations →</Link>
+                    </>
                   )}
                   {["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"].includes(membership.role) && (
                     <Link href="/workspace/research">Research workspace →</Link>
