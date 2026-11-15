@@ -862,6 +862,9 @@ class LearningCourse(Base):
     organization_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
+    )
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     slug: Mapped[str] = mapped_column(String(140), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
