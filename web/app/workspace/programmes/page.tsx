@@ -19,7 +19,8 @@ type IndicatorProgress = {
   latest_measurement: { value: number; period_start: string; period_end: string } | null;
   progress_percent: number | null;
 };
-type Deliverable = { id: string; title: string; description: string | null; due_date: string | null; status: string; evidence_url: string | null; review_note: string | null };
+type MemberOption = { user_id: string; role: string };
+type Deliverable = { id: string; title: string; description: string | null; due_date: string | null; status: string; project_id: string | null; assigned_to: string | null; evidence_url: string | null; review_note: string | null };
 const transitions: Record<string, string[]> = {
   draft: ["planned", "archived"],
   planned: ["active", "archived"],
@@ -33,6 +34,7 @@ export default function ProgrammeAdminPage() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState("");
@@ -67,6 +69,13 @@ export default function ProgrammeAdminPage() {
   useEffect(() => {
     if (!organizationId) return;
     load(organizationId).catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load programmes."));
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    apiGet<MemberOption[]>(`/organizations/${organizationId}/memberships/directory`)
+      .then(setMembers)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load organisation members."));
   }, [organizationId]);
 
   useEffect(() => {
@@ -213,12 +222,30 @@ export default function ProgrammeAdminPage() {
         title: data.get("deliverable_title"), description: data.get("deliverable_description") || null,
         due_date: data.get("deliverable_due_date") || null,
         project_id: data.get("deliverable_project_id") || null,
+        assigned_to: data.get("deliverable_assigned_to") || null,
       });
       form.reset();
       await refreshPlan();
       setNotice("Deliverable created.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create deliverable.");
+    } finally { setBusy(false); }
+  }
+
+  async function submitEvidence(event: FormEvent<HTMLFormElement>, deliverableId: string) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost(`/organizations/${organizationId}/programmes/${selectedId}/deliverables/${deliverableId}/submit`, {
+        evidence_url: data.get("evidence_url"), note: data.get("evidence_note") || null,
+      });
+      form.reset();
+      await refreshPlan();
+      setNotice("Evidence submitted for review.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit deliverable evidence.");
     } finally { setBusy(false); }
   }
 
@@ -422,6 +449,12 @@ export default function ProgrammeAdminPage() {
                         {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
                       </select>
                     </label>
+                    <label>Assign to active member
+                      <select name="deliverable_assigned_to" defaultValue="">
+                        <option value="">Unassigned</option>
+                        {members.map((member) => <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>)}
+                      </select>
+                    </label>
                     <button className="primary-action" disabled={busy}>Create deliverable</button>
                   </form>
                   {deliverables.length === 0 ? <p className="workspace-muted">No deliverables have been registered.</p> : deliverables.map((item) => (
@@ -429,7 +462,15 @@ export default function ProgrammeAdminPage() {
                       <strong>{item.title}</strong>
                       <small>{item.status}{item.due_date ? ` · Due ${item.due_date}` : ""}</small>
                       {item.description && <p>{item.description}</p>}
+                      {item.assigned_to && <small>Assigned to {item.assigned_to}</small>}
                       {item.evidence_url && <p><a href={item.evidence_url} target="_blank" rel="noreferrer">Open submitted evidence</a></p>}
+                      {["planned", "in_progress", "revisions_required"].includes(item.status) && (
+                        <form onSubmit={(event) => void submitEvidence(event, item.id)}>
+                          <label>Evidence URL<input name="evidence_url" type="url" minLength={8} maxLength={1000} placeholder="https://…" required /></label>
+                          <label>Submission note<textarea name="evidence_note" maxLength={4000} /></label>
+                          <button className="secondary-action" disabled={busy}>Submit evidence</button>
+                        </form>
+                      )}
                       {item.review_note && <p>Review note: {item.review_note}</p>}
                       {item.status === "submitted" && (
                         <div className="staff-actions">
