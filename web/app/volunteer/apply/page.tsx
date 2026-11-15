@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPost, hasSession } from "@/lib/api";
+import { apiGet, apiPost, restoreSession } from "@/lib/api";
 type Programme={id:string;organization_id:string;title:string;slug:string;summary:string|null;status:string};
 export default function VolunteerApplyPage(){
  const [programmes,setProgrammes]=useState<Programme[]>([]);
@@ -9,10 +9,12 @@ export default function VolunteerApplyPage(){
  const [signedIn,setSignedIn]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  useEffect(()=>{
-  setSignedIn(hasSession());
+  let active=true;
+  restoreSession().then(session=>{if(active)setSignedIn(Boolean(session));}).catch(()=>{if(active)setSignedIn(false);});
   apiGet<Programme[]>("/public/organizations/nextgen-for-earth/programmes")
    .then(items=>{setProgrammes(items);if(items[0])setSelected(items[0].id);})
    .catch(e=>setError(e instanceof Error?e.message:"Unable to load current programmes."));
+  return ()=>{active=false;};
  },[]);
  async function submit(e:FormEvent<HTMLFormElement>){
   e.preventDefault();const form=e.currentTarget,data=new FormData(form);
