@@ -175,7 +175,7 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
         <div className="portal-grid">
           {publicProgrammes.map((programme) => (
-            <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3>{programme.title}</h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
+            <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3><Link href={`/programmes/${programme.slug}`}>{programme.title}</Link></h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
           ))}
           {publicCourses.map((course) => {
             const programme = publicProgrammes.find((item) => item.id === course.programme_id);
