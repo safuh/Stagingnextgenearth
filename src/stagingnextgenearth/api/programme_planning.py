@@ -14,6 +14,7 @@ from stagingnextgenearth.platform.models import (
     ProgrammeAssignment,
     ProgrammeGoal,
     ProgrammeMilestone,
+    ProgrammePlanningEvent,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
@@ -34,6 +35,35 @@ async def _programme(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     return item
+
+
+
+
+async def _record_planning_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    entity_type: str,
+    entity_id: str,
+    entity_title: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammePlanningEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+            created_at=datetime.now(UTC),
+        )
+    )
 
 
 class GoalCreate(BaseModel):
@@ -156,6 +186,18 @@ async def create_goal(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="goal",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"status": item.status},
+    )
     await session.commit()
     await session.refresh(item)
     return GoalRead.model_validate(item)
@@ -194,6 +236,7 @@ async def update_goal_status(
     programme_id: str,
     goal_id: str,
     body: GoalStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> GoalRead:
@@ -212,7 +255,19 @@ async def update_goal_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid goal status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="goal",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return GoalRead.model_validate(item)
@@ -256,6 +311,18 @@ async def create_milestone(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="milestone",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"goal_id": goal_id, "status": item.status},
+    )
     await session.commit()
     await session.refresh(item)
     return MilestoneRead.model_validate(item)
@@ -294,6 +361,7 @@ async def update_milestone_status(
     programme_id: str,
     milestone_id: str,
     body: MilestoneStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MilestoneRead:
@@ -316,7 +384,19 @@ async def update_milestone_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid milestone status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="milestone",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return MilestoneRead.model_validate(item)
