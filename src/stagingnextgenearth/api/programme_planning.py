@@ -66,6 +66,23 @@ async def _record_planning_event(
     )
 
 
+
+
+class PlanningEventRead(BaseModel):
+    """Manager-visible programme planning audit event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    entity_type: str
+    entity_id: str
+    entity_title: str
+    actor_user_id: str
+    action: str
+    details: dict[str, object]
+    created_at: datetime
+
+
 class GoalCreate(BaseModel):
     """Programme goal payload."""
 
@@ -519,3 +536,36 @@ async def update_assignment_status(
     await session.commit()
     await session.refresh(item)
     return AssignmentRead.model_validate(item)
+
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/planning-activity",
+    response_model=list[PlanningEventRead],
+)
+async def list_planning_activity(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PlanningEventRead]:
+    """Return bounded goal, milestone and indicator history to programme managers."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme management permission required",
+        )
+    await _programme(session, organization_id, programme_id)
+    rows = await session.scalars(
+        select(ProgrammePlanningEvent)
+        .where(
+            ProgrammePlanningEvent.organization_id == organization_id,
+            ProgrammePlanningEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammePlanningEvent.created_at.desc(),
+            ProgrammePlanningEvent.id.desc(),
+        )
+        .limit(100)
+    )
+    return [PlanningEventRead.model_validate(row) for row in rows.all()]
