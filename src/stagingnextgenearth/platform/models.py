@@ -1875,7 +1875,7 @@ class ProgrammePlanningEvent(Base):
     programme_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
     )
-    entity_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
     entity_title: Mapped[str] = mapped_column(String(240), nullable=False)
     actor_user_id: Mapped[str] = mapped_column(
