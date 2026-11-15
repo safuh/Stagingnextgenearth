@@ -112,6 +112,15 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert linked_projects.status_code == 200
         assert [row["id"] for row in linked_projects.json()] == [project.json()["id"]]
+        public_projects = client.get(
+            "/api/public/organizations/operations-test/programmes/tree-growing/projects"
+        )
+        assert public_projects.status_code == 200
+        assert [row["id"] for row in public_projects.json()] == [project.json()["id"]]
+        assert "organization_id" not in public_projects.json()[0]
+        assert client.get(
+            "/api/public/organizations/operations-test/programmes/missing-programme/projects"
+        ).status_code == 404
         assert client.get(
             f"{programmes}/missing-programme/projects",
             headers=manager,
