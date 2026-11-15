@@ -53,6 +53,40 @@ class PublicCourseRead(BaseModel):
 
 
 @public_router.get(
+    "/public/organizations/{organization_slug}/programmes/{programme_slug}/courses",
+    response_model=list[PublicCourseRead],
+)
+async def list_public_programme_courses(
+    organization_slug: str,
+    programme_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicCourseRead]:
+    """List published courses belonging to one publicly visible programme."""
+    programme = await session.scalar(
+        select(Programme)
+        .join(Organization, Organization.id == Programme.organization_id)
+        .where(
+            Organization.slug == organization_slug,
+            Programme.slug == programme_slug,
+            Programme.status.in_({"planned", "active"}),
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    rows = await session.scalars(
+        select(LearningCourse)
+        .where(
+            LearningCourse.organization_id == programme.organization_id,
+            LearningCourse.programme_id == programme.id,
+            LearningCourse.status == "published",
+        )
+        .order_by(LearningCourse.title)
+        .limit(250)
+    )
+    return [PublicCourseRead.model_validate(item) for item in rows.all()]
+
+
+@public_router.get(
     "/public/organizations/{organization_slug}/courses",
     response_model=list[PublicCourseRead],
 )
