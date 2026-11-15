@@ -54,7 +54,7 @@ def _admin(m: Membership) -> None:
 async def list_partners(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
     _admin(membership)
     rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == organization_id).order_by(InstitutionalPartner.name).limit(500))
-    return [PublicPartnerRead.model_validate(x) for x in rows.all()]
+    return [PartnerRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/partners", response_model=PartnerRead, status_code=201)
 async def create_partner(organization_id: str, body: PartnerCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
     _admin(membership)
