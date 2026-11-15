@@ -76,7 +76,7 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
         f"/api/organizations/{organisation_id}/people/{person['id']}/audit-events",
         headers=researcher_headers,
     )
-    assert forbidden_audit.status_code == 403
+    assert forbidden_audit.status_code == 404
     assert creation_audit.json()[0]["action"] == "person.created"
     assert person["review_state"] == "pending"
     assert person["visibility"] == "private"
@@ -97,10 +97,16 @@ def test_people_directory_requires_admin_and_publication_review(client: TestClie
     )
     assert accepted.status_code == 200
 
+    forbidden_member_audit = client.get(
+        f"/api/organizations/{organisation_id}/people/{person['id']}/audit-events",
+        headers=researcher_headers,
+    )
+    assert forbidden_member_audit.status_code == 403
+
     forbidden = client.get(
         f"/api/organizations/{organisation_id}/people", headers=researcher_headers
     )
-    assert forbidden.status_code == 404
+    assert forbidden.status_code == 403
 
     published = client.patch(
         f"/api/organizations/{organisation_id}/people/{person['id']}",

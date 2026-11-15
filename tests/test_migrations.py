@@ -25,6 +25,10 @@ async def test_alembic_upgrade_and_downgrade() -> None:
         "organizations": {"id", "name", "slug", "owner_user_id"},
         "organization_memberships": {"id", "organization_id", "user_id", "role", "status"},
         "programmes": {"id", "organization_id", "title", "slug", "status"},
+        "programme_volunteer_applications": {
+            "id", "organization_id", "programme_id", "user_id", "status",
+            "safeguarding_confirmed",
+        },
         "projects": {"id", "organization_id", "programme_id", "title", "status"},
         "research_studies": {"id", "organization_id", "project_id", "title", "status"},
         "research_datasets": {

@@ -4,7 +4,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0036_volunteer_safeguarding_confirmation"
+revision: str = "0036_volunteer_safeguard"
 down_revision: str | None = "0035_public_content_approval"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
