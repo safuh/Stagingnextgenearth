@@ -152,7 +152,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         member_approval = client.post(
             f"{base}/volunteer-applications/{member_application.json()['id']}/decision",
             headers=manager,
-            json={"decision": "approved", "safeguarding_confirmed": True},
+            json={"decision": "approved", "safeguarding_verified": True},
         )
         assert member_approval.status_code == 200
         assert member_approval.json()["status"] == "approved"
