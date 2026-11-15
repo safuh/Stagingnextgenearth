@@ -47,6 +47,39 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert partner.status_code == 201
         partner_id = partner.json()["id"]
         assert partner.json()["verification_state"] == "pending"
+
+        # Partner contact details are private and permission starts disabled.
+        contact = client.post(
+            f"/api/organizations/{org_id}/partners/{partner_id}/contacts",
+            headers=headers,
+            json={"full_name": "Partnership Liaison", "job_title": "Research Coordinator",
+                  "email": "LIAISON@university.example", "phone": "+254700000000"},
+        )
+        assert contact.status_code == 201
+        contact_id = contact.json()["id"]
+        assert contact.json()["contact_permission"] is False
+        contacts = client.get(
+            f"/api/organizations/{org_id}/partners/{partner_id}/contacts",
+            headers=headers,
+        )
+        assert contacts.status_code == 200
+        assert contacts.json()[0]["email"] == "liaison@university.example"
+        permission = client.patch(
+            f"/api/organizations/{org_id}/partners/{partner_id}/contacts/{contact_id}",
+            headers=headers, json={"contact_permission": True},
+        )
+        assert permission.status_code == 200
+        assert permission.json()["contact_permission"] is True
+        assert permission.json()["permission_recorded_at"] is not None
+        deactivated = client.patch(
+            f"/api/organizations/{org_id}/partners/{partner_id}/contacts/{contact_id}",
+            headers=headers, json={"status": "inactive"},
+        )
+        assert deactivated.status_code == 200
+        assert client.get(
+            f"/api/organizations/{org_id}/partners/{partner_id}/contacts",
+            headers=headers,
+        ).json() == []
         partner_audit = client.get(
             f"/api/organizations/{org_id}/partners/{partner_id}/audit-events",
             headers=headers,
