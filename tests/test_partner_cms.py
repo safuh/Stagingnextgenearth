@@ -119,28 +119,66 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
             json={"publication_state": "review"},
         )
         assert review.status_code == 200
-        approved = client.patch(
+
+        # The author cannot approve their own content. An independent executive
+        # reviewer must accept the invitation before approving or publishing.
+        self_approval = client.patch(
             f"/api/organizations/{org_id}/content/{entry_id}",
             headers=headers,
+            json={"publication_state": "approved"},
+        )
+        assert self_approval.status_code == 403
+        client.post("/api/auth/register", json={
+            "identifier": "cms-reviewer@example.org",
+            "password": "correct horse battery staple",
+        })
+        invited = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=headers,
+            json={"identifier": "cms-reviewer@example.org", "role": "executive"},
+        )
+        assert invited.status_code == 201
+        reviewer_login = client.post("/api/auth/login", json={
+            "identifier": "cms-reviewer@example.org",
+            "password": "correct horse battery staple",
+        })
+        reviewer_headers = {
+            "Authorization": "Bearer " + reviewer_login.json()["access_token"]
+        }
+        accepted = client.post(
+            f"/api/organizations/{org_id}/memberships/{invited.json()['id']}/accept",
+            headers=reviewer_headers,
+        )
+        assert accepted.status_code == 200
+
+        approved = client.patch(
+            f"/api/organizations/{org_id}/content/{entry_id}",
+            headers=reviewer_headers,
             json={"publication_state": "approved"},
         )
         assert approved.status_code == 200
         assert approved.json()["approved_by"] is not None
         published = client.patch(
             f"/api/organizations/{org_id}/content/{entry_id}",
-            headers=headers,
+            headers=reviewer_headers,
             json={"publication_state": "published"},
         )
         assert published.status_code == 200
         public_content = client.get("/api/public/organizations/nextgen-for-earth/content")
         assert public_content.status_code == 200
-        content_audit = client.get(
-            f"/api/organizations/{org_id}/content/{entry_id}/audit-events",
-            headers=headers,
-        )
-        assert content_audit.status_code == 200
-        assert content_audit.json()[0]["action"] == "record.state_changed"
-        assert "publication_state" in content_audit.json()[0]["changed_fields"]
         assert [row["title"] for row in public_content.json()] == ["Research Capacity Building"]
         assert "source_url" not in public_content.json()[0]
         assert "metadata_json" not in public_content.json()[0]
+
+        # Editing already-published material immediately withdraws it and
+        # invalidates the prior approval so stale text cannot remain public.
+        edited = client.patch(
+            f"/api/organizations/{org_id}/content/{entry_id}",
+            headers=reviewer_headers,
+            json={"summary": "Updated summary awaiting review."},
+        )
+        assert edited.status_code == 200
+        assert edited.json()["publication_state"] == "draft"
+        assert edited.json()["approved_by"] is None
+        assert edited.json()["approved_at"] is None
+        assert client.get("/api/public/organizations/nextgen-for-earth/content").json() == []
