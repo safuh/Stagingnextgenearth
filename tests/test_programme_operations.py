@@ -204,7 +204,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         approved = client.post(
             f"{base}/volunteer-applications/{application_id}/decision",
             headers=manager,
-            json={"decision": "approved", "safeguarding_confirmed": True},
+            json={"decision": "approved", "safeguarding_verified": True},
         )
         assert approved.status_code == 200
         activity = client.post(
