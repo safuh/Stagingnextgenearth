@@ -1,5 +1,11 @@
 export interface TokenResponse {
   subject: string;
+  access_token?: string;
+  refresh_token?: string;
+}
+
+export interface RegistrationResponse {
+  subject: string;
 }
 
 export interface ApiError {
@@ -69,8 +75,8 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }
 
-export async function register(identifier: string, password: string): Promise<TokenResponse> {
-  return request<TokenResponse>("/auth/register", {
+export async function register(identifier: string, password: string): Promise<RegistrationResponse> {
+  return request<RegistrationResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ identifier, password }),
   });
