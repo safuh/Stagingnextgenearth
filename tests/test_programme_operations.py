@@ -490,6 +490,14 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             deliverable_events_url, headers=partner
         ).status_code == 403
 
+        activity_feed = client.get(f"{deliverable_url}/activity", headers=manager)
+        assert activity_feed.status_code == 200
+        assert activity_feed.json()[0]["deliverable_id"] == deliverable_id
+        assert activity_feed.json()[0]["deliverable_title"] == "Verified baseline survey"
+        assert activity_feed.json()[0]["action"] == "accepted"
+        assert client.get(f"{deliverable_url}/activity", headers=participant).status_code == 403
+        assert client.get(f"{deliverable_url}/activity", headers=partner).status_code == 403
+
         public_report = client.get(
             "/api/public/organizations/operations-test/programmes/tree-growing/report"
         )
