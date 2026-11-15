@@ -1,4 +1,5 @@
 """Secure employment application, review, and employee onboarding workflow."""
+
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
@@ -89,7 +90,9 @@ async def submit_employment_application(
         await session.refresh(application)
     except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "An employment application already exists") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "An employment application already exists"
+        ) from exc
     return EmploymentApplicationRead.model_validate(application)
 
 
@@ -207,7 +210,9 @@ async def decide_employment_application(
     if item.status != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Application has already been decided")
     if item.user_id == principal.user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Applicants cannot review their own applications")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Applicants cannot review their own applications"
+        )
     if body.decision == "approved":
         existing = await session.scalar(
             select(Membership.id).where(
