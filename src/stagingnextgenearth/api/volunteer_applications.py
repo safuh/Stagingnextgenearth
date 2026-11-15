@@ -201,22 +201,27 @@ async def decide_volunteer_application(
                 ),
             )
         existing = await session.scalar(
-            select(Membership.id).where(
+            select(Membership).where(
                 Membership.organization_id == organization_id,
                 Membership.user_id == item.user_id,
             )
         )
-        if existing is not None:
+        if existing is not None and (
+            existing.role != "youth_volunteer" or existing.status != "active"
+        ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "Applicant already has an organisation membership; resolve their role first",
+                "Applicant already has a non-volunteer or inactive organisation membership",
             )
-        session.add(Membership(
-            organization_id=organization_id,
-            user_id=item.user_id,
-            role="youth_volunteer",
-            status="active",
-        ))
+        if existing is None:
+            session.add(
+                Membership(
+                    organization_id=organization_id,
+                    user_id=item.user_id,
+                    role="youth_volunteer",
+                    status="active",
+                )
+            )
         item.safeguarding_confirmed = True
 
     item.status = body.decision
