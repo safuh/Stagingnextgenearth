@@ -132,44 +132,14 @@ def load_manifest(path: Path | None) -> dict[str, Any]:
     return value
 
 
-def provision_staff(api: Api, organization_id: str, staff: list[dict[str, Any]]) -> None:
-    for item in staff:
-        identifier = str(item["identifier"]).strip()
-        role = str(item["role"]).strip()
-        password_env = str(item["password_env"]).strip()
-        password = env_required(password_env)
-        if role not in {
-            "founder", "executive", "employee", "programme_manager",
-            "researcher", "youth_volunteer", "institutional_partner",
-        }:
-            raise ApiError(f"Unsupported staff role for {identifier}: {role}")
-        api.register_or_reuse(identifier, password)
-        api.authenticate(identifier, password)
-        # Check whether the invite is already active or pending before creating one.
-        memberships = api.request(
-            "GET", f"/organizations/{organization_id}/memberships", expected=(200,)
-        ) if False else []
-        # The owner performs invitations; acceptance is performed by the invited user.
-        # Re-authenticate as owner in the caller before inviting each account.
-        del memberships
-        api.request(
-            "POST", f"/organizations/{organization_id}/memberships",
-            {"identifier": identifier, "role": role},
-            expected=(201,),
-        )
-        # The invited user accepts their own invitation; its ID is returned by POST.
-        # The caller's access token remains the invited user's token here.
-        # Membership ID is obtained from the invitation response in the next request.
-        # This path is handled by provision_staff_with_owner below.
-
-
-def provision_staff_with_owner(
+def provision_staff(
     api: Api,
     organization_id: str,
     owner_identifier: str,
     owner_password: str,
     staff: list[dict[str, Any]],
 ) -> None:
+    """Create accounts and activate their own tenant invitations idempotently."""
     for item in staff:
         identifier = str(item["identifier"]).strip()
         role = str(item["role"]).strip()
@@ -179,16 +149,25 @@ def provision_staff_with_owner(
             "researcher", "youth_volunteer", "institutional_partner",
         }:
             raise ApiError(f"Unsupported staff role for {identifier}: {role}")
-        # Register/login the target account first. A 409 means it already exists.
+
+        # Register-or-reuse and capture the account subject from its login response.
         api.register_or_reuse(identifier, password)
+        staff_user_id = api.request_subject
+
+        # Only the canonical organisation owner can invite founder/executive roles.
         api.authenticate(owner_identifier, owner_password)
-        existing = api.request(
+        memberships = api.request(
             "GET", f"/organizations/{organization_id}/memberships", expected=(200,)
         )
-        current = next((m for m in existing if m.get("user_id") == api.lookup_user_id(
-            identifier, password
-        )), None)
+        current = next(
+            (m for m in memberships if m.get("user_id") == staff_user_id), None
+        )
         if current and current["status"] == "active":
+            if current["role"] != role:
+                print(
+                    f"Membership already active for {identifier} with role "
+                    f"{current['role']}; leaving it unchanged."
+                )
             continue
         if current and current["status"] == "invited":
             invitation = current
@@ -199,23 +178,19 @@ def provision_staff_with_owner(
                 expected=(201,),
             )
         else:
-            raise ApiError(f"Membership for {identifier} is suspended; review it manually")
+            raise ApiError(
+                f"Membership for {identifier} is suspended; reactivate it through "
+                "the audited administration workflow."
+            )
+
+        # Invitation acceptance is performed while authenticated as the invitee.
         api.authenticate(identifier, password)
         api.request(
             "POST",
             f"/organizations/{organization_id}/memberships/{invitation['id']}/accept",
             expected=(200,),
         )
-
-
-def _lookup_user_id(api: Api, identifier: str, password: str) -> str:
-    api.authenticate(identifier, password)
-    # A self-membership endpoint exposes the authenticated user's membership.
-    # Its user_id is intentionally not returned; use the membership directory instead.
-    raise ApiError(
-        "Cannot resolve account ID through the public API. Create staff accounts "
-        "and invite them manually until the owner-scoped onboarding endpoint is added."
-    )
+        print(f"Staff membership active: {identifier} ({role})")
 
 
 def provision_programmes(api: Api, organization_id: str, programmes: list[dict[str, Any]]) -> None:
@@ -306,12 +281,9 @@ def main() -> int:
         print("Owner account authenticated and organisation administrator membership confirmed.")
         provision_people(api, organization_id, manifest.get("people", []))
         provision_programmes(api, organization_id, manifest.get("programmes", []))
-        if manifest.get("staff"):
-            print(
-                "Staff records were not provisioned: the current API does not expose a "
-                "safe user-ID lookup for idempotent invitation reconciliation. Use the "
-                "portal's invitation workflow until that endpoint is implemented."
-            )
+        provision_staff(
+            api, organization_id, identifier, password, manifest.get("staff", [])
+        )
         print("Bootstrap complete. Review people and programme publication states in the portal.")
         return 0
     except (ApiError, KeyError, TypeError) as exc:
