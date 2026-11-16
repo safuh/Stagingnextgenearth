@@ -144,6 +144,26 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert published.status_code == 200
 
+        # Staff membership alone must not grant access to learner curriculum.
+        employee_headers = _register(client, "learning-employee@example.org")
+        employee_invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=admin_headers,
+            json={"identifier": "learning-employee@example.org", "role": "employee"},
+        )
+        assert employee_invitation.status_code == 201
+        employee_acceptance = client.post(
+            f"/api/organizations/{org_id}/memberships/"
+            f"{employee_invitation.json()['id']}/accept",
+            headers=employee_headers,
+        )
+        assert employee_acceptance.status_code == 200
+        employee_curriculum = client.get(
+            f"{base}/courses/{course_id}/curriculum",
+            headers=employee_headers,
+        )
+        assert employee_curriculum.status_code == 403
+
         # A public learner can self-register and apply without being pre-invited.
         public_learner_headers = _register(client, "public-learner@example.org")
         public_application = client.post(
