@@ -334,16 +334,26 @@ async def create_lesson(
 async def apply_for_course(
     organization_id: str, course_id: str,
     principal: Annotated[Principal, Depends(get_current_principal)],
-    membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _LEARN:
-        raise HTTPException(403, "Learner access required")
+    """Let any authenticated public learner apply; membership is granted only after review."""
     course = await _course(session, organization_id, course_id)
     if course.status != "published":
         raise HTTPException(409, "Applications are open only for published courses")
-    enrollment = LearningEnrollment(course_id=course_id, learner_id=principal.user_id,
-                                    status="applied", progress_percent=0)
+    existing_membership = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == principal.user_id,
+        )
+    )
+    if existing_membership is not None and (
+        existing_membership.status != "active" or existing_membership.role not in _LEARN
+    ):
+        raise HTTPException(403, "This account is not eligible for learner applications")
+    enrollment = LearningEnrollment(
+        course_id=course_id, learner_id=principal.user_id,
+        status="applied", progress_percent=0,
+    )
     session.add(enrollment)
     try:
         await session.commit()
@@ -352,6 +362,37 @@ async def apply_for_course(
         await session.rollback()
         raise HTTPException(409, "An application already exists for this course") from exc
     return {"id": enrollment.id, "status": enrollment.status, "applied_at": enrollment.applied_at}
+
+
+@router.get("/my-enrollments")
+async def my_enrollments(
+    organization_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """Return only the authenticated learner's application and course status."""
+    rows = await session.execute(
+        select(LearningEnrollment, LearningCourse.title, LearningCourse.slug)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningCourse.organization_id == organization_id,
+            LearningEnrollment.learner_id == principal.user_id,
+        )
+        .order_by(LearningEnrollment.applied_at.desc())
+        .limit(200)
+    )
+    return [
+        {
+            "id": enrollment.id,
+            "course_id": enrollment.course_id,
+            "course_title": title,
+            "course_slug": slug,
+            "status": enrollment.status,
+            "progress_percent": enrollment.progress_percent,
+            "applied_at": enrollment.applied_at,
+        }
+        for enrollment, title, slug in rows.all()
+    ]
 
 
 
