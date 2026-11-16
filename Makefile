@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history docker-up docker-down docker-test docker-prod
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod
 
 install:
 	uv sync --extra dev
