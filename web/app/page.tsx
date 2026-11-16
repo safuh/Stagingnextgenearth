@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet, clearSession, login, logout, register, restoreSession } from "@/lib/api";
 
-type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string };
+type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; description: string | null; website_url: string | null; country_code: string; region: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
@@ -210,7 +210,7 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2>Research & <em>publications.</em></h2></div><p>Research outputs and knowledge products attributed to the organisation's published catalogue.</p></div>
         <div className="portal-grid">
           {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").map((item) => (
-            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p><a href={item.slug ? `/research/${item.slug}` : "#research"}>Explore research <span>↗</span></a></article>
+            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p>{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">View publication <span>↗</span></a>}</article>
           ))}
         </div>
         {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").length === 0 && <p className="muted">Published research records will appear here.</p>}
@@ -219,7 +219,7 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2>Evidence of <em>progress.</em></h2></div><p>Impact figures shown here are sourced from the organisation's published website and should be updated through reviewed reporting.</p></div>
         <div className="portal-grid">
           {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
-            <article className="portal-card" key={item.id}><p className="portal-tag">Published impact figure</p><h3>{String((item as PublicContent & { metadata_json?: { display_value?: string } }).metadata_json?.display_value || "—")}</h3><p className="portal-description">{item.title}</p></article>
+            <article className="portal-card" key={item.id}><p className="portal-tag">Published impact figure</p><h3>{item.metadata_json?.display_value || "—"}</h3><p className="portal-description">{item.title}</p></article>
           ))}
         </div>
         {catalogue.filter((item) => item.content_type === "impact_metric").length === 0 && <p className="muted">Reviewed impact figures will appear here.</p>}
