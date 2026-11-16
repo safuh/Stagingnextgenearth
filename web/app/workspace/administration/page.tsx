@@ -6,7 +6,7 @@ import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization { id: string; name: string; slug: string; country_code: string }
 interface Membership {
-  id: string; organization_id: string; user_id: string;
+  id: string; organization_id: string; user_id: string; identifier?: string | null;
   role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
   status: "invited" | "active" | "suspended";
 }
@@ -184,9 +184,9 @@ export default function AdministrationPage() {
               <div className="admin-member-list">
                 {members.map((item) => (
                   <article className="admin-member-row" key={item.id}>
-                    <div className="admin-member-meta"><strong>{item.user_id}</strong><span>{item.role.replaceAll("_", " ")} · {item.status}</span></div>
+                    <div className="admin-member-meta"><strong>{item.identifier || item.user_id}</strong><span>{item.role.replaceAll("_", " ")} · {item.status} · Account ID: {item.user_id}</span></div>
                     <div className="admin-member-actions">
-                      <label>Role<select aria-label={`Role for ${item.user_id}`} value={item.role} disabled={busyId === item.id || item.status !== "active"} onChange={(event) => void perform(item.id, "Member role updated.", () => apiPatch(`/organizations/${organizationId}/memberships/${item.id}/role`, { role: event.target.value }))}>
+                      <label>Role<select aria-label={`Role for ${item.identifier || item.user_id}`} value={item.role} disabled={busyId === item.id || item.status !== "active"} onChange={(event) => void perform(item.id, "Member role updated.", () => apiPatch(`/organizations/${organizationId}/memberships/${item.id}/role`, { role: event.target.value }))}>
                         {administration?.owner_user_id === membership.user_id && <><option value="admin">Administrator</option><option value="founder">Founder</option><option value="executive">Executive</option></>}<option value="employee">Employee</option><option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option>
                       </select></label>
                       {item.status !== "invited" && <button className="secondary-action" disabled={busyId === item.id || item.role === "admin" && item.status === "active" && members.filter((m) => m.role === "admin" && m.status === "active").length <= 1 || item.user_id === membership.user_id && item.status === "active"} onClick={() => void perform(item.id, item.status === "suspended" ? "Membership reactivated." : "Membership suspended.", () => apiPatch(`/organizations/${organizationId}/memberships/${item.id}/status`, { status: item.status === "suspended" ? "active" : "suspended" }))}>
