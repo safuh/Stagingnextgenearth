@@ -114,6 +114,7 @@ export default function ContentReviewPage() {
         <p className="eyebrow">PUBLIC WEBSITE · CONTENT GOVERNANCE</p>
         <h1 className="workspace-title">CMS review <em>queue.</em></h1>
         <p className="workspace-muted">Review imported and newly authored website content before it becomes public. Approval and publication are separate, audited actions.</p>
+        <p className="workspace-muted">Review permissions are intentionally limited to administrators, founders and executives. An employee account can contribute content but cannot approve or publish it. The content author also cannot approve their own submission; invite a separate authorised reviewer.</p>
         <p><Link className="secondary-action" href="/workspace/administration">← Administration</Link></p>
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
