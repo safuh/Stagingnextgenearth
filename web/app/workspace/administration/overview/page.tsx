@@ -12,6 +12,7 @@ type Content = { id: string; title: string; content_type: string; publication_st
 type Study = { id: string; title: string; status: string; study_type: string | null; lead_researcher_id: string };
 type Course = { id: string; title: string; status: string };
 type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
+type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
 
 export default function ExecutiveOverviewPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
@@ -24,6 +25,7 @@ export default function ExecutiveOverviewPage() {
   const [studies, setStudies] = useState<Study[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -43,8 +45,13 @@ export default function ExecutiveOverviewPage() {
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
       apiGet<Summary>(`/organizations/${id}/administration-summary`),
     ]);
+    const deliveryRows = await Promise.all(programmeRows.map(async programme => {
+      const item = await apiGet<DeliverySummary>(`/organizations/${id}/programmes/${programme.id}/delivery-summary`);
+      return [programme.id, item] as const;
+    }));
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary);
+    setDelivery(Object.fromEntries(deliveryRows));
     setLastUpdated(new Date());
   }, []);
 
@@ -93,8 +100,16 @@ export default function ExecutiveOverviewPage() {
         </div>
         <div className="staff-grid admin-grid">
           <section className="staff-card">
-            <div className="section-heading"><div><p className="eyebrow">PROGRAMME PORTFOLIO</p><h2>Programme status</h2></div><Link className="secondary-action" href="/workspace/administration/partners">Manage</Link></div>
+            <div className="section-heading"><div><p className="eyebrow">PROGRAMME PORTFOLIO</p><h2>Programme status</h2></div><Link className="secondary-action" href="/workspace/programmes">Manage</Link></div>
             {programmes.length === 0 ? <p className="workspace-muted">No programme records yet.</p> : programmes.slice(0, 8).map(p => <article className="admin-member-row" key={p.id}><div className="admin-member-meta"><strong>{p.title}</strong><span>{p.status}{p.start_date ? " · starts "+p.start_date : ""}{p.end_date ? " · ends "+p.end_date : ""}</span></div></article>)}
+          </section>
+          <section className="staff-card">
+            <div className="section-heading"><div><p className="eyebrow">PROGRAMME DELIVERY</p><h2>Operational activity</h2></div><Link className="secondary-action" href="/workspace/programmes">Open programmes</Link></div>
+            {programmes.length === 0 ? <p className="workspace-muted">Delivery activity will appear when programmes are created.</p> : programmes.slice(0, 8).map(p => {
+              const d = delivery[p.id];
+              return <article className="admin-member-row" key={p.id}><div className="admin-member-meta"><strong>{p.title}</strong><span>{d ? d.activities_completed + "/" + d.activities_total + " activities completed · " + d.volunteers_completed + "/" + d.volunteers_assigned + " volunteer assignments completed · " + d.attendance_present + "/" + d.attendance_total + " present" : "No delivery records yet."}</span></div></article>;
+            })}
+            <p className="workspace-muted">Operational counts are taken from recorded activities, volunteer allocations and attendance registers. They are not estimates of environmental or social impact.</p>
           </section>
           <section className="staff-card">
             <div className="section-heading"><div><p className="eyebrow">RESEARCH PORTFOLIO</p><h2>Studies</h2></div></div>
