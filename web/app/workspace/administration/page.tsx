@@ -7,7 +7,7 @@ import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 interface Organization { id: string; name: string; slug: string; country_code: string }
 interface Membership {
   id: string; organization_id: string; user_id: string;
-  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
   status: "invited" | "active" | "suspended";
 }
 interface AuditEvent {
@@ -17,7 +17,7 @@ interface AuditEvent {
 interface AdministrationSummary {
   organization_id: string; organization_name: string; owner_user_id: string; created_at: string;
 }
-type InvitableRole = "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "founder" | "executive";
+type InvitableRole = "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner" | "founder" | "executive";
 
 export default function AdministrationPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -165,7 +165,7 @@ export default function AdministrationPage() {
                 <p>The person must first create an account from the public sign-in page using this exact email address. Then invite that account and share its private acceptance link. Access remains inactive until the invitee signs in and accepts.</p>
                 <form onSubmit={invite}>
                   <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
-                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
+                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option><option value="learner">Learner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
                 {invitationLink && <div className="workspace-notice" role="status"><p>Private invitation link (share only with the intended recipient):</p><p><a href={invitationLink}>{invitationLink}</a></p><button className="secondary-action" type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)}>Copy invitation link</button></div>}
