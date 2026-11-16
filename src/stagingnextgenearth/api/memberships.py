@@ -29,6 +29,7 @@ InvitableRole = Literal[
     "researcher",
     "youth_volunteer",
     "institutional_partner",
+    "learner",
 ]
 
 
@@ -188,6 +189,7 @@ class MembershipRoleUpdate(BaseModel):
         "researcher",
         "youth_volunteer",
         "institutional_partner",
+        "learner",
     ]
 
 
