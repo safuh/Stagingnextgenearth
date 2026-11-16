@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiPost, login, restoreSession } from "@/lib/api";
+import { apiPost, login, logout, restoreSession } from "@/lib/api";
 
 type Membership = { id: string; role: string; status: string };
 
@@ -33,6 +33,20 @@ export default function AcceptInvitationPage() {
       setNotice("Signed in. Accept the organisation invitation to activate your membership.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function switchAccount() {
+    setBusy(true);
+    setError("");
+    try {
+      await logout();
+      setAuthenticated(false);
+      setNotice("Signed out. Sign in using the exact account email invited by the organisation.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to switch accounts.");
     } finally {
       setBusy(false);
     }
@@ -82,6 +96,7 @@ export default function AcceptInvitationPage() {
             <h2>Invitation ready</h2>
             <p>Your account is authenticated. Accepting will activate the membership for this organisation.</p>
             <button className="primary-action" onClick={() => void accept()} disabled={busy || !organizationId || !invitationId}>{busy ? "Accepting…" : "Accept organisation invitation"}</button>
+            <button className="text-link" type="button" onClick={() => void switchAccount()} disabled={busy}>Not the invited account? Switch account</button>
           </section>
         )}
         <p><Link className="secondary-action" href="/">Return to public website</Link></p>
