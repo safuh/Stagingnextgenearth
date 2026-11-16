@@ -290,3 +290,75 @@ def test_proposal_review_and_milestone_lifecycle(client: TestClient) -> None:
     assert audit[2]["changes"]["status"] == {"old": "in_progress", "new": "completed"}
     assert audit[2]["changes"]["progress_percent"] == {"old": 60, "new": 100}
     assert "actor_user_id" not in audit[0]
+
+
+@pytest.mark.parametrize("review_role", ["founder", "executive"])
+def test_founder_and_executive_can_review_research_proposals(
+    client: TestClient, review_role: str
+) -> None:
+    lead_headers = _register(client, f"planning-lead-{review_role}@example.org")
+    reviewer_headers = _register(client, f"planning-reviewer-{review_role}@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={
+            "name": f"{review_role.title()} Review Lab",
+            "slug": f"{review_role}-review-lab",
+        },
+    )
+    assert organization.status_code == 201
+    organization_id = organization.json()["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=lead_headers,
+        json={
+            "identifier": f"planning-reviewer-{review_role}@example.org",
+            "role": review_role,
+        },
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/"
+        f"{invitation.json()['id']}/accept",
+        headers=reviewer_headers,
+    )
+    assert accepted.status_code == 200
+
+    study = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=lead_headers,
+        json={"title": "Independent review study"},
+    )
+    assert study.status_code == 201
+    base = (
+        f"/api/organizations/{organization_id}/research-studies/"
+        f"{study.json()['id']}"
+    )
+    proposal = client.post(
+        f"{base}/proposals",
+        headers=lead_headers,
+        json={
+            "title": "Reviewable research proposal",
+            "rationale": "Establish a reproducible baseline for community restoration.",
+            "objectives": "Measure ecological recovery and community participation.",
+            "proposed_methods": "Use repeat field observations and structured interviews.",
+        },
+    )
+    assert proposal.status_code == 201
+    submitted = client.post(
+        f"{base}/proposals/{proposal.json()['id']}/submit",
+        headers=lead_headers,
+    )
+    assert submitted.status_code == 200
+
+    reviewed = client.post(
+        f"{base}/proposals/{proposal.json()['id']}/reviews",
+        headers=reviewer_headers,
+        json={
+            "decision": "approved",
+            "note": "The proposal meets the independent review requirements.",
+        },
+    )
+    assert reviewed.status_code == 201
+    assert reviewed.json()["decision"] == "approved"
