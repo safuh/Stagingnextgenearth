@@ -120,7 +120,7 @@ export default function HomePage() {
         </Link>
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
-          <a href="#portals">Portals</a>
+          <a href="#programmes">Programmes</a>\n          <a href="#research">Research</a>\n          <a href="#activities">Activities</a>
           <a href="/volunteer/apply">Volunteer</a>
           <a href="/employment/apply">Careers</a>
           <a href="#access">Sign in</a>
@@ -172,7 +172,7 @@ export default function HomePage() {
       </section>
 
       <section className="portals section-wrap" id="programmes">
-        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Current organisational programmes and training opportunities.</p></div>
         <div className="portal-grid">
           {publicProgrammes.map((programme) => (
             <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3><Link href={`/programmes/${programme.slug}`}>{programme.title}</Link></h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
@@ -190,11 +190,39 @@ export default function HomePage() {
               </article>
             );
           })}
-          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area", "impact_metric", "publication"].includes(item.content_type)).map((item) => (
-            <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
-          ))}
+
         </div>
         {publicProgrammes.length === 0 && publicCourses.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="activities">
+        <div className="section-heading"><div><p className="eyebrow">ONGOING DELIVERY</p><h2>Work in <em>motion.</em></h2></div><p>Current activities connected to programme delivery, learning and community engagement.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "initiative").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Ongoing activity</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+          ))}
+          {catalogue.filter((item) => item.content_type === "training_track").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Training track</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "initiative" || item.content_type === "training_track").length === 0 && <p className="muted">Activity and training information will appear here as it is published.</p>}
+      </section>
+      <section className="portals section-wrap" id="research">
+        <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2>Research & <em>publications.</em></h2></div><p>Research outputs and knowledge products attributed to the organisation's published catalogue.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p><a href={item.slug ? `/research/${item.slug}` : "#research"}>Explore research <span>↗</span></a></article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").length === 0 && <p className="muted">Published research records will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="impact">
+        <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2>Evidence of <em>progress.</em></h2></div><p>Impact figures shown here are sourced from the organisation's published website and should be updated through reviewed reporting.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Published impact figure</p><h3>{String((item as PublicContent & { metadata_json?: { display_value?: string } }).metadata_json?.display_value || "—")}</h3><p className="portal-description">{item.title}</p></article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "impact_metric").length === 0 && <p className="muted">Reviewed impact figures will appear here.</p>}
       </section>
       <section className="portals section-wrap" id="people">
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
