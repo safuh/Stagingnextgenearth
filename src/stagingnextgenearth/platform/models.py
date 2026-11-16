@@ -76,7 +76,7 @@ class Membership(Base):
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
         CheckConstraint(
             "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
-            "'youth_volunteer', 'employee', 'institutional_partner')",
+            "'youth_volunteer', 'employee', 'institutional_partner', 'learner')",
             name="ck_membership_role",
         ),
         CheckConstraint(
