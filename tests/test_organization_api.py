@@ -991,12 +991,20 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
         json={"identifier": "membership-user@example.org", "role": "researcher"},
     )
     assert invitation.status_code == 201
+    assert invitation.json()["identifier"] == "membership-user@example.org"
     member_id = invitation.json()["id"]
     accepted = client.post(
         f"/api/organizations/{organization_id}/memberships/{member_id}/accept",
         headers=member_headers,
     )
     assert accepted.status_code == 200
+    assert accepted.json()["identifier"] == "membership-user@example.org"
+    own_membership = client.get(
+        f"/api/organizations/{organization_id}/memberships/me",
+        headers=member_headers,
+    )
+    assert own_membership.status_code == 200
+    assert own_membership.json()["identifier"] == "membership-user@example.org"
 
     # A regular member cannot alter membership privileges or status.
     forbidden_role = client.patch(
@@ -1042,6 +1050,10 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
         headers=owner_headers,
     )
     assert memberships.status_code == 200
+    assert any(
+        item["identifier"] == "membership-user@example.org"
+        for item in memberships.json()
+    )
     owner_membership = next(
         item for item in memberships.json() if item["role"] == "admin"
     )
