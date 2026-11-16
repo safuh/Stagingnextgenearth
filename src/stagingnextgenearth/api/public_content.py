@@ -170,6 +170,8 @@ class PublicContentRead(BaseModel):
     title: str
     summary: str | None
     body: str | None
+    metadata_json: dict[str, object]
+    source_url: str | None
     published_at: datetime | None
 
 @router.get("/public/organizations/{organization_slug}/content", response_model=list[PublicContentRead])
