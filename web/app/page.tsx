@@ -163,7 +163,7 @@ export default function HomePage() {
               <p className="portal-tag">{portal.tag}</p>
               <h3>{portal.title}</h3>
               <p className="portal-description">{portal.description}</p>
-              <a href="#access" aria-label={`Sign in for ${portal.title}`}>Open portal <span>↗</span></a>
+              <a href={index === 1 ? "/learners" : "#access"} aria-label={index === 1 ? "Open learner and volunteer portal" : `Sign in for ${portal.title}`}>Open portal <span>↗</span></a>
             </article>
           ))}
         </div>
