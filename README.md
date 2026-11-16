@@ -68,7 +68,7 @@ Do not run migrations automatically in API workers.
 
 ## Environment setup and organisation bootstrap
 
-Next Gen For Earth is provisioned as the canonical organisation while tenant isolation remains enabled. Follow the [environment setup and operations guide](docs/operations/environment-setup.md) for local, staging, production, and planned Render workflows. The idempotent API-based bootstrap utility creates/reuses the initial owner account and organisation, then can load verified people, programmes, and staff memberships from a private manifest:
+Next Gen For Earth is provisioned as the canonical organisation while tenant isolation remains enabled. Follow the [environment setup and operations guide](docs/operations/environment-setup.md) for local, staging, production, and planned Render workflows. The idempotent API-based bootstrap utility creates/reuses the initial owner account and organisation, then can load verified people, staff memberships, partners, programmes, research studies, and moderated CMS entries from a private manifest:
 
 ~~~bash
 uv run python scripts/bootstrap_nextgen.py --manifest path/to/private-manifest.json
