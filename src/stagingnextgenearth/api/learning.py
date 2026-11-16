@@ -1080,6 +1080,8 @@ async def list_learning_resources(
     if course.status != "published" and membership.role not in _MANAGE:
         raise HTTPException(404, "Course not found")
     if membership.role not in _MANAGE:
+        if membership.role not in _LEARN:
+            raise HTTPException(403, "Learner access required")
         enrollment = await _enrollment(session, course_id, principal.user_id)
         if enrollment.status not in {"approved", "completed"}:
             raise HTTPException(403, "An approved enrollment is required")
