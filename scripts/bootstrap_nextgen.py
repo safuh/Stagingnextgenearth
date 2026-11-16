@@ -69,6 +69,7 @@ class Api:
             expected=(200,),
         )
         self.token = result["access_token"]
+        self._subject = result["subject"]
 
     def organization(self, name: str, slug: str, country_code: str) -> dict[str, Any]:
         organizations = self.request("GET", "/organizations", expected=(200,))
