@@ -15,7 +15,7 @@ interface MyMembership {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
   status: string;
 }
 interface Programme {
