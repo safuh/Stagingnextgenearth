@@ -45,7 +45,7 @@ export default function ExecutiveOverviewPage() {
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
       apiGet<Summary>(`/organizations/${id}/administration-summary`),
     ]);
-    const deliveryRows = await Promise.all(programmeRows.map(async programme => {
+    const deliveryRows = await Promise.all(programmeRows.slice(0, 8).map(async programme => {
       const item = await apiGet<DeliverySummary>(`/organizations/${id}/programmes/${programme.id}/delivery-summary`);
       return [programme.id, item] as const;
     }));
