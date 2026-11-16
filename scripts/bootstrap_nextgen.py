@@ -214,18 +214,21 @@ def provision_programmes(api: Api, organization_id: str, programmes: list[dict[s
             },
             expected=(201,),
         )
-        if item.get("status") in {"planned", "active"}:
+        target_status = item.get("status", "draft")
+        transitions = {
+            "draft": [],
+            "planned": ["planned"],
+            "active": ["planned", "active"],
+            "completed": ["planned", "active", "completed"],
+            "archived": ["archived"],
+        }
+        if target_status not in transitions:
+            raise ApiError(f"Unsupported programme status for {slug}: {target_status}")
+        for next_status in transitions[target_status]:
             api.request(
                 "POST",
                 f"/organizations/{organization_id}/programmes/{created['id']}/status",
-                {"status": "planned"},
-                expected=(200,),
-            )
-        if item.get("status") == "active":
-            api.request(
-                "POST",
-                f"/organizations/{organization_id}/programmes/{created['id']}/status",
-                {"status": "active"},
+                {"status": next_status},
                 expected=(200,),
             )
 
