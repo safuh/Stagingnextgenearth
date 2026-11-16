@@ -314,18 +314,42 @@ def provision_research_studies(
         titles.add(title.casefold())
 
 
+def normalize_slug(value: Any) -> str:
+    """Convert source identifiers into API-safe, lowercase hyphenated slugs."""
+    import re
+
+    slug = re.sub(r"[^a-z0-9]+", "-", str(value).strip().casefold()).strip("-")
+    if not slug:
+        raise ApiError(f"Cannot derive a valid CMS slug from {value!r}")
+    return slug
+
+
 def provision_content(api: Api, organization_id: str, entries: list[dict[str, Any]]) -> None:
     """Create CMS drafts and submit them for moderation; never publish automatically."""
     existing = api.request(
         "GET", f"/organizations/{organization_id}/content", expected=(200,)
     )
     slugs = {item["slug"] for item in existing}
+    source_slugs: dict[str, str] = {}
+    for item in entries:
+        source_slug = str(item["slug"]).strip()
+        slug = normalize_slug(source_slug)
+        previous = source_slugs.get(slug)
+        if previous is not None and previous != source_slug:
+            raise ApiError(
+                f"CMS slug collision after normalization: {previous!r} and "
+                f"{source_slug!r} both become {slug!r}"
+            )
+        source_slugs[slug] = source_slug
     allowed_types = {
         "page", "programme", "training_track", "initiative",
         "research_area", "impact_metric", "publication",
     }
     for item in entries:
-        slug = str(item["slug"]).strip()
+        source_slug = str(item["slug"]).strip()
+        slug = normalize_slug(source_slug)
+        if slug != source_slug:
+            print(f"Normalised CMS slug: {source_slug!r} -> {slug!r}")
         content_type = str(item["content_type"]).strip()
         if slug in slugs:
             continue
