@@ -6,7 +6,7 @@ import { apiGet, clearSession, login, logout, register, restoreSession } from "@
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
-type PublicPartner = { id: string; name: string; partner_type: string; website_url: string | null };
+type PublicPartner = { id: string; name: string; partner_type: string; description: string | null; website_url: string | null; country_code: string; region: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
 type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string; programme_id: string | null };
 
@@ -190,7 +190,7 @@ export default function HomePage() {
               </article>
             );
           })}
-          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area"].includes(item.content_type)).map((item) => (
+          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area", "impact_metric", "publication"].includes(item.content_type)).map((item) => (
             <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
           ))}
         </div>
@@ -200,7 +200,7 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
         <div className="portal-grid">
           {publicPeople.map((person) => <article className="portal-card" key={person.id}><p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p>{person.biography && <p className="portal-description">{person.biography}</p>}</article>)}
-          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Institutional partner</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}</p>{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
+          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Institutional partner</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
         </div>
         {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Verified public profiles and partner relationships will appear here after approval.</p>}
       </section>
