@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, clearSession, login, logout, register, restoreSession } from "@/lib/api";
+import { apiGet, clearSession, login, logout, restoreSession } from "@/lib/api";
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
@@ -40,7 +40,6 @@ const portals = [
 export default function HomePage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [creatingAccount, setCreatingAccount] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
@@ -89,7 +88,6 @@ export default function HomePage() {
     setError("");
     setBusy(true);
     try {
-      if (creatingAccount) await register(identifier.trim(), password);
       const result = await login(identifier.trim(), password);
       setSubject(result.subject);
       setSignedIn(true);
@@ -237,8 +235,7 @@ export default function HomePage() {
         <div className="access-copy">
           <p className="eyebrow">SECURE WORKSPACE</p>
           <h2>{signedIn ? "Welcome to the platform." : "Your work starts here."}</h2>
-          <p>Sign in with your organisation account to access the workspaces and
-            programmes available to your membership.</p>
+          <p>Staff and institutional partners sign in after receiving an organisation invitation. Learners create accounts through the separate learning portal.</p>
           <div className="access-points"><span>✓ Organisation-scoped access</span><span>✓ Role-based permissions</span><span>✓ Research data governance</span></div>
         </div>
         <div className="login-panel">
@@ -254,17 +251,17 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>{creatingAccount ? "Create account" : "Sign in"}</h3></div></div>
+              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>Organisation sign in</h3></div></div>
               <form onSubmit={handleLogin}>
                 <label htmlFor="identifier">Email or account identifier</label>
                 <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
                 <label htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={creatingAccount ? 12 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
+                <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
                 {error && <p className="form-error" role="alert">{error}</p>}
-                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? (creatingAccount ? "Creating account…" : "Signing in…") : (creatingAccount ? "Create account securely" : "Continue securely")} <span>→</span></button>
+                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue securely"} <span>→</span></button>
               </form>
-              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>
-              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
+              <p className="login-footnote">Staff and institutional partners must have an invitation from an organisation administrator. Learners create accounts through the separate learner portal.</p>
+              <Link className="text-link" href="/workspace/accept-invitation">Have an invitation? Accept it here</Link><p className="login-footnote">Are you a learner? <Link href="/learners">Create a learner account or access your courses</Link>.</p>
             </>
           )}
         </div>
