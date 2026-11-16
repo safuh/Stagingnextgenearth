@@ -15,7 +15,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies",
     tags=["research"],
 )
-_RESEARCH_ROLES = {"admin", "programme_manager", "researcher", "institutional_partner"}
+_RESEARCH_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}
 
 
 class ResearchStudyCreate(BaseModel):
