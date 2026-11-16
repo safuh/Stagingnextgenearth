@@ -38,6 +38,33 @@ _LEARN = {
 }
 
 
+class PublicOrganizationRead(BaseModel):
+    """Minimal public organisation identity used by public learning journeys."""
+    id: str
+    name: str
+    slug: str
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}",
+    response_model=PublicOrganizationRead,
+)
+async def get_public_organization(
+    organization_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PublicOrganizationRead:
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    return PublicOrganizationRead(
+        id=organization.id,
+        name=organization.name,
+        slug=organization.slug,
+    )
+
+
 class PublicCourseRead(BaseModel):
     """Publicly discoverable course fields; excludes learner and internal records."""
     model_config = ConfigDict(from_attributes=True)
