@@ -195,6 +195,52 @@ def provision_staff(
         print(f"Staff membership active: {identifier} ({role})")
 
 
+def _transition_programme_status(
+    api: Api, organization_id: str, programme: dict[str, Any], target_status: str
+) -> None:
+    """Move an existing programme forward to its declared operational status."""
+    transitions = {
+        "draft": [],
+        "planned": ["planned"],
+        "active": ["planned", "active"],
+        "completed": ["planned", "active", "completed"],
+        "archived": ["archived"],
+    }
+    if target_status not in transitions:
+        raise ApiError(
+            f"Unsupported programme status for {programme.get('slug')}: {target_status}"
+        )
+    current_status = str(programme.get("status", "draft"))
+    if current_status == target_status:
+        return
+    if current_status not in {"draft", "planned", "active", "completed", "archived"}:
+        raise ApiError(
+            f"Cannot safely transition programme {programme.get('slug')} "
+            f"from unknown status {current_status!r}"
+        )
+    order = ["draft", "planned", "active", "completed"]
+    if current_status == "archived" or target_status == "archived":
+        if target_status != "archived":
+            raise ApiError(
+                f"Refusing to unarchive programme {programme.get('slug')} automatically"
+            )
+        sequence = ["archived"] if current_status != "archived" else []
+    else:
+        if order.index(target_status) < order.index(current_status):
+            raise ApiError(
+                f"Refusing to move programme {programme.get('slug')} backwards "
+                f"from {current_status} to {target_status}"
+            )
+        sequence = order[order.index(current_status) + 1 : order.index(target_status) + 1]
+    for next_status in sequence:
+        api.request(
+            "POST",
+            f"/organizations/{organization_id}/programmes/{programme['id']}/status",
+            {"status": next_status},
+            expected=(200,),
+        )
+
+
 def provision_programmes(api: Api, organization_id: str, programmes: list[dict[str, Any]]) -> None:
     existing = api.request(
         "GET", f"/organizations/{organization_id}/programmes", expected=(200,)
@@ -202,7 +248,10 @@ def provision_programmes(api: Api, organization_id: str, programmes: list[dict[s
     by_slug = {item["slug"]: item for item in existing}
     for item in programmes:
         slug = str(item["slug"]).strip()
-        if slug in by_slug:
+        target_status = str(item.get("status", "active"))
+        current = by_slug.get(slug)
+        if current is not None:
+            _transition_programme_status(api, organization_id, current, target_status)
             continue
         created = api.request(
             "POST", f"/organizations/{organization_id}/programmes",
@@ -210,28 +259,16 @@ def provision_programmes(api: Api, organization_id: str, programmes: list[dict[s
                 "title": item["title"],
                 "slug": slug,
                 "summary": item.get("summary"),
-                "start_date": item.get("start_date"),
+                "start_date": item.get("start_date")
+                or os.environ.get("BOOTSTRAP_ORGANIZATION_FOUNDATION_DATE"),
                 "end_date": item.get("end_date"),
             },
             expected=(201,),
         )
-        target_status = item.get("status", "draft")
-        transitions = {
-            "draft": [],
-            "planned": ["planned"],
-            "active": ["planned", "active"],
-            "completed": ["planned", "active", "completed"],
-            "archived": ["archived"],
-        }
-        if target_status not in transitions:
-            raise ApiError(f"Unsupported programme status for {slug}: {target_status}")
-        for next_status in transitions[target_status]:
-            api.request(
-                "POST",
-                f"/organizations/{organization_id}/programmes/{created['id']}/status",
-                {"status": next_status},
-                expected=(200,),
-            )
+        created["slug"] = slug
+        _transition_programme_status(api, organization_id, created, target_status)
+        created["status"] = target_status
+        by_slug[slug] = created
 
 
 def provision_people(api: Api, organization_id: str, people: list[dict[str, Any]]) -> None:
