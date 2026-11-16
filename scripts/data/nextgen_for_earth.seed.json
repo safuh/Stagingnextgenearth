@@ -376,22 +376,26 @@
     {
       "title": "Research Capacity Building",
       "slug": "research-capacity-building",
-      "summary": "Weekly training for early-career researchers in research methods, systematic reviews, grant writing, data synthesis and research ethics."
+      "summary": "Weekly training for early-career researchers in research methods, systematic reviews, grant writing, data synthesis and research ethics.",
+      "status": "active"
     },
     {
       "title": "Healthcare Worker Training",
       "slug": "healthcare-worker-training",
-      "summary": "Monthly training equipping nurses, clinicians and community health workers to understand and respond to climate-driven health challenges."
+      "summary": "Monthly training equipping nurses, clinicians and community health workers to understand and respond to climate-driven health challenges.",
+      "status": "active"
     },
     {
       "title": "Youth Climate Stewardship",
       "slug": "youth-climate-stewardship",
-      "summary": "School students are mentored by trained youth peers on climate literacy, tree planting and environmental action."
+      "summary": "School students are mentored by trained youth peers on climate literacy, tree planting and environmental action.",
+      "status": "active"
     },
     {
       "title": "Indigenous Knowledge Transfer",
       "slug": "indigenous-knowledge-transfer",
-      "summary": "Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience."
+      "summary": "Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience.",
+      "status": "active"
     }
   ],
   "research_studies": [
@@ -709,6 +713,59 @@
       "metadata_json": {
         "display_value": "35+",
         "source": "official_website"
+      }
+    },
+    {
+      "content_type": "initiative",
+      "slug": "weekly-learning-workshops",
+      "title": "Weekly Learning Workshops",
+      "summary": "Regular workshops build research capacity and climate literacy across early-career researchers and youth climate stewards.",
+      "body": "The organisation describes recurring weekly workshops in its training tracks. Current published themes include research methods, systematic reviews, grant writing, climate science, environmental stewardship and peer mentorship.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "recurring_workshops",
+        "cadence": "weekly",
+        "source_section": "Training"
+      }
+    },
+    {
+      "content_type": "initiative",
+      "slug": "peer-mentorship",
+      "title": "Peer Mentorship",
+      "summary": "Mentorship connects experienced researchers and trained youth peers with emerging researchers and young climate stewards.",
+      "body": "Peer mentorship is listed as part of the organisation's delivery model and youth climate stewardship training. Individual mentor assignments and cohort schedules should be maintained in the organisational portal.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "mentorship",
+        "source_section": "Theory of Change"
+      }
+    },
+    {
+      "content_type": "initiative",
+      "slug": "community-field-research",
+      "title": "Community Field Research",
+      "summary": "Field research links climate and health evidence with the lived experiences and priorities of local communities.",
+      "body": "Field research is identified as an organisational activity. The public website also describes active research on climate seasonality and ageing in Busia and Kilifi counties, Kenya.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "field_research",
+        "source_section": "Theory of Change"
+      }
+    },
+    {
+      "content_type": "initiative",
+      "slug": "school-tree-planting-and-restoration",
+      "title": "School Tree Planting & Environmental Restoration",
+      "summary": "School and community tree-planting activities support youth-led environmental stewardship and restoration.",
+      "body": "Tree-planting drives and environmental restoration are described as part of the organisation's activities. Specific sites, dates, participant counts and delivery status should be recorded against individual activities in the portal.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "environmental_restoration",
+        "source_section": "Theory of Change"
       }
     }
   ]
