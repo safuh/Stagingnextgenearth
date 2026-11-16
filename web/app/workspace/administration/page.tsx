@@ -31,6 +31,7 @@ export default function AdministrationPage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [invitationLink, setInvitationLink] = useState("");
 
   const refresh = useCallback(async (id: string) => {
     const mine = await apiGet<Membership>(`/organizations/${id}/memberships/me`);
@@ -102,9 +103,24 @@ export default function AdministrationPage() {
     const data = new FormData(form);
     const identifier = String(data.get("identifier") ?? "").trim();
     const role = String(data.get("role") ?? "") as InvitableRole;
-    await perform("invite", "Invitation created. The invited account must accept it before access becomes active.", () =>
-      apiPost(`/organizations/${organizationId}/memberships`, { identifier, role }));
-    form.reset();
+    setBusyId("invite"); setError(""); setNotice(""); setInvitationLink("");
+    try {
+      const invitation = await apiPost<Membership>(
+        `/organizations/${organizationId}/memberships`,
+        { identifier, role },
+      );
+      await refresh(organizationId);
+      const url = new URL("/workspace/accept-invitation", window.location.origin);
+      url.searchParams.set("organization_id", organizationId);
+      url.searchParams.set("invitation_id", invitation.id);
+      setInvitationLink(url.toString());
+      setNotice(`Invitation created for ${identifier}. Share the acceptance link with that account holder.`);
+      form.reset();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create invitation.");
+    } finally {
+      setBusyId("");
+    }
   }
 
   async function transferOwnership(event: FormEvent<HTMLFormElement>) {
@@ -146,12 +162,13 @@ export default function AdministrationPage() {
             <div className="staff-grid admin-grid">
               <section className="staff-card">
                 <h2>Invite an existing account</h2>
-                <p>Invitations do not create accounts or grant access until the invited user accepts.</p>
+                <p>The person must first create an account from the public sign-in page using this exact email address. Then invite that account and share its private acceptance link. Access remains inactive until the invitee signs in and accepts.</p>
                 <form onSubmit={invite}>
                   <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
                   <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
+                {invitationLink && <div className="workspace-notice" role="status"><p>Private invitation link (share only with the intended recipient):</p><p><a href={invitationLink}>{invitationLink}</a></p><button className="secondary-action" type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)}>Copy invitation link</button></div>}
               </section>
               {administration?.owner_user_id === membership.user_id && <section className="staff-card">
                 <h2>Transfer ownership</h2>
