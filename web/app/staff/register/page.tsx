@@ -42,8 +42,8 @@ export default function StaffAccountRegistrationPage() {
           <section className="staff-card">
             <h2>Account created</h2>
             <p>Your identity is registered and signed in. Send the administrator the exact email address you registered with. They must invite that account and assign your approved organisation role.</p>
-            <p>When the invitation arrives, open its link and accept it while signed in to this account.</p>
-            <Link className="primary-action" href="/#access">Continue to member sign in</Link>
+            <p>Keep this browser signed in. When the invitation arrives, open its private acceptance link in this browser. If you sign out, sign in again using this same email before accepting.</p>
+            <Link className="primary-action" href="/">Return to the organisation website</Link>
           </section>
         ) : (
           <section className="staff-card">
