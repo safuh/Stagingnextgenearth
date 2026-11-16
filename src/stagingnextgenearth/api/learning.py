@@ -481,6 +481,8 @@ async def list_course_assessments(
     if course.status != "published" and membership.role not in _MANAGE:
         raise HTTPException(404, "Course not found")
     if membership.role not in _MANAGE:
+        if membership.role not in _LEARN:
+            raise HTTPException(403, "Learner access required")
         enrollment = await _enrollment(session, course_id, principal.user_id)
         if enrollment.status not in {"approved", "completed"}:
             raise HTTPException(403, "An approved enrollment is required")
@@ -775,6 +777,8 @@ async def complete_lesson(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
+    if membership.role not in _LEARN:
+        raise HTTPException(403, "Learner access required")
     lesson = await session.scalar(
         select(LearningLesson)
         .join(LearningModule)
@@ -902,6 +906,7 @@ async def verify_certificate(
 async def course_curriculum(
     organization_id: str,
     course_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
@@ -909,6 +914,12 @@ async def course_curriculum(
     course = await _course(session, organization_id, course_id)
     if course.status != "published" and membership.role not in _MANAGE:
         raise HTTPException(404, "Course not found")
+    if membership.role not in _MANAGE:
+        if membership.role not in _LEARN:
+            raise HTTPException(403, "Learner access required")
+        enrollment = await _enrollment(session, course_id, principal.user_id)
+        if enrollment.status not in {"approved", "completed"}:
+            raise HTTPException(403, "An approved enrollment is required")
     modules = await session.scalars(
         select(LearningModule).where(LearningModule.course_id == course_id)
         .order_by(LearningModule.position)
