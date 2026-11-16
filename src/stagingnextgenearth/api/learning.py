@@ -991,6 +991,8 @@ async def my_course_progress(
     if course.status != "published":
         raise HTTPException(404, "Course not found")
     enrollment = await _enrollment(session, course_id, principal.user_id)
+    if enrollment.status not in {"approved", "completed"}:
+        raise HTTPException(403, "An approved enrollment is required")
     completed = await session.scalars(
         select(LearningLessonCompletion.lesson_id).where(
             LearningLessonCompletion.enrollment_id == enrollment.id
