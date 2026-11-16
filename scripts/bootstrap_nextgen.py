@@ -366,7 +366,8 @@ def provision_content(api: Api, organization_id: str, entries: list[dict[str, An
     existing = api.request(
         "GET", f"/organizations/{organization_id}/content", expected=(200,)
     )
-    slugs = {item["slug"] for item in existing}
+    existing_by_slug = {item["slug"]: item for item in existing}
+    slugs = set(existing_by_slug)
     source_slugs: dict[str, str] = {}
     for item in entries:
         source_slug = str(item["slug"]).strip()
@@ -388,23 +389,25 @@ def provision_content(api: Api, organization_id: str, entries: list[dict[str, An
         if slug != source_slug:
             print(f"Normalised CMS slug: {source_slug!r} -> {slug!r}")
         content_type = str(item["content_type"]).strip()
-        if slug in slugs:
-            continue
         if content_type not in allowed_types:
             raise ApiError(f"Unsupported CMS content type for {slug}: {content_type}")
-        created = api.request(
-            "POST", f"/organizations/{organization_id}/content",
-            {
-                "content_type": content_type,
-                "slug": slug,
-                "title": item["title"],
-                "summary": item.get("summary"),
-                "body": item.get("body"),
-                "metadata_json": item.get("metadata_json", {}),
-                "source_url": item.get("source_url"),
-            },
-            expected=(201,),
-        )
+        created = existing_by_slug.get(slug)
+        if created is None:
+            created = api.request(
+                "POST", f"/organizations/{organization_id}/content",
+                {
+                    "content_type": content_type,
+                    "slug": slug,
+                    "title": item["title"],
+                    "summary": item.get("summary"),
+                    "body": item.get("body"),
+                    "metadata_json": item.get("metadata_json", {}),
+                    "source_url": item.get("source_url"),
+                },
+                expected=(201,),
+            )
+            slugs.add(slug)
+            existing_by_slug[slug] = created
         publication_state = str(item.get("publication_state", "review")).strip()
         if publication_state not in {"draft", "review", "published", "archived"}:
             raise ApiError(
