@@ -28,7 +28,8 @@ export default function ExecutiveOverviewPage() {
   const [studies, setStudies] = useState<Study[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});\n  const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
+  const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -62,7 +63,8 @@ export default function ExecutiveOverviewPage() {
     }));
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary);
-    setDelivery(Object.fromEntries(deliveryRows));\n    setResearchGovernance(governanceRows);
+    setDelivery(Object.fromEntries(deliveryRows));
+    setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
   }, []);
 
