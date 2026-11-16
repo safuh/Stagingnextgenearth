@@ -409,14 +409,24 @@ def provision_content(api: Api, organization_id: str, entries: list[dict[str, An
             slugs.add(slug)
             existing_by_slug[slug] = created
         publication_state = str(item.get("publication_state", "review")).strip()
-        if publication_state not in {"draft", "review", "published", "archived"}:
+        if publication_state not in {"draft", "review"}:
             raise ApiError(
-                f"Unsupported CMS publication state for {slug}: {publication_state}"
+                f"Bootstrap may only create draft/review CMS entries; "
+                f"independent approval is required for {publication_state!r}: {slug}"
             )
+        current_state = str(created.get("publication_state", "draft"))
+        if current_state == publication_state:
+            continue
+        if current_state != "draft" or publication_state != "review":
+            print(
+                f"CMS entry {slug} remains {current_state}; "
+                "publication changes require the authorised review workflow."
+            )
+            continue
         api.request(
             "PATCH",
             f"/organizations/{organization_id}/content/{created['id']}",
-            {"publication_state": publication_state},
+            {"publication_state": "review"},
             expected=(200,),
         )
         slugs.add(slug)
