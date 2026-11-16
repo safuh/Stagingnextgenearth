@@ -34,7 +34,7 @@ public_router = APIRouter(tags=["public-learning"])
 _MANAGE = {"admin", "founder", "executive", "programme_manager"}
 _LEARN = {
     "admin", "founder", "executive", "programme_manager", "researcher",
-    "youth_volunteer", "employee", "institutional_partner",
+    "youth_volunteer", "employee", "institutional_partner", "learner",
 }
 
 
@@ -439,6 +439,27 @@ async def decide_enrollment(
     enrollment = await _enrollment(session, course_id, learner_id)
     if enrollment.status != "applied":
         raise HTTPException(409, "Only pending applications can be decided")
+    if body.decision == "approved":
+        existing_membership = await session.scalar(
+            select(Membership).where(
+                Membership.organization_id == organization_id,
+                Membership.user_id == learner_id,
+            )
+        )
+        if existing_membership is None:
+            session.add(
+                Membership(
+                    organization_id=organization_id,
+                    user_id=learner_id,
+                    role="learner",
+                    status="active",
+                )
+            )
+        elif existing_membership.status != "active" or existing_membership.role not in _LEARN:
+            raise HTTPException(
+                409,
+                "Applicant has an incompatible or inactive organisation membership",
+            )
     enrollment.status = body.decision
     enrollment.reviewed_by = principal.user_id
     enrollment.reviewed_at = datetime.now(UTC)
