@@ -126,8 +126,9 @@ not write directly to database tables or bypass tenant checks.
 Set the initial operator credentials in the environment (not in a committed file):
 
 ```bash
-export BOOTSTRAP_ADMIN_IDENTIFIER='portal-owner@example.org'
-export BOOTSTRAP_ADMIN_PASSWORD='USE_A_UNIQUE_STRONG_PASSWORD'
+read -r -p "Initial owner email: " BOOTSTRAP_ADMIN_IDENTIFIER
+read -r -s -p "Initial owner password: " BOOTSTRAP_ADMIN_PASSWORD; echo
+export BOOTSTRAP_ADMIN_IDENTIFIER BOOTSTRAP_ADMIN_PASSWORD
 export BOOTSTRAP_ORGANIZATION_NAME='Next Gen For Earth'
 export BOOTSTRAP_ORGANIZATION_SLUG='next-gen-for-earth'
 export BOOTSTRAP_ORGANIZATION_COUNTRY_CODE='KE'
@@ -156,13 +157,20 @@ them through a secure onboarding channel.
 Run:
 
 ```bash
-chmod 600 path/to/your-bootstrap-manifest.json
-uv run python scripts/bootstrap_nextgen.py --manifest path/to/your-bootstrap-manifest.json
+cp scripts/bootstrap-manifest.example.json /tmp/nextgen-bootstrap.json
+chmod 600 /tmp/nextgen-bootstrap.json
+# Edit the private file with verified records; keep all real passwords out of it.
+uv run python scripts/bootstrap_nextgen.py --manifest /tmp/nextgen-bootstrap.json
 ```
 
+For every staff entry, set the environment variable named by its `password_env`
+field before running the command. Prompt for each password with `read -r -s` and
+export the variable; do not put passwords in the manifest or shell command history.
 Staff accounts are registered if necessary, invited into the canonical organisation,
 and invited users accept their own invitations. This preserves the existing account
-and membership security model. Founder and executive roles can only be provisioned
+and membership security model. A bootstrap owner who is also the public-facing Founder
+should appear in the `people` list with `positions: ["Founder"]` and
+`person_types: ["founder"]`; the owner's access membership remains `admin`. Founder and executive roles can only be provisioned
 by the organisation owner.
 
 Directory entries are public-profile records, not login accounts. Partner records are
