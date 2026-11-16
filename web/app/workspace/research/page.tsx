@@ -11,7 +11,7 @@ interface Organization {
 }
 interface Membership {
   user_id: string;
-  role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
   status: string;
 }
 interface Study {
@@ -76,7 +76,7 @@ interface ClimateAnalysisSummary {
 }
 
 
-const RESEARCH_ROLES = ["admin", "programme_manager", "researcher", "institutional_partner"];
+const RESEARCH_ROLES = ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"];
 
 export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -193,7 +193,7 @@ export default function ResearchWorkspacePage() {
   const [coverageError, setCoverageError] = useState("");
 
 
-  const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+  const isReviewer = membership?.role === "admin" || membership?.role === "founder" || membership?.role === "executive" || membership?.role === "programme_manager";
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
     // Reload when the active organisation or membership changes.
