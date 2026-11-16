@@ -207,7 +207,7 @@ export default function HomePage() {
         {catalogue.filter((item) => item.content_type === "initiative" || item.content_type === "training_track").length === 0 && <p className="muted">Activity and training information will appear here as it is published.</p>}
       </section>
       <section className="portals section-wrap" id="research">
-        <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2>Research & <em>publications.</em></h2></div><p>Research outputs and knowledge products attributed to the organisation's published catalogue.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2>Research & <em>publications.</em></h2></div><p>Research outputs and knowledge products attributed to the organisation&apos;s published catalogue.</p></div>
         <div className="portal-grid">
           {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").map((item) => (
             <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p>{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">View publication <span>↗</span></a>}</article>
@@ -216,7 +216,7 @@ export default function HomePage() {
         {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").length === 0 && <p className="muted">Published research records will appear here.</p>}
       </section>
       <section className="portals section-wrap" id="impact">
-        <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2>Evidence of <em>progress.</em></h2></div><p>Impact figures shown here are sourced from the organisation's published website and should be updated through reviewed reporting.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2>Evidence of <em>progress.</em></h2></div><p>Impact figures shown here are sourced from the organisation&apos;s published website and should be updated through reviewed reporting.</p></div>
         <div className="portal-grid">
           {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
             <article className="portal-card" key={item.id}><p className="portal-tag">Published impact figure</p><h3>{item.metadata_json?.display_value || "—"}</h3><p className="portal-description">{item.title}</p></article>
