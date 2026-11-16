@@ -106,7 +106,7 @@ export default function ExecutiveOverviewPage() {
     </header>
     <section className="workspace-content">
       <p className="eyebrow">ORGANISATION PERFORMANCE · {role.replaceAll("_", " ").toUpperCase()}</p>
-      <h1 className="workspace-title">Executive <em>overview.</em></h1>
+      <h1 className="workspace-title">Executive <em>overview.</em></h1><button className="primary-action print-briefing" type="button" onClick={() => window.print()}>Print / save founder briefing</button>
       <p className="workspace-muted">A consolidated view of programme delivery, research, institutional relationships, people and public communications. Counts reflect records currently held in the portal; they are not independent impact verification.</p>
       <p><Link className="secondary-action" href="/workspace">← Workspace</Link> · <Link className="secondary-action" href="/workspace/administration">Administration</Link> · <Link className="secondary-action" href="/workspace/administration/content">CMS review queue</Link></p>
       {orgs.length > 1 && <label className="admin-org-picker">Organisation<select value={orgId} onChange={e => setOrgId(e.target.value)}>{orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
