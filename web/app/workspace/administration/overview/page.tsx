@@ -49,18 +49,28 @@ export default function ExecutiveOverviewPage() {
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
       apiGet<Summary>(`/organizations/${id}/administration-summary`),
     ]);
+    // Secondary governance and delivery panels must not take down the core
+    // executive snapshot when a newly added endpoint is unavailable or one
+    // record has incomplete data.
     const governanceRows = await Promise.all(studyRows.slice(0, 8).map(async study => {
       const base = `/organizations/${id}/research-studies/${study.id}`;
-      const [proposals, milestones] = await Promise.all([
+      const [proposalResult, milestoneResult] = await Promise.allSettled([
         apiGet<ResearchProposal[]>(`${base}/proposals`),
         apiGet<ResearchMilestone[]>(`${base}/milestones`),
       ]);
-      return { study, proposals, milestones };
+      return {
+        study,
+        proposals: proposalResult.status === "fulfilled" ? proposalResult.value : [],
+        milestones: milestoneResult.status === "fulfilled" ? milestoneResult.value : [],
+      };
     }));
-    const deliveryRows = await Promise.all(programmeRows.slice(0, 8).map(async programme => {
+    const deliveryResults = await Promise.allSettled(programmeRows.slice(0, 8).map(async programme => {
       const item = await apiGet<DeliverySummary>(`/organizations/${id}/programmes/${programme.id}/delivery-summary`);
       return [programme.id, item] as const;
     }));
+    const deliveryRows = deliveryResults.flatMap(result =>
+      result.status === "fulfilled" ? [result.value] : []
+    );
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary);
     setDelivery(Object.fromEntries(deliveryRows));
