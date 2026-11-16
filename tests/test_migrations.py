@@ -247,6 +247,15 @@ async def test_alembic_upgrade_and_downgrade() -> None:
                 actual = {row[0] for row in result}
                 assert required <= actual, f"{table_name} is missing {required - actual}"
 
+            learner_role_constraint = await connection.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'ck_membership_role'"
+                )
+            )
+            assert learner_role_constraint is not None
+            assert "'learner'" in learner_role_constraint
+
             geometry_type = await connection.scalar(
                 text(
                     "SELECT type FROM geometry_columns "
