@@ -33,20 +33,17 @@ export default function LearnerPortalPage() {
   const [notice, setNotice] = useState("");
 
   async function loadLearnerData() {
-    const [available, programmes] = await Promise.all([
+    const [organization, available] = await Promise.all([
+      apiGet<{ id: string; name: string; slug: string }>(
+        "/public/organizations/nextgen-for-earth",
+      ),
       apiGet<Course[]>("/public/organizations/nextgen-for-earth/courses"),
-      apiGet<Array<{ organization_id: string }>>("/public/organizations/nextgen-for-earth/programmes"),
     ]);
     setCourses(available);
-    const organizationId = available[0]?.organization_id ?? programmes[0]?.organization_id;
-    if (organizationId) {
-      const mine = await apiGet<Application[]>(
-        `/organizations/${organizationId}/learning/my-enrollments`,
-      );
-      setApplications(mine);
-    } else {
-      setApplications([]);
-    }
+    const mine = await apiGet<Application[]>(
+      `/organizations/${organization.id}/learning/my-enrollments`,
+    );
+    setApplications(mine);
   }
 
   useEffect(() => {
