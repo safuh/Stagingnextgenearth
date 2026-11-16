@@ -39,6 +39,7 @@ class ContentRead(BaseModel):
     published_at: datetime | None
     approved_by: str | None
     approved_at: datetime | None
+    created_by: str
 def _admin(m: Membership) -> None:
     if m.role not in {"admin", "founder", "executive"}:
         raise HTTPException(403, "Administrator role required")
