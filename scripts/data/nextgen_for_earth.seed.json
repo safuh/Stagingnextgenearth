@@ -795,6 +795,20 @@
         "source_section": "Theory of Change"
       },
       "publication_state": "review"
+    },
+    {
+      "content_type": "research_area",
+      "slug": "featured-study-climate-seasonality-and-ageing",
+      "title": "Mapping the Impact of Climate Seasonality on Ageing",
+      "summary": "Research on how climate seasonality shapes the lived experiences, health and wellbeing of older adults in Busia and Kilifi counties, Kenya.",
+      "body": "The organisation's website identifies this as a research study. The portal records it at concept stage until the research team confirms the study design, approvals, investigators, timeline and public reporting status.",
+      "source_url": "https://nextgenforearth.org/",
+      "publication_state": "review",
+      "metadata_json": {
+        "source": "official_website",
+        "research_record": "featured_study",
+        "governance_stage": "concept"
+      }
     }
   ]
 }
