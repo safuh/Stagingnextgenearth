@@ -13,6 +13,9 @@ type Study = { id: string; title: string; status: string; study_type: string | n
 type Course = { id: string; title: string; status: string };
 type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
 type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
+type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
+type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
+type ResearchGovernance = { study: Study; proposals: ResearchProposal[]; milestones: ResearchMilestone[] };
 
 export default function ExecutiveOverviewPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
@@ -25,7 +28,7 @@ export default function ExecutiveOverviewPage() {
   const [studies, setStudies] = useState<Study[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});\n  const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -45,13 +48,21 @@ export default function ExecutiveOverviewPage() {
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
       apiGet<Summary>(`/organizations/${id}/administration-summary`),
     ]);
+    const governanceRows = await Promise.all(studyRows.slice(0, 8).map(async study => {
+      const base = `/organizations/${id}/research-studies/${study.id}`;
+      const [proposals, milestones] = await Promise.all([
+        apiGet<ResearchProposal[]>(`${base}/proposals`),
+        apiGet<ResearchMilestone[]>(`${base}/milestones`),
+      ]);
+      return { study, proposals, milestones };
+    }));
     const deliveryRows = await Promise.all(programmeRows.slice(0, 8).map(async programme => {
       const item = await apiGet<DeliverySummary>(`/organizations/${id}/programmes/${programme.id}/delivery-summary`);
       return [programme.id, item] as const;
     }));
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary);
-    setDelivery(Object.fromEntries(deliveryRows));
+    setDelivery(Object.fromEntries(deliveryRows));\n    setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
   }, []);
 
@@ -114,6 +125,16 @@ export default function ExecutiveOverviewPage() {
           <section className="staff-card">
             <div className="section-heading"><div><p className="eyebrow">RESEARCH PORTFOLIO</p><h2>Studies</h2></div></div>
             {studies.length === 0 ? <p className="workspace-muted">No research studies have been registered.</p> : studies.slice(0, 8).map(s => <article className="admin-member-row" key={s.id}><div className="admin-member-meta"><strong>{s.title}</strong><span>{s.study_type || "Study"} · {s.status} · Lead: {s.lead_researcher_id}</span></div></article>)}
+          </section>
+          <section className="staff-card">
+            <div className="section-heading"><div><p className="eyebrow">RESEARCH GOVERNANCE</p><h2>Proposals & milestones</h2></div><Link className="secondary-action" href="/workspace/research">Research workspace</Link></div>
+            {researchGovernance.length === 0 ? <p className="workspace-muted">No research governance records are available.</p> : researchGovernance.map(({ study, proposals, milestones }) => {
+              const submitted = proposals.filter(item => item.status === "submitted").length;
+              const completed = milestones.filter(item => item.status === "completed").length;
+              const overdue = milestones.filter(item => item.due_date && item.due_date < new Date().toISOString().slice(0, 10) && item.status !== "completed" && item.status !== "cancelled").length;
+              return <article className="admin-member-row" key={study.id}><div className="admin-member-meta"><strong>{study.title}</strong><span>{submitted} proposals awaiting review · {completed}/{milestones.length} milestones completed · {overdue} overdue milestones</span></div></article>;
+            })}
+            <p className="workspace-muted">Proposal and milestone counts reflect study governance records. Overdue means a due date before today with a status other than completed or cancelled.</p>
           </section>
           <section className="staff-card">
             <div className="section-heading"><div><p className="eyebrow">INSTITUTIONAL RELATIONSHIPS</p><h2>Partners</h2></div><Link className="secondary-action" href="/workspace/administration/partners">Manage</Link></div>
