@@ -51,6 +51,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert organisation.status_code == 201
         org_id = organisation.json()["id"]
+        public_organisation = client.get(
+            "/api/public/organizations/learning-lab",
+        )
+        assert public_organisation.status_code == 200
+        assert public_organisation.json() == {
+            "id": org_id,
+            "name": "Learning Lab",
+            "slug": "learning-lab",
+        }
         invitation = client.post(
             f"/api/organizations/{org_id}/memberships",
             headers=admin_headers,
