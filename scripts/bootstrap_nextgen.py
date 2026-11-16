@@ -262,6 +262,97 @@ def provision_people(api: Api, organization_id: str, people: list[dict[str, Any]
         names.add(name.casefold())
 
 
+def provision_partners(api: Api, organization_id: str, partners: list[dict[str, Any]]) -> None:
+    """Create verified-source partner candidates without auto-verifying or publishing."""
+    existing = api.request(
+        "GET", f"/organizations/{organization_id}/partners", expected=(200,)
+    )
+    names = {item["name"].casefold() for item in existing}
+    for item in partners:
+        name = str(item["name"]).strip()
+        if name.casefold() in names:
+            continue
+        api.request(
+            "POST", f"/organizations/{organization_id}/partners",
+            {
+                "name": name,
+                "partner_type": item.get("partner_type", "other"),
+                "description": item.get("description"),
+                "website_url": item.get("website_url"),
+                "country_code": item.get("country_code", "KE"),
+                "region": item.get("region"),
+                "source_url": item.get("source_url"),
+            },
+            expected=(201,),
+        )
+        names.add(name.casefold())
+
+
+def provision_research_studies(
+    api: Api, organization_id: str, studies: list[dict[str, Any]]
+) -> None:
+    """Create concept-stage research records; no ethics or approval state is inferred."""
+    existing = api.request(
+        "GET", f"/organizations/{organization_id}/research-studies", expected=(200,)
+    )
+    titles = {item["title"].casefold() for item in existing}
+    for item in studies:
+        title = str(item["title"]).strip()
+        if title.casefold() in titles:
+            continue
+        api.request(
+            "POST", f"/organizations/{organization_id}/research-studies",
+            {
+                "title": title,
+                "abstract": item.get("abstract"),
+                "study_type": item.get("study_type"),
+                "project_id": item.get("project_id"),
+                "ethics_reference": item.get("ethics_reference"),
+            },
+            expected=(201,),
+        )
+        titles.add(title.casefold())
+
+
+def provision_content(api: Api, organization_id: str, entries: list[dict[str, Any]]) -> None:
+    """Create CMS drafts and submit them for moderation; never publish automatically."""
+    existing = api.request(
+        "GET", f"/organizations/{organization_id}/content", expected=(200,)
+    )
+    slugs = {item["slug"] for item in existing}
+    allowed_types = {
+        "page", "programme", "training_track", "initiative",
+        "research_area", "impact_metric", "publication",
+    }
+    for item in entries:
+        slug = str(item["slug"]).strip()
+        content_type = str(item["content_type"]).strip()
+        if slug in slugs:
+            continue
+        if content_type not in allowed_types:
+            raise ApiError(f"Unsupported CMS content type for {slug}: {content_type}")
+        created = api.request(
+            "POST", f"/organizations/{organization_id}/content",
+            {
+                "content_type": content_type,
+                "slug": slug,
+                "title": item["title"],
+                "summary": item.get("summary"),
+                "body": item.get("body"),
+                "metadata_json": item.get("metadata_json", {}),
+                "source_url": item.get("source_url"),
+            },
+            expected=(201,),
+        )
+        api.request(
+            "PATCH",
+            f"/organizations/{organization_id}/content/{created['id']}",
+            {"publication_state": "review"},
+            expected=(200,),
+        )
+        slugs.add(slug)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, help="Private JSON data manifest")
@@ -285,7 +376,12 @@ def main() -> int:
         print(f"Canonical organisation ready: {organization['name']} ({organization_id})")
         print("Owner account authenticated and organisation administrator membership confirmed.")
         provision_people(api, organization_id, manifest.get("people", []))
+        provision_partners(api, organization_id, manifest.get("partners", []))
         provision_programmes(api, organization_id, manifest.get("programmes", []))
+        provision_research_studies(
+            api, organization_id, manifest.get("research_studies", [])
+        )
+        provision_content(api, organization_id, manifest.get("content", []))
         provision_staff(
             api, organization_id, identifier, password, manifest.get("staff", [])
         )
