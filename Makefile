@@ -45,3 +45,6 @@ docker-test:
 
 docker-prod:
 	bash scripts/docker-production.sh
+
+bootstrap:
+	uv run python scripts/bootstrap_nextgen.py $(if $(MANIFEST),--manifest $(MANIFEST),)
