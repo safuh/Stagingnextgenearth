@@ -76,7 +76,7 @@ URL-encoded in `DATABASE_URL`; a generated URL-safe password avoids that issue.
 Start and verify PostGIS:
 
 ```bash
-docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml up -d
+docker compose --env-file .env -f docker/compose.postgis.yml up -d
 docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml ps
 docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml exec postgres pg_isready
 docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml exec postgres psql -U nextgen -d nextgen -c "SELECT PostGIS_Full_Version();"
