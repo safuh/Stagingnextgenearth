@@ -126,8 +126,11 @@ not write directly to database tables or bypass tenant checks.
 Set the initial operator credentials in the environment (not in a committed file):
 
 ```bash
-read -r -p "Initial owner email: " BOOTSTRAP_ADMIN_IDENTIFIER
-read -r -s -p "Initial owner password: " BOOTSTRAP_ADMIN_PASSWORD; echo
+printf "Initial owner email: "
+IFS= read -r BOOTSTRAP_ADMIN_IDENTIFIER
+printf "Initial owner password: "
+IFS= read -r -s BOOTSTRAP_ADMIN_PASSWORD
+printf "\\n"
 export BOOTSTRAP_ADMIN_IDENTIFIER BOOTSTRAP_ADMIN_PASSWORD
 export BOOTSTRAP_ORGANIZATION_NAME='Next Gen For Earth'
 export BOOTSTRAP_ORGANIZATION_SLUG='next-gen-for-earth'
@@ -136,11 +139,20 @@ export BOOTSTRAP_API_URL='http://127.0.0.1:8000/api'
 uv run python scripts/bootstrap_nextgen.py
 ```
 
-The command registers the account if it does not exist, authenticates it, creates
-the canonical organisation if it does not exist, and confirms the resulting
-administrator membership. It is safe to re-run: an existing account and organisation
-are reused. It will not reset an existing password or silently take ownership of an
-organisation owned by another account.
+Without --manifest, the command also loads the curated, source-attributed dataset in
+scripts/data/nextgen_for_earth.seed.json. It imports the public people directory,
+four programme records, the three published training tracks, listed institutional
+partners, the active research-study summary, the publications shown on the website,
+and the displayed impact metrics. These are created through the API as directory
+records, draft programmes, unverified partner candidates, concept-stage research
+records, and CMS entries awaiting review; no staff accounts are created for public
+directory people and nothing is automatically published.
+
+The command registers the owner account if it does not exist, authenticates it,
+creates the canonical organisation if it does not exist, and confirms the resulting
+administrator membership. It is safe to re-run: existing records are reused by
+name or slug. It will not reset an existing password or silently take ownership of
+an organisation owned by another account.
 
 Keep the bootstrap account credentials in your approved secret manager. Require
 the operator to change the initial password after first sign-in. Do not use the
@@ -157,7 +169,7 @@ them through a secure onboarding channel.
 Run:
 
 ```bash
-cp scripts/bootstrap-manifest.example.json /tmp/nextgen-bootstrap.json
+cp scripts/data/nextgen_for_earth.seed.json /tmp/nextgen-bootstrap.json
 chmod 600 /tmp/nextgen-bootstrap.json
 # Edit the private file with verified records; keep all real passwords out of it.
 uv run python scripts/bootstrap_nextgen.py --manifest /tmp/nextgen-bootstrap.json
