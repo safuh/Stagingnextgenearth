@@ -285,7 +285,9 @@ def provision_people(api: Api, organization_id: str, people: list[dict[str, Any]
             "biography": item.get("biography"),
             "positions": item.get("positions", []),
             "person_types": item.get("person_types", []),
-            "country_code": item.get("country_code") or os.environ.get("BOOTSTRAP_ORGANIZATION_COUNTRY_CODE", "KE"),
+            "country_code": item.get("country_code") or os.environ.get(
+                "BOOTSTRAP_ORGANIZATION_COUNTRY_CODE", "KE"
+            ),
             "region": item.get("region"),
             "profile_image_url": item.get("profile_image_url"),
             "website_url": item.get("website_url"),
@@ -316,7 +318,9 @@ def provision_partners(api: Api, organization_id: str, partners: list[dict[str, 
                 "partner_type": item.get("partner_type", "other"),
                 "description": item.get("description"),
                 "website_url": item.get("website_url"),
-                "country_code": item.get("country_code") or os.environ.get("BOOTSTRAP_ORGANIZATION_COUNTRY_CODE", "KE"),
+                "country_code": item.get("country_code") or os.environ.get(
+                    "BOOTSTRAP_ORGANIZATION_COUNTRY_CODE", "KE"
+                ),
                 "region": item.get("region"),
                 "source_url": item.get("source_url"),
             },
