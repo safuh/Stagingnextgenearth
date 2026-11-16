@@ -417,7 +417,8 @@
       "metadata_json": {
         "source": "official_website",
         "delivery": "as stated on website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "slug": "healthcare-workers",
@@ -429,7 +430,8 @@
       "metadata_json": {
         "source": "official_website",
         "delivery": "as stated on website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "slug": "youth-climate-stewards",
@@ -441,7 +443,8 @@
       "metadata_json": {
         "source": "official_website",
         "delivery": "as stated on website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "programme",
@@ -452,7 +455,8 @@
       "source_url": "https://nextgenforearth.org/",
       "metadata_json": {
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "programme",
@@ -463,7 +467,8 @@
       "source_url": "https://nextgenforearth.org/",
       "metadata_json": {
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "programme",
@@ -474,7 +479,8 @@
       "source_url": "https://nextgenforearth.org/",
       "metadata_json": {
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "programme",
@@ -485,7 +491,8 @@
       "source_url": "https://nextgenforearth.org/",
       "metadata_json": {
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -499,7 +506,8 @@
         "year": "2026",
         "doi": "10.3389/fpubh.2025.1693703",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -513,7 +521,8 @@
         "year": "2025",
         "doi": "10.1016/j.joclim.2025.100418",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -527,7 +536,8 @@
         "year": "2025",
         "doi": "10.1136/bmjopen-2025-103956",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -541,7 +551,8 @@
         "year": "2025",
         "doi": "10.1016/j.oneear.2025.101285",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -555,7 +566,8 @@
         "year": "2025",
         "doi": "10.1093/heapol/czaf028",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -569,7 +581,8 @@
         "year": "2024",
         "doi": "10.1371/journal.pone.0313781",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -583,7 +596,8 @@
         "year": "2025",
         "doi": "10.3389/fpubh.2025.1650966",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -597,7 +611,8 @@
         "year": "2026",
         "doi": "10.1371/journal.pone.0322823",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -611,7 +626,8 @@
         "year": "2024",
         "doi": "10.1186/s12887-023-04517-w",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -625,7 +641,8 @@
         "year": "2023",
         "doi": "10.1016/j.socscimed.2023.116223",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -639,7 +656,8 @@
         "year": "2023",
         "doi": "10.3389/fpubh.2023.1146048",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "publication",
@@ -653,7 +671,8 @@
         "year": "2023",
         "doi": "10.4102/phcfm.v15i1.3991",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "impact_metric",
@@ -665,7 +684,8 @@
       "metadata_json": {
         "display_value": "100+",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "impact_metric",
@@ -677,7 +697,8 @@
       "metadata_json": {
         "display_value": "4000+",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "impact_metric",
@@ -689,7 +710,8 @@
       "metadata_json": {
         "display_value": "12",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "impact_metric",
@@ -701,7 +723,8 @@
       "metadata_json": {
         "display_value": "40000+",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "impact_metric",
@@ -713,7 +736,8 @@
       "metadata_json": {
         "display_value": "35+",
         "source": "official_website"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "initiative",
@@ -727,7 +751,8 @@
         "activity": "recurring_workshops",
         "cadence": "weekly",
         "source_section": "Training"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "initiative",
@@ -740,7 +765,8 @@
         "source": "official_website",
         "activity": "mentorship",
         "source_section": "Theory of Change"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "initiative",
@@ -753,7 +779,8 @@
         "source": "official_website",
         "activity": "field_research",
         "source_section": "Theory of Change"
-      }
+      },
+      "publication_state": "published"
     },
     {
       "content_type": "initiative",
@@ -766,7 +793,8 @@
         "source": "official_website",
         "activity": "environmental_restoration",
         "source_section": "Theory of Change"
-      }
+      },
+      "publication_state": "published"
     }
   ]
 }
