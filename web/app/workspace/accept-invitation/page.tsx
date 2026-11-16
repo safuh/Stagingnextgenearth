@@ -75,7 +75,7 @@ export default function AcceptInvitationPage() {
               <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
               <button className="primary-action" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
             </form>
-            <p className="workspace-muted">No account yet? Create one from the <Link href="/#access">public sign-in page</Link>, then ask the administrator to invite that exact email address.</p>
+            <p className="workspace-muted">No account yet? <Link href="/staff/register">Register a staff or partner account</Link>, then ask the administrator to invite that exact email address.</p>
           </section>
         ) : (
           <section className="staff-card">
