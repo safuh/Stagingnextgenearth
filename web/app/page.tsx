@@ -184,7 +184,7 @@ export default function HomePage() {
                 <p className="portal-description">{course.description}</p>
                 {programme && <p className="portal-description">Programme: {programme.title}</p>}
                 {course.category && <p className="portal-description">Category: {course.category}</p>}
-                <a href="#access">Sign in to access learning <span>↗</span></a>
+                <Link href="/learners">Apply or access learning <span>↗</span></Link>
               </article>
             );
           })}
