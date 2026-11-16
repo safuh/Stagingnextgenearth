@@ -24,6 +24,7 @@ class Api:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.token: str | None = None
+        self._subject: str | None = None
 
     def request(
         self,
@@ -100,7 +101,7 @@ class Api:
     @property
     def request_subject(self) -> str:
         # The API login response subject is captured separately by authenticate().
-        if not hasattr(self, "_subject"):
+        if self._subject is None:
             raise ApiError("Internal error: authenticated subject is unavailable")
         return self._subject
 
