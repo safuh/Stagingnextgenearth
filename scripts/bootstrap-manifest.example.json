@@ -1,0 +1,28 @@
+{
+  "people": [
+    {
+      "full_name": "Replace with a verified person from the official organisation website",
+      "biography": "Use an approved biography from an authoritative source.",
+      "positions": ["Verified position title"],
+      "person_types": ["employee"],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Next Gen For Earth website"
+    }
+  ],
+  "programmes": [
+    {
+      "title": "Verified programme title",
+      "slug": "verified-programme-title",
+      "summary": "Approved programme description.",
+      "status": "draft"
+    }
+  ],
+  "staff": [
+    {
+      "identifier": "staff@example.org",
+      "role": "employee",
+      "password_env": "BOOTSTRAP_STAFF_1_PASSWORD"
+    }
+  ]
+}
