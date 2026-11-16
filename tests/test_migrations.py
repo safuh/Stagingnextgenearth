@@ -229,6 +229,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "reviewed_by",
             "reviewed_at",
             "review_note",
+            "safeguarding_confirmed",
         },
     }
 
