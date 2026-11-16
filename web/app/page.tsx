@@ -245,8 +245,8 @@ export default function HomePage() {
               <p className="eyebrow">SESSION ACTIVE</p>
               <h3>Signed in</h3>
               <p className="muted">{subject || "Your account"} is authenticated in this browser session.</p>
-              <p className="session-note">Your active organisation memberships and published learning programmes are available in the workspace.</p>
-              <Link className="button button-primary full" href="/workspace">Open organisation workspace <span>→</span></Link>
+              <p className="session-note">Choose the workspace that matches your access. Learner applications remain separate from staff and partner administration.</p>
+              <Link className="button button-primary full" href="/workspace">Open organisation workspace <span>→</span></Link><Link className="button button-primary full" href="/learners">Open learner portal <span>→</span></Link>
               <button className="button button-primary full" onClick={handleLogout}>Sign out</button>
             </div>
           ) : (
