@@ -124,7 +124,7 @@ def env_required(name: str) -> str:
 
 def load_manifest(path: Path | None) -> dict[str, Any]:
     if path is None:
-        return {}
+        path = Path(__file__).resolve().parent / "data" / "nextgen_for_earth.seed.json"
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
