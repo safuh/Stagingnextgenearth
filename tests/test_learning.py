@@ -158,6 +158,16 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert own_applications.status_code == 200
         assert own_applications.json()[0]["course_id"] == course_id
         assert own_applications.json()[0]["status"] == "applied"
+        pending_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=public_learner_headers,
+        )
+        assert pending_membership.status_code == 404
+        pending_curriculum = client.get(
+            f"{base}/courses/{course_id}/curriculum",
+            headers=public_learner_headers,
+        )
+        assert pending_curriculum.status_code == 404
         from stagingnextgenearth.auth import TokenService
 
         public_learner_login = client.post(
