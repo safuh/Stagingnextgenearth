@@ -237,6 +237,23 @@ async def _enrollment(session: AsyncSession, course_id: str, learner_id: str) ->
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment not found")
     return item
 
+async def _approved_enrollment(
+    session: AsyncSession, course_id: str, learner_id: str
+) -> LearningEnrollment:
+    """Require an approved learner enrollment without disclosing whether one exists."""
+    enrollment = await session.scalar(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id == course_id,
+            LearningEnrollment.learner_id == learner_id,
+        )
+    )
+    if enrollment is None or enrollment.status not in {"approved", "completed"}:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "An approved enrollment is required",
+        )
+    return enrollment
+
 
 @router.post("/courses", response_model=CourseRead, status_code=201)
 async def create_course(
@@ -510,9 +527,7 @@ async def list_course_assessments(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _enrollment(session, course_id, principal.user_id)
-        if enrollment.status not in {"approved", "completed"}:
-            raise HTTPException(403, "An approved enrollment is required")
+        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
     rows = await session.scalars(
         select(LearningAssessment)
         .where(LearningAssessment.course_id == course_id)
@@ -818,15 +833,10 @@ async def complete_lesson(
     )
     if lesson is None:
         raise HTTPException(404, "Published lesson not found")
-    enrollment = await _enrollment(
-        session,
-        (await session.scalar(
-            select(LearningModule.course_id).where(LearningModule.id == lesson.module_id)
-        )) or "",
-        principal.user_id,
-    )
-    if enrollment.status not in {"approved", "completed"}:
-        raise HTTPException(403, "An approved enrollment is required")
+    course_id = (await session.scalar(
+        select(LearningModule.course_id).where(LearningModule.id == lesson.module_id)
+    )) or ""
+    enrollment = await _approved_enrollment(session, course_id, principal.user_id)
 
     completion = await session.scalar(
         select(LearningLessonCompletion).where(
@@ -944,9 +954,7 @@ async def course_curriculum(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _enrollment(session, course_id, principal.user_id)
-        if enrollment.status not in {"approved", "completed"}:
-            raise HTTPException(403, "An approved enrollment is required")
+        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
     modules = await session.scalars(
         select(LearningModule).where(LearningModule.course_id == course_id)
         .order_by(LearningModule.position)
@@ -990,9 +998,7 @@ async def my_course_progress(
     course = await _course(session, organization_id, course_id)
     if course.status != "published":
         raise HTTPException(404, "Course not found")
-    enrollment = await _enrollment(session, course_id, principal.user_id)
-    if enrollment.status not in {"approved", "completed"}:
-        raise HTTPException(403, "An approved enrollment is required")
+    enrollment = await _approved_enrollment(session, course_id, principal.user_id)
     completed = await session.scalars(
         select(LearningLessonCompletion.lesson_id).where(
             LearningLessonCompletion.enrollment_id == enrollment.id
@@ -1111,9 +1117,7 @@ async def list_learning_resources(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _enrollment(session, course_id, principal.user_id)
-        if enrollment.status not in {"approved", "completed"}:
-            raise HTTPException(403, "An approved enrollment is required")
+        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
     resources = await session.scalars(
         select(LearningResource).where(LearningResource.course_id == course_id)
         .order_by(LearningResource.title).limit(200)
