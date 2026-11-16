@@ -165,9 +165,13 @@ and invited users accept their own invitations. This preserves the existing acco
 and membership security model. Founder and executive roles can only be provisioned
 by the organisation owner.
 
-Directory entries are public-profile records, not login accounts. Programme records
-are created as drafts unless the manifest explicitly requests activation. Review
-directory visibility and CMS publication state in the portal before publishing.
+Directory entries are public-profile records, not login accounts. Partner records are
+created as unverified/private prospects. Research studies are created in the concept
+stage and remain subject to research governance. Programme records are created as drafts
+unless the manifest explicitly requests a valid lifecycle transition. CMS entries are
+created as drafts and moved to review; a different authorised reviewer must approve
+before publication. Review all directory visibility, partner verification, research
+ethics and CMS publication state in the portal before publishing.
 
 The bootstrap utility is intentionally conservative: it creates missing records and
 does not overwrite existing biographies, roles, programme descriptions, or passwords.
