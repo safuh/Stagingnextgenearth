@@ -260,8 +260,8 @@ export default function HomePage() {
                 {error && <p className="form-error" role="alert">{error}</p>}
                 <button className="button button-primary full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue securely"} <span>→</span></button>
               </form>
-              <p className="login-footnote">Staff and institutional partners must have an invitation from an organisation administrator. Learners create accounts through the separate learner portal.</p>
-              <Link className="text-link" href="/workspace/accept-invitation">Have an invitation? Accept it here</Link><p className="login-footnote">Are you a learner? <Link href="/learners">Create a learner account or access your courses</Link>.</p>
+              <p className="login-footnote">Staff and institutional partners must register an identity and then receive an organisation invitation. Learners use the separate learner portal.</p>
+              <Link className="text-link" href="/workspace/accept-invitation">Have an invitation? Accept it here</Link><p className="login-footnote">New staff or partner? <Link href="/staff/register">Register an account first</Link>.</p><p className="login-footnote">Are you a learner? <Link href="/learners">Create a learner account or access your courses</Link>.</p>
             </>
           )}
         </div>
