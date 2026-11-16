@@ -137,6 +137,10 @@ These foundation checks must continue passing as product code is added.
 - [x] Caller-scoped membership-role endpoint and role-aware workspace navigation (server API remains the authorization boundary).
 - [x] Core researcher, youth/volunteer, administrator and institutional-partner dashboards with role-aware navigation and their primary MVP workflows; advanced organisation settings, donor/grant operations and deeper researcher analysis remain.
 - [x] Typed API client, authenticated requests, same-origin BFF with HttpOnly access/refresh cookies, refresh rotation, session restoration and sign-out, plus user-visible loading/error states.
+- [x] Separate learner self-registration and staff/partner identity registration journeys on the shared authentication service; public registration never grants organisation roles.
+- [x] Public learner course applications without pre-existing membership, with approval-created learner membership and caller-scoped application status.
+- [x] Public organisation identity endpoint so learner application history loads even when no course is currently published.
+- [x] Staff and partner invitation acceptance bound to the invited account; staff membership alone does not grant access to learner curriculum without an approved enrollment.
 
 ## M7 — Organisation directory, integrations and organisational intelligence
 
@@ -213,6 +217,7 @@ These foundation checks must continue passing as product code is added.
 
 - [x] Tenant-scoped courses, modules, lessons and publish lifecycle.
 - [x] Learner applications, approval and registration.
+- [x] Public learner account registration, published-course application, approval-created membership, and approved-enrollment gates on curriculum, assessments, resources and progress.
 - [x] Assessment definitions, submissions and staff evaluation.
 - [x] Mentor assignments, workshop attendance and learning resource metadata.
 - [x] Lesson completion, assessment-derived progress and verifiable certificates.
