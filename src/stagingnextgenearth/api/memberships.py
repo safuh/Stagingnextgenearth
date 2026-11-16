@@ -48,6 +48,7 @@ class MembershipRead(BaseModel):
     id: str
     organization_id: str
     user_id: str
+    identifier: str | None = None
     role: str
     status: str
 
@@ -95,18 +96,26 @@ async def invite_member(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Membership already exists") from exc
-    return MembershipRead.model_validate(invitation)
+    return MembershipRead.model_validate(invitation).model_copy(
+        update={"identifier": user.identifier}
+    )
 
 
 @router.get("/me", response_model=MembershipRead)
 async def get_my_membership(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Return the caller's own active tenant membership and role."""
     if membership.organization_id != organization_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
-    return MembershipRead.model_validate(membership)
+    identifier = await session.scalar(
+        select(User.identifier).where(User.id == membership.user_id)
+    )
+    return MembershipRead.model_validate(membership).model_copy(
+        update={"identifier": identifier}
+    )
 
 
 @router.get("/directory")
@@ -145,12 +154,16 @@ async def list_memberships(
     """Expose membership records only to organisation administrators."""
     if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
-    result = await session.scalars(
-        select(Membership)
+    result = await session.execute(
+        select(Membership, User.identifier)
+        .join(User, User.id == Membership.user_id)
         .where(Membership.organization_id == organization_id)
         .order_by(Membership.created_at)
     )
-    return [MembershipRead.model_validate(item) for item in result.all()]
+    return [
+        MembershipRead.model_validate(item).model_copy(update={"identifier": identifier})
+        for item, identifier in result.all()
+    ]
 
 
 @router.post("/{membership_id}/accept", response_model=MembershipRead)
@@ -174,7 +187,12 @@ async def accept_invitation(
     invitation.status = "active"
     await session.commit()
     await session.refresh(invitation)
-    return MembershipRead.model_validate(invitation)
+    identifier = await session.scalar(
+        select(User.identifier).where(User.id == invitation.user_id)
+    )
+    return MembershipRead.model_validate(invitation).model_copy(
+        update={"identifier": identifier}
+    )
 
 
 class MembershipRoleUpdate(BaseModel):
