@@ -362,7 +362,7 @@ def normalize_slug(value: Any) -> str:
 
 
 def provision_content(api: Api, organization_id: str, entries: list[dict[str, Any]]) -> None:
-    """Create CMS drafts and submit them for moderation; never publish automatically."""
+    """Create source-attributed CMS entries with manifest-controlled publication state."""
     existing = api.request(
         "GET", f"/organizations/{organization_id}/content", expected=(200,)
     )
@@ -405,10 +405,15 @@ def provision_content(api: Api, organization_id: str, entries: list[dict[str, An
             },
             expected=(201,),
         )
+        publication_state = str(item.get("publication_state", "review")).strip()
+        if publication_state not in {"draft", "review", "published", "archived"}:
+            raise ApiError(
+                f"Unsupported CMS publication state for {slug}: {publication_state}"
+            )
         api.request(
             "PATCH",
             f"/organizations/{organization_id}/content/{created['id']}",
-            {"publication_state": "review"},
+            {"publication_state": publication_state},
             expected=(200,),
         )
         slugs.add(slug)
