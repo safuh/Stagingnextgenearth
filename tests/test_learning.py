@@ -144,6 +144,45 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert published.status_code == 200
 
+        # A public learner can self-register and apply without being pre-invited.
+        public_learner_headers = _register(client, "public-learner@example.org")
+        public_application = client.post(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=public_learner_headers,
+        )
+        assert public_application.status_code == 201
+        own_applications = client.get(
+            f"{base}/my-enrollments",
+            headers=public_learner_headers,
+        )
+        assert own_applications.status_code == 200
+        assert own_applications.json()[0]["course_id"] == course_id
+        assert own_applications.json()[0]["status"] == "applied"
+        from stagingnextgenearth.auth import TokenService
+
+        public_learner_login = client.post(
+            "/api/auth/login",
+            json={
+                "identifier": "public-learner@example.org",
+                "password": "correct horse battery staple",
+            },
+        )
+        public_learner_id = TokenService(
+            settings.jwt_secret_key.get_secret_value()
+        ).decode(public_learner_login.json()["access_token"], expected_type="access")["sub"]
+        public_approval = client.post(
+            f"{base}/courses/{course_id}/enrollments/{public_learner_id}/decision",
+            headers=admin_headers,
+            json={"decision": "approved"},
+        )
+        assert public_approval.status_code == 200
+        public_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=public_learner_headers,
+        )
+        assert public_membership.status_code == 200
+        assert public_membership.json()["role"] == "learner"
+
         public_courses = client.get(
             "/api/public/organizations/learning-lab/courses",
         )
