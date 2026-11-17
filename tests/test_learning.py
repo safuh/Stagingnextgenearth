@@ -337,6 +337,30 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"score": 85, "feedback": "Good application of the concepts."},
         )
         assert evaluated.status_code == 200
+        first_evaluation_id = evaluated.json()["evaluation_id"]
+        revised_evaluation = client.post(
+            f"{base}/submissions/{submission.json()['id']}/evaluate",
+            headers=admin_headers,
+            json={"score": 92, "feedback": "Excellent improvement."},
+        )
+        assert revised_evaluation.status_code == 200
+        evaluation_history = client.get(
+            f"{base}/submissions/{submission.json()['id']}/evaluations",
+            headers=admin_headers,
+        )
+        assert evaluation_history.status_code == 200
+        assert len(evaluation_history.json()) == 2
+        assert evaluation_history.json()[0]["id"] == first_evaluation_id
+        assert evaluation_history.json()[1]["score"] == 92
+        assert evaluation_history.json()[1]["previous_score"] == 85
+        assert evaluation_history.json()[1]["previous_feedback"] == (
+            "Good application of the concepts."
+        )
+        learner_evaluation_history = client.get(
+            f"{base}/submissions/{submission.json()['id']}/evaluations",
+            headers=learner_headers,
+        )
+        assert learner_evaluation_history.status_code == 403
         assessments = client.get(
             f"{base}/courses/{course_id}/assessments",
             headers=learner_headers,
