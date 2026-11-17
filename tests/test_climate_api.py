@@ -109,3 +109,94 @@ def test_climate_quality_summary_is_tenant_scoped_and_time_bounded(
             f"/api/organizations/{organization_id}/climate-observations/quality-summary",
             headers=other,
         ).status_code == 404
+
+
+def test_climate_observation_review_writes_immutable_audit_history(
+    tmp_path: Path,
+) -> None:
+    url = f"sqlite+aiosqlite:///{tmp_path / 'climate-review-audit.db'}"
+    engine = create_async_engine(url)
+
+    async def prepare() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(prepare())
+    settings = Settings(
+        environment=Environment.TEST,
+        database_url=url,
+        jwt_secret_key="test-only-signing-secret-that-is-long-enough",
+    )
+    with TestClient(create_app(settings)) as client:
+        owner = _auth(client, "climate-review-owner@example.org")
+        reviewer = _auth(client, "climate-reviewer@example.org")
+        organisation = client.post(
+            "/api/organizations",
+            headers=owner,
+            json={"name": "Climate Review Audit", "slug": "climate-review-audit"},
+        )
+        assert organisation.status_code == 201
+        organization_id = organisation.json()["id"]
+        base = f"/api/organizations/{organization_id}"
+        invited = client.post(
+            f"{base}/memberships",
+            headers=owner,
+            json={"identifier": "climate-reviewer@example.org", "role": "programme_manager"},
+        )
+        assert invited.status_code == 201
+        accepted = client.post(
+            f"{base}/memberships/{invited.json()['id']}/accept",
+            headers=reviewer,
+        )
+        assert accepted.status_code == 200
+
+        created = client.post(
+            f"{base}/climate-observations",
+            headers=owner,
+            json={
+                "observed_at": "2026-02-01T09:00:00+00:00",
+                "variable": "precipitation",
+                "value": 18.5,
+                "unit": "mm",
+                "latitude": -1.286,
+                "longitude": 36.817,
+                "source": "community rain gauge",
+            },
+        )
+        assert created.status_code == 201
+        observation_id = created.json()["id"]
+        review = client.post(
+            f"{base}/climate-observations/{observation_id}/review",
+            headers=reviewer,
+            json={"decision": "verified", "note": "Cross-checked against station log."},
+        )
+        assert review.status_code == 200
+        assert review.json()["quality_status"] == "verified"
+
+        history = client.get(
+            f"{base}/climate-observations/{observation_id}/review-history",
+            headers=owner,
+        )
+        assert history.status_code == 200
+        assert len(history.json()) == 1
+        event = history.json()[0]
+        assert event["action"] == "climate.observation.reviewed"
+        assert event["actor_user_id"] == accepted.json()["user_id"]
+        assert event["subject_user_id"] == owner["Authorization"].split()[1] or event["subject_user_id"]
+        assert event["changes"]["observation_id"] == observation_id
+        assert event["changes"]["decision"] == "verified"
+        assert event["changes"]["note"] == "Cross-checked against station log."
+
+        repeated = client.post(
+            f"{base}/climate-observations/{observation_id}/review",
+            headers=reviewer,
+            json={"decision": "rejected", "note": "Attempted second decision."},
+        )
+        assert repeated.status_code == 409
+        history_after = client.get(
+            f"{base}/climate-observations/{observation_id}/review-history",
+            headers=owner,
+        )
+        assert history_after.status_code == 200
+        assert len(history_after.json()) == 1
