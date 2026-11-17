@@ -1468,6 +1468,88 @@ async def revoke_certificate(
     }
 
 
+@router.get("/programmes/{programme_id}/outcomes")
+async def programme_outcomes(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Aggregate course delivery, learner progress and support outcomes."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Programme reporting permission required")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.id == programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(404, "Programme not found")
+    course_rows = await session.scalars(
+        select(LearningCourse)
+        .where(
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.programme_id == programme_id,
+        )
+        .order_by(LearningCourse.title, LearningCourse.id)
+        .limit(200)
+    )
+    courses = course_rows.all()
+    course_reports = [
+        await course_progress(organization_id, course.id, membership, session)
+        for course in courses
+    ]
+    learner_count = sum(int(report["learners"]) for report in course_reports)
+    weighted_progress = sum(
+        float(report["average_progress"]) * int(report["learners"])
+        for report in course_reports
+    )
+    totals = {
+        "learners": learner_count,
+        "approved": sum(int(report["approved"]) for report in course_reports),
+        "completed": sum(int(report["completed"]) for report in course_reports),
+        "attendance_records": sum(
+            int(report["attendance_records"]) for report in course_reports
+        ),
+        "attendance_sessions": sum(
+            int(report["attendance_sessions"]) for report in course_reports
+        ),
+        "mentorship_assignments": sum(
+            int(report["mentorship_assignments"]) for report in course_reports
+        ),
+        "active_mentorships": sum(
+            int(report["active_mentorships"]) for report in course_reports
+        ),
+        "assessment_submissions": sum(
+            int(report["assessment_submissions"]) for report in course_reports
+        ),
+        "evaluated_submissions": sum(
+            int(report["evaluated_submissions"]) for report in course_reports
+        ),
+        "pending_evaluations": sum(
+            int(report["pending_evaluations"]) for report in course_reports
+        ),
+    }
+    return {
+        "programme_id": programme.id,
+        "programme_title": programme.title,
+        "course_count": len(courses),
+        "average_progress": round(weighted_progress / learner_count, 1)
+        if learner_count else 0.0,
+        "totals": totals,
+        "courses": [
+            {
+                "course_id": course.id,
+                "title": course.title,
+                "status": course.status,
+                **report,
+            }
+            for course, report in zip(courses, course_reports, strict=True)
+        ],
+    }
+
+
 @router.get("/courses/{course_id}/progress")
 async def course_progress(
     organization_id: str, course_id: str,
