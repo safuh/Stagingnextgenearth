@@ -30,7 +30,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-exports"],
 )
-_REGISTRY_READ_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}
+_REGISTRY_READ_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}  # noqa: E501
 
 
 class ResearchExportFile(BaseModel):
@@ -113,7 +113,7 @@ async def create_research_export_manifest(
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
 
@@ -272,7 +272,7 @@ async def _get_exportable_dataset(
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
     return dataset
