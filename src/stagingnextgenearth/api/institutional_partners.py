@@ -58,7 +58,7 @@ async def list_partners(organization_id: str, membership: Annotated[Membership, 
     return [PartnerRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/partners", response_model=PartnerRead, status_code=201)
 async def create_partner(organization_id: str, body: PartnerCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
-    _admin(membership)
+    await _admin(membership, session)
     row = InstitutionalPartner(organization_id=organization_id, name=body.name.strip(), partner_type=body.partner_type, description=body.description, website_url=body.website_url, country_code=body.country_code.upper(), region=body.region, source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
     session.add(row)
     await session.flush()
@@ -74,7 +74,7 @@ async def create_partner(organization_id: str, body: PartnerCreate, principal: A
     return PartnerRead.model_validate(row)
 @router.patch("/organizations/{organization_id}/partners/{partner_id}", response_model=PartnerRead)
 async def update_partner(organization_id: str, partner_id: str, body: PartnerUpdate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> PartnerRead:
-    _admin(membership)
+    await _admin(membership, session)
     row = await session.scalar(select(InstitutionalPartner).where(InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id))
     if row is None:
         raise HTTPException(404, "Partner not found")
@@ -120,7 +120,7 @@ async def partner_audit_events(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PartnerAuditRead]:
-    _admin(membership)
+    await _admin(membership, session)
     partner_row = await session.scalar(select(InstitutionalPartner).where(
         InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id
     ))
@@ -135,7 +135,7 @@ async def partner_audit_events(
 
 @router.post("/organizations/{organization_id}/partners/{partner_id}/programmes", status_code=201)
 async def link_partner_programme(organization_id: str, partner_id: str, body: PartnerProgrammeLink, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str,str]:
-    _admin(membership)
+    await _admin(membership, session)
     partner_row = await session.scalar(select(InstitutionalPartner).where(InstitutionalPartner.id == partner_id, InstitutionalPartner.organization_id == organization_id))
     programme = await session.scalar(select(Programme).where(Programme.id == body.programme_id, Programme.organization_id == organization_id))
     if partner_row is None or programme is None:
@@ -180,7 +180,7 @@ async def list_partner_contacts(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PartnerContactRead]:
-    _admin(membership)
+    await _admin(membership, session)
     partner = await session.scalar(select(InstitutionalPartner).where(
         InstitutionalPartner.id == partner_id,
         InstitutionalPartner.organization_id == organization_id,
@@ -201,7 +201,7 @@ async def create_partner_contact(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PartnerContactRead:
-    _admin(membership)
+    await _admin(membership, session)
     partner = await session.scalar(select(InstitutionalPartner).where(
         InstitutionalPartner.id == partner_id,
         InstitutionalPartner.organization_id == organization_id,
@@ -234,7 +234,7 @@ async def update_partner_contact(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PartnerContactRead:
-    _admin(membership)
+    await _admin(membership, session)
     row = await session.scalar(select(InstitutionalPartnerContact).where(
         InstitutionalPartnerContact.id == contact_id,
         InstitutionalPartnerContact.partner_id == partner_id,
