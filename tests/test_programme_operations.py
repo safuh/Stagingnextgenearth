@@ -332,6 +332,20 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             headers=partner,
         ).status_code == 403
 
+        delivery_export = client.get(
+            f"/api/organizations/{org_id}/delivery-overview/export",
+            headers=manager,
+        )
+        assert delivery_export.status_code == 200
+        assert delivery_export.headers["content-type"].startswith("text/csv")
+        assert delivery_export.content.startswith(b"\\xef\\xbb\\xbf")
+        assert "organisation_total,activities_completed,1" in delivery_export.text
+        assert "Community tree restoration" in delivery_export.text
+        assert client.get(
+            f"/api/organizations/{org_id}/delivery-overview/export",
+            headers=participant,
+        ).status_code == 403
+
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
             headers=manager,
