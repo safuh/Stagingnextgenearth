@@ -32,7 +32,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-datasets"],
 )
-_REGISTRY_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}
+_REGISTRY_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}  # noqa: E501
 _CREATE_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher"}
 _REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 
@@ -152,7 +152,7 @@ async def create_research_dataset(
     study_role = await study_access_role(
         session, organization_id, body.study_id, principal, membership
     )
-    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registration is not permitted")
     if body.study_id is not None:
         study = await session.scalar(
@@ -216,7 +216,7 @@ async def list_research_datasets(
         if (
             item.access_classification == "restricted"
             and item.owner_user_id != principal.user_id
-            and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+            and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
             and study_role is None
         ):
             continue
@@ -247,11 +247,11 @@ async def update_research_dataset(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset editing is not permitted")
     if (
         dataset.owner_user_id != principal.user_id
-        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
         and study_role not in {"editor", "contributor"}
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
@@ -281,7 +281,7 @@ async def update_research_dataset(
         target_role = await study_access_role(
             session, organization_id, changes["study_id"], principal, membership
         )
-        if not await membership_has_any_role(session, membership, _CREATE_ROLES) and target_role not in {"editor", "contributor"}:
+        if not await membership_has_any_role(session, membership, _CREATE_ROLES) and target_role not in {"editor", "contributor"}:  # noqa: E501
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Target study access required")
         study = await session.scalar(
             select(ResearchStudy.id).where(
@@ -345,12 +345,12 @@ async def list_research_dataset_reviews(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if not await membership_has_any_role(session, membership, _REGISTRY_ROLES) and study_role is None:
+    if not await membership_has_any_role(session, membership, _REGISTRY_ROLES) and study_role is None:  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
         and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
@@ -382,11 +382,11 @@ async def submit_research_dataset(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role != "editor":
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role != "editor":  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset submission is not permitted")
     if (
         dataset.owner_user_id != principal.user_id
-        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
         and study_role != "editor"
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
@@ -421,7 +421,7 @@ async def review_research_dataset(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
-    if dataset.access_classification == "restricted" and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
+    if dataset.access_classification == "restricted" and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):  # noqa: E501
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Restricted datasets require an administrator reviewer",
