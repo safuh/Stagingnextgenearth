@@ -34,13 +34,9 @@ export default function LearnerPortalPage() {
   const [notice, setNotice] = useState("");
 
   async function loadLearnerData() {
-    const [organization, available] = await Promise.all([
-      apiGet<{ id: string; name: string; slug: string }>(
-        `/public/organizations/${ORGANIZATION_SLUG}`,
-      ),
-      apiGet<Course[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`),
-    ]);
-    setCourses(available);
+    const organization = await apiGet<{ id: string; name: string; slug: string }>(
+      `/public/organizations/${ORGANIZATION_SLUG}`,
+    );
     const mine = await apiGet<Application[]>(
       `/organizations/${organization.id}/learning/my-enrollments`,
     );
@@ -49,6 +45,11 @@ export default function LearnerPortalPage() {
 
   useEffect(() => {
     let active = true;
+    apiGet<Course[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`)
+      .then((items) => { if (active) setCourses(items); })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Unable to load published courses.");
+      });
     restoreSession().then(async (session) => {
       if (!active || !session) return;
       setAuthenticated(true);
@@ -112,7 +113,25 @@ export default function LearnerPortalPage() {
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
 
         {!authenticated ? (
+          <>
           <section className="staff-card">
+            <h2>Explore published courses</h2>
+            {courses.length === 0 ? (
+              <p className="workspace-muted">No courses are currently published. New learning opportunities will appear here when programme teams release them.</p>
+            ) : (
+              <div className="portal-grid">
+                {courses.map((course) => (
+                  <article className="portal-card" key={course.id}>
+                    <p className="portal-tag">{course.category || "Learning"} · {course.delivery_mode.replaceAll("_", " ")}</p>
+                    <h3>{course.title}</h3>
+                    <p className="portal-description">{course.description}</p>
+                    <Link className="primary-action" href="#learner-access">Sign in or register to apply</Link>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+          <section className="staff-card" id="learner-access">
             <h2>{creating ? "Create your learner account" : "Learner sign in"}</h2>
             <form onSubmit={submitAccess}>
               <label htmlFor="learner-email">Email address</label>
@@ -126,6 +145,7 @@ export default function LearnerPortalPage() {
             </button>
             <p className="workspace-muted">Use an email address you control. Never share your password. Do not enter sensitive personal information in course applications.</p>
           </section>
+          </>
         ) : (
           <>
             <section className="staff-card">
