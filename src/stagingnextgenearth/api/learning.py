@@ -4,7 +4,7 @@ import csv
 import io
 import secrets
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -1680,7 +1680,12 @@ async def organisation_learning_outcomes(
         .limit(100)
     )
     reports = [
-        await programme_outcomes(organization_id, programme.id, membership, session)
+        cast(
+            dict[str, Any],
+            await programme_outcomes(
+                organization_id, programme.id, membership, session
+            ),
+        )
         for programme in programme_rows.all()
     ]
     metric_keys = (
