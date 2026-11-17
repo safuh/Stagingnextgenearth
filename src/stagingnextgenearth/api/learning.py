@@ -1550,6 +1550,70 @@ async def programme_outcomes(
     }
 
 
+@router.get("/programmes/{programme_id}/outcomes/export")
+async def export_programme_outcomes(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Response:
+    """Download a tenant-scoped programme outcomes report as spreadsheet-safe CSV."""
+    report = await programme_outcomes(
+        organization_id, programme_id, membership, session
+    )
+
+    def safe_cell(value: object) -> str:
+        rendered = "" if value is None else str(value)
+        if rendered.startswith(("=", "+", "-", "@", "\t", "\r")):
+            return "'" + rendered
+        return rendered
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["section", "metric", "value"])
+    totals = report["totals"]
+    if isinstance(totals, dict):
+        for key, value in totals.items():
+            writer.writerow([safe_cell("programme_total"), safe_cell(key), safe_cell(value)])
+    writer.writerow([
+        safe_cell("programme"),
+        safe_cell("average_progress"),
+        safe_cell(report["average_progress"]),
+    ])
+    writer.writerow([])
+    writer.writerow([
+        "course_id", "course_title", "status", "learners", "approved",
+        "completed", "average_progress", "attendance_records",
+        "attendance_sessions", "mentorship_assignments", "active_mentorships",
+        "assessment_submissions", "evaluated_submissions", "pending_evaluations",
+    ])
+    courses = report["courses"]
+    if isinstance(courses, list):
+        for course in courses:
+            if isinstance(course, dict):
+                writer.writerow([
+                    safe_cell(course.get("course_id")),
+                    safe_cell(course.get("title")),
+                    safe_cell(course.get("status")),
+                    *[
+                        safe_cell(course.get(key))
+                        for key in (
+                            "learners", "approved", "completed", "average_progress",
+                            "attendance_records", "attendance_sessions",
+                            "mentorship_assignments", "active_mentorships",
+                            "assessment_submissions", "evaluated_submissions",
+                            "pending_evaluations",
+                        )
+                    ],
+                ])
+    filename = f"programme-{programme_id}-outcomes.csv"
+    return Response(
+        content="\\ufeff" + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/courses/{course_id}/progress")
 async def course_progress(
     organization_id: str, course_id: str,
