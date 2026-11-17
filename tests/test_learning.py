@@ -493,6 +493,29 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert len(own_attendance.json()) == 1
         assert own_attendance.json()[0]["attendance_status"] == "present"
 
+        employee_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=employee_headers,
+        )
+        assert employee_membership.status_code == 200
+        employee_membership_id = employee_membership.json()["id"]
+        grant_researcher = client.patch(
+            f"/api/organizations/{org_id}/memberships/{employee_membership_id}/roles",
+            headers=admin_headers,
+            json={"roles": ["employee", "researcher"]},
+        )
+        assert grant_researcher.status_code == 200
+        secondary_role_mentor = client.post(
+            f"{base}/courses/{course_id}/mentorships",
+            headers=admin_headers,
+            json={
+                "mentor_id": employee_membership.json()["user_id"],
+                "mentee_id": learner_id,
+                "notes": "Mentor eligibility through secondary researcher role.",
+            },
+        )
+        assert secondary_role_mentor.status_code == 201
+
         admin_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
             client.post(
                 "/api/auth/login",
