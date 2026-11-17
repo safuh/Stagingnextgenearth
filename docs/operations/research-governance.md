@@ -39,3 +39,7 @@ Founders, executives and administrators can load `GET /api/organizations/{organi
 ## Governance audit CSV export
 
 Founders, executives and administrators can export `GET /api/organizations/{organization_id}/research-governance/audit-events/export`. The export is tenant-scoped, newest-first and capped at 5,000 records. `X-Records-Truncated` indicates whether additional events were omitted. CSV cells beginning with spreadsheet formula characters are neutralised, and the file is UTF-8 with BOM for spreadsheet compatibility. Only audit metadata is exported; protocol contents and review notes are excluded.
+
+## Protocol version comparison
+
+Study collaborators and authorised organisation reviewers can compare two protocol versions with `GET /api/organizations/{organization_id}/research-studies/{study_id}/protocol-versions/{protocol_id}/compare/{other_protocol_id}`. The response provides the before/after values and a changed flag for each protocol field, plus a changed-field count. Both versions must belong to the same tenant-scoped study; identical version IDs are rejected. The Research workspace offers a one-click comparison from each older version to the latest version. The comparison is read-only and does not alter approval or ethics state.

@@ -203,15 +203,55 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
         headers=lead_headers,
         json={
             "title": "Rainfall adaptation protocol revised",
-            "objectives": "Assess seasonal rainfall patterns and community adaptation outcomes.",
+            "objectives": "Assess seasonal rainfall patterns and community adaptation.",
             "methodology": (
                 "Combine station observations with structured community interviews "
-                "and documented statistical analysis."
+                "and documented analysis."
             ),
+            "sampling_and_participants": "Recruit adult community volunteers.",
+            "data_management": "Store de-identified records in the approved repository.",
+            "risk_and_safeguarding": "Use informed consent and a documented referral process.",
         },
     )
     assert third_version.status_code == 201
     assert third_version.json()["version_number"] == 3
+    comparison = client.get(
+        f"{base_url}/protocol-versions/{protocol_id}/compare/{third_version.json()['id']}",
+        headers=lead_headers,
+    )
+    assert comparison.status_code == 200
+    assert comparison.json()["from_version"] == 1
+    assert comparison.json()["to_version"] == 3
+    assert comparison.json()["changed_field_count"] == 1
+    title_change = next(item for item in comparison.json()["fields"] if item["field"] == "title")
+    assert title_change["changed"] is True
+    assert title_change["before"] == "Rainfall adaptation protocol"
+    assert title_change["after"] == "Rainfall adaptation protocol revised"
+    unchanged_methodology = next(
+        item for item in comparison.json()["fields"] if item["field"] == "methodology"
+    )
+    assert unchanged_methodology["changed"] is False
+    assert (
+        client.get(
+            f"{base_url}/protocol-versions/{protocol_id}/compare/{protocol_id}",
+            headers=lead_headers,
+        ).status_code
+        == 409
+    )
+    assert (
+        client.get(
+            f"{base_url}/protocol-versions/{protocol_id}/compare/00000000-0000-0000-0000-000000000000",
+            headers=lead_headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"{base_url}/protocol-versions/{protocol_id}/compare/{third_version.json()['id']}",
+            headers=outsider_headers,
+        ).status_code
+        == 404
+    )
 
     audit = client.get(f"/api/organizations/{organization_id}/audit-events", headers=lead_headers)
     assert audit.status_code == 200
