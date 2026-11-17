@@ -138,7 +138,9 @@ async def list_staff_directory(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """Return minimal active-member identities to authorised programme staff."""
-    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive", "programme_manager"}):
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme staff access required",
