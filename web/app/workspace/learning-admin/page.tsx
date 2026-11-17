@@ -7,6 +7,7 @@ import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 interface MemberChoice {
   user_id: string;
   role: string;
+  roles: string[];
 }
 interface ModuleChoice {
   id: string;
@@ -345,8 +346,8 @@ export default function LearningAdminPage() {
             <form onSubmit={assignMentor}>
               <label>Mentor<select name="mentor_id" required defaultValue="">
                 <option value="" disabled>Select an active mentor</option>
-                {members.filter((member) => ["admin", "programme_manager", "researcher"].includes(member.role)).map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>
+                {members.filter((member) => (member.roles ?? [member.role]).some((role) => ["admin", "founder", "executive", "programme_manager", "researcher"].includes(role))).map((member) => (
+                  <option key={member.user_id} value={member.user_id}>{(member.roles ?? [member.role]).join(", ")} · {member.user_id}</option>
                 ))}
               </select></label>
               <label>Mentee<select name="mentee_id" required defaultValue="">
