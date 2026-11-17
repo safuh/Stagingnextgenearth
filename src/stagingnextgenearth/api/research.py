@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import Membership, Project, ResearchStudy
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies",
@@ -60,7 +66,7 @@ async def create_research_study(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchStudyRead:
     """Create a concept study and bind its lead researcher to the caller."""
-    if membership.role not in _RESEARCH_ROLES:
+    if not await membership_has_any_role(session, membership, _RESEARCH_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research workspace access required")
     if body.project_id is not None:
         project = await session.scalar(
