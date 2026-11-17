@@ -60,6 +60,7 @@ class VolunteerApplicationRead(BaseModel):
     safeguarding_confirmed: bool
     created_at: datetime
     applicant_identifier: str | None = None
+    programme_title: str | None = None
 
 
 @router.post(
@@ -242,3 +243,39 @@ async def decide_volunteer_application(
     await session.commit()
     await session.refresh(item)
     return VolunteerApplicationRead.model_validate(item)
+
+
+@router.get(
+    "/organizations/{organization_id}/volunteer-applications",
+    response_model=list[VolunteerApplicationRead],
+)
+async def list_organization_volunteer_applications(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[VolunteerApplicationRead]:
+    """Return one bounded, organisation-wide volunteer review queue."""
+    if not await membership_has_any_role(session, membership, _PROGRAMME_MANAGERS):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Programme management permission required"
+        )
+    rows = await session.execute(
+        select(ProgrammeVolunteerApplication, User.identifier, Programme.title)
+        .join(User, User.id == ProgrammeVolunteerApplication.user_id)
+        .join(Programme, Programme.id == ProgrammeVolunteerApplication.programme_id)
+        .where(
+            ProgrammeVolunteerApplication.organization_id == organization_id,
+            Programme.organization_id == organization_id,
+        )
+        .order_by(ProgrammeVolunteerApplication.created_at.desc())
+        .limit(500)
+    )
+    return [
+        VolunteerApplicationRead.model_validate(item).model_copy(
+            update={
+                "applicant_identifier": identifier,
+                "programme_title": programme_title,
+            }
+        )
+        for item, identifier, programme_title in rows.all()
+    ]

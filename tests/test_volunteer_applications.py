@@ -103,6 +103,21 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
             == "volunteer-applicant@example.org"
         )
 
+        organisation_queue = client.get(
+            f"/api/organizations/{org_id}/volunteer-applications",
+            headers=owner,
+        )
+        assert organisation_queue.status_code == 200
+        assert organisation_queue.json()[0]["programme_title"] == "Community Climate Action"
+        assert (
+            organisation_queue.json()[0]["applicant_identifier"]
+            == "volunteer-applicant@example.org"
+        )
+        assert client.get(
+            f"/api/organizations/{org_id}/volunteer-applications",
+            headers=applicant,
+        ).status_code == 404
+
         decision_url = f"{endpoint}/{application_id}/decision"
         blocked = client.post(
             decision_url,
