@@ -118,7 +118,9 @@ export default function HomePage() {
         </Link>
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
-          <a href="#programmes">Programmes</a>\n          <a href="#research">Research</a>\n          <a href="#activities">Activities</a>
+          <a href="#programmes">Programmes</a>
+          <a href="#research">Research</a>
+          <a href="#activities">Activities</a>
           <a href="/volunteer/apply">Volunteer</a>
           <a href="/employment/apply">Careers</a>
           <a href="/staff/login">Staff sign in</a>
