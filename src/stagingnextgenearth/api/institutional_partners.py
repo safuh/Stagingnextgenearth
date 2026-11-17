@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import InstitutionalPartner, InstitutionalPartnerContact, Membership, Organization, Programme, ProgrammePartner, OrganizationRecordAuditEvent
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import Principal, get_current_principal, get_session, membership_has_any_role, require_membership
 
 router = APIRouter(tags=["institutional-partners"])
 PartnerType = Literal["university","government","ngo","private_sector","network","funder","community_org","other"]
@@ -48,12 +48,12 @@ class PartnerProgrammeLink(BaseModel):
     programme_id: str
     partner_role: Literal["implementing_partner","funding_partner","technical_partner","research_partner","community_partner"]
     status: Literal["planned","active","ended"] = "planned"
-def _admin(m: Membership) -> None:
-    if m.role not in {"admin", "founder", "executive"}:
+async def _admin(m: Membership, session: AsyncSession) -> None:
+    if not await membership_has_any_role(session, m, {"admin", "founder", "executive"}):
         raise HTTPException(403, "Administrator role required")
 @router.get("/organizations/{organization_id}/partners", response_model=list[PartnerRead])
 async def list_partners(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[PartnerRead]:
-    _admin(membership)
+    await _admin(membership, session)
     rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == organization_id).order_by(InstitutionalPartner.name).limit(500))
     return [PartnerRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/partners", response_model=PartnerRead, status_code=201)
