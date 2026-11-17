@@ -39,6 +39,16 @@ interface Dataset {
   collection_end: string | null;
   owner_user_id: string;
 }
+interface ResearchAnalysisRun {
+  id: string; organization_id: string; dataset_id: string; study_id: string | null;
+  input_manifest_sha256: string;
+  input_file_versions: { file_id: string; version: number; filename: string; sha256: string }[];
+  analysis_configuration: Record<string, unknown>;
+  software_name: string; software_version: string; code_revision: string | null;
+  parameters: Record<string, unknown>; random_seed: number | null;
+  output_artifacts: { artifact_id: string; filename: string; media_type: string; size_bytes: number; sha256: string }[];
+  created_by: string; created_at: string;
+}
 interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }
 interface ClimateUnitSummary {
   unit: string; count: number; missing_count: number; mean: number | null; median: number | null;
@@ -173,6 +183,8 @@ export default function ResearchWorkspacePage() {
   const [historyLoading, setHistoryLoading] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, { title: string; description: string; version: string; format: string; source: string; license: string; access_classification: string }>>({});
   const [datasetFiles, setDatasetFiles] = useState<Record<string, DatasetFile[]>>({});
+  const [analysisRuns, setAnalysisRuns] = useState<Record<string, ResearchAnalysisRun[]>>({});
+  const [analysisRunsLoading, setAnalysisRunsLoading] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [climateObservations, setClimateObservations] = useState<ClimateObservation[]>([]);
@@ -608,6 +620,20 @@ export default function ResearchWorkspacePage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load dataset files."); } finally { setFileLoading(null); }
   }
 
+  async function loadAnalysisRuns(datasetId: string) {
+    setAnalysisRunsLoading(datasetId);
+    try {
+      const items = await apiGet<ResearchAnalysisRun[]>(
+        "/organizations/" + organizationId + "/research-datasets/" + datasetId + "/analysis-runs?limit=100",
+      );
+      setAnalysisRuns((current) => ({ ...current, [datasetId]: items }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load reproducible analysis history.");
+    } finally {
+      setAnalysisRunsLoading(null);
+    }
+  }
+
   async function retryDatasetFileScan(datasetId: string, fileId: string) {
     setUploading(datasetId); setError(""); setNotice("");
     try {
@@ -989,6 +1015,15 @@ export default function ResearchWorkspacePage() {
                             <button type="button" className="text-action" disabled={fileLoading === dataset.id} onClick={() => loadDatasetFiles(dataset.id)}>{fileLoading === dataset.id ? "Loading files…" : "File versions"}</button>
                             {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span>{file.status === "quarantined" && <button type="button" className="text-action" disabled={uploading === dataset.id} onClick={() => retryDatasetFileScan(dataset.id, file.id)}>{uploading === dataset.id ? "Retrying…" : "Retry verification / scan"}</button>}<small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
                             <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
+                            <button type="button" className="text-action" disabled={analysisRunsLoading === dataset.id || dataset.status !== "approved"} onClick={() => loadAnalysisRuns(dataset.id)}>{analysisRunsLoading === dataset.id ? "Loading analysis runs…" : "Reproducible analysis history"}</button>
+                            {analysisRuns[dataset.id] && <div className="dataset-review-history" aria-live="polite">
+                              {analysisRuns[dataset.id].length === 0 ? <p className="workspace-muted">No analysis runs have been recorded for this dataset.</p> : <ol>{analysisRuns[dataset.id].map((run) => <li key={run.id}>
+                                <strong>{run.software_name} {run.software_version}</strong> · {new Date(run.created_at).toLocaleString()}
+                                <p>Inputs: {run.input_file_versions.length} file version(s) · manifest SHA-256: {run.input_manifest_sha256.slice(0, 16)}…</p>
+                                <p>Outputs: {run.output_artifacts.length} artifact(s){run.code_revision ? " · revision " + run.code_revision.slice(0, 12) : ""}</p>
+                                <small>Run {run.id} · recorded by {run.created_by}</small>
+                              </li>)}</ol>}
+                            </div>}
                             {reviewHistory[dataset.id] && <ol className="dataset-review-history">{reviewHistory[dataset.id].map((event) => <li key={event.id}><strong>{event.decision}</strong> · {new Date(event.reviewed_at).toLocaleString()}{event.note && <p>{event.note}</p>}</li>)}</ol>}
                           </td>
                         </tr>
