@@ -70,14 +70,15 @@ class CopernicusERA5Provider:
         """Yield ERA5 hourly measurements from a bounded CDS retrieval."""
         if (request.point is None) == (request.area is None):
             raise ValueError("ERA5 requests require exactly one point or bounding box")
-        start = request.start.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+        start = request.start.astimezone(UTC)
         end = request.end.astimezone(UTC)
+        retrieval_start = start.replace(minute=0, second=0, microsecond=0)
         last_instant = end - timedelta(microseconds=1)
-        if last_instant < start:
+        if last_instant < retrieval_start:
             raise ValueError("request must cover at least one hourly interval")
         self._validate_window(request)
         self._validate_area_size(request)
-        cds_request = self._build_request(request, start, last_instant)
+        cds_request = self._build_request(request, retrieval_start, last_instant)
         content = await asyncio.to_thread(self._retrieve, cds_request)
         for item in self._decode(content, request, start, end):
             yield item
