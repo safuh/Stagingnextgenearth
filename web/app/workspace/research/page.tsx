@@ -114,6 +114,13 @@ interface MonthlyAnomalyReport {
 
 
 const RESEARCH_ROLES = ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"];
+const STUDY_NEXT_STATUS: Record<string, { status: string; label: string }> = {
+  concept: { status: "protocol", label: "Move to protocol review" },
+  protocol: { status: "active", label: "Activate study" },
+  active: { status: "completed", label: "Mark completed" },
+  completed: { status: "published", label: "Mark published" },
+  published: { status: "archived", label: "Archive study" },
+};
 
 export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -126,6 +133,7 @@ export default function ResearchWorkspacePage() {
   const [evidenceLedger, setEvidenceLedger] = useState<EvidenceLedger | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceExporting, setEvidenceExporting] = useState(false);
+  const [lifecycleSaving, setLifecycleSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -738,6 +746,25 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  async function transitionStudy(studyId: string, targetStatus: string) {
+    setLifecycleSaving(studyId);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiPatch<Study>(
+        `/organizations/${organizationId}/research-studies/${studyId}/status`,
+        { status: targetStatus },
+      );
+      setStudies((current) => current.map((item) => item.id === studyId ? updated : item));
+      if (evidenceStudyId === studyId) setEvidenceLedger(null);
+      setNotice(`Study lifecycle advanced to ${updated.status.replace(/_/g, " ")}. The transition was recorded in the organisation audit trail.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update the study lifecycle.");
+    } finally {
+      setLifecycleSaving(null);
+    }
+  }
+
   async function createStudy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1053,6 +1080,18 @@ export default function ResearchWorkspacePage() {
                         <h3>{study.title}</h3>
                         <p>{study.abstract || "No study abstract supplied."}</p>
                         <dl><div><dt>Lead researcher</dt><dd>{study.lead_researcher_id}</dd></div><div><dt>Ethics reference</dt><dd>{study.ethics_reference || "Not recorded"}</dd></div></dl>
+                        {isReviewer && STUDY_NEXT_STATUS[study.status] && (
+                          <div className="dataset-review-actions">
+                            <button
+                              type="button"
+                              className="secondary-action"
+                              disabled={lifecycleSaving === study.id}
+                              onClick={() => void transitionStudy(study.id, STUDY_NEXT_STATUS[study.status].status)}
+                            >
+                              {lifecycleSaving === study.id ? "Updating…" : STUDY_NEXT_STATUS[study.status].label}
+                            </button>
+                          </div>
+                        )}
                       </article>
                     ))}</div>
                   )}
