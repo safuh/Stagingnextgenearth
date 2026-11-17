@@ -1,9 +1,11 @@
 """Study-level evidence ledger joining approved datasets, analysis runs and outputs."""
 
+import csv
+import io
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,9 +172,7 @@ async def get_research_evidence_ledger(
         ResearchAnalysisRun.study_id == study_id,
     )
     if dataset_ids:
-        run_statement = run_statement.where(
-            ResearchAnalysisRun.dataset_id.in_(dataset_ids)
-        )
+        run_statement = run_statement.where(ResearchAnalysisRun.dataset_id.in_(dataset_ids))
     else:
         run_statement = run_statement.where(ResearchAnalysisRun.dataset_id == "")
     runs_result = await session.scalars(
@@ -219,15 +219,10 @@ async def get_research_evidence_ledger(
                 ResearchPublicationMetadataSource.publication_id,
                 func.count(ResearchPublicationMetadataSource.id),
             )
-            .where(
-                ResearchPublicationMetadataSource.publication_id.in_(publication_ids)
-            )
+            .where(ResearchPublicationMetadataSource.publication_id.in_(publication_ids))
             .group_by(ResearchPublicationMetadataSource.publication_id)
         )
-        metadata_counts = {
-            publication_id: count
-            for publication_id, count in count_rows.all()
-        }
+        metadata_counts = {publication_id: count for publication_id, count in count_rows.all()}
     publication_evidence = [
         EvidencePublication(
             publication_id=item.id,
@@ -270,4 +265,136 @@ async def get_research_evidence_ledger(
             first_observed_at=climate_row[4],
             last_observed_at=climate_row[5],
         ),
+    )
+
+
+def _safe_csv_cell(value: object) -> str:
+    rendered = "" if value is None else str(value)
+    if rendered.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return "'" + rendered
+    return rendered
+
+
+@router.get("/{study_id}/evidence-ledger/export", response_class=Response)
+async def export_research_evidence_ledger(
+    organization_id: str,
+    study_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> Response:
+    """Export the same authorised, bounded metadata inventory as spreadsheet-safe CSV."""
+    report = await get_research_evidence_ledger(
+        organization_id, study_id, principal, membership, session, limit
+    )
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    columns = (
+        "record_type",
+        "study_id",
+        "study_title",
+        "generated_at",
+        "datasets_truncated",
+        "analysis_runs_truncated",
+        "publications_truncated",
+        "record_id",
+        "title",
+        "version",
+        "access_classification",
+        "manifest_sha256",
+        "file_count",
+        "files_truncated",
+        "dataset_id",
+        "input_manifest_sha256",
+        "manifest_matches_current",
+        "software_name",
+        "software_version",
+        "code_revision",
+        "output_artifact_count",
+        "created_at",
+        "publication_type",
+        "doi",
+        "openalex_id",
+        "metadata_provenance_count",
+        "observation_count",
+        "verified_count",
+        "pending_count",
+        "rejected_count",
+        "first_observed_at",
+        "last_observed_at",
+        "interpretation",
+    )
+    writer.writerow(columns)
+
+    def write_record(record_type: str, **values: object) -> None:
+        row: dict[str, object] = {
+            "record_type": record_type,
+            "study_id": report.study_id,
+            "study_title": report.study_title,
+            "generated_at": report.generated_at.isoformat(),
+            "datasets_truncated": report.datasets_truncated,
+            "analysis_runs_truncated": report.analysis_runs_truncated,
+            "publications_truncated": report.publications_truncated,
+            "interpretation": report.interpretation,
+            **values,
+        }
+        writer.writerow([_safe_csv_cell(row.get(column)) for column in columns])
+
+    write_record("study")
+    for dataset in report.datasets:
+        write_record(
+            "dataset",
+            record_id=dataset.dataset_id,
+            title=dataset.title,
+            version=dataset.version,
+            access_classification=dataset.access_classification,
+            manifest_sha256=dataset.manifest_sha256,
+            file_count=dataset.file_count,
+            files_truncated=dataset.files_truncated,
+        )
+    for run in report.analysis_runs:
+        write_record(
+            "analysis_run",
+            record_id=run.run_id,
+            dataset_id=run.dataset_id,
+            input_manifest_sha256=run.input_manifest_sha256,
+            manifest_matches_current=run.manifest_matches_current,
+            software_name=run.software_name,
+            software_version=run.software_version,
+            code_revision=run.code_revision,
+            output_artifact_count=run.output_artifact_count,
+            created_at=run.created_at.isoformat(),
+        )
+    for publication in report.publications:
+        write_record(
+            "publication",
+            record_id=publication.publication_id,
+            title=publication.title,
+            publication_type=publication.publication_type,
+            doi=publication.doi,
+            openalex_id=publication.openalex_id,
+            metadata_provenance_count=publication.metadata_provenance_count,
+        )
+    write_record(
+        "climate_summary",
+        observation_count=report.climate.observation_count,
+        verified_count=report.climate.verified_count,
+        pending_count=report.climate.pending_count,
+        rejected_count=report.climate.rejected_count,
+        first_observed_at=(
+            report.climate.first_observed_at.isoformat()
+            if report.climate.first_observed_at
+            else None
+        ),
+        last_observed_at=(
+            report.climate.last_observed_at.isoformat() if report.climate.last_observed_at else None
+        ),
+    )
+    return Response(
+        content=chr(0xFEFF) + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (f'attachment; filename="research-evidence-{study_id}.csv"')
+        },
     )

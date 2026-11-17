@@ -6,20 +6,21 @@ from stagingnextgenearth.api.research_evidence import (
     EvidenceDataset,
     EvidencePublication,
     ResearchEvidenceLedgerRead,
+    _safe_csv_cell,
     router,
 )
 
 
 def test_evidence_ledger_route_is_read_only_and_bounded() -> None:
     route = next(
-        item for item in router.routes
+        item
+        for item in router.routes
         if getattr(item, "path", "").endswith("/{study_id}/evidence-ledger")
     )
     assert route.methods == {"GET"}
     assert route.response_model == ResearchEvidenceLedgerRead
     limit = next(
-        parameter for parameter in route.dependant.query_params
-        if parameter.name == "limit"
+        parameter for parameter in route.dependant.query_params if parameter.name == "limit"
     )
     assert any(getattr(item, "le", None) == 500 for item in limit.field_info.metadata)
 
@@ -78,3 +79,23 @@ def test_evidence_ledger_contract_exposes_traceability_not_private_file_data() -
     assert payload["climate"]["verified_count"] == 8
     assert "storage_key" not in str(payload)
     assert "file_contents" not in str(payload)
+
+
+def test_evidence_ledger_csv_export_is_read_only_and_formula_safe() -> None:
+    route = next(
+        item
+        for item in router.routes
+        if getattr(item, "path", "").endswith("/{study_id}/evidence-ledger/export")
+    )
+    assert route.methods == {"GET"}
+    assert route.response_class.__name__ == "Response"
+    limit = next(
+        parameter for parameter in route.dependant.query_params if parameter.name == "limit"
+    )
+    assert any(getattr(item, "le", None) == 500 for item in limit.field_info.metadata)
+    assert _safe_csv_cell('=HYPERLINK("https://example.invalid")') == (
+        '\'=HYPERLINK("https://example.invalid")'
+    )
+    assert _safe_csv_cell("+SUM(A1:A2)") == "'+SUM(A1:A2)"
+    assert _safe_csv_cell("\t=1+1") == "'\t=1+1"
+    assert _safe_csv_cell("normal text") == "normal text"
