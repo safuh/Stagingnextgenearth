@@ -141,12 +141,12 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
         json={
             "protocol_version_id": protocol_id,
             "decision": "approved",
-            "reference": "=ERB-2026-041",
+            "reference": "\t=ERB-2026-041",
             "note": "The committee approved the submitted protocol and consent process.",
         },
     )
     assert ethics.status_code == 201
-    assert ethics.json()["reference"] == "=ERB-2026-041"
+    assert ethics.json()["reference"] == "\t=ERB-2026-041"
 
     protocol_history = client.get(
         f"{base_url}/protocol-versions/{protocol_id}/reviews",
@@ -237,7 +237,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert governance_export.status_code == 200
     assert governance_export.content.startswith(b"\xef\xbb\xbf")
-    assert b"'=ERB-2026-041" in governance_export.content
+    assert b"'\t=ERB-2026-041" in governance_export.content
     assert governance_export.headers["x-records-truncated"] == "false"
     truncated_export = client.get(
         f"/api/organizations/{organization_id}/research-governance/audit-events/export?limit=1",

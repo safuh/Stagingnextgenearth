@@ -183,7 +183,10 @@ async def export_research_governance_audit_events(
 
     def cell(value: object) -> str:
         text_value = "" if value is None else str(value)
-        return f"'{text_value}" if text_value.startswith(("=", "+", "-", "@")) else text_value
+        formula_candidate = text_value.lstrip(" \t\r\n")
+        return (
+            f"'{text_value}" if formula_candidate.startswith(("=", "+", "-", "@")) else text_value
+        )
 
     output = io.StringIO(newline="")
     writer = csv.writer(output, lineterminator="\r\n")
