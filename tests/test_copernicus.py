@@ -64,3 +64,29 @@ def test_era5_enforces_small_retrieval_window() -> None:
         provider._validate_area_size(request)
         # The time-window guard runs before any CDS client is constructed.
         provider._validate_window(request)
+
+
+
+def test_era5_rejects_area_that_exceeds_cell_budget_before_submission() -> None:
+    provider = CopernicusERA5Provider(max_grid_cells=100)
+    request = _request(
+        area=ClimateBoundingBox(west=34, south=-5, east=42, north=5)
+    )
+    with pytest.raises(ValueError, match="cell request limit"):
+        provider._validate_area_size(request)
+
+
+def test_era5_preserves_hourly_request_boundaries() -> None:
+    provider = CopernicusERA5Provider()
+    request = ClimateProviderRequest(
+        start=datetime(2026, 1, 1, 12, 30, tzinfo=UTC),
+        end=datetime(2026, 1, 1, 14, 15, tzinfo=UTC),
+        point=ClimatePoint(latitude=-1.28, longitude=36.82),
+    )
+    provider._validate_window(request)
+    payload = provider._build_request(
+        request,
+        request.start.replace(minute=0),
+        request.end.replace(minute=0) - __import__("datetime").timedelta(microseconds=1),
+    )
+    assert payload["day"] == ["01"]
