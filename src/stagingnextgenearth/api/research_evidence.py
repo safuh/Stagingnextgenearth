@@ -1,11 +1,11 @@
 """Study-level evidence ledger joining approved datasets, analysis runs and outputs."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -229,15 +229,9 @@ async def get_research_evidence_ledger(
 
     climate_statement = select(
         func.count(ClimateObservation.id),
-        func.sum(
-            func.case((ClimateObservation.quality_status == "verified", 1), else_=0)
-        ),
-        func.sum(
-            func.case((ClimateObservation.quality_status == "pending", 1), else_=0)
-        ),
-        func.sum(
-            func.case((ClimateObservation.quality_status == "rejected", 1), else_=0)
-        ),
+        func.sum(case((ClimateObservation.quality_status == "verified", 1), else_=0)),
+        func.sum(case((ClimateObservation.quality_status == "pending", 1), else_=0)),
+        func.sum(case((ClimateObservation.quality_status == "rejected", 1), else_=0)),
         func.min(ClimateObservation.observed_at),
         func.max(ClimateObservation.observed_at),
     ).where(
@@ -248,7 +242,7 @@ async def get_research_evidence_ledger(
     return ResearchEvidenceLedgerRead(
         study_id=study.id,
         study_title=study.title,
-        generated_at=datetime.now().astimezone(),
+        generated_at=datetime.now(UTC),
         datasets=dataset_evidence,
         analysis_runs=analysis_runs,
         publications=publication_evidence,
