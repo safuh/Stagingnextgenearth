@@ -10,8 +10,8 @@ import asyncio
 import tempfile
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from math import isfinite
+from pathlib import Path
 from typing import Any
 
 from stagingnextgenearth.climate_ingestion import (
@@ -35,7 +35,7 @@ class CopernicusERA5Provider:
     """Retrieve ERA5 hourly single-level fields for a point or small area.
 
     The official `cdsapi` client reads credentials from the standard CDS API
-    configuration. Install the `climate-copernicus` extra and configure the
+    configuration. Install the optional `cdsapi`, `xarray` and `netCDF4` libraries and configure the
     token outside application source control. Dataset terms must be accepted
     in the CDS web interface before retrieval.
     """
@@ -151,7 +151,7 @@ class CopernicusERA5Provider:
                 import cdsapi
             except ImportError as exc:
                 raise RuntimeError(
-                    "Copernicus ERA5 retrieval requires the climate-copernicus extra"
+                    "Copernicus ERA5 retrieval requires the optional CDS and NetCDF libraries"
                 ) from exc
             factory = cdsapi.Client
         with tempfile.TemporaryDirectory(prefix="nextgen-era5-") as directory:
@@ -172,7 +172,7 @@ class CopernicusERA5Provider:
             import xarray as xr
         except ImportError as exc:
             raise RuntimeError(
-                "ERA5 NetCDF decoding requires xarray; install climate-copernicus"
+                "ERA5 NetCDF decoding requires xarray; install the optional CDS and NetCDF libraries"
             ) from exc
         import io
 
