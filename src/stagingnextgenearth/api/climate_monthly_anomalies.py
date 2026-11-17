@@ -190,7 +190,7 @@ async def monthly_precipitation_anomalies(
                     ),
                     baseline_year_count=anomaly.baseline_count,
                     standardized_anomaly=anomaly.value,
-                    method=anomaly.method,
+                    method="sample_standardized_anomaly_z_score",
                     classification="unclassified",
                 ))
         cursor = date(cursor.year + (cursor.month == 12), cursor.month % 12 + 1, 1)
