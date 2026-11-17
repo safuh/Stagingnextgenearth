@@ -220,6 +220,18 @@ class AttendanceCreate(BaseModel):
     attendance_status: Literal["present", "late", "excused", "absent"]
 
 
+class AttendanceBulkLearner(BaseModel):
+    learner_id: str
+    attendance_status: Literal["present", "late", "excused", "absent"]
+
+
+class AttendanceBulkCreate(BaseModel):
+    session_key: str = Field(min_length=1, max_length=100)
+    session_title: str = Field(min_length=2, max_length=240)
+    session_date: date
+    learners: list[AttendanceBulkLearner] = Field(min_length=1, max_length=100)
+
+
 class ResourceCreate(BaseModel):
     title: str = Field(min_length=2, max_length=240)
     resource_type: Literal["document", "video", "research", "link"]
@@ -802,6 +814,61 @@ async def assign_mentor(
         raise HTTPException(409, "This mentorship assignment already exists") from exc
     return {"id": assignment.id, "mentor_id": assignment.mentor_id,
             "mentee_id": assignment.mentee_id, "status": assignment.status}
+
+
+@router.post("/courses/{course_id}/attendance/bulk", status_code=201)
+async def record_bulk_attendance(
+    organization_id: str, course_id: str, body: AttendanceBulkCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Record one workshop roll call atomically for up to 100 approved learners."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Attendance recording permission required")
+    await _course(session, organization_id, course_id)
+    learner_ids = [item.learner_id for item in body.learners]
+    if len(set(learner_ids)) != len(learner_ids):
+        raise HTTPException(422, "A learner may appear only once in a workshop roll call")
+    enrolled_rows = await session.scalars(
+        select(LearningEnrollment.learner_id).where(
+            LearningEnrollment.course_id == course_id,
+            LearningEnrollment.learner_id.in_(learner_ids),
+            LearningEnrollment.status.in_({"approved", "completed"}),
+        )
+    )
+    eligible = set(enrolled_rows.all())
+    if eligible != set(learner_ids):
+        raise HTTPException(422, "Every attendee must have an approved course enrollment")
+    records = [
+        LearningAttendance(
+            course_id=course_id,
+            recorded_by=principal.user_id,
+            session_key=body.session_key,
+            session_title=body.session_title,
+            session_date=body.session_date,
+            learner_id=item.learner_id,
+            attendance_status=item.attendance_status,
+        )
+        for item in body.learners
+    ]
+    session.add_all(records)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            409,
+            "At least one learner already has attendance for this workshop session",
+        ) from exc
+    return {
+        "session_key": body.session_key,
+        "recorded": len(records),
+        "records": [
+            {"id": row.id, "learner_id": row.learner_id, "attendance_status": row.attendance_status}
+            for row in records
+        ],
+    }
 
 
 @router.post("/courses/{course_id}/attendance", status_code=201)
