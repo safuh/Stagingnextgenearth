@@ -52,35 +52,10 @@ def upgrade() -> None:
         "learning_assessment_evaluations",
         ["attempt_id", "evaluated_at"],
     )
-    op.drop_constraint(
-        "ck_organization_audit_event_action",
-        "organization_audit_events",
-        type_="check",
-    )
-    op.create_check_constraint(
-        "ck_organization_audit_event_action",
-        "organization_audit_events",
-        "action IN ('membership.role_changed', 'membership.roles_changed', "
-        "'membership.status_changed', 'organization.ownership_transferred', "
-        "'volunteer_application.decided', 'employment_application.decided', "
-        "'learning.mentorship.status_changed')",
-    )
+
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "ck_organization_audit_event_action",
-        "organization_audit_events",
-        type_="check",
-    )
-    op.create_check_constraint(
-        "ck_organization_audit_event_action",
-        "organization_audit_events",
-        "action IN ('membership.role_changed', 'membership.roles_changed', "
-        "'membership.status_changed', 'organization.ownership_transferred', "
-        "'volunteer_application.decided', 'employment_application.decided', "
-        "'learning.mentorship.status_changed')",
-    )
     op.drop_index(
         "ix_learning_assessment_evaluations_attempt",
         table_name="learning_assessment_evaluations",
