@@ -1,6 +1,6 @@
 """Audit governed research-study lifecycle transitions.
 
-Revision ID: 0055_research_study_lifecycle_audit
+Revision ID: 0055_study_lifecycle_audit
 Revises: 0054_climate_review_audit
 """
 
@@ -8,7 +8,7 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0055_research_study_lifecycle_audit"
+revision: str = "0055_study_lifecycle_audit"
 down_revision: str | None = "0054_climate_review_audit"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
