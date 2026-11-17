@@ -30,6 +30,13 @@ interface ProtocolVersion {
   data_management: string | null; risk_and_safeguarding: string | null;
   status: string; submitted_at: string | null; created_at: string;
 }
+interface ProtocolComparison {
+  study_id: string;
+  from_version: number;
+  to_version: number;
+  changed_field_count: number;
+  fields: { field: string; before: string | null; after: string | null; changed: boolean }[];
+}
 interface ProtocolReview { id: string; protocol_version_id: string; decision: string; note: string | null; reviewed_at: string; }
 interface EthicsReview { id: string; study_id: string; protocol_version_id: string | null; decision: string; reference: string | null; note: string | null; reviewed_at: string; }
 interface ResearchAuditEvent { id: string; actor_user_id: string; subject_user_id: string | null; action: string; changes: Record<string, unknown>; created_at: string; }
@@ -146,6 +153,8 @@ export default function ResearchWorkspacePage() {
   const [lifecycleSaving, setLifecycleSaving] = useState<string | null>(null);
   const [governanceStudyId, setGovernanceStudyId] = useState("");
   const [protocolVersions, setProtocolVersions] = useState<ProtocolVersion[]>([]);
+  const [protocolComparison, setProtocolComparison] = useState<ProtocolComparison | null>(null);
+  const [protocolComparisonLoading, setProtocolComparisonLoading] = useState(false);
   const [protocolReviews, setProtocolReviews] = useState<Record<string, ProtocolReview[]>>({});
   const [ethicsReviews, setEthicsReviews] = useState<EthicsReview[]>([]);
   const [governanceLoading, setGovernanceLoading] = useState(false);
@@ -209,6 +218,8 @@ export default function ResearchWorkspacePage() {
     governanceRequest.current += 1;
     setGovernanceStudyId("");
     setProtocolVersions([]);
+    setProtocolComparison(null);
+    setProtocolComparisonLoading(false);
     setProtocolReviews({});
     setEthicsReviews([]);
     setProtocolReviewNotes({});
@@ -848,6 +859,8 @@ export default function ResearchWorkspacePage() {
     setGovernanceLoading(true);
     setError("");
     setProtocolVersions([]);
+    setProtocolComparison(null);
+    setProtocolComparisonLoading(false);
     setProtocolReviews({});
     setEthicsReviews([]);
     try {
@@ -869,6 +882,25 @@ export default function ResearchWorkspacePage() {
       }
     } finally {
       if (generation === workspaceGeneration.current && request === governanceRequest.current) setGovernanceLoading(false);
+    }
+  }
+
+  async function compareProtocolVersions(fromProtocolId: string, toProtocolId: string) {
+    const generation = workspaceGeneration.current;
+    setProtocolComparisonLoading(true);
+    setProtocolComparison(null);
+    setError("");
+    try {
+      const comparison = await apiGet<ProtocolComparison>(
+        `/organizations/${organizationId}/research-studies/${governanceStudyId}/protocol-versions/${fromProtocolId}/compare/${toProtocolId}`,
+      );
+      if (generation === workspaceGeneration.current) setProtocolComparison(comparison);
+    } catch (cause) {
+      if (generation === workspaceGeneration.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to compare protocol versions.");
+      }
+    } finally {
+      if (generation === workspaceGeneration.current) setProtocolComparisonLoading(false);
     }
   }
 
@@ -1338,9 +1370,13 @@ export default function ResearchWorkspacePage() {
                         </section>
                       )}
                       <h3>Protocol versions</h3>
+                      {protocolVersions.length > 1 && <p className="workspace-muted">Select Compare with latest on an older version to inspect field-level changes.</p>}
+                      {protocolComparisonLoading && <p className="workspace-muted">Comparing protocol versions…</p>}
+                      {protocolComparison && <section className="staff-card" aria-live="polite"><div className="research-record-top"><h3>Protocol v{protocolComparison.from_version} → v{protocolComparison.to_version}</h3><span className="status-chip">{protocolComparison.changed_field_count} changed fields</span></div><div className="research-table-wrap"><table className="research-table"><thead><tr><th>Protocol field</th><th>Earlier version</th><th>Compared version</th></tr></thead><tbody>{protocolComparison.fields.map((field) => <tr key={field.field}><td><strong>{field.field.replace(/_/g, " ")}</strong>{field.changed && <span className="status-chip">Changed</span>}</td><td>{field.before || "—"}</td><td>{field.after || "—"}</td></tr>)}</tbody></table></div></section>}
                       {protocolVersions.length === 0 ? <p className="workspace-muted">No protocol versions have been created for this study.</p> : protocolVersions.map((protocol) => (
                         <article className="research-record" key={protocol.id}>
                           <div className="research-record-top"><strong>Version {protocol.version_number}: {protocol.title}</strong><span className="status-chip">{protocol.status.replace(/_/g, " ")}</span></div>
+                          {protocolVersions[0]?.id !== protocol.id && protocolVersions[0] && <button type="button" className="secondary-action" disabled={protocolComparisonLoading} onClick={() => void compareProtocolVersions(protocol.id, protocolVersions[0].id)}>Compare with latest v{protocolVersions[0].version_number}</button>}
                           <p><strong>Objectives:</strong> {protocol.objectives}</p><p><strong>Methodology:</strong> {protocol.methodology}</p>
                           {protocol.sampling_and_participants && <p><strong>Sampling:</strong> {protocol.sampling_and_participants}</p>}
                           {protocol.data_management && <p><strong>Data management:</strong> {protocol.data_management}</p>}

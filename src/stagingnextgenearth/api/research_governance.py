@@ -70,6 +70,32 @@ class ProtocolRead(BaseModel):
     created_at: datetime
 
 
+class ProtocolComparisonFieldRead(BaseModel):
+    """One protocol field compared between two immutable versions."""
+
+    field: Literal[
+        "title",
+        "objectives",
+        "methodology",
+        "sampling_and_participants",
+        "data_management",
+        "risk_and_safeguarding",
+    ]
+    before: str | None
+    after: str | None
+    changed: bool
+
+
+class ProtocolComparisonRead(BaseModel):
+    """Field-level comparison between two versions of one study protocol."""
+
+    study_id: str
+    from_version: int
+    to_version: int
+    changed_field_count: int
+    fields: list[ProtocolComparisonFieldRead]
+
+
 class ProtocolReviewCreate(BaseModel):
     """Independent protocol review decision."""
 
@@ -422,6 +448,72 @@ async def submit_protocol_version(
     await session.commit()
     await session.refresh(protocol)
     return ProtocolRead.model_validate(protocol)
+
+
+@router.get(
+    "/protocol-versions/{protocol_id}/compare/{other_protocol_id}",
+    response_model=ProtocolComparisonRead,
+)
+async def compare_protocol_versions(
+    organization_id: str,
+    study_id: str,
+    protocol_id: str,
+    other_protocol_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProtocolComparisonRead:
+    """Compare immutable protocol content without exposing another study's records."""
+    study = await _study(session, organization_id, study_id)
+    await _require_research_access(session, study, principal, membership)
+    if protocol_id == other_protocol_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Choose two different protocol versions")
+    versions = await session.scalars(
+        select(ResearchProtocolVersion).where(
+            ResearchProtocolVersion.study_id == study_id,
+            ResearchProtocolVersion.id.in_([protocol_id, other_protocol_id]),
+        )
+    )
+    by_id = {version.id: version for version in versions.all()}
+    before = by_id.get(protocol_id)
+    after = by_id.get(other_protocol_id)
+    if before is None or after is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Protocol version not found")
+
+    field_names: tuple[
+        Literal[
+            "title",
+            "objectives",
+            "methodology",
+            "sampling_and_participants",
+            "data_management",
+            "risk_and_safeguarding",
+        ],
+        ...,
+    ] = (
+        "title",
+        "objectives",
+        "methodology",
+        "sampling_and_participants",
+        "data_management",
+        "risk_and_safeguarding",
+    )
+    fields = [
+        ProtocolComparisonFieldRead(
+            field=field,
+            before=getattr(before, field),
+            after=getattr(after, field),
+            changed=getattr(before, field) != getattr(after, field),
+        )
+        for field in field_names
+    ]
+    return ProtocolComparisonRead(
+        study_id=study_id,
+        from_version=before.version_number,
+        to_version=after.version_number,
+        changed_field_count=sum(item.changed for item in fields),
+        fields=fields,
+    )
 
 
 @router.post(
