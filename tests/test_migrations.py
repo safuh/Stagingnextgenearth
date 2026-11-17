@@ -276,6 +276,10 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             )
             assert audit_action_constraint is not None
             assert "research.study.status_changed" in audit_action_constraint
+            assert "research.protocol.version_created" in audit_action_constraint
+            assert "research.protocol.submitted" in audit_action_constraint
+            assert "research.protocol.reviewed" in audit_action_constraint
+            assert "research.ethics.review_recorded" in audit_action_constraint
 
             geometry_type = await connection.scalar(
                 text(

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
     Membership,
+    OrganizationAuditEvent,
     ResearchEthicsReviewEvent,
     ResearchProtocolReviewEvent,
     ResearchProtocolVersion,
@@ -179,6 +180,21 @@ async def create_protocol_version(
         created_by=principal.user_id,
     )
     session.add(version)
+    await session.flush()
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=study.lead_researcher_id,
+            action="research.protocol.version_created",
+            changes={
+                "study_id": study_id,
+                "protocol_version_id": version.id,
+                "version_number": version.version_number,
+                "status": "draft",
+            },
+        )
+    )
     await session.commit()
     await session.refresh(version)
     return ProtocolRead.model_validate(version)
@@ -232,6 +248,20 @@ async def submit_protocol_version(
         raise HTTPException(status.HTTP_409_CONFLICT, "Protocol version cannot be submitted")
     protocol.status = "submitted"
     protocol.submitted_at = datetime.now(UTC)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=protocol.created_by,
+            action="research.protocol.submitted",
+            changes={
+                "study_id": study_id,
+                "protocol_version_id": protocol.id,
+                "version_number": protocol.version_number,
+                "status": "submitted",
+            },
+        )
+    )
     await session.commit()
     await session.refresh(protocol)
     return ProtocolRead.model_validate(protocol)
@@ -275,6 +305,20 @@ async def review_protocol_version(
     )
     protocol.status = body.decision
     session.add(event)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=protocol.created_by,
+            action="research.protocol.reviewed",
+            changes={
+                "study_id": study_id,
+                "protocol_version_id": protocol.id,
+                "version_number": protocol.version_number,
+                "decision": body.decision,
+            },
+        )
+    )
     await session.commit()
     await session.refresh(event)
     return ProtocolReviewRead.model_validate(event)
@@ -352,6 +396,20 @@ async def record_ethics_review(
         note=body.note.strip(),
     )
     session.add(event)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=study.lead_researcher_id,
+            action="research.ethics.review_recorded",
+            changes={
+                "study_id": study_id,
+                "protocol_version_id": protocol.id,
+                "decision": body.decision,
+                "reference": body.reference,
+            },
+        )
+    )
     await session.commit()
     await session.refresh(event)
     return EthicsReviewRead.model_validate(event)
