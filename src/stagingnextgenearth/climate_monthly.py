@@ -5,7 +5,6 @@ are compared. This is a descriptive z-score, not SPI or a drought category.
 """
 
 from calendar import monthrange
-from collections import defaultdict
 from datetime import date
 from math import isfinite
 
