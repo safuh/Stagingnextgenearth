@@ -30,6 +30,10 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}",
     tags=["research-governance"],
 )
+audit_router = APIRouter(
+    prefix="/organizations/{organization_id}/research-governance",
+    tags=["research-governance"],
+)
 _REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _WRITE_ROLES = {"editor", "contributor"}
 
@@ -100,6 +104,48 @@ class EthicsReviewRead(BaseModel):
     reference: str | None
     note: str | None
     reviewed_at: datetime
+
+
+class ResearchGovernanceAuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    actor_user_id: str
+    subject_user_id: str | None
+    action: str
+    changes: dict[str, object]
+    created_at: datetime
+
+
+@audit_router.get("/audit-events", response_model=list[ResearchGovernanceAuditRead])
+async def list_research_governance_audit_events(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[ResearchGovernanceAuditRead]:
+    """List bounded research governance audit events for organisation leaders."""
+    if not await membership_has_any_role(
+        session, membership, _REVIEW_ROLES - {"programme_manager"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Organisation leadership role required")
+    actions = {
+        "research.study.status_changed",
+        "research.protocol.version_created",
+        "research.protocol.submitted",
+        "research.protocol.reviewed",
+        "research.ethics.review_recorded",
+    }
+    events = await session.scalars(
+        select(OrganizationAuditEvent)
+        .where(
+            OrganizationAuditEvent.organization_id == organization_id,
+            OrganizationAuditEvent.action.in_(actions),
+        )
+        .order_by(OrganizationAuditEvent.created_at.desc(), OrganizationAuditEvent.id.desc())
+        .limit(limit)
+    )
+    return [ResearchGovernanceAuditRead.model_validate(event) for event in events.all()]
 
 
 async def _study(session: AsyncSession, organization_id: str, study_id: str) -> ResearchStudy:

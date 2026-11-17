@@ -224,6 +224,28 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert all("note" not in item["changes"] for item in research_audit)
     assert all(item["actor_user_id"] for item in research_audit)
 
+    governance_audit = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events?limit=200",
+        headers=lead_headers,
+    )
+    assert governance_audit.status_code == 200
+    assert len(governance_audit.json()) == len(research_audit)
+    assert all(item["action"].startswith("research.") for item in governance_audit.json())
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events",
+            headers=reviewer_headers,
+        ).status_code
+        == 403
+    )
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events",
+            headers=outsider_headers,
+        ).status_code
+        == 404
+    )
+
     # History endpoints are bounded and use stable newest-first/oldest-first ordering.
     first_page = client.get(f"{base_url}/protocol-versions?limit=1", headers=lead_headers)
     second_page = client.get(f"{base_url}/protocol-versions?limit=1&offset=1", headers=lead_headers)

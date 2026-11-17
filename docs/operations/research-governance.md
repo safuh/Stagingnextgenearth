@@ -31,3 +31,7 @@ The interface does not bypass the API's independent-review checks. A reviewer wh
 ## Governance audit events
 
 Protocol version creation, submission, independent review and formal ethics decisions each append an organisation audit event in the same database transaction as the governance record. Events identify the actor and relevant study/protocol metadata; review notes and protocol contents are deliberately excluded from the audit payload. Organisation audit history remains tenant-scoped and available to founders, executives and administrators through `GET /api/organizations/{organization_id}/audit-events`.
+
+## Research governance audit workspace
+
+Founders, executives and administrators can load `GET /api/organizations/{organization_id}/research-governance/audit-events` from the Research workspace. The endpoint returns only research protocol, ethics and study lifecycle events, in newest-first order, with a maximum of 200 records. It excludes protocol content and review notes. Access is tenant-scoped and limited to organisation leadership.
