@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface MemberChoice {
   user_id: string;
@@ -288,7 +288,7 @@ export default function LearningAdminPage() {
     event.currentTarget.reset();
   }
   async function closeMentorship(id: string, status: "completed" | "ended") {
-    await action("Mentorship marked " + status + ".", () => apiPost(
+    await action("Mentorship marked " + status + ".", () => apiPatch(
       base + "/courses/" + courseId + "/mentorships/" + id + "/status",
       { status },
     ));
