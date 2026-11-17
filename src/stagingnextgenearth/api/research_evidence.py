@@ -16,6 +16,9 @@ from stagingnextgenearth.platform.models import (
     ResearchAnalysisRun,
     ResearchDataset,
     ResearchDatasetFile,
+    ResearchEthicsReviewEvent,
+    ResearchProtocolReviewEvent,
+    ResearchProtocolVersion,
     ResearchPublication,
     ResearchPublicationMetadataSource,
     ResearchStudy,
@@ -76,6 +79,20 @@ class EvidenceClimateSummary(BaseModel):
     last_observed_at: datetime | None
 
 
+class EvidenceGovernanceSummary(BaseModel):
+    study_status: str
+    study_ethics_reference: str | None
+    protocol_version_count: int
+    latest_protocol_version_number: int | None
+    latest_protocol_status: str | None
+    latest_protocol_review_decision: str | None
+    latest_protocol_reviewed_at: datetime | None
+    ethics_review_count: int
+    latest_ethics_decision: str | None
+    latest_ethics_reference: str | None
+    latest_ethics_reviewed_at: datetime | None
+
+
 class ResearchEvidenceLedgerRead(BaseModel):
     study_id: str
     study_title: str
@@ -83,6 +100,7 @@ class ResearchEvidenceLedgerRead(BaseModel):
     datasets: list[EvidenceDataset]
     analysis_runs: list[EvidenceAnalysisRun]
     publications: list[EvidencePublication]
+    governance: EvidenceGovernanceSummary
     climate: EvidenceClimateSummary
     datasets_truncated: bool = False
     analysis_runs_truncated: bool = False
@@ -235,6 +253,52 @@ async def get_research_evidence_ledger(
         for item in publications
     ]
 
+    protocol_version_count = int(
+        await session.scalar(
+            select(func.count(ResearchProtocolVersion.id)).where(
+                ResearchProtocolVersion.study_id == study_id
+            )
+        )
+        or 0
+    )
+    latest_protocol = await session.scalar(
+        select(ResearchProtocolVersion)
+        .where(ResearchProtocolVersion.study_id == study_id)
+        .order_by(
+            ResearchProtocolVersion.version_number.desc(),
+            ResearchProtocolVersion.id.desc(),
+        )
+        .limit(1)
+    )
+    latest_protocol_review = None
+    if latest_protocol is not None:
+        latest_protocol_review = await session.scalar(
+            select(ResearchProtocolReviewEvent)
+            .where(ResearchProtocolReviewEvent.protocol_version_id == latest_protocol.id)
+            .order_by(
+                ResearchProtocolReviewEvent.reviewed_at.desc(),
+                ResearchProtocolReviewEvent.id.desc(),
+            )
+            .limit(1)
+        )
+    ethics_review_count = int(
+        await session.scalar(
+            select(func.count(ResearchEthicsReviewEvent.id)).where(
+                ResearchEthicsReviewEvent.study_id == study_id
+            )
+        )
+        or 0
+    )
+    latest_ethics_review = await session.scalar(
+        select(ResearchEthicsReviewEvent)
+        .where(ResearchEthicsReviewEvent.study_id == study_id)
+        .order_by(
+            ResearchEthicsReviewEvent.reviewed_at.desc(),
+            ResearchEthicsReviewEvent.id.desc(),
+        )
+        .limit(1)
+    )
+
     climate_statement = select(
         func.count(ClimateObservation.id),
         func.sum(case((ClimateObservation.quality_status == "verified", 1), else_=0)),
@@ -254,6 +318,33 @@ async def get_research_evidence_ledger(
         datasets=dataset_evidence,
         analysis_runs=analysis_runs,
         publications=publication_evidence,
+        governance=EvidenceGovernanceSummary(
+            study_status=study.status,
+            study_ethics_reference=study.ethics_reference,
+            protocol_version_count=protocol_version_count,
+            latest_protocol_version_number=(
+                latest_protocol.version_number if latest_protocol is not None else None
+            ),
+            latest_protocol_status=(
+                latest_protocol.status if latest_protocol is not None else None
+            ),
+            latest_protocol_review_decision=(
+                latest_protocol_review.decision if latest_protocol_review is not None else None
+            ),
+            latest_protocol_reviewed_at=(
+                latest_protocol_review.reviewed_at if latest_protocol_review is not None else None
+            ),
+            ethics_review_count=ethics_review_count,
+            latest_ethics_decision=(
+                latest_ethics_review.decision if latest_ethics_review is not None else None
+            ),
+            latest_ethics_reference=(
+                latest_ethics_review.reference if latest_ethics_review is not None else None
+            ),
+            latest_ethics_reviewed_at=(
+                latest_ethics_review.reviewed_at if latest_ethics_review is not None else None
+            ),
+        ),
         datasets_truncated=datasets_truncated,
         analysis_runs_truncated=analysis_runs_truncated,
         publications_truncated=publications_truncated,
@@ -298,6 +389,17 @@ async def export_research_evidence_ledger(
         "datasets_truncated",
         "analysis_runs_truncated",
         "publications_truncated",
+        "study_status",
+        "study_ethics_reference",
+        "protocol_version_count",
+        "latest_protocol_version_number",
+        "latest_protocol_status",
+        "latest_protocol_review_decision",
+        "latest_protocol_reviewed_at",
+        "ethics_review_count",
+        "latest_ethics_decision",
+        "latest_ethics_reference",
+        "latest_ethics_reviewed_at",
         "record_id",
         "title",
         "version",
@@ -336,12 +438,32 @@ async def export_research_evidence_ledger(
             "datasets_truncated": report.datasets_truncated,
             "analysis_runs_truncated": report.analysis_runs_truncated,
             "publications_truncated": report.publications_truncated,
+            "study_status": report.governance.study_status,
+            "study_ethics_reference": report.governance.study_ethics_reference,
+            "protocol_version_count": report.governance.protocol_version_count,
+            "latest_protocol_version_number": report.governance.latest_protocol_version_number,
+            "latest_protocol_status": report.governance.latest_protocol_status,
+            "latest_protocol_review_decision": report.governance.latest_protocol_review_decision,
+            "latest_protocol_reviewed_at": (
+                report.governance.latest_protocol_reviewed_at.isoformat()
+                if report.governance.latest_protocol_reviewed_at
+                else None
+            ),
+            "ethics_review_count": report.governance.ethics_review_count,
+            "latest_ethics_decision": report.governance.latest_ethics_decision,
+            "latest_ethics_reference": report.governance.latest_ethics_reference,
+            "latest_ethics_reviewed_at": (
+                report.governance.latest_ethics_reviewed_at.isoformat()
+                if report.governance.latest_ethics_reviewed_at
+                else None
+            ),
             "interpretation": report.interpretation,
             **values,
         }
         writer.writerow([_safe_csv_cell(row.get(column)) for column in columns])
 
     write_record("study")
+    write_record("governance")
     for dataset in report.datasets:
         write_record(
             "dataset",

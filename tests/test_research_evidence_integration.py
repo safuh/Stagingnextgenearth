@@ -69,6 +69,25 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
     assert study.status_code == 201
     study_id = study.json()["id"]
 
+    protocol_url = (
+        f"/api/organizations/{organization_id}/research-studies/{study_id}/protocol-versions"
+    )
+    protocol = client.post(
+        protocol_url,
+        headers=lead_headers,
+        json={
+            "title": "Community rainfall protocol",
+            "objectives": "Measure seasonal rainfall patterns across community sites.",
+            "methodology": "Collect calibrated daily rainfall readings at fixed community sites.",
+        },
+    )
+    assert protocol.status_code == 201
+    submitted_protocol = client.post(
+        f"{protocol_url}/{protocol.json()['id']}/submit", headers=lead_headers
+    )
+    assert submitted_protocol.status_code == 200
+    assert submitted_protocol.json()["status"] == "submitted"
+
     ledger_url = f"/api/organizations/{organization_id}/research-studies/{study_id}/evidence-ledger"
     response = client.get(ledger_url, headers=lead_headers)
     assert response.status_code == 200
@@ -78,6 +97,19 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
     assert payload["datasets"] == []
     assert payload["analysis_runs"] == []
     assert payload["publications"] == []
+    assert payload["governance"] == {
+        "study_status": "concept",
+        "study_ethics_reference": None,
+        "protocol_version_count": 1,
+        "latest_protocol_version_number": 1,
+        "latest_protocol_status": "submitted",
+        "latest_protocol_review_decision": None,
+        "latest_protocol_reviewed_at": None,
+        "ethics_review_count": 0,
+        "latest_ethics_decision": None,
+        "latest_ethics_reference": None,
+        "latest_ethics_reviewed_at": None,
+    }
     assert payload["climate"] == {
         "observation_count": 0,
         "verified_count": 0,
@@ -96,7 +128,9 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
     assert 'attachment; filename="research-evidence-' in exported.headers["content-disposition"]
     assert exported.content.startswith(b"\xef\xbb\xbf")
     records = list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))
-    assert [row["record_type"] for row in records] == ["study", "climate_summary"]
+    assert [row["record_type"] for row in records] == ["study", "governance", "climate_summary"]
+    assert records[1]["latest_protocol_status"] == "submitted"
+    assert records[1]["protocol_version_count"] == "1"
     assert all("storage_key" not in key for key in records[0])
     assert "value" not in records[0]
 
