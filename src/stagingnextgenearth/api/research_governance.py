@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import (
@@ -261,13 +262,20 @@ async def export_research_governance_audit_events(
     )
 
 
-async def _study(session: AsyncSession, organization_id: str, study_id: str) -> ResearchStudy:
-    study = await session.scalar(
-        select(ResearchStudy).where(
-            ResearchStudy.id == study_id,
-            ResearchStudy.organization_id == organization_id,
-        )
+async def _study(
+    session: AsyncSession,
+    organization_id: str,
+    study_id: str,
+    *,
+    lock: bool = False,
+) -> ResearchStudy:
+    statement = select(ResearchStudy).where(
+        ResearchStudy.id == study_id,
+        ResearchStudy.organization_id == organization_id,
     )
+    if lock:
+        statement = statement.with_for_update()
+    study = await session.scalar(statement)
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
     return study
@@ -317,7 +325,8 @@ async def create_protocol_version(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProtocolRead:
     """Create a new protocol version; existing versions are never overwritten."""
-    study = await _study(session, organization_id, study_id)
+    # Serialize version-number allocation per study on databases supporting row locks.
+    study = await _study(session, organization_id, study_id, lock=True)
     role = await _require_research_access(session, study, principal, membership)
     if role not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol authoring permission required")
@@ -344,7 +353,14 @@ async def create_protocol_version(
         created_by=principal.user_id,
     )
     session.add(version)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A protocol version was created concurrently; reload the study and retry",
+        ) from exc
     if study.status == "active":
         # A material protocol amendment pauses field activity until independent
         # approval and a fresh ethics decision are recorded for this exact version.
@@ -378,7 +394,14 @@ async def create_protocol_version(
             },
         )
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A protocol version was created concurrently; reload the study and retry",
+        ) from exc
     await session.refresh(version)
     return ProtocolRead.model_validate(version)
 
