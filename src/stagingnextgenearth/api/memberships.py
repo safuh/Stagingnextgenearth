@@ -378,6 +378,107 @@ async def update_member_role(
     return MembershipRead.model_validate(target).model_copy(update={"roles": roles})
 
 
+
+class MembershipRolesUpdate(BaseModel):
+    """Complete role assignment set; the legacy primary role must remain included."""
+
+    roles: list[
+        Literal[
+            "admin",
+            "founder",
+            "executive",
+            "programme_manager",
+            "employee",
+            "researcher",
+            "youth_volunteer",
+            "institutional_partner",
+            "learner",
+        ]
+    ] = Field(min_length=1, max_length=9)
+
+
+@router.patch("/{membership_id}/roles", response_model=MembershipRead)
+async def update_member_roles(
+    organization_id: str,
+    membership_id: str,
+    body: MembershipRolesUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MembershipRead:
+    """Replace secondary role grants while preserving the primary compatibility role."""
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    owner_id = await _organization_owner(session, organization_id)
+    actor = await _current_admin(session, membership.id)
+    target = await session.scalar(
+        select(Membership)
+        .where(
+            Membership.id == membership_id,
+            Membership.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
+    requested = set(body.roles)
+    if len(requested) != len(body.roles):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Role assignments must be unique")
+    if target.role not in requested:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "The primary role must remain in the assigned role set; change it separately",
+        )
+    elevated = {"admin", "founder", "executive"}
+    if target.user_id == owner_id and not requested.intersection(elevated):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The organisation owner must retain an administrator role",
+        )
+    if requested.intersection(elevated) and actor.user_id != owner_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can grant administrator roles",
+        )
+    current = await get_membership_roles(session, target)
+    if current.intersection(elevated) and not requested.intersection(elevated):
+        if actor.user_id != owner_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only the organisation owner can revoke administrator roles",
+            )
+        if target.status == "active" and await _active_admin_count(
+            session, organization_id
+        ) <= 1:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "The last active administrator cannot lose administrator access",
+            )
+    for role in current - requested:
+        await session.execute(
+            MembershipRole.__table__.delete().where(
+                MembershipRole.membership_id == target.id,
+                MembershipRole.role == role,
+            )
+        )
+    for role in requested - current:
+        session.add(MembershipRole(membership_id=target.id, role=role))
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=actor.user_id,
+            subject_user_id=target.user_id,
+            action="membership.roles_changed",
+            changes={"roles": {"before": sorted(current), "after": sorted(requested)}},
+        )
+    )
+    await session.commit()
+    await session.refresh(target)
+    roles = sorted(await get_membership_roles(session, target))
+    return MembershipRead.model_validate(target).model_copy(update={"roles": roles})
+
+
 @router.patch("/{membership_id}/status", response_model=MembershipRead)
 async def update_member_status(
     organization_id: str,
