@@ -61,7 +61,10 @@ def test_chirps_orchestration_selects_requested_variant() -> None:
     assert provider.variant == "sat"
 
 
-def test_copernicus_orchestration_is_allowlisted() -> None:
+def test_copernicus_orchestration_is_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    import stagingnextgenearth.api.climate_ingestion as api_module
+
+    monkeypatch.setattr(api_module, "find_spec", lambda _name: object())
     body = ClimateIngestionCreate(
         provider="copernicus-era5",
         **_period(),
