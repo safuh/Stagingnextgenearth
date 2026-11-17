@@ -30,6 +30,7 @@ from .programmes import public_router as public_programmes_router
 from .programmes import router as programmes_router
 from .projects import router as projects_router
 from .research import router as research_router
+from .research_analysis_runs import router as research_analysis_runs_router
 from .research_collaborators import router as research_collaborators_router
 from .research_dataset_files import router as research_dataset_files_router
 from .research_datasets import router as research_datasets_router
@@ -63,6 +64,7 @@ api_router.include_router(programme_indicators_router)
 api_router.include_router(partner_reporting_router)
 api_router.include_router(projects_router)
 api_router.include_router(research_router)
+api_router.include_router(research_analysis_runs_router)
 api_router.include_router(researcher_profiles_router)
 api_router.include_router(researcher_profile_directory_router)
 api_router.include_router(research_collaborators_router)
