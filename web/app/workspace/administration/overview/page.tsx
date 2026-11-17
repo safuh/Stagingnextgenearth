@@ -35,7 +35,8 @@ export default function ExecutiveOverviewPage() {
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
   const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
-  const [learningPortfolio, setLearningPortfolio] = useState<LearningPortfolio | null>(null);\n  const [climateStewardship, setClimateStewardship] = useState<ClimateStewardship | null>(null);
+  const [learningPortfolio, setLearningPortfolio] = useState<LearningPortfolio | null>(null);
+  const [climateStewardship, setClimateStewardship] = useState<ClimateStewardship | null>(null);
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -86,7 +87,8 @@ export default function ExecutiveOverviewPage() {
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
     setPortfolio(portfolioSnapshot);
-    setLearningPortfolio(learningSnapshot);\n    setClimateStewardship(climateSnapshot);
+    setLearningPortfolio(learningSnapshot);
+    setClimateStewardship(climateSnapshot);
     setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
