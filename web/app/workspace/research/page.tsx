@@ -29,6 +29,7 @@ interface EvidenceLedger {
   datasets: { dataset_id: string; title: string; version: string; access_classification: string; manifest_sha256: string; file_count: number; files_truncated: boolean }[];
   analysis_runs: { run_id: string; dataset_id: string; input_manifest_sha256: string; manifest_matches_current: boolean; software_name: string; software_version: string; code_revision: string | null; output_artifact_count: number; created_at: string }[];
   publications: { publication_id: string; title: string; publication_type: string; doi: string | null; openalex_id: string | null; metadata_provenance_count: number }[];
+  governance: { study_status: string; study_ethics_reference: string | null; protocol_version_count: number; latest_protocol_version_number: number | null; latest_protocol_status: string | null; latest_protocol_review_decision: string | null; latest_protocol_reviewed_at: string | null; ethics_review_count: number; latest_ethics_decision: string | null; latest_ethics_reference: string | null; latest_ethics_reviewed_at: string | null };
   climate: { observation_count: number; verified_count: number; pending_count: number; rejected_count: number; first_observed_at: string | null; last_observed_at: string | null };
   datasets_truncated: boolean; analysis_runs_truncated: boolean; publications_truncated: boolean;
   interpretation: string;
@@ -1073,6 +1074,17 @@ export default function ResearchWorkspacePage() {
                         <article><strong>{evidenceLedger.climate.verified_count}</strong><span>Verified observations</span></article>
                         <article><strong>{evidenceLedger.climate.pending_count}</strong><span>Pending review</span></article>
                       </div>
+                      <h3>Study governance</h3>
+                      <div className="research-record-grid">
+                        <article><strong>{evidenceLedger.governance.study_status.replace(/_/g, " ")}</strong><span>Study lifecycle</span></article>
+                        <article><strong>{evidenceLedger.governance.protocol_version_count}</strong><span>Protocol versions</span></article>
+                        <article><strong>{evidenceLedger.governance.latest_protocol_version_number ?? "—"}</strong><span>Latest protocol version</span></article>
+                        <article><strong>{evidenceLedger.governance.latest_protocol_status || "Not recorded"}</strong><span>Latest protocol state</span></article>
+                        <article><strong>{evidenceLedger.governance.latest_protocol_review_decision || "Not reviewed"}</strong><span>Latest protocol decision</span></article>
+                        <article><strong>{evidenceLedger.governance.ethics_review_count}</strong><span>Ethics decisions</span></article>
+                        <article><strong>{evidenceLedger.governance.latest_ethics_decision || "Not recorded"}</strong><span>Latest ethics outcome</span></article>
+                      </div>
+                      <p className="workspace-muted">Study ethics reference: {evidenceLedger.governance.study_ethics_reference || "Not recorded"}. Latest protocol review: {evidenceLedger.governance.latest_protocol_reviewed_at ? new Date(evidenceLedger.governance.latest_protocol_reviewed_at).toLocaleString() : "Not recorded"}. Latest ethics reference: {evidenceLedger.governance.latest_ethics_reference || "Not recorded"}. Latest ethics review: {evidenceLedger.governance.latest_ethics_reviewed_at ? new Date(evidenceLedger.governance.latest_ethics_reviewed_at).toLocaleString() : "Not recorded"}.</p>
                       <h3>Dataset fingerprints</h3>
                       {evidenceLedger.datasets.length === 0 ? <p className="workspace-muted">No approved study datasets.</p> : evidenceLedger.datasets.map((item) => <div className="research-record" key={item.dataset_id}><strong>{item.title} · v{item.version}</strong><p>{item.file_count} clean, available file versions · {item.access_classification}{item.files_truncated ? " · file list truncated at 1,000" : ""}</p><code>{item.manifest_sha256}</code></div>)}
                       {evidenceLedger.datasets_truncated && <p className="workspace-muted">Dataset list truncated at 100 records.</p>}

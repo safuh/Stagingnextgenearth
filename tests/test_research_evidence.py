@@ -4,6 +4,7 @@ from stagingnextgenearth.api.research_evidence import (
     EvidenceAnalysisRun,
     EvidenceClimateSummary,
     EvidenceDataset,
+    EvidenceGovernanceSummary,
     EvidencePublication,
     ResearchEvidenceLedgerRead,
     _safe_csv_cell,
@@ -64,6 +65,19 @@ def test_evidence_ledger_contract_exposes_traceability_not_private_file_data() -
                 metadata_provenance_count=1,
             )
         ],
+        governance=EvidenceGovernanceSummary(
+            study_status="active",
+            study_ethics_reference="ETH-01",
+            protocol_version_count=1,
+            latest_protocol_version_number=1,
+            latest_protocol_status="approved",
+            latest_protocol_review_decision="approved",
+            latest_protocol_reviewed_at="2026-11-16T12:00:00Z",
+            ethics_review_count=1,
+            latest_ethics_decision="approved",
+            latest_ethics_reference="ETH-2026-001",
+            latest_ethics_reviewed_at="2026-11-16T13:00:00Z",
+        ),
         climate=EvidenceClimateSummary(
             observation_count=10,
             verified_count=8,
@@ -76,6 +90,7 @@ def test_evidence_ledger_contract_exposes_traceability_not_private_file_data() -
     payload = report.model_dump()
     assert payload["analysis_runs"][0]["manifest_matches_current"] is True
     assert payload["publications"][0]["metadata_provenance_count"] == 1
+    assert payload["governance"]["latest_ethics_decision"] == "approved"
     assert payload["climate"]["verified_count"] == 8
     assert "storage_key" not in str(payload)
     assert "file_contents" not in str(payload)
