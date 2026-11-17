@@ -311,6 +311,26 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert delivery_summary.json()["volunteers_completed"] == 1
         assert delivery_summary.json()["attendance_total"] == 1
         assert delivery_summary.json()["attendance_present"] == 1
+        portfolio = client.get(
+            f"/api/organizations/{org_id}/delivery-overview",
+            headers=manager,
+        )
+        assert portfolio.status_code == 200
+        portfolio_body = portfolio.json()
+        assert portfolio_body["programmes_total"] == 1
+        assert portfolio_body["programmes_active"] == 1
+        assert portfolio_body["activities_completed"] == 1
+        assert portfolio_body["volunteers_completed"] == 1
+        assert portfolio_body["attendance_present"] == 1
+        assert portfolio_body["programmes"][0]["programme_title"] == "Community tree restoration"
+        assert client.get(
+            f"/api/organizations/{org_id}/delivery-overview",
+            headers=participant,
+        ).status_code == 403
+        assert client.get(
+            f"/api/organizations/{org_id}/delivery-overview",
+            headers=partner,
+        ).status_code == 403
 
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
