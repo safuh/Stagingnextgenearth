@@ -46,6 +46,22 @@ class DatasetManifestFile(BaseModel):
     sha256: str
 
 
+def _manifest_digest(
+    dataset_id: str, dataset_version: str, files: list[DatasetManifestFile]
+) -> str:
+    """Hash a canonical, order-independent representation of dataset file identities."""
+    ordered_files = sorted(files, key=lambda item: (item.version, item.file_id))
+    manifest_data = {
+        "dataset_id": dataset_id,
+        "dataset_version": dataset_version,
+        "files": [item.model_dump() for item in ordered_files],
+    }
+    canonical = json.dumps(
+        manifest_data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return sha256(canonical).hexdigest()
+
+
 class ResearchDatasetManifestRead(BaseModel):
     """Deterministic manifest; storage keys and file contents are never exposed."""
 
@@ -114,16 +130,7 @@ async def get_research_dataset_manifest(
         for item in result.all()
         if item.sha256_hex is not None
     ]
-    manifest_data = {
-        "dataset_id": dataset.id,
-        "dataset_version": dataset.version,
-        "files": [item.model_dump() for item in files],
-    }
-    digest = sha256(
-        json.dumps(
-            manifest_data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).encode("utf-8")
-    ).hexdigest()
+    digest = _manifest_digest(dataset.id, dataset.version, files)
     return ResearchDatasetManifestRead(
         dataset_id=dataset.id,
         dataset_version=dataset.version,
