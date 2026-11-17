@@ -13,9 +13,17 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Organization,
     OrganizationAuditEvent,
+    MembershipRole,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_membership_roles,
+    membership_has_any_role,
+    get_session,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/memberships",
@@ -51,6 +59,7 @@ class MembershipRead(BaseModel):
     identifier: str | None = None
     role: str
     status: str
+    roles: list[str] = Field(default_factory=list)
 
 
 @router.post("", response_model=MembershipRead, status_code=status.HTTP_201_CREATED)
@@ -61,7 +70,7 @@ async def invite_member(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Invite an existing user; administrator privileges cannot be delegated here."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     if body.role in {"founder", "executive"}:
         owner_id = await session.scalar(
@@ -90,14 +99,17 @@ async def invite_member(
         status="invited",
     )
     session.add(invitation)
+    await session.flush()
+    session.add(MembershipRole(membership_id=invitation.id, role=body.role))
     try:
         await session.commit()
         await session.refresh(invitation)
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Membership already exists") from exc
+    roles = sorted(await get_membership_roles(session, invitation))
     return MembershipRead.model_validate(invitation).model_copy(
-        update={"identifier": user.identifier}
+        update={"identifier": user.identifier, "roles": roles}
     )
 
 
@@ -113,8 +125,9 @@ async def get_my_membership(
     identifier = await session.scalar(
         select(User.identifier).where(User.id == membership.user_id)
     )
+    roles = sorted(await get_membership_roles(session, membership))
     return MembershipRead.model_validate(membership).model_copy(
-        update={"identifier": identifier}
+        update={"identifier": identifier, "roles": roles}
     )
 
 
@@ -125,7 +138,7 @@ async def list_staff_directory(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, str]]:
     """Return minimal active-member identities to authorised programme staff."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive", "programme_manager"}):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme staff access required",
@@ -152,7 +165,7 @@ async def list_memberships(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[MembershipRead]:
     """Expose membership records only to organisation administrators."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     result = await session.execute(
         select(Membership, User.identifier)
@@ -160,10 +173,15 @@ async def list_memberships(
         .where(Membership.organization_id == organization_id)
         .order_by(Membership.created_at)
     )
-    return [
-        MembershipRead.model_validate(item).model_copy(update={"identifier": identifier})
-        for item, identifier in result.all()
-    ]
+    reads: list[MembershipRead] = []
+    for item, identifier in result.all():
+        roles = sorted(await get_membership_roles(session, item))
+        reads.append(
+            MembershipRead.model_validate(item).model_copy(
+                update={"identifier": identifier, "roles": roles}
+            )
+        )
+    return reads
 
 
 @router.post("/{membership_id}/accept", response_model=MembershipRead)
@@ -190,8 +208,9 @@ async def accept_invitation(
     identifier = await session.scalar(
         select(User.identifier).where(User.id == invitation.user_id)
     )
+    roles = sorted(await get_membership_roles(session, invitation))
     return MembershipRead.model_validate(invitation).model_copy(
-        update={"identifier": identifier}
+        update={"identifier": identifier, "roles": roles}
     )
 
 
@@ -272,7 +291,7 @@ async def update_member_role(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Change a member role without permitting privilege escalation by non-admins."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
     actor = await _current_admin(session, membership.id)
