@@ -27,6 +27,20 @@ async def test_alembic_upgrade_and_downgrade() -> None:
         "organization_membership_roles": {
             "id", "membership_id", "role", "created_at",
         },
+        "organization_employment_applications": {
+            "id",
+            "organization_id",
+            "user_id",
+            "full_name",
+            "desired_position",
+            "qualifications",
+            "experience_summary",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+            "created_at",
+        },
         "programmes": {"id", "organization_id", "title", "slug", "status"},
         "programme_volunteer_applications": {
             "id", "organization_id", "programme_id", "user_id", "status",
@@ -267,6 +281,15 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             )
             assert role_assignment_constraint is not None
             assert "'researcher'" in role_assignment_constraint
+
+            audit_action_constraint = await connection.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'ck_organization_audit_event_action'"
+                )
+            )
+            assert audit_action_constraint is not None
+            assert "'membership.roles_changed'" in audit_action_constraint
 
             geometry_type = await connection.scalar(
                 text(
