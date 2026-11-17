@@ -433,6 +433,7 @@ export default function LearningAdminPage() {
           </section>
           <section className="staff-card">
             <h2>Attendance</h2>
+            <a className="secondary-action" href={"/api/backend" + base + "/courses/" + courseId + "/attendance/export"}>Export attendance CSV</a>
             <form onSubmit={recordAttendance}>
               <label>Session key<input name="session_key" required /></label>
               <label>Session title<input name="session_title" required /></label>
