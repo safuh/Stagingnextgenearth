@@ -10,7 +10,6 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateProviderRequest,
 )
 from stagingnextgenearth.providers.copernicus import (
-    ERA5_SINGLE_LEVELS_DATASET,
     CopernicusERA5Provider,
 )
 
@@ -62,4 +61,6 @@ def test_era5_enforces_small_retrieval_window() -> None:
         point=ClimatePoint(latitude=-1.28, longitude=36.82),
     )
     with pytest.raises(ValueError, match="2-day limit"):
-        provider._build_request(request, request.start, request.end)
+        provider._validate_area_size(request)
+        # The time-window guard runs before any CDS client is constructed.
+        provider._validate_window(request)
