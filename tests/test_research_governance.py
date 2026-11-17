@@ -68,8 +68,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert invitation.status_code == 201
     accepted = client.post(
-        f"/api/organizations/{organization_id}/memberships/"
-        f"{invitation.json()['id']}/accept",
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
         headers=reviewer_headers,
     )
     assert accepted.status_code == 200
@@ -81,9 +80,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert study_response.status_code == 201
     study_id = study_response.json()["id"]
-    base_url = (
-        f"/api/organizations/{organization_id}/research-studies/{study_id}"
-    )
+    base_url = f"/api/organizations/{organization_id}/research-studies/{study_id}"
 
     protocol_response = client.post(
         f"{base_url}/protocol-versions",
@@ -216,6 +213,35 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert third_version.status_code == 201
     assert third_version.json()["version_number"] == 3
 
+    # History endpoints are bounded and use stable newest-first/oldest-first ordering.
+    first_page = client.get(f"{base_url}/protocol-versions?limit=1", headers=lead_headers)
+    second_page = client.get(f"{base_url}/protocol-versions?limit=1&offset=1", headers=lead_headers)
+    assert [item["version_number"] for item in first_page.json()] == [3]
+    assert [item["version_number"] for item in second_page.json()] == [2]
+    protocol_review_page = client.get(
+        f"{base_url}/protocol-versions/{protocol_id}/reviews?limit=1&offset=0",
+        headers=lead_headers,
+    )
+    assert [item["decision"] for item in protocol_review_page.json()] == ["approved"]
+    ethics_review_page = client.get(
+        f"{base_url}/ethics-reviews?limit=1&offset=0", headers=lead_headers
+    )
+    assert [item["decision"] for item in ethics_review_page.json()] == ["approved"]
+
+    for invalid_query in ("limit=0", "limit=101", "offset=-1", "offset=10001"):
+        assert (
+            client.get(
+                f"{base_url}/protocol-versions?{invalid_query}", headers=lead_headers
+            ).status_code
+            == 422
+        )
+        assert (
+            client.get(
+                f"{base_url}/ethics-reviews?{invalid_query}", headers=lead_headers
+            ).status_code
+            == 422
+        )
+
 
 def test_ethics_review_cannot_reference_unapproved_or_foreign_protocol(
     client: TestClient,
@@ -236,8 +262,7 @@ def test_ethics_review_cannot_reference_unapproved_or_foreign_protocol(
     )
     assert invitation.status_code == 201
     accepted = client.post(
-        f"/api/organizations/{organization_id}/memberships/"
-        f"{invitation.json()['id']}/accept",
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
         headers=reviewer_headers,
     )
     assert accepted.status_code == 200
@@ -247,9 +272,7 @@ def test_ethics_review_cannot_reference_unapproved_or_foreign_protocol(
         headers=lead_headers,
         json={"title": "Ethics gate study"},
     ).json()
-    base_url = (
-        f"/api/organizations/{organization_id}/research-studies/{study['id']}"
-    )
+    base_url = f"/api/organizations/{organization_id}/research-studies/{study['id']}"
     pending = client.post(
         f"{base_url}/ethics-reviews",
         headers=reviewer_headers,

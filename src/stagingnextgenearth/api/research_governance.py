@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,9 +101,7 @@ class EthicsReviewRead(BaseModel):
     reviewed_at: datetime
 
 
-async def _study(
-    session: AsyncSession, organization_id: str, study_id: str
-) -> ResearchStudy:
+async def _study(session: AsyncSession, organization_id: str, study_id: str) -> ResearchStudy:
     study = await session.scalar(
         select(ResearchStudy).where(
             ResearchStudy.id == study_id,
@@ -121,7 +119,10 @@ async def _study_role(
     principal: Principal,
     membership: Membership,
 ) -> str | None:
-    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:  # noqa: E501
+    if (
+        await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
+        or study.lead_researcher_id == principal.user_id
+    ):  # noqa: E501
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
@@ -190,13 +191,17 @@ async def list_protocol_versions(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10000),
 ) -> list[ProtocolRead]:
     study = await _study(session, organization_id, study_id)
     await _require_research_access(session, study, principal, membership)
     result = await session.scalars(
         select(ResearchProtocolVersion)
         .where(ResearchProtocolVersion.study_id == study_id)
-        .order_by(ResearchProtocolVersion.version_number.desc())
+        .order_by(ResearchProtocolVersion.version_number.desc(), ResearchProtocolVersion.id.desc())
+        .offset(offset)
+        .limit(limit)
     )
     return [ProtocolRead.model_validate(item) for item in result.all()]
 
@@ -221,9 +226,7 @@ async def submit_protocol_version(
     )
     if protocol is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Protocol version not found")
-    if role not in _WRITE_ROLES or (
-        protocol.created_by != principal.user_id and role != "editor"
-    ):
+    if role not in _WRITE_ROLES or (protocol.created_by != principal.user_id and role != "editor"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol submission permission required")
     if protocol.status != "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, "Protocol version cannot be submitted")
@@ -288,6 +291,8 @@ async def list_protocol_reviews(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10000),
 ) -> list[ProtocolReviewRead]:
     study = await _study(session, organization_id, study_id)
     await _require_research_access(session, study, principal, membership)
@@ -302,7 +307,9 @@ async def list_protocol_reviews(
     result = await session.scalars(
         select(ResearchProtocolReviewEvent)
         .where(ResearchProtocolReviewEvent.protocol_version_id == protocol_id)
-        .order_by(ResearchProtocolReviewEvent.reviewed_at)
+        .order_by(ResearchProtocolReviewEvent.reviewed_at, ResearchProtocolReviewEvent.id)
+        .offset(offset)
+        .limit(limit)
     )
     return [ProtocolReviewRead.model_validate(item) for item in result.all()]
 
@@ -357,12 +364,16 @@ async def list_ethics_reviews(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10000),
 ) -> list[EthicsReviewRead]:
     study = await _study(session, organization_id, study_id)
     await _require_research_access(session, study, principal, membership)
     result = await session.scalars(
         select(ResearchEthicsReviewEvent)
         .where(ResearchEthicsReviewEvent.study_id == study_id)
-        .order_by(ResearchEthicsReviewEvent.reviewed_at)
+        .order_by(ResearchEthicsReviewEvent.reviewed_at, ResearchEthicsReviewEvent.id)
+        .offset(offset)
+        .limit(limit)
     )
     return [EthicsReviewRead.model_validate(item) for item in result.all()]
