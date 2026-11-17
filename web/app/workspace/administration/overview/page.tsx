@@ -11,7 +11,7 @@ type Partner = { id: string; name: string; relationship_status: string; verifica
 type Content = { id: string; title: string; content_type: string; publication_state: string; source_url: string | null };
 type Study = { id: string; title: string; status: string; study_type: string | null; lead_researcher_id: string };
 type Course = { id: string; title: string; status: string };
-type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
+type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };\ntype OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number };
 type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
@@ -27,7 +27,7 @@ export default function ExecutiveOverviewPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [studies, setStudies] = useState<Study[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);\n  const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,14 +41,14 @@ export default function ExecutiveOverviewPage() {
     if (!assignedRoles.some((item) => ["admin", "founder", "executive"].includes(item))) {
       throw new Error("The executive overview is restricted to administrators, founders and executives.");
     }
-    const [memberRows, programmeRows, partnerRows, contentRows, studyRows, courseRows, orgSummary] = await Promise.all([
+    const [memberRows, programmeRows, partnerRows, contentRows, studyRows, courseRows, orgSummary, operationsSummary] = await Promise.all([
       apiGet<Membership[]>(`/organizations/${id}/memberships`),
       apiGet<Programme[]>(`/organizations/${id}/programmes`),
       apiGet<Partner[]>(`/organizations/${id}/partners`),
       apiGet<Content[]>(`/organizations/${id}/content`),
       apiGet<Study[]>(`/organizations/${id}/research-studies`),
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
-      apiGet<Summary>(`/organizations/${id}/administration-summary`),
+      apiGet<Summary>(`/organizations/${id}/administration-summary`),\n      apiGet<OperationsSummary>(`/organizations/${id}/operations-summary`),
     ]);
     // Secondary governance and delivery panels must not take down the core
     // executive snapshot when a newly added endpoint is unavailable or one
@@ -73,7 +73,7 @@ export default function ExecutiveOverviewPage() {
       result.status === "fulfilled" ? [result.value] : []
     );
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
-    setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary);
+    setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
     setDelivery(Object.fromEntries(deliveryRows));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
@@ -114,6 +114,7 @@ export default function ExecutiveOverviewPage() {
       {error && <p className="workspace-error" role="alert">{error}</p>}
       {summary && <>
         <p className="workspace-muted">{summary.organization_name} · Owner account: {summary.owner_user_id}</p>
+        {operations && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">FOUNDER ACTION CENTRE</p><h2>Items requiring a decision</h2></div></div><div className="workspace-stats admin-stats"><article><span>EMPLOYMENT APPLICATIONS</span><strong>{operations.pending_employment_applications}</strong><p><Link href="/workspace/administration/employment-applications">Review candidates</Link></p></article><article><span>VOLUNTEER APPLICATIONS</span><strong>{operations.pending_volunteer_applications}</strong><p><Link href="/workspace/administration/applications">Review volunteers</Link></p></article><article><span>MEMBERSHIP INVITATIONS</span><strong>{operations.pending_membership_invitations}</strong><p><Link href="/workspace/administration">Manage invitations</Link></p></article></div><p className="workspace-muted">Counts include pending records only. Applicant details remain in their permission-controlled review workspaces.</p></section>}
         <div className="workspace-stats admin-stats">
           <article><span>ACTIVE MEMBERS</span><strong>{members.filter(m => m.status === "active").length}</strong><p>{members.filter(m => m.status === "invited").length} invitations pending</p></article>
           <article><span>ACTIVE PROGRAMMES</span><strong>{programmes.filter(p => p.status === "active").length}</strong><p>{programmes.length} total programme records</p></article>
