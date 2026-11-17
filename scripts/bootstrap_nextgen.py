@@ -294,7 +294,6 @@ def provision_learners(
 
         # The public learner journey creates an identity, not an organisation role.
         api.register_or_reuse(identifier, password)
-        api.authenticate(identifier, password)
         existing = api.request(
             "GET", f"/organizations/{organization_id}/learning/my-enrollments",
             expected=(200,),
