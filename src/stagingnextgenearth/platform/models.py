@@ -1188,7 +1188,8 @@ class OrganizationAuditEvent(Base):
     __table_args__ = (
         CheckConstraint(
             "action IN ('membership.role_changed', 'membership.roles_changed', "
-            "'membership.status_changed', 'organization.ownership_transferred')",
+            "'membership.status_changed', 'organization.ownership_transferred', "
+            "'volunteer_application.decided')",
             name="ck_organization_audit_event_action",
         ),
         Index(

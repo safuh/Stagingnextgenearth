@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     Membership,
+    OrganizationAuditEvent,
     Programme,
     ProgrammeVolunteerApplication,
 )
@@ -240,6 +241,21 @@ async def decide_volunteer_application(
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
     item.review_note = body.review_note
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=item.user_id,
+            action="volunteer_application.decided",
+            changes={
+                "application_id": item.id,
+                "programme_id": programme_id,
+                "decision": body.decision,
+                "previous_status": "pending",
+                "safeguarding_confirmed": item.safeguarding_confirmed,
+            },
+        )
+    )
     await session.commit()
     await session.refresh(item)
     return VolunteerApplicationRead.model_validate(item)
