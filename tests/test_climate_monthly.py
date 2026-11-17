@@ -29,10 +29,10 @@ def test_incomplete_month_is_excluded_without_imputation() -> None:
 
 
 def test_leap_year_month_uses_29_expected_days() -> None:
-    daily = {date(2024, 2, day): [1.0] for day in range(1, 27)}
+    daily = {date(2024, 2, day): [1.0] for day in range(1, 28)}
     result = complete_monthly_total(daily, 2024, 2, minimum_completeness=0.9)
     assert result is not None
-    assert result[1:3] == (26, 29)
+    assert result[1:3] == (27, 29)
 
 
 @pytest.mark.parametrize("value", [-1.0, float("nan"), float("inf")])
