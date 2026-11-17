@@ -26,10 +26,11 @@ interface Study {
 }
 interface EvidenceLedger {
   study_id: string; study_title: string; generated_at: string;
-  datasets: { dataset_id: string; title: string; version: string; access_classification: string; manifest_sha256: string; file_count: number }[];
+  datasets: { dataset_id: string; title: string; version: string; access_classification: string; manifest_sha256: string; file_count: number; files_truncated: boolean }[];
   analysis_runs: { run_id: string; dataset_id: string; input_manifest_sha256: string; manifest_matches_current: boolean; software_name: string; software_version: string; code_revision: string | null; output_artifact_count: number; created_at: string }[];
   publications: { publication_id: string; title: string; publication_type: string; doi: string | null; openalex_id: string | null; metadata_provenance_count: number }[];
   climate: { observation_count: number; verified_count: number; pending_count: number; rejected_count: number; first_observed_at: string | null; last_observed_at: string | null };
+  datasets_truncated: boolean; analysis_runs_truncated: boolean; publications_truncated: boolean;
   interpretation: string;
 }
 interface Dataset {
@@ -1044,11 +1045,14 @@ export default function ResearchWorkspacePage() {
                         <article><strong>{evidenceLedger.climate.pending_count}</strong><span>Pending review</span></article>
                       </div>
                       <h3>Dataset fingerprints</h3>
-                      {evidenceLedger.datasets.length === 0 ? <p className="workspace-muted">No approved study datasets.</p> : evidenceLedger.datasets.map((item) => <div className="research-record" key={item.dataset_id}><strong>{item.title} · v{item.version}</strong><p>{item.file_count} clean, available file versions · {item.access_classification}</p><code>{item.manifest_sha256}</code></div>)}
+                      {evidenceLedger.datasets.length === 0 ? <p className="workspace-muted">No approved study datasets.</p> : evidenceLedger.datasets.map((item) => <div className="research-record" key={item.dataset_id}><strong>{item.title} · v{item.version}</strong><p>{item.file_count} clean, available file versions · {item.access_classification}{item.files_truncated ? " · file list truncated at 1,000" : ""}</p><code>{item.manifest_sha256}</code></div>)}
+                      {evidenceLedger.datasets_truncated && <p className="workspace-muted">Dataset list truncated at 100 records.</p>}
                       <h3>Reproducibility checks</h3>
                       {evidenceLedger.analysis_runs.length === 0 ? <p className="workspace-muted">No recorded analysis runs for approved datasets.</p> : evidenceLedger.analysis_runs.map((run) => <div className="research-record" key={run.run_id}><strong>{run.software_name} {run.software_version}</strong><p>{new Date(run.created_at).toLocaleString()} · {run.output_artifact_count} output artifacts · revision {run.code_revision || "not recorded"}</p><span className="status-chip">{run.manifest_matches_current ? "Input manifest matches" : "Input manifest differs from current dataset"}</span><code>{run.input_manifest_sha256}</code></div>)}
+                      {evidenceLedger.analysis_runs_truncated && <p className="workspace-muted">Analysis run list truncated at 100 records.</p>}
                       <h3>Published outputs</h3>
                       {evidenceLedger.publications.length === 0 ? <p className="workspace-muted">No publications registered.</p> : evidenceLedger.publications.map((publication) => <div className="research-record" key={publication.publication_id}><strong>{publication.title}</strong><p>{publication.publication_type} · DOI: {publication.doi || "not recorded"} · OpenAlex: {publication.openalex_id || "not recorded"} · metadata provenance records: {publication.metadata_provenance_count}</p></div>)}
+                      {evidenceLedger.publications_truncated && <p className="workspace-muted">Publication list truncated at 100 records.</p>}
                       <p className="workspace-muted">Climate review states: {evidenceLedger.climate.verified_count} verified, {evidenceLedger.climate.pending_count} pending, {evidenceLedger.climate.rejected_count} rejected. Window: {evidenceLedger.climate.first_observed_at ? new Date(evidenceLedger.climate.first_observed_at).toLocaleDateString() : "—"} to {evidenceLedger.climate.last_observed_at ? new Date(evidenceLedger.climate.last_observed_at).toLocaleDateString() : "—"}.</p>
                     </div>
                   )}
