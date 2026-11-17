@@ -15,7 +15,11 @@ def test_analysis_history_route_is_registered_with_bounded_limit() -> None:
     )
     assert route.methods == {"GET"}
     assert route.response_model == list[ResearchAnalysisRunRead]
-    limit = next(parameter for parameter in route.dependant.query_params if parameter.name == "limit")
+    limit = next(
+        parameter
+        for parameter in route.dependant.query_params
+        if parameter.name == "limit"
+    )
     assert limit.field_info.ge == 1
     assert limit.field_info.le == 500
 
