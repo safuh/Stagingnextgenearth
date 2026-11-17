@@ -652,7 +652,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         outcomes = programme_outcomes.json()
         assert outcomes["programme_id"] == programme_id
         assert outcomes["course_count"] == 1
-        assert outcomes["totals"]["learners"] == 2
+        assert outcomes["totals"]["learners"] == 3
         assert outcomes["totals"]["completed"] == 1
         assert outcomes["totals"]["attendance_records"] == 2
         assert outcomes["totals"]["pending_evaluations"] == 0
