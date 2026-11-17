@@ -41,6 +41,7 @@ class EvidenceDataset(BaseModel):
     access_classification: str
     manifest_sha256: str
     file_count: int
+    files_truncated: bool
 
 
 class EvidenceAnalysisRun(BaseModel):
@@ -81,6 +82,9 @@ class ResearchEvidenceLedgerRead(BaseModel):
     analysis_runs: list[EvidenceAnalysisRun]
     publications: list[EvidencePublication]
     climate: EvidenceClimateSummary
+    datasets_truncated: bool = False
+    analysis_runs_truncated: bool = False
+    publications_truncated: bool = False
     interpretation: str = "traceability_inventory_not_independent_scientific_validation"
 
 
@@ -112,9 +116,11 @@ async def get_research_evidence_ledger(
             ResearchDataset.status == "approved",
         )
         .order_by(ResearchDataset.title.asc(), ResearchDataset.id.asc())
-        .limit(limit)
+        .limit(limit + 1)
     )
-    datasets = list(datasets_result.all())
+    dataset_rows = list(datasets_result.all())
+    datasets_truncated = len(dataset_rows) > limit
+    datasets = dataset_rows[:limit]
     dataset_ids = [item.id for item in datasets]
     dataset_evidence: list[EvidenceDataset] = []
     current_digests: dict[str, str] = {}
@@ -129,8 +135,10 @@ async def get_research_evidence_ledger(
                 ResearchDatasetFile.sha256_hex.is_not(None),
             )
             .order_by(ResearchDatasetFile.version.asc(), ResearchDatasetFile.id.asc())
-            .limit(1000)
+            .limit(1001)
         )
+        available_files = list(file_rows.all())
+        files_truncated = len(available_files) > 1000
         manifest_files = [
             DatasetManifestFile(
                 file_id=item.id,
@@ -140,7 +148,7 @@ async def get_research_evidence_ledger(
                 size_bytes=item.size_bytes,
                 sha256=item.sha256_hex,
             )
-            for item in file_rows.all()
+            for item in available_files[:1000]
             if item.sha256_hex is not None
         ]
         digest = _manifest_digest(dataset.id, dataset.version, manifest_files)
@@ -153,6 +161,7 @@ async def get_research_evidence_ledger(
                 access_classification=dataset.access_classification,
                 manifest_sha256=digest,
                 file_count=len(manifest_files),
+                files_truncated=files_truncated,
             )
         )
 
@@ -169,8 +178,10 @@ async def get_research_evidence_ledger(
     runs_result = await session.scalars(
         run_statement.order_by(
             ResearchAnalysisRun.created_at.desc(), ResearchAnalysisRun.id.desc()
-        ).limit(limit)
+        ).limit(limit + 1)
     )
+    run_rows = list(runs_result.all())
+    analysis_runs_truncated = len(run_rows) > limit
     analysis_runs = [
         EvidenceAnalysisRun(
             run_id=run.id,
@@ -185,7 +196,7 @@ async def get_research_evidence_ledger(
             output_artifact_count=len(run.output_artifacts),
             created_at=run.created_at,
         )
-        for run in runs_result.all()
+        for run in run_rows[:limit]
     ]
 
     publications_result = await session.scalars(
@@ -195,9 +206,11 @@ async def get_research_evidence_ledger(
             ResearchPublication.published_on.desc(),
             ResearchPublication.created_at.desc(),
         )
-        .limit(limit)
+        .limit(limit + 1)
     )
-    publications = list(publications_result.all())
+    publication_rows = list(publications_result.all())
+    publications_truncated = len(publication_rows) > limit
+    publications = publication_rows[:limit]
     publication_ids = [item.id for item in publications]
     metadata_counts: dict[str, int] = {}
     if publication_ids:
@@ -246,6 +259,9 @@ async def get_research_evidence_ledger(
         datasets=dataset_evidence,
         analysis_runs=analysis_runs,
         publications=publication_evidence,
+        datasets_truncated=datasets_truncated,
+        analysis_runs_truncated=analysis_runs_truncated,
+        publications_truncated=publications_truncated,
         climate=EvidenceClimateSummary(
             observation_count=int(climate_row[0] or 0),
             verified_count=int(climate_row[1] or 0),
