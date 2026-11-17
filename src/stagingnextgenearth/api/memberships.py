@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -358,7 +358,7 @@ async def update_member_role(
     previous_role = target.role
     target.role = body.role
     await session.execute(
-        MembershipRole.__table__.delete().where(
+        delete(MembershipRole).where(
             MembershipRole.membership_id == target.id,
             MembershipRole.role == previous_role,
         )
