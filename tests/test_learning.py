@@ -643,3 +643,27 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert summary.json()["mentorship_assignments"] >= 1
         assert summary.json()["assessment_submissions"] >= 1
         assert summary.json()["pending_evaluations"] == 0
+
+        programme_outcomes = client.get(
+            f"{base}/programmes/{programme_id}/outcomes",
+            headers=admin_headers,
+        )
+        assert programme_outcomes.status_code == 200
+        outcomes = programme_outcomes.json()
+        assert outcomes["programme_id"] == programme_id
+        assert outcomes["course_count"] == 1
+        assert outcomes["totals"]["learners"] == 1
+        assert outcomes["totals"]["completed"] == 1
+        assert outcomes["totals"]["attendance_records"] == 2
+        assert outcomes["totals"]["pending_evaluations"] == 0
+        assert outcomes["courses"][0]["course_id"] == course_id
+        denied_programme_outcomes = client.get(
+            f"{base}/programmes/{programme_id}/outcomes",
+            headers=learner_headers,
+        )
+        assert denied_programme_outcomes.status_code == 403
+        missing_programme_outcomes = client.get(
+            f"{base}/programmes/00000000-0000-0000-0000-000000000000/outcomes",
+            headers=admin_headers,
+        )
+        assert missing_programme_outcomes.status_code == 404
