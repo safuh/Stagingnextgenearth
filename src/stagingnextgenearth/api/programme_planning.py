@@ -563,7 +563,7 @@ async def update_assignment_status(
     )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Assignment not found")
-    if not await membership_has_any_role(session, membership, _MANAGERS) and item.assigned_to != principal.user_id:
+    if not await membership_has_any_role(session, membership, _MANAGERS) and item.assigned_to != principal.user_id:  # noqa: E501
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Only the assignee or a manager may update this task",
