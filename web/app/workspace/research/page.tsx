@@ -76,6 +76,21 @@ interface ClimateAnalysisSummary {
   method: "descriptive_hyndman_fan_type_7"; missing_data_policy: "no_imputation";
 }
 
+interface MonthlyAnomalyPoint {
+  year: number; month: number; observed_total_mm: number; observed_days: number;
+  expected_days: number; completeness: number; baseline_mean_mm: number;
+  baseline_sample_standard_deviation_mm: number; baseline_year_count: number;
+  standardized_anomaly: number; method: string; classification: "unclassified";
+}
+interface MonthlyAnomalyReport {
+  variable: string; unit: string; quality_status: "verified" | "pending";
+  latitude: number; longitude: number; baseline_start: string; baseline_end: string;
+  target_start: string; target_end: string; minimum_completeness: number;
+  minimum_baseline_years: number; observation_count: number;
+  provenance_sources: string[]; provider_ids: string[]; ingestion_run_ids: string[];
+  points: MonthlyAnomalyPoint[];
+}
+
 
 const RESEARCH_ROLES = ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"];
 
@@ -193,6 +208,15 @@ export default function ResearchWorkspacePage() {
   const [coverageReport, setCoverageReport] = useState<DailyCoverageReport | null>(null);
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [coverageError, setCoverageError] = useState("");
+  const [monthlyAnomalyQuery, setMonthlyAnomalyQuery] = useState({
+    latitude: "", longitude: "", baseline_start: "2010-01-01",
+    baseline_end: "2019-12-31", target_start: "2020-01-01",
+    target_end: "2020-12-31", minimum_completeness: "0.9",
+    minimum_baseline_years: "10",
+  });
+  const [monthlyAnomaly, setMonthlyAnomaly] = useState<MonthlyAnomalyReport | null>(null);
+  const [monthlyAnomalyLoading, setMonthlyAnomalyLoading] = useState(false);
+  const [monthlyAnomalyError, setMonthlyAnomalyError] = useState("");
 
 
   const membershipRoles = membership?.roles?.length
@@ -274,6 +298,44 @@ export default function ResearchWorkspacePage() {
       setError(cause instanceof Error ? cause.message : "Unable to review climate observation.");
     } finally {
       setClimateSubmitting(false);
+    }
+  }
+
+  async function runMonthlyPrecipitationAnomaly(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMonthlyAnomalyError("");
+    setMonthlyAnomaly(null);
+    const query = monthlyAnomalyQuery;
+    const latitude = Number(query.latitude);
+    const longitude = Number(query.longitude);
+    const completeness = Number(query.minimum_completeness);
+    const baselineYears = Number(query.minimum_baseline_years);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+        !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setMonthlyAnomalyError("Enter valid station or grid-cell coordinates.");
+      return;
+    }
+    if (!(completeness > 0 && completeness <= 1) ||
+        !Number.isInteger(baselineYears) || baselineYears < 2 || baselineYears > 100) {
+      setMonthlyAnomalyError("Completeness must be above 0 and at most 1; baseline years must be 2–100.");
+      return;
+    }
+    setMonthlyAnomalyLoading(true);
+    try {
+      const params = new URLSearchParams({
+        ...query,
+        latitude: String(latitude), longitude: String(longitude),
+        minimum_completeness: String(completeness),
+        minimum_baseline_years: String(baselineYears),
+      });
+      const report = await apiGet<MonthlyAnomalyReport>(
+        `/organizations/${organizationId}/climate-observations/monthly-precipitation-anomalies?${params.toString()}`,
+      );
+      setMonthlyAnomaly(report);
+    } catch (cause) {
+      setMonthlyAnomalyError(cause instanceof Error ? cause.message : "Unable to calculate monthly anomalies.");
+    } finally {
+      setMonthlyAnomalyLoading(false);
     }
   }
 
@@ -767,6 +829,35 @@ export default function ResearchWorkspacePage() {
                     <p className="workspace-muted">{coverageReport.variable} at {coverageReport.latitude.toFixed(5)}, {coverageReport.longitude.toFixed(5)} · {coverageReport.start_date} to {coverageReport.end_date}.</p>
                     {coverageReport.missing_days.length === 0 ? <p className="workspace-notice">No missing calendar days were detected for this station and variable.</p> : <div><strong>Missing calendar days</strong><p className="workspace-muted">{coverageReport.missing_days.join(", ")}</p></div>}
                     <p className="workspace-muted">Policy: {coverageReport.missing_data_policy.replace(/_/g, " ")}. Missing values are reported, never filled or inferred.</p>
+                  </div>}
+                </section>
+                <section className="research-section climate-analysis-panel">
+                  <div className="section-heading"><div><p className="eyebrow">CLIMATE INTELLIGENCE</p><h2>Monthly precipitation anomalies</h2></div><span>Daily data · exact location</span></div>
+                  <p className="workspace-muted">Compare each target calendar month with the same month in the baseline years. Only verified daily precipitation in mm/day is used. Incomplete months are excluded without imputation; this standardized score is not SPI or a drought classification.</p>
+                  <form className="climate-analysis-form" onSubmit={runMonthlyPrecipitationAnomaly}>
+                    <label>Latitude<input type="number" step="any" min="-90" max="90" value={monthlyAnomalyQuery.latitude} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, latitude: event.target.value }))} required /></label>
+                    <label>Longitude<input type="number" step="any" min="-180" max="180" value={monthlyAnomalyQuery.longitude} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, longitude: event.target.value }))} required /></label>
+                    <label>Baseline start<input type="date" value={monthlyAnomalyQuery.baseline_start} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, baseline_start: event.target.value }))} required /></label>
+                    <label>Baseline end<input type="date" value={monthlyAnomalyQuery.baseline_end} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, baseline_end: event.target.value }))} required /></label>
+                    <label>Target start<input type="date" value={monthlyAnomalyQuery.target_start} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, target_start: event.target.value }))} required /></label>
+                    <label>Target end<input type="date" value={monthlyAnomalyQuery.target_end} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, target_end: event.target.value }))} required /></label>
+                    <label>Minimum daily completeness<input type="number" min="0.01" max="1" step="0.01" value={monthlyAnomalyQuery.minimum_completeness} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, minimum_completeness: event.target.value }))} required /></label>
+                    <label>Minimum baseline years<input type="number" min="2" max="100" step="1" value={monthlyAnomalyQuery.minimum_baseline_years} onChange={(event) => setMonthlyAnomalyQuery((q) => ({ ...q, minimum_baseline_years: event.target.value }))} required /></label>
+                    <button className="primary-action" disabled={monthlyAnomalyLoading || !organizationId}>{monthlyAnomalyLoading ? "Calculating…" : "Calculate monthly anomalies"}</button>
+                  </form>
+                  {monthlyAnomalyError && <p className="workspace-error" role="alert">{monthlyAnomalyError}</p>}
+                  {monthlyAnomaly && <div className="climate-analysis-results" aria-live="polite">
+                    <div className="research-metrics">
+                      <article><span>Months returned</span><strong>{monthlyAnomaly.points.length}</strong></article>
+                      <article><span>Observations scanned</span><strong>{monthlyAnomaly.observation_count.toLocaleString()}</strong></article>
+                      <article><span>Baseline minimum</span><strong>{monthlyAnomaly.minimum_baseline_years} years</strong></article>
+                      <article><span>Quality status</span><strong>{monthlyAnomaly.quality_status}</strong></article>
+                    </div>
+                    <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Month</th><th>Observed total</th><th>Completeness</th><th>Baseline mean</th><th>Baseline SD</th><th>Baseline years</th><th>Standardized anomaly</th></tr></thead>
+                      <tbody>{monthlyAnomaly.points.map((point) => <tr key={`${point.year}-${point.month}`}><td>{new Date(Date.UTC(point.year, point.month - 1, 1)).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" })}</td><td>{point.observed_total_mm.toFixed(2)} mm</td><td>{(point.completeness * 100).toFixed(1)}%</td><td>{point.baseline_mean_mm.toFixed(2)} mm</td><td>{point.baseline_sample_standard_deviation_mm.toFixed(2)} mm</td><td>{point.baseline_year_count}</td><td>{point.standardized_anomaly.toFixed(3)}</td></tr>)}</tbody>
+                    </table></div>
+                    <p className="workspace-muted">Sources: {monthlyAnomaly.provenance_sources.join(", ") || "Not recorded"}. Providers: {monthlyAnomaly.provider_ids.join(", ") || "Not recorded"}. Ingestion runs: {monthlyAnomaly.ingestion_run_ids.length}. Location: {monthlyAnomaly.latitude}, {monthlyAnomaly.longitude}.</p>
+                    <p className="workspace-muted">Method: sample-standardized anomaly z-score. Classification remains unclassified; do not interpret this output as SPI or a drought category.</p>
                   </div>}
                 </section>
                 <div className="research-metrics" aria-label="Research dataset summary">
