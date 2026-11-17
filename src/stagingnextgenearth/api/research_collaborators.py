@@ -74,7 +74,7 @@ async def _can_manage(
     principal: Principal,
     membership: Membership,
 ) -> bool:
-    return await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id
+    return await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id  # noqa: E501
 
 
 @router.post("", response_model=CollaboratorRead, status_code=status.HTTP_201_CREATED)
@@ -238,7 +238,7 @@ async def study_access_role(
     )
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
-    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:
+    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:  # noqa: E501
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
