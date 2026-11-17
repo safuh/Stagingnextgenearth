@@ -1,7 +1,7 @@
 """Deterministic, access-controlled manifests for approved research datasets."""
 
-from hashlib import sha256
 import json
+from hashlib import sha256
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
