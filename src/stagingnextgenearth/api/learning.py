@@ -27,7 +27,13 @@ from stagingnextgenearth.platform.models import (
     Programme,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
 public_router = APIRouter(tags=["public-learning"])
@@ -262,7 +268,7 @@ async def create_course(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CourseRead:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course management permission required")
     if body.programme_id is not None:
         programme_exists = await session.scalar(
@@ -297,7 +303,7 @@ async def list_courses(
     include_drafts: bool = False,
 ) -> list[CourseRead]:
     statement = select(LearningCourse).where(LearningCourse.organization_id == organization_id)
-    if not include_drafts or membership.role not in _MANAGE:
+    if not include_drafts or not await membership_has_any_role(session, membership, _MANAGE):
         statement = statement.where(LearningCourse.status == "published")
     result = await session.scalars(statement.order_by(LearningCourse.title).limit(200))
     return [CourseRead.model_validate(row) for row in result.all()]
@@ -309,7 +315,7 @@ async def publish_course(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CourseRead:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course management permission required")
     course = await _course(session, organization_id, course_id)
     if course.status == "archived":
@@ -334,7 +340,7 @@ async def create_module(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course management permission required")
     await _course(session, organization_id, course_id)
     module = LearningModule(course_id=course_id, **body.model_dump())
@@ -355,7 +361,7 @@ async def create_lesson(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course management permission required")
     module = await session.scalar(select(LearningModule).join(LearningCourse).where(
         LearningModule.id == module_id, LearningCourse.organization_id == organization_id
@@ -391,7 +397,7 @@ async def apply_for_course(
         )
     )
     if existing_membership is not None and (
-        existing_membership.status != "active" or existing_membership.role not in _LEARN
+        existing_membership.status != "active" or existing_not await membership_has_any_role(session, membership, _LEARN)
     ):
         raise HTTPException(403, "This account is not eligible for learner applications")
     enrollment = LearningEnrollment(
@@ -448,7 +454,7 @@ async def list_course_enrollments(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """List learner applications for authorised course administrators."""
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Enrollment reporting permission required")
     await _course(session, organization_id, course_id)
     rows = await session.scalars(
@@ -477,7 +483,7 @@ async def decide_enrollment(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Enrollment approval permission required")
     await _course(session, organization_id, course_id)
     enrollment = await _enrollment(session, course_id, learner_id)
@@ -499,7 +505,7 @@ async def decide_enrollment(
                     status="active",
                 )
             )
-        elif existing_membership.status != "active" or existing_membership.role not in _LEARN:
+        elif existing_membership.status != "active" or existing_not await membership_has_any_role(session, membership, _LEARN):
             raise HTTPException(
                 409,
                 "Applicant has an incompatible or inactive organisation membership",
@@ -522,10 +528,10 @@ async def list_course_assessments(
 ) -> list[dict[str, object]]:
     """List assessment instructions without exposing private configuration payloads."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and membership.role not in _MANAGE:
+    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(404, "Course not found")
-    if membership.role not in _MANAGE:
-        if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        if not await membership_has_any_role(session, membership, _LEARN):
             raise HTTPException(403, "Learner access required")
         await _approved_enrollment(session, course_id, principal.user_id)
     rows = await session.scalars(
@@ -554,7 +560,7 @@ async def create_assessment(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Assessment management permission required")
     await _course(session, organization_id, course_id)
     assessment = LearningAssessment(course_id=course_id, created_by=principal.user_id,
@@ -573,7 +579,7 @@ async def submit_assessment(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
     assessment = await session.scalar(select(LearningAssessment).join(LearningCourse).where(
         LearningAssessment.id == assessment_id,
@@ -607,7 +613,7 @@ async def evaluate_submission(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Evaluation permission required")
     attempt = await session.scalar(select(LearningAssessmentAttempt).join(
         LearningAssessment).join(LearningCourse).where(
@@ -633,7 +639,7 @@ async def list_course_submissions(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """List learner submissions for staff review within the active tenant."""
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Assessment review permission required")
     await _course(session, organization_id, course_id)
     rows = await session.execute(
@@ -667,7 +673,7 @@ async def list_course_attendance(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """List course attendance records for authorised programme staff."""
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Attendance reporting permission required")
     await _course(session, organization_id, course_id)
     rows = await session.scalars(
@@ -697,7 +703,7 @@ async def list_course_mentorships(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """List course mentorship assignments for authorised programme staff."""
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Mentorship reporting permission required")
     await _course(session, organization_id, course_id)
     rows = await session.scalars(
@@ -726,7 +732,7 @@ async def assign_mentor(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Mentorship assignment permission required")
     await _course(session, organization_id, course_id)
     mentor_membership = await session.scalar(select(Membership.id).where(
@@ -759,7 +765,7 @@ async def record_attendance(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Attendance recording permission required")
     await _course(session, organization_id, course_id)
     enrolled = await session.scalar(select(LearningEnrollment.id).where(
@@ -788,7 +794,7 @@ async def add_resource(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Learning resource management permission required")
     await _course(session, organization_id, course_id)
     if body.lesson_id is not None:
@@ -819,7 +825,7 @@ async def complete_lesson(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
     lesson = await session.scalar(
         select(LearningLesson)
@@ -949,10 +955,10 @@ async def course_curriculum(
 ) -> dict[str, object]:
     """Return ordered modules and lessons without exposing draft content to learners."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and membership.role not in _MANAGE:
+    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(404, "Course not found")
-    if membership.role not in _MANAGE:
-        if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        if not await membership_has_any_role(session, membership, _LEARN):
             raise HTTPException(403, "Learner access required")
         await _approved_enrollment(session, course_id, principal.user_id)
     modules = await session.scalars(
@@ -993,7 +999,7 @@ async def my_course_progress(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     """Return only the authenticated learner's own completion and assessment results."""
-    if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
     course = await _course(session, organization_id, course_id)
     if course.status != "published":
@@ -1041,7 +1047,7 @@ async def my_mentorships(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """Return mentorship relationships involving the authenticated member only."""
-    if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
     rows = await session.execute(
         select(LearningMentorship, LearningCourse.title)
@@ -1076,7 +1082,7 @@ async def my_attendance(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, object]]:
     """Return attendance history for the authenticated learner only."""
-    if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
     rows = await session.execute(
         select(LearningAttendance, LearningCourse.title)
@@ -1112,10 +1118,10 @@ async def list_learning_resources(
 ) -> list[dict[str, object]]:
     """List course resources while never returning internal storage references."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and membership.role not in _MANAGE:
+    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(404, "Course not found")
-    if membership.role not in _MANAGE:
-        if membership.role not in _LEARN:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        if not await membership_has_any_role(session, membership, _LEARN):
             raise HTTPException(403, "Learner access required")
         await _approved_enrollment(session, course_id, principal.user_id)
     resources = await session.scalars(
@@ -1141,7 +1147,7 @@ async def revoke_certificate(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     """Revoke a credential through an auditable, tenant-scoped staff action."""
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Certificate administration permission required")
     certificate = await session.scalar(
         select(LearningCertificate)
@@ -1173,7 +1179,7 @@ async def course_progress(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    if membership.role not in _MANAGE:
+    if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course reporting permission required")
     await _course(session, organization_id, course_id)
     rows = await session.scalars(select(LearningEnrollment).where(
