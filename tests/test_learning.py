@@ -284,6 +284,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert decision.status_code == 200
+        promoted_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=learner_headers,
+        )
+        assert promoted_membership.status_code == 200
+        assert promoted_membership.json()["role"] == "youth_volunteer"
+        assert "learner" in promoted_membership.json()["roles"]
+        membership_audit = client.get(
+            f"/api/organizations/{org_id}/audit-events",
+            headers=admin_headers,
+        )
+        assert membership_audit.status_code == 200
+        learner_role_event = next(
+            event for event in membership_audit.json()
+            if event["action"] == "membership.roles_changed"
+            and event["subject_user_id"] == learner_id
+        )
+        assert learner_role_event["changes"]["reason"] == "course_enrollment_approved"
 
         curriculum = client.get(f"{base}/courses/{course_id}/curriculum",
                                 headers=learner_headers)
