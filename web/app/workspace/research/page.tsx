@@ -153,6 +153,7 @@ export default function ResearchWorkspacePage() {
   const [protocolReviewNotes, setProtocolReviewNotes] = useState<Record<string, string>>({});
   const [researchAuditEvents, setResearchAuditEvents] = useState<ResearchAuditEvent[]>([]);
   const [researchAuditLoading, setResearchAuditLoading] = useState(false);
+  const [researchAuditExporting, setResearchAuditExporting] = useState(false);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -211,6 +212,7 @@ export default function ResearchWorkspacePage() {
     setProtocolReviewNotes({});
     setResearchAuditEvents([]);
     setResearchAuditLoading(false);
+    setResearchAuditExporting(false);
     setGovernanceLoading(false);
     setGovernanceBusy(false);
     setEvidenceStudyId("");
@@ -797,6 +799,40 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  async function exportResearchAudit() {
+    const generation = workspaceGeneration.current;
+    setResearchAuditExporting(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/backend/organizations/${organizationId}/research-governance/audit-events/export?limit=5000`,
+        { credentials: "same-origin", cache: "no-store", headers: { Accept: "text/csv" } },
+      );
+      if (!response.ok) throw new Error(`Research governance export failed (${response.status}).`);
+      if (generation !== workspaceGeneration.current) return;
+      const blob = await response.blob();
+      if (generation !== workspaceGeneration.current) return;
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `research-governance-audit-${organizationId}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setNotice(response.headers.get("X-Records-Truncated") === "true"
+        ? "Latest 5,000 governance events downloaded; the export is capped."
+        : "Research governance audit CSV downloaded.");
+    } catch (cause) {
+      if (generation === workspaceGeneration.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to export research governance audit history.");
+      }
+    } finally {
+      if (generation === workspaceGeneration.current) setResearchAuditExporting(false);
+    }
+  }
+
   async function loadStudyGovernance(studyId: string) {
     const generation = workspaceGeneration.current;
     const request = ++governanceRequest.current;
@@ -1260,7 +1296,7 @@ export default function ResearchWorkspacePage() {
                 </section>
                 {canViewResearchAudit && (
                   <section className="research-section">
-                    <div className="section-heading"><div><p className="eyebrow">ACCOUNTABILITY</p><h2>Research governance audit trail</h2><p>Organisation-level record of protocol, ethics and study lifecycle decisions. Protocol contents and reviewer notes are not included.</p></div><button type="button" className="secondary-action" onClick={() => void loadResearchAudit()} disabled={researchAuditLoading}>{researchAuditLoading ? "Loading audit…" : "Load audit trail"}</button></div>
+                    <div className="section-heading"><div><p className="eyebrow">ACCOUNTABILITY</p><h2>Research governance audit trail</h2><p>Organisation-level record of protocol, ethics and study lifecycle decisions. Protocol contents and reviewer notes are not included.</p></div><div className="form-actions"><button type="button" className="secondary-action" onClick={() => void loadResearchAudit()} disabled={researchAuditLoading}>{researchAuditLoading ? "Loading audit…" : "Load audit trail"}</button><button type="button" className="secondary-action" onClick={() => void exportResearchAudit()} disabled={researchAuditExporting}>{researchAuditExporting ? "Exporting…" : "Export CSV"}</button></div></div>
                     {researchAuditEvents.length > 0 && <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Recorded</th><th>Action</th><th>Actor ID</th><th>Subject ID</th><th>Study / decision</th></tr></thead><tbody>{researchAuditEvents.map((event) => <tr key={event.id}><td>{new Date(event.created_at).toLocaleString()}</td><td>{event.action.replace("research.", "").replace(/_/g, " ")}</td><td><code>{event.actor_user_id}</code></td><td><code>{event.subject_user_id || "—"}</code></td><td><code>{String(event.changes.study_id || "—")}</code>{event.changes.version_number ? ` · v${String(event.changes.version_number)}` : ""}{event.changes.decision ? ` · ${String(event.changes.decision)}` : ""}{event.changes.from_status || event.changes.to_status ? ` · ${String(event.changes.from_status || "—")} → ${String(event.changes.to_status || "—")}` : ""}</td></tr>)}</tbody></table></div>}
                     {!researchAuditLoading && researchAuditEvents.length === 0 && <p className="workspace-muted">Load the audit trail to inspect recent research governance decisions.</p>}
                     {researchAuditEvents.length === 200 && <p className="workspace-muted">Showing the latest 200 research governance events; this endpoint is intentionally bounded.</p>}
