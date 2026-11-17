@@ -11,7 +11,8 @@ type Partner = { id: string; name: string; relationship_status: string; verifica
 type Content = { id: string; title: string; content_type: string; publication_state: string; source_url: string | null };
 type Study = { id: string; title: string; status: string; study_type: string | null; lead_researcher_id: string };
 type Course = { id: string; title: string; status: string };
-type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };\ntype OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number };
+type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
+type OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number };
 type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
@@ -27,7 +28,8 @@ export default function ExecutiveOverviewPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [studies, setStudies] = useState<Study[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);\n  const [operations, setOperations] = useState<OperationsSummary | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,8 @@ export default function ExecutiveOverviewPage() {
       apiGet<Content[]>(`/organizations/${id}/content`),
       apiGet<Study[]>(`/organizations/${id}/research-studies`),
       apiGet<Course[]>(`/organizations/${id}/learning/courses`),
-      apiGet<Summary>(`/organizations/${id}/administration-summary`),\n      apiGet<OperationsSummary>(`/organizations/${id}/operations-summary`),
+      apiGet<Summary>(`/organizations/${id}/administration-summary`),
+      apiGet<OperationsSummary>(`/organizations/${id}/operations-summary`),
     ]);
     // Secondary governance and delivery panels must not take down the core
     // executive snapshot when a newly added endpoint is unavailable or one
