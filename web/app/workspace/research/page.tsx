@@ -315,7 +315,7 @@ export default function ResearchWorkspacePage() {
     const csvCell = (value: unknown) => {
       let text = Array.isArray(value) ? value.join(";") : String(value ?? "");
       // Prevent spreadsheet formula execution when opening exported CSV files.
-      if (/^[\\s]*[=+\\-@]/.test(text)) text = "'" + text;
+      if (/^\s*[=+\-@]/.test(text)) text = "'" + text;
       return '"' + text.replace(/"/g, '""') + '"';
     };
     const metadata = [
@@ -331,8 +331,8 @@ export default function ResearchWorkspacePage() {
       point.baseline_sample_standard_deviation_mm, point.baseline_year_count,
       point.standardized_anomaly, point.method, point.classification, ...metadata,
     ]);
-    const csv = [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\\r\\n");
-    const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const csv = [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
