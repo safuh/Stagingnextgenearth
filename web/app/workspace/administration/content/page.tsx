@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiGet, apiPatch, clearSession } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, clearSession } from "@/lib/api";
 
 interface Organization { id: string; name: string }
 interface Membership { role: string; roles: string[]; user_id: string }
@@ -36,6 +36,7 @@ export default function ContentReviewPage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async (id: string) => {
     const [mine, rows] = await Promise.all([
@@ -100,7 +101,31 @@ export default function ContentReviewPage() {
   }
 
   const visible = entries.filter((entry) => filter === "all" || entry.publication_state === filter);
-  const canReview = (membership?.roles ?? [membership?.role ?? ""]).some((role) => ["admin", "founder", "executive"].includes(role));
+  const assignedRoles = membership?.roles ?? [membership?.role ?? ""];
+  const canReview = assignedRoles.some((role) => ["admin", "founder", "executive"].includes(role));
+  const canContribute = assignedRoles.some((role) => ["employee", "researcher"].includes(role));
+
+  async function createDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setCreating(true); setError(""); setNotice("");
+    try {
+      const entry = await apiPost<ContentEntry>(`/organizations/${organizationId}/content`, {
+        content_type: String(data.get("content_type") ?? "page"),
+        slug: String(data.get("slug") ?? "").trim(),
+        title: String(data.get("title") ?? "").trim(),
+        summary: String(data.get("summary") ?? "").trim() || null,
+        body: String(data.get("body") ?? "").trim() || null,
+      });
+      await load(organizationId);
+      event.currentTarget.reset();
+      setNotice(`“${entry.title}” saved as a draft. Submit it for review when it is ready.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create content draft.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   if (loading) return <main className="workspace-shell"><p>Loading CMS review queue…</p></main>;
 
@@ -119,7 +144,27 @@ export default function ContentReviewPage() {
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
-        {!canReview ? <section className="staff-card"><h2>Administrator access required</h2><p>Only administrators, founders and executives can review public content.</p></section> : (
+        {!canReview && !canContribute ? <section className="staff-card"><h2>Content workspace access required</h2><p>Your organisation membership does not include a content contributor or reviewer role.</p></section> : !canReview ? (
+          <section className="staff-card admin-member-section">
+            <p className="eyebrow">CONTENT CONTRIBUTOR WORKSPACE</p>
+            <h2>Create a website draft</h2>
+            <p className="workspace-muted">Your drafts are private to your account and organisation reviewers. Submitting for review does not publish content; a different authorised reviewer must approve it before an administrator publishes it.</p>
+            <form className="content-review-detail" onSubmit={(event) => void createDraft(event)}>
+              <label>Content type<select name="content_type" defaultValue="page"><option value="page">Page</option><option value="programme">Programme</option><option value="training_track">Training track</option><option value="initiative">Initiative</option><option value="research_area">Research area</option><option value="impact_metric">Impact metric</option><option value="publication">Publication</option></select></label>
+              <label>URL slug<input name="slug" minLength={2} maxLength={160} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="community-climate-research" required /></label>
+              <label>Title<input name="title" minLength={2} maxLength={240} required /></label>
+              <label>Summary<textarea name="summary" rows={3} maxLength={5000} /></label>
+              <label>Body<textarea name="body" rows={8} maxLength={30000} /></label>
+              <button className="primary-action" disabled={creating}>{creating ? "Saving…" : "Save draft"}</button>
+            </form>
+            <div className="section-heading"><h2>Your submissions</h2><span>{entries.length} records</span></div>
+            {entries.length === 0 ? <p className="workspace-muted">You have not created any content drafts yet.</p> : entries.map((entry) => (
+              <article className="admin-member-row" key={entry.id}>
+                <div className="admin-member-meta"><strong>{entry.title}</strong><span>{entry.content_type.replaceAll("_", " ")} · {entry.slug}</span><span>Status: {entry.publication_state}</span></div>
+              </article>
+            ))}
+          </section>
+        ) : (
           <>
             <div className="workspace-stats admin-stats">
               <article><span>AWAITING REVIEW</span><strong>{entries.filter((item) => item.publication_state === "review").length}</strong><p>Requires an authorised reviewer</p></article>
