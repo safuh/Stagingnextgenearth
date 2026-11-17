@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPost, login, register, restoreSession } from "@/lib/api";
+import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type Course = {
   id: string;
@@ -35,9 +36,9 @@ export default function LearnerPortalPage() {
   async function loadLearnerData() {
     const [organization, available] = await Promise.all([
       apiGet<{ id: string; name: string; slug: string }>(
-        "/public/organizations/next-gen-for-earth",
+        `/public/organizations/${ORGANIZATION_SLUG}`,
       ),
-      apiGet<Course[]>("/public/organizations/next-gen-for-earth/courses"),
+      apiGet<Course[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`),
     ]);
     setCourses(available);
     const mine = await apiGet<Application[]>(
