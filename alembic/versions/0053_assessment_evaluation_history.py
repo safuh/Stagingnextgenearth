@@ -5,6 +5,7 @@ Revises: 0052_mentorship_lifecycle_audit
 """
 
 from collections.abc import Sequence
+from uuid import uuid4
 
 from alembic import op
 import sqlalchemy as sa
@@ -52,6 +53,32 @@ def upgrade() -> None:
         "learning_assessment_evaluations",
         ["attempt_id", "evaluated_at"],
     )
+    connection = op.get_bind()
+    existing_evaluations = connection.execute(
+        sa.text(
+            "SELECT id, score, feedback, evaluated_by, evaluated_at "
+            "FROM learning_assessment_attempts "
+            "WHERE evaluated_at IS NOT NULL AND evaluated_by IS NOT NULL"
+        )
+    ).mappings()
+    for row in existing_evaluations:
+        connection.execute(
+            sa.text(
+                "INSERT INTO learning_assessment_evaluations "
+                "(id, attempt_id, score, feedback, previous_score, "
+                "previous_feedback, evaluated_by, evaluated_at) "
+                "VALUES (:id, :attempt_id, :score, :feedback, NULL, NULL, "
+                ":evaluated_by, :evaluated_at)"
+            ),
+            {
+                "id": str(uuid4()),
+                "attempt_id": row["id"],
+                "score": row["score"],
+                "feedback": row["feedback"],
+                "evaluated_by": row["evaluated_by"],
+                "evaluated_at": row["evaluated_at"],
+            },
+        )
 
 
 
