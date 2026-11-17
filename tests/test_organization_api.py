@@ -1222,6 +1222,18 @@ def test_administration_summary_is_visible_only_to_administrators(client: TestCl
         },
     )
     assert application.status_code == 201
+    person = client.post(
+        f"/api/organizations/{organization_id}/people",
+        headers=owner_headers,
+        json={
+            "full_name": "Imported Website Profile",
+            "positions": ["Research Associate"],
+            "person_types": ["researcher"],
+            "source_url": "https://nextgenforearth.org/people",
+        },
+    )
+    assert person.status_code == 201
+    assert person.json()["review_state"] == "pending"
 
     operations_for_member = client.get(
         f"/api/organizations/{organization_id}/operations-summary",
@@ -1238,6 +1250,7 @@ def test_administration_summary_is_visible_only_to_administrators(client: TestCl
         "pending_employment_applications": 1,
         "pending_volunteer_applications": 0,
         "pending_membership_invitations": 0,
+        "pending_directory_reviews": 1,
     }
 
 def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
