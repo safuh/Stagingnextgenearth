@@ -33,7 +33,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-dataset-files"],
 )
-_WRITE_ROLES = {"admin", "programme_manager", "researcher"}
+_WRITE_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher"}
 _ALLOWED_TYPES = {
     "text/csv": ".csv",
     "application/json": ".json",
