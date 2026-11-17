@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiGet, clearSession, hasSession } from "@/lib/api";
 
 type Org = { id: string; name: string };
-type Membership = { id: string; user_id: string; role: string; status: string };
+type Membership = { id: string; user_id: string; role: string; roles?: string[]; status: string };
 type Programme = { id: string; title: string; status: string; start_date: string | null; end_date: string | null };
 type Partner = { id: string; name: string; relationship_status: string; verification_state: string; visibility: string };
 type Content = { id: string; title: string; content_type: string; publication_state: string; source_url: string | null };
@@ -36,8 +36,9 @@ export default function ExecutiveOverviewPage() {
 
   const load = useCallback(async (id: string) => {
     const mine = await apiGet<Membership>(`/organizations/${id}/memberships/me`);
-    setRole(mine.role);
-    if (!["admin", "founder", "executive"].includes(mine.role)) {
+    const assignedRoles = mine.roles?.length ? mine.roles : [mine.role];
+    setRole(assignedRoles.join(" · "));
+    if (!assignedRoles.some((item) => ["admin", "founder", "executive"].includes(item))) {
       throw new Error("The executive overview is restricted to administrators, founders and executives.");
     }
     const [memberRows, programmeRows, partnerRows, contentRows, studyRows, courseRows, orgSummary] = await Promise.all([
