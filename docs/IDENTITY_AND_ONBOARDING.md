@@ -8,7 +8,7 @@ The platform uses one account identity and authentication service. The browser-f
 | --- | --- | --- | --- |
 | Learners | `/learners` | Self-registration | Apply to a published course. A course manager reviews the application. Approval creates an active `learner` membership. |
 | Volunteers | `/volunteer/apply` | Register through `/learners`, then return to the application | Programme team reviews the volunteer application and completes safeguarding checks before granting `youth_volunteer` membership. |
-| Employees, researchers and programme staff | `/staff/register` | Self-register an identity, or use an existing account | An administrator invites the exact registered email and assigns a permitted role. The invitee signs in and accepts the invitation. |
+| Employees, researchers and programme staff | `/staff/login` and `/staff/register` | Self-register an identity, or use an existing account | An administrator invites the exact registered email and assigns a permitted role. The invitee signs in and accepts the invitation. |
 | Founder / executive / administrator | `/staff/register` for initial identity only | Self-register an identity | Organisation owner grants privileged roles; they cannot be selected during public registration. |
 | Institutional partners | `/staff/register` | Partner contact registers an identity | Organisation administrator invites the account as `institutional_partner`; invitation acceptance activates membership. |
 
@@ -18,7 +18,7 @@ A registered identity is not an organisation membership. A user cannot select or
 
 The same backend authentication API serves all journeys:
 
-- `POST /api/auth/register` creates an identity and password hash. It does not create an organisation membership.
+- `POST /api/auth/register` creates an identity and password hash. It does not create an organisation membership.\n- `/staff/login` is the dedicated staff/partner sign-in experience; `/learners` is the separate learner registration, sign-in and course application experience. Both use the same underlying identity and token service.
 - `POST /api/auth/login` authenticates the identity and issues access and refresh tokens.
 - The Next.js same-origin session endpoint `POST /api/session/login` stores tokens in HttpOnly, Secure-in-production, SameSite=Strict cookies.
 - `GET /api/session` reports whether the browser has a session.
@@ -39,7 +39,7 @@ A pending application does not grant course content access. Rejection does not c
 
 ## Staff and partner lifecycle
 
-1. User registers an identity at `/staff/register` (or signs in to an existing account).
+1. Existing members sign in at `/staff/login`. New users register an identity at `/staff/register` (or use an existing account).
 2. User gives the administrator the exact registered email address.
 3. An active administrator creates an invitation using `POST /api/organizations/{organization_id}/memberships`.
 4. The administrator shares the generated private invitation URL with the intended recipient.
