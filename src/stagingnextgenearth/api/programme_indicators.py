@@ -18,7 +18,13 @@ from stagingnextgenearth.platform.models import (
     ProgrammePlanningEvent,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["programme-indicators"])
 _MANAGERS = {"admin", "founder", "executive", "programme_manager"}
@@ -166,7 +172,7 @@ async def create_indicator(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> IndicatorRead:
     """Create an indicator definition."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
@@ -280,7 +286,7 @@ async def record_measurement(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MeasurementRead:
     """Append a measurement; corrections are new records, never overwrites."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
