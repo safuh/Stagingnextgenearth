@@ -19,7 +19,13 @@ from stagingnextgenearth.platform.models import (
     ProgrammePlanningEvent,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["programme-planning"])
 _MANAGERS = {"admin", "founder", "executive", "programme_manager"}
@@ -207,7 +213,7 @@ async def create_goal(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> GoalRead:
     """Create a programme goal."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     item = ProgrammeGoal(
@@ -275,7 +281,7 @@ async def update_goal_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> GoalRead:
     """Apply a valid goal lifecycle transition."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     transitions = {"planned": {"active", "cancelled"}, "active": {"achieved", "cancelled"}}
     item = await session.scalar(
@@ -322,7 +328,7 @@ async def create_milestone(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MilestoneRead:
     """Create a checkpoint under a goal in the same programme."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     goal = await session.scalar(
@@ -400,7 +406,7 @@ async def update_milestone_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MilestoneRead:
     """Apply a valid milestone lifecycle transition."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     transitions = {
         "planned": {"in_progress", "cancelled"},
@@ -450,7 +456,7 @@ async def create_assignment(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AssignmentRead:
     """Assign a programme task to an active member."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     assignee = await session.scalar(
@@ -526,7 +532,7 @@ async def list_assignments(
         ProgrammeAssignment.organization_id == organization_id,
         ProgrammeAssignment.programme_id == programme_id,
     )
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         query = query.where(ProgrammeAssignment.assigned_to == membership.user_id)
     rows = await session.scalars(
         query.order_by(ProgrammeAssignment.due_date, ProgrammeAssignment.created_at).limit(500)
@@ -557,7 +563,7 @@ async def update_assignment_status(
     )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Assignment not found")
-    if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
+    if not await membership_has_any_role(session, membership, _MANAGERS) and item.assigned_to != principal.user_id:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Only the assignee or a manager may update this task",
@@ -596,7 +602,7 @@ async def list_planning_activity(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PlanningEventRead]:
     """Return bounded goal, milestone and indicator history to programme managers."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
@@ -628,7 +634,7 @@ async def list_programme_activity_timeline(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ProgrammeTimelineEventRead]:
     """Combine planning, assignment, activity and deliverable events for managers."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
