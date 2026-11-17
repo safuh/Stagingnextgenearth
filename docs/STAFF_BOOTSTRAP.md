@@ -29,7 +29,7 @@ still runs.
 
 ```bash
 read -rsp "Demo employee password: " BOOTSTRAP_EMPLOYEE_PASSWORD
-printf '\\n'
+printf '\n'
 export BOOTSTRAP_EMPLOYEE_PASSWORD
 ```
 
