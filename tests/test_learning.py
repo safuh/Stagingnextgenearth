@@ -519,8 +519,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learner_attendance_access.status_code == 403
         own_attendance = client.get(f"{base}/my-attendance", headers=learner_headers)
         assert own_attendance.status_code == 200
-        assert len(own_attendance.json()) == 1
-        assert own_attendance.json()[0]["attendance_status"] == "present"
+        assert len(own_attendance.json()) == 2
+        assert {row["attendance_status"] for row in own_attendance.json()} == {"present", "late"}
 
         employee_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
@@ -588,9 +588,10 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert summary.status_code == 200
         assert summary.json()["completed"] == 1
-        assert summary.json()["attendance_records"] == 1
+        assert summary.json()["attendance_records"] == 2
         assert summary.json()["attendance_by_status"]["present"] == 1
-        assert summary.json()["attendance_sessions"] == 1
+        assert summary.json()["attendance_by_status"]["late"] == 1
+        assert summary.json()["attendance_sessions"] == 2
         assert summary.json()["mentorship_assignments"] >= 1
         assert summary.json()["assessment_submissions"] >= 1
         assert summary.json()["pending_evaluations"] >= 1
