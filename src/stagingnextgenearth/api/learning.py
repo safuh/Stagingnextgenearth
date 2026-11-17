@@ -4,7 +4,7 @@ import csv
 import io
 import secrets
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -768,12 +768,14 @@ async def list_course_submissions(
     )
     submission_rows = rows.all()
     attempt_ids = [attempt.id for attempt, _ in submission_rows]
-    evaluation_rows = await session.scalars(
-        select(LearningAssessmentEvaluation)
-        .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
-        .order_by(
-            LearningAssessmentEvaluation.evaluated_at,
-            LearningAssessmentEvaluation.id,
+    evaluation_rows = list(
+        await session.scalars(
+            select(LearningAssessmentEvaluation)
+            .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
+            .order_by(
+                LearningAssessmentEvaluation.evaluated_at,
+                LearningAssessmentEvaluation.id,
+            )
         )
     ) if attempt_ids else []
     history_by_attempt: dict[str, list[dict[str, object]]] = {}
