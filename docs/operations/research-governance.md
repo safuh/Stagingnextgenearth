@@ -43,3 +43,7 @@ Founders, executives and administrators can export `GET /api/organizations/{orga
 ## Protocol version comparison
 
 Study collaborators and authorised organisation reviewers can compare two protocol versions with `GET /api/organizations/{organization_id}/research-studies/{study_id}/protocol-versions/{protocol_id}/compare/{other_protocol_id}`. The response provides the before/after values and a changed flag for each protocol field, plus a changed-field count. Both versions must belong to the same tenant-scoped study; identical version IDs are rejected. The Research workspace offers a one-click comparison from each older version to the latest version. The comparison is read-only and does not alter approval or ethics state.
+
+## Concurrent protocol authoring
+
+Protocol version numbers are allocated while holding a row-level lock on the parent study, serialising concurrent authors on PostgreSQL. The `(study_id, version_number)` uniqueness constraint remains the final integrity guard. If a concurrent write wins the allocation race on a database without effective row-level locking, the losing request rolls back and receives HTTP 409 so the author can reload the study and retry; no partial audit event is retained.
