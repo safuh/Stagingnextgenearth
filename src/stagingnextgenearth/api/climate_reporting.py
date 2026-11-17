@@ -5,12 +5,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import ClimateObservation, Membership
 
-from .dependencies import get_session, require_membership
+from .dependencies import get_session, membership_has_any_role, require_membership
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/climate-observations",
@@ -214,4 +214,95 @@ async def climate_daily_coverage(
         observed_days=observed_count,
         missing_days=missing_dates,
         coverage_ratio=round(observed_count / expected_days, 6),
+    )
+
+
+
+class ClimateDimensionCount(BaseModel):
+    """Bounded climate observation count for one source or variable."""
+
+    name: str
+    count: int
+
+
+class ClimateStewardshipReport(BaseModel):
+    """Organisation-wide climate data inventory, not a scientific impact claim."""
+
+    observation_count: int
+    pending_review: int
+    verified: int
+    rejected: int
+    first_observed_at: datetime | None
+    last_observed_at: datetime | None
+    sources: list[ClimateDimensionCount]
+    variables: list[ClimateDimensionCount]
+    inventory_truncated: bool = False
+    interpretation: Literal["portal_inventory_not_independent_validation"] = (
+        "portal_inventory_not_independent_validation"
+    )
+
+
+@router.get("/stewardship", response_model=ClimateStewardshipReport)
+async def climate_stewardship_summary(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ClimateStewardshipReport:
+    """Summarise tenant climate data stewardship for organisation leadership."""
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Climate stewardship reporting requires an administrator, founder or executive role",
+        )
+
+    scope = ClimateObservation.organization_id == organization_id
+    total, first_seen, last_seen = (
+        await session.execute(
+            select(
+                func.count(ClimateObservation.id),
+                func.min(ClimateObservation.observed_at),
+                func.max(ClimateObservation.observed_at),
+            ).where(scope)
+        )
+    ).one()
+    quality_rows = (
+        await session.execute(
+            select(ClimateObservation.quality_status, func.count(ClimateObservation.id))
+            .where(scope)
+            .group_by(ClimateObservation.quality_status)
+        )
+    ).all()
+    quality = {state: int(count) for state, count in quality_rows}
+
+    async def dimension_counts(column: object) -> list[ClimateDimensionCount]:
+        rows = (
+            await session.execute(
+                select(column, func.count(ClimateObservation.id))
+                .where(scope)
+                .group_by(column)
+                .order_by(func.count(ClimateObservation.id).desc(), column)
+                .limit(21)
+            )
+        ).all()
+        return [
+            ClimateDimensionCount(name=str(name), count=int(count))
+            for name, count in rows[:20]
+        ]
+
+    sources = await dimension_counts(ClimateObservation.source)
+    variables = await dimension_counts(ClimateObservation.variable)
+    return ClimateStewardshipReport(
+        observation_count=int(total),
+        pending_review=quality.get("pending", 0),
+        verified=quality.get("verified", 0),
+        rejected=quality.get("rejected", 0),
+        first_observed_at=first_seen,
+        last_observed_at=last_seen,
+        sources=sources,
+        variables=variables,
+        inventory_truncated=(
+            len(sources) > 20 or len(variables) > 20
+        ),
     )
