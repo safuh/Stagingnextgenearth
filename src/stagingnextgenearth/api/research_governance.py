@@ -295,6 +295,11 @@ async def create_protocol_version(
     role = await _require_research_access(session, study, principal, membership)
     if role not in _WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol authoring permission required")
+    if study.status in {"completed", "published", "archived"}:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A finalised study cannot be amended; create a new study for further research",
+        )
     latest = await session.scalar(
         select(func.max(ResearchProtocolVersion.version_number)).where(
             ResearchProtocolVersion.study_id == study_id
@@ -314,6 +319,25 @@ async def create_protocol_version(
     )
     session.add(version)
     await session.flush()
+    if study.status == "active":
+        # A material protocol amendment pauses field activity until independent
+        # approval and a fresh ethics decision are recorded for this exact version.
+        study.status = "protocol"
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=study.lead_researcher_id,
+                action="research.study.status_changed",
+                changes={
+                    "study_id": study_id,
+                    "from_status": "active",
+                    "to_status": "protocol",
+                    "reason": "protocol_amendment_requires_reapproval",
+                    "protocol_version_id": version.id,
+                },
+            )
+        )
     session.add(
         OrganizationAuditEvent(
             organization_id=organization_id,

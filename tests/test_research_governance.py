@@ -465,8 +465,72 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
     assert activated.status_code == 200
     assert activated.json()["status"] == "active"
 
+    # An amendment pauses an active study and requires independent approval plus
+    # an ethics decision for the new version, not the previously approved version.
+    amendment = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Lifecycle protocol amendment",
+            "objectives": "Extend evaluation to include additional seasonal observations.",
+            "methodology": (
+                "Add documented quality checks and a pre-registered sensitivity analysis."
+            ),
+        },
+    )
+    assert amendment.status_code == 201
+    amendment_id = amendment.json()["id"]
+    paused = client.get(
+        f"/api/organizations/{organization_id}/research-studies", headers=lead_headers
+    )
+    assert paused.status_code == 200
+    assert next(item for item in paused.json() if item["id"] == study_id)["status"] == "protocol"
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
+    )
+    assert (
+        client.post(
+            f"{base}/protocol-versions/{amendment_id}/submit", headers=lead_headers
+        ).status_code
+        == 200
+    )
+    amendment_review = client.post(
+        f"{base}/protocol-versions/{amendment_id}/reviews",
+        headers=reviewer_headers,
+        json={"decision": "approved", "note": "The amended methods and safeguards are acceptable."},
+    )
+    assert amendment_review.status_code == 201
+    # The first version's ethics approval cannot authorise the amended protocol.
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
+    )
+    amendment_ethics = client.post(
+        f"{base}/ethics-reviews",
+        headers=reviewer_headers,
+        json={
+            "protocol_version_id": amendment_id,
+            "decision": "approved",
+            "reference": "ERB-LIFECYCLE-02",
+            "note": "The amended participant and data safeguards are approved.",
+        },
+    )
+    assert amendment_ethics.status_code == 201
+    reactivated = client.patch(status_url, headers=lead_headers, json={"status": "active"})
+    assert reactivated.status_code == 200
+    assert reactivated.json()["status"] == "active"
+
     completed = client.patch(status_url, headers=lead_headers, json={"status": "completed"})
     assert completed.status_code == 200
+    completed_amendment = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Post-completion amendment",
+            "objectives": "Attempt to amend a completed study record.",
+            "methodology": "This amendment should not be accepted after completion.",
+        },
+    )
+    assert completed_amendment.status_code == 409
     # A completed study cannot be marked published without a linked publication record.
     assert (
         client.patch(status_url, headers=lead_headers, json={"status": "published"}).status_code
@@ -485,12 +549,32 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
     published = client.patch(status_url, headers=lead_headers, json={"status": "published"})
     assert published.status_code == 200
     assert published.json()["status"] == "published"
+    published_amendment = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Post-publication amendment",
+            "objectives": "Attempt to amend a published study record.",
+            "methodology": "This amendment should not be accepted after publication.",
+        },
+    )
+    assert published_amendment.status_code == 409
     archived = client.patch(status_url, headers=lead_headers, json={"status": "archived"})
     assert archived.status_code == 200
     assert archived.json()["status"] == "archived"
     assert (
         client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
     )
+    finalised_amendment = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Post-archive amendment",
+            "objectives": "Attempt to amend a finalised study record.",
+            "methodology": "This amendment should not be accepted after archival.",
+        },
+    )
+    assert finalised_amendment.status_code == 409
 
     # A non-manager researcher cannot alter the organisation's study lifecycle.
     assert (
@@ -505,9 +589,17 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
     lifecycle_events = [
         event for event in audit_events.json() if event["action"] == "research.study.status_changed"
     ]
-    assert len(lifecycle_events) == 5
+    assert len(lifecycle_events) == 7
     assert lifecycle_events[0]["changes"] == {
         "study_id": study_id,
         "from_status": "published",
         "to_status": "archived",
     }
+    amendment_pause = next(
+        event
+        for event in lifecycle_events
+        if event["changes"].get("reason") == "protocol_amendment_requires_reapproval"
+    )
+    assert amendment_pause["changes"]["from_status"] == "active"
+    assert amendment_pause["changes"]["to_status"] == "protocol"
+    assert amendment_pause["changes"]["protocol_version_id"] == amendment_id
