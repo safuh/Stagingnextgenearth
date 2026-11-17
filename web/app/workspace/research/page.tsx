@@ -32,6 +32,7 @@ interface ProtocolVersion {
 }
 interface ProtocolReview { id: string; protocol_version_id: string; decision: string; note: string | null; reviewed_at: string; }
 interface EthicsReview { id: string; study_id: string; protocol_version_id: string | null; decision: string; reference: string | null; note: string | null; reviewed_at: string; }
+interface ResearchAuditEvent { id: string; actor_user_id: string; subject_user_id: string | null; action: string; changes: Record<string, unknown>; created_at: string; }
 interface EvidenceLedger {
   study_id: string; study_title: string; generated_at: string;
   datasets: { dataset_id: string; title: string; version: string; access_classification: string; manifest_sha256: string; file_count: number; files_truncated: boolean }[];
@@ -150,6 +151,8 @@ export default function ResearchWorkspacePage() {
   const [governanceLoading, setGovernanceLoading] = useState(false);
   const [governanceBusy, setGovernanceBusy] = useState(false);
   const [protocolReviewNotes, setProtocolReviewNotes] = useState<Record<string, string>>({});
+  const [researchAuditEvents, setResearchAuditEvents] = useState<ResearchAuditEvent[]>([]);
+  const [researchAuditLoading, setResearchAuditLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -206,6 +209,8 @@ export default function ResearchWorkspacePage() {
     setProtocolReviews({});
     setEthicsReviews([]);
     setProtocolReviewNotes({});
+    setResearchAuditEvents([]);
+    setResearchAuditLoading(false);
     setGovernanceLoading(false);
     setGovernanceBusy(false);
     setEvidenceStudyId("");
@@ -289,6 +294,7 @@ export default function ResearchWorkspacePage() {
     ["admin", "founder", "executive", "programme_manager"].includes(role)
   );
   const canAuthorProtocols = membershipRoles.some((role) => ["admin", "founder", "executive"].includes(role));
+  const canViewResearchAudit = canAuthorProtocols;
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
     // Reload when the active organisation or membership changes.
@@ -773,6 +779,24 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  async function loadResearchAudit() {
+    const generation = workspaceGeneration.current;
+    setResearchAuditLoading(true);
+    setError("");
+    try {
+      const events = await apiGet<ResearchAuditEvent[]>(
+        `/organizations/${organizationId}/research-governance/audit-events?limit=200`,
+      );
+      if (generation === workspaceGeneration.current) setResearchAuditEvents(events);
+    } catch (cause) {
+      if (generation === workspaceGeneration.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to load research governance audit history.");
+      }
+    } finally {
+      if (generation === workspaceGeneration.current) setResearchAuditLoading(false);
+    }
+  }
+
   async function loadStudyGovernance(studyId: string) {
     const generation = workspaceGeneration.current;
     const request = ++governanceRequest.current;
@@ -1234,6 +1258,14 @@ export default function ResearchWorkspacePage() {
                     ))}</div>
                   )}
                 </section>
+                {canViewResearchAudit && (
+                  <section className="research-section">
+                    <div className="section-heading"><div><p className="eyebrow">ACCOUNTABILITY</p><h2>Research governance audit trail</h2><p>Organisation-level record of protocol, ethics and study lifecycle decisions. Protocol contents and reviewer notes are not included.</p></div><button type="button" className="secondary-action" onClick={() => void loadResearchAudit()} disabled={researchAuditLoading}>{researchAuditLoading ? "Loading audit…" : "Load audit trail"}</button></div>
+                    {researchAuditEvents.length > 0 && <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Recorded</th><th>Action</th><th>Actor ID</th><th>Subject ID</th><th>Study / decision</th></tr></thead><tbody>{researchAuditEvents.map((event) => <tr key={event.id}><td>{new Date(event.created_at).toLocaleString()}</td><td>{event.action.replace("research.", "").replace(/_/g, " ")}</td><td><code>{event.actor_user_id}</code></td><td><code>{event.subject_user_id || "—"}</code></td><td><code>{String(event.changes.study_id || "—")}</code>{event.changes.version_number ? ` · v${String(event.changes.version_number)}` : ""}{event.changes.decision ? ` · ${String(event.changes.decision)}` : ""}{event.changes.from_status || event.changes.to_status ? ` · ${String(event.changes.from_status || "—")} → ${String(event.changes.to_status || "—")}` : ""}</td></tr>)}</tbody></table></div>}
+                    {!researchAuditLoading && researchAuditEvents.length === 0 && <p className="workspace-muted">Load the audit trail to inspect recent research governance decisions.</p>}
+                    {researchAuditEvents.length === 200 && <p className="workspace-muted">Showing the latest 200 research governance events; this endpoint is intentionally bounded.</p>}
+                  </section>
+                )}
                 {governanceStudyId && (
                   <section className="research-section" aria-live="polite">
                     <div className="section-heading"><div><p className="eyebrow">RESEARCH GOVERNANCE</p><h2>Protocol and ethics workspace</h2><p>{studies.find((item) => item.id === governanceStudyId)?.title || "Selected study"} · immutable protocol versions and independent decisions</p></div><button type="button" className="secondary-action" onClick={() => { governanceRequest.current += 1; setGovernanceStudyId(""); }}>Close</button></div>
