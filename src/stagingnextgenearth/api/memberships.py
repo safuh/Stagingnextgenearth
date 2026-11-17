@@ -336,12 +336,17 @@ async def update_member_role(
     if (
         target_roles & {"admin", "founder", "executive"}
         and body.role not in {"admin", "founder", "executive"}
-        and membership.user_id != owner_id
     ):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "Only the organisation owner can revoke elevated administrator access",
-        )
+        if membership.user_id != owner_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only the organisation owner can revoke elevated administrator access",
+            )
+        if target.role not in {"admin", "founder", "executive"}:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Remove secondary administrator roles through the roles endpoint first",
+            )
     if (
         target.status == "active"
         and target_roles & {"admin", "founder", "executive"}
