@@ -105,9 +105,9 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
     )
     assert cross_tenant.status_code == 404
 
-    # A user without an active organisation membership cannot read the ledger.
+    # Membership checks deliberately conceal organisation resources from outsiders.
     outsider = client.get(ledger_url, headers=other_headers)
-    assert outsider.status_code == 403
+    assert outsider.status_code == 404
 
 
 def test_evidence_ledger_rejects_invalid_result_limits(client: TestClient) -> None:
