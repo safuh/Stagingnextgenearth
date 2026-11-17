@@ -7,11 +7,11 @@ requirements.
 """
 
 import asyncio
-import calendar
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from math import isfinite
 from typing import Any
 
 from stagingnextgenearth.climate_ingestion import (
@@ -65,7 +65,9 @@ class CopernicusERA5Provider:
         self.max_grid_cells = max_grid_cells
         self._client_factory = client_factory
 
-    async def fetch(self, request: ClimateProviderRequest):
+    async def fetch(
+        self, request: ClimateProviderRequest
+    ) -> AsyncIterator[ClimateMeasurement]:
         """Yield ERA5 hourly measurements from a bounded CDS retrieval."""
         if (request.point is None) == (request.area is None):
             raise ValueError("ERA5 requests require exactly one point or bounding box")
@@ -80,6 +82,7 @@ class CopernicusERA5Provider:
         if day_count > self.max_days:
             raise ValueError(f"ERA5 request exceeds the {self.max_days}-day limit")
 
+        self._validate_area_size(request)
         cds_request = self._build_request(request, start, last_instant)
         content = await asyncio.to_thread(self._retrieve, cds_request)
         for item in self._decode(content, request, start, end):
@@ -88,7 +91,12 @@ class CopernicusERA5Provider:
     def _build_request(
         self, request: ClimateProviderRequest, start: datetime, last: datetime
     ) -> dict[str, object]:
-        days = [start.date() + timedelta(days=i) for i in range((last.date() - start.date()).days + 1)]
+        if (request.point is None) == (request.area is None):
+            raise ValueError("ERA5 requests require exactly one point or bounding box")
+        days = [
+            start.date() + timedelta(days=i)
+            for i in range((last.date() - start.date()).days + 1)
+        ]
         result: dict[str, object] = {
             "product_type": ["reanalysis"],
             "variable": list(self.variables),
@@ -117,6 +125,18 @@ class CopernicusERA5Provider:
                 request.area.east,
             ]
         return result
+
+    def _validate_area_size(self, request: ClimateProviderRequest) -> None:
+        if request.area is None:
+            return
+        # ERA5 single-levels has a nominal 0.25-degree grid. This conservative
+        # estimate rejects oversized requests before submitting a costly CDS job.
+        latitude_cells = int((request.area.north - request.area.south) / 0.25) + 2
+        longitude_cells = int((request.area.east - request.area.west) / 0.25) + 2
+        if latitude_cells * longitude_cells > self.max_grid_cells:
+            raise ValueError(
+                f"ERA5 area exceeds the {self.max_grid_cells}-cell request limit"
+            )
 
     def _retrieve(self, request: dict[str, object]) -> bytes:
         factory = self._client_factory
@@ -172,58 +192,47 @@ class CopernicusERA5Provider:
                     )
                     if observed_at < start or observed_at >= end:
                         continue
-                    slice_ = field.sel({time_name: timestamp})
-                    latitudes = slice_[latitude_name].values
-                    longitudes = slice_[longitude_name].values
+                    frame = field.sel({time_name: timestamp})
                     if request.point is not None:
-                        slice_ = slice_.sel(
+                        frame = frame.sel(
                             {
                                 latitude_name: request.point.latitude,
                                 longitude_name: request.point.longitude,
                             },
                             method="nearest",
                         )
-                        latitudes = [float(slice_[latitude_name].values)]
-                        longitudes = [float(slice_[longitude_name].values)]
-                    cells = slice_.size
-                    if cells > self.max_grid_cells:
+                    if frame.size > self.max_grid_cells:
                         raise ValueError(
                             f"ERA5 area exceeds the {self.max_grid_cells}-cell limit"
                         )
-                    values = slice_.values
-                    if getattr(values, "ndim", 0) == 0:
-                        values = [[values.item()]]
-                        latitudes = [float(latitudes)]
-                        longitudes = [float(longitudes)]
-                    elif values.ndim == 1:
-                        values = values.reshape(1, -1)
-                        latitudes = [float(latitudes[0])]
-                    for row, latitude in enumerate(latitudes):
-                        for column, longitude in enumerate(longitudes):
-                            value = float(values[row][column])
-                            if not (-float("inf") < value < float("inf")):
-                                continue
-                            record_id = (
-                                f"{source_variable}:{observed_at.isoformat()}:"
-                                f"{float(latitude):.5f}:{float(longitude):.5f}"
+                    table = frame.to_dataframe(name="value").reset_index()
+                    for record in table.to_dict(orient="records"):
+                        value = float(record["value"])
+                        if not isfinite(value):
+                            continue
+                        latitude = float(record[latitude_name])
+                        longitude = float(record[longitude_name])
+                        record_id = (
+                            f"{source_variable}:{observed_at.isoformat()}:"
+                            f"{latitude:.5f}:{longitude:.5f}"
+                        )
+                        measurements.append(
+                            ClimateMeasurement(
+                                provider_record_id=record_id,
+                                observed_at=observed_at,
+                                variable=canonical_variable,
+                                value=value,
+                                unit=unit,
+                                latitude=latitude,
+                                longitude=longitude,
+                                metadata={
+                                    "provider_dataset": ERA5_SINGLE_LEVELS_DATASET,
+                                    "provider_variable": source_variable,
+                                    "citation": COPERNICUS_CITATION,
+                                    "licence": self.licence,
+                                    "temporal_resolution": "hourly",
+                                    "spatial_resolution": "ERA5 native grid",
+                                },
                             )
-                            measurements.append(
-                                ClimateMeasurement(
-                                    provider_record_id=record_id,
-                                    observed_at=observed_at,
-                                    variable=canonical_variable,
-                                    value=value,
-                                    unit=unit,
-                                    latitude=float(latitude),
-                                    longitude=float(longitude),
-                                    metadata={
-                                        "provider_dataset": ERA5_SINGLE_LEVELS_DATASET,
-                                        "provider_variable": source_variable,
-                                        "citation": COPERNICUS_CITATION,
-                                        "licence": self.licence,
-                                        "temporal_resolution": "hourly",
-                                        "spatial_resolution": "ERA5 native grid",
-                                    },
-                                )
-                            )
+                        )
         return measurements
