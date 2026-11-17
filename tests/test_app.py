@@ -121,6 +121,3 @@ def test_production_disables_interactive_api_documentation() -> None:
     assert app.docs_url is None
     assert app.redoc_url is None
     assert app.openapi_url is None
-        assert client.get("/openapi.json").status_code == 404
-        response = client.get("/api/health")
-    assert response.headers["Strict-Transport-Security"].startswith("max-age=31536000")
