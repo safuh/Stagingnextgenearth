@@ -6,11 +6,14 @@ NASA POWER daily point observations and CHIRPS v3 daily precipitation rasters.
 
 ## Enablement
 
-Install the optional dependencies:
+Install the optional provider libraries into the application environment:
 
 ```bash
-uv sync --extra climate-copernicus
+uv pip install "cdsapi>=0.7.7" "xarray>=2024.1.0" "netCDF4>=1.6"
 ```
+
+These packages are intentionally not part of the default locked runtime; deployments
+that do not enable ERA5 do not need them.
 
 Create a CDS account, accept the ERA5 dataset terms in the CDS web interface,
 and configure the official CDS API client credentials using the instructions
