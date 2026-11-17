@@ -1,10 +1,11 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
 from datetime import datetime
+from importlib.util import find_spec
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
@@ -43,6 +44,8 @@ class ClimateIngestionCreate(BaseModel):
 
 
 class ClimateIngestionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     provider_id: str
     source_name: str
@@ -124,11 +127,11 @@ def _provider_for(body: ClimateIngestionCreate):
         from stagingnextgenearth.providers.chirps import CHIRPSProvider
 
         return CHIRPSProvider(variant=body.chirps_variant)
-    try:
-        from stagingnextgenearth.providers.copernicus import CopernicusERA5Provider
-    except ImportError as exc:
+    if any(find_spec(name) is None for name in ("cdsapi", "xarray", "netCDF4")):
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "Copernicus provider dependencies are not installed",
-        ) from exc
+        )
+    from stagingnextgenearth.providers.copernicus import CopernicusERA5Provider
+
     return CopernicusERA5Provider()
