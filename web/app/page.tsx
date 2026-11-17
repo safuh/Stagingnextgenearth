@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
@@ -44,9 +44,13 @@ export default function HomePage() {
   const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
   const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
   const [publicCourses, setPublicCourses] = useState<PublicCourse[]>([]);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let active = true;
+    restoreSession()
+      .then((session) => { if (active) setSignedIn(Boolean(session)); })
+      .catch(() => { if (active) setSignedIn(false); });
     // Public feeds are independent: a temporary failure in one endpoint must not
     // suppress otherwise healthy programme, people, partner or CMS sections.
     Promise.all([
