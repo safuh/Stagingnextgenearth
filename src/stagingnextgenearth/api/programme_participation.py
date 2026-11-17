@@ -15,7 +15,13 @@ from stagingnextgenearth.platform.models import (
     ProgrammeParticipationRecord,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["programme-participation"])
 _MANAGERS = {"admin", "founder", "executive", "programme_manager"}
@@ -79,7 +85,7 @@ async def record_participation(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ParticipationRead:
     """Record a school/community cohort total without collecting child-level PII."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
