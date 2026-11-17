@@ -1,6 +1,6 @@
 """Tests for the Copernicus ERA5 request planner and adapter boundaries."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -87,6 +87,6 @@ def test_era5_preserves_hourly_request_boundaries() -> None:
     payload = provider._build_request(
         request,
         request.start.replace(minute=0),
-        request.end.replace(minute=0) - __import__("datetime").timedelta(microseconds=1),
+        request.end - timedelta(microseconds=1),
     )
     assert payload["day"] == ["01"]
