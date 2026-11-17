@@ -46,5 +46,6 @@ docker-test:
 docker-prod:
 	bash scripts/docker-production.sh
 
-bootstrap:
+# Bootstrap depends on the schema being current. This is additive and never resets volumes.
+bootstrap: migrate-up
 	uv run python scripts/bootstrap_nextgen.py $(if $(MANIFEST),--manifest $(MANIFEST),)
