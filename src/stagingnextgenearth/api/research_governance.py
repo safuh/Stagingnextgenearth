@@ -17,7 +17,13 @@ from stagingnextgenearth.platform.models import (
     ResearchStudyCollaborator,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}",
@@ -115,7 +121,7 @@ async def _study_role(
     principal: Principal,
     membership: Membership,
 ) -> str | None:
-    if membership.role == "admin" or study.lead_researcher_id == principal.user_id:
+    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
@@ -135,7 +141,7 @@ async def _require_research_access(
     membership: Membership,
 ) -> str:
     role = await _study_role(session, study, principal, membership)
-    if role is None and membership.role not in _REVIEW_ROLES:
+    if role is None and not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Study access required")
     return role or "reviewer"
 
@@ -252,7 +258,7 @@ async def review_protocol_version(
     )
     if protocol is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Protocol version not found")
-    if membership.role not in _REVIEW_ROLES:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Independent reviewer role required")
     if protocol.created_by == principal.user_id or study.lead_researcher_id == principal.user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Authors and study leads cannot review")
@@ -312,7 +318,7 @@ async def record_ethics_review(
 ) -> EthicsReviewRead:
     """Record a formal ethics outcome, separate from protocol and dataset review."""
     study = await _study(session, organization_id, study_id)
-    if membership.role not in _REVIEW_ROLES:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Ethics reviewer role required")
     if study.lead_researcher_id == principal.user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Study leads cannot review their own study")
