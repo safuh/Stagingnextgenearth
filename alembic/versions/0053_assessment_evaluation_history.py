@@ -7,8 +7,8 @@ Revises: 0052_mentorship_lifecycle_audit
 from collections.abc import Sequence
 from uuid import uuid4
 
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
 
 
 revision: str = "0053_assessment_evaluation_history"
@@ -79,7 +79,6 @@ def upgrade() -> None:
                 "evaluated_at": row["evaluated_at"],
             },
         )
-
 
 
 def downgrade() -> None:
