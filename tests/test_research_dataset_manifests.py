@@ -3,6 +3,7 @@
 from stagingnextgenearth.api.research_dataset_manifests import (
     DatasetManifestFile,
     ResearchDatasetManifestRead,
+    _manifest_digest,
     router,
 )
 
@@ -36,3 +37,18 @@ def test_manifest_contract_contains_integrity_metadata_not_storage_locations() -
     assert payload["files"][0]["sha256"] == "a" * 64
     assert "storage_key" not in payload
     assert "file_contents" not in payload
+
+
+def test_manifest_digest_is_order_independent_and_version_sensitive() -> None:
+    first = DatasetManifestFile(
+        file_id="file-a", version=1, filename="a.csv", media_type="text/csv",
+        size_bytes=100, sha256="a" * 64,
+    )
+    second = DatasetManifestFile(
+        file_id="file-b", version=2, filename="b.csv", media_type="text/csv",
+        size_bytes=200, sha256="b" * 64,
+    )
+    digest = _manifest_digest("dataset-1", "1.0", [first, second])
+    assert digest == _manifest_digest("dataset-1", "1.0", [second, first])
+    assert digest != _manifest_digest("dataset-1", "2.0", [first, second])
+    assert digest != _manifest_digest("dataset-2", "1.0", [first, second])
