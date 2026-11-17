@@ -10,6 +10,7 @@ from .climate import router as climate_router
 from .climate_ingestion import router as climate_ingestion_router
 from .climate_analysis import router as climate_analysis_router
 from .climate_timeseries import router as climate_timeseries_router
+from .climate_monthly_anomalies import router as climate_monthly_anomalies_router
 from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
 from .institutional_partners import router as institutional_partners_router
@@ -76,5 +77,6 @@ api_router.include_router(climate_ingestion_router)
 api_router.include_router(climate_reporting_router)
 api_router.include_router(climate_analysis_router)
 api_router.include_router(climate_timeseries_router)
+api_router.include_router(climate_monthly_anomalies_router)
 
 # fmt: on

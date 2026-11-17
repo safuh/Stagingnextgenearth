@@ -172,7 +172,8 @@ class CopernicusERA5Provider:
             import xarray as xr
         except ImportError as exc:
             raise RuntimeError(
-                "ERA5 NetCDF decoding requires xarray; install the optional CDS and NetCDF libraries"
+                "ERA5 NetCDF decoding requires xarray; install the optional "
+                "CDS and NetCDF libraries"
             ) from exc
         import io
 
