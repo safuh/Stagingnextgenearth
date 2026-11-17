@@ -105,16 +105,20 @@ async def run_climate_ingestion(
             request=request,
             measurements=provider.fetch(request),
         )
-        await session.commit()
-        await session.refresh(run)
     except Exception as exc:
         # Persistence records a failed run and rolls back partial observations.
+        # Commit that audit row when the database transaction remains usable.
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
         # Do not return upstream exception text, URLs or credentials to clients.
-        await session.commit()
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             "Climate provider ingestion failed; consult the ingestion run audit record",
         ) from exc
+    await session.commit()
+    await session.refresh(run)
     return ClimateIngestionRead.model_validate(run)
 
 
