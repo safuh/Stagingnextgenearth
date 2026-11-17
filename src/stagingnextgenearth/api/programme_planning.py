@@ -12,14 +12,17 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeAssignment,
+    ProgrammeDeliverable,
+    ProgrammeDeliverableEvent,
     ProgrammeGoal,
     ProgrammeMilestone,
+    ProgrammePlanningEvent,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["programme-planning"])
-_MANAGERS = {"admin", "programme_manager"}
+_MANAGERS = {"admin", "founder", "executive", "programme_manager"}
 
 
 async def _programme(
@@ -34,6 +37,67 @@ async def _programme(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     return item
+
+
+
+
+async def _record_planning_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    entity_type: str,
+    entity_id: str,
+    entity_title: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammePlanningEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+            created_at=datetime.now(UTC),
+        )
+    )
+
+
+
+
+class PlanningEventRead(BaseModel):
+    """Manager-visible programme planning audit event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    entity_type: str
+    entity_id: str
+    entity_title: str
+    actor_user_id: str
+    action: str
+    details: dict[str, object]
+    created_at: datetime
+
+
+
+
+class ProgrammeTimelineEventRead(BaseModel):
+    """Unified manager-facing event across programme planning and delivery."""
+
+    id: str
+    entity_type: str
+    entity_id: str
+    entity_title: str
+    actor_user_id: str
+    action: str
+    details: dict[str, object]
+    created_at: datetime
 
 
 class GoalCreate(BaseModel):
@@ -156,6 +220,18 @@ async def create_goal(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="goal",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"status": item.status},
+    )
     await session.commit()
     await session.refresh(item)
     return GoalRead.model_validate(item)
@@ -194,6 +270,7 @@ async def update_goal_status(
     programme_id: str,
     goal_id: str,
     body: GoalStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> GoalRead:
@@ -212,7 +289,19 @@ async def update_goal_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid goal status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="goal",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return GoalRead.model_validate(item)
@@ -256,6 +345,18 @@ async def create_milestone(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="milestone",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"goal_id": goal_id, "status": item.status},
+    )
     await session.commit()
     await session.refresh(item)
     return MilestoneRead.model_validate(item)
@@ -294,6 +395,7 @@ async def update_milestone_status(
     programme_id: str,
     milestone_id: str,
     body: MilestoneStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MilestoneRead:
@@ -316,7 +418,19 @@ async def update_milestone_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid milestone status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="milestone",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return MilestoneRead.model_validate(item)
@@ -374,6 +488,23 @@ async def create_assignment(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="assignment",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="assigned",
+        details={
+            "assigned_to": item.assigned_to,
+            "milestone_id": item.milestone_id,
+            "priority": item.priority,
+            "status": item.status,
+        },
+    )
     await session.commit()
     await session.refresh(item)
     return AssignmentRead.model_validate(item)
@@ -434,8 +565,130 @@ async def update_assignment_status(
     transitions = {"open": {"in_progress", "cancelled"}, "in_progress": {"completed", "cancelled"}}
     if body.status not in transitions.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid assignment status transition")
+    previous_status = item.status
     item.status = body.status
     item.completed_at = datetime.now(UTC) if body.status == "completed" else None
+    await _record_planning_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="assignment",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return AssignmentRead.model_validate(item)
+
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/planning-activity",
+    response_model=list[PlanningEventRead],
+)
+async def list_planning_activity(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PlanningEventRead]:
+    """Return bounded goal, milestone and indicator history to programme managers."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme management permission required",
+        )
+    await _programme(session, organization_id, programme_id)
+    rows = await session.scalars(
+        select(ProgrammePlanningEvent)
+        .where(
+            ProgrammePlanningEvent.organization_id == organization_id,
+            ProgrammePlanningEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammePlanningEvent.created_at.desc(),
+            ProgrammePlanningEvent.id.desc(),
+        )
+        .limit(100)
+    )
+    return [PlanningEventRead.model_validate(row) for row in rows.all()]
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/activity-timeline",
+    response_model=list[ProgrammeTimelineEventRead],
+)
+async def list_programme_activity_timeline(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ProgrammeTimelineEventRead]:
+    """Combine planning, assignment, activity and deliverable events for managers."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Programme management permission required",
+        )
+    await _programme(session, organization_id, programme_id)
+
+    planning_rows = await session.scalars(
+        select(ProgrammePlanningEvent)
+        .where(
+            ProgrammePlanningEvent.organization_id == organization_id,
+            ProgrammePlanningEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammePlanningEvent.created_at.desc(),
+            ProgrammePlanningEvent.id.desc(),
+        )
+        .limit(100)
+    )
+    deliverable_rows = await session.execute(
+        select(ProgrammeDeliverableEvent, ProgrammeDeliverable.title)
+        .join(
+            ProgrammeDeliverable,
+            ProgrammeDeliverable.id == ProgrammeDeliverableEvent.deliverable_id,
+        )
+        .where(
+            ProgrammeDeliverableEvent.organization_id == organization_id,
+            ProgrammeDeliverableEvent.programme_id == programme_id,
+        )
+        .order_by(
+            ProgrammeDeliverableEvent.created_at.desc(),
+            ProgrammeDeliverableEvent.id.desc(),
+        )
+        .limit(100)
+    )
+
+    events = [
+        ProgrammeTimelineEventRead(
+            id=event.id,
+            entity_type=event.entity_type,
+            entity_id=event.entity_id,
+            entity_title=event.entity_title,
+            actor_user_id=event.actor_user_id,
+            action=event.action,
+            details=event.details,
+            created_at=event.created_at,
+        )
+        for event in planning_rows.all()
+    ]
+    events.extend(
+        ProgrammeTimelineEventRead(
+            id=event.id,
+            entity_type="deliverable",
+            entity_id=event.deliverable_id,
+            entity_title=title,
+            actor_user_id=event.actor_user_id,
+            action=event.action,
+            details=event.details,
+            created_at=event.created_at,
+        )
+        for event, title in deliverable_rows.all()
+    )
+    events.sort(key=lambda event: (event.created_at, event.id), reverse=True)
+    return events[:100]

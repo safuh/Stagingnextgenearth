@@ -18,7 +18,7 @@ from stagingnextgenearth.platform.models import (
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["programme-participation"])
-_MANAGERS = {"admin", "programme_manager"}
+_MANAGERS = {"admin", "founder", "executive", "programme_manager"}
 
 
 class ParticipationCreate(BaseModel):

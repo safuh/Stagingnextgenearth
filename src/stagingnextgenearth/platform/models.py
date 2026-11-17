@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """Core organisational, programme, research, and climate data models."""
 
 from datetime import date, datetime
@@ -5,6 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -72,8 +75,8 @@ class Membership(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
         CheckConstraint(
-            "role IN ('admin', 'programme_manager', 'researcher', "
-            "'youth_volunteer', 'institutional_partner')",
+            "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
+            "'youth_volunteer', 'employee', 'institutional_partner')",
             name="ck_membership_role",
         ),
         CheckConstraint(
@@ -385,6 +388,7 @@ class ClimateObservation(Base):
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    safeguarding_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(
@@ -853,10 +857,14 @@ class LearningCourse(Base):
         CheckConstraint("status IN ('draft', 'published', 'archived')",
                         name="ck_learning_course_status"),
         Index("ix_learning_courses_org_status", "organization_id", "status"),
+        Index("ix_learning_courses_programme_id", "programme_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     organization_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     slug: Mapped[str] = mapped_column(String(140), nullable=False)
@@ -1260,6 +1268,29 @@ class ProgrammeActivity(Base):
     )
 
 
+class OrganizationEmploymentApplication(Base):
+    """Private employment application reviewed before employee membership is granted."""
+    __tablename__ = "organization_employment_applications"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','approved','rejected','withdrawn')",
+                        name="ck_employment_application_status"),
+        Index("ix_employment_applications_org_status", "organization_id", "status"),
+        UniqueConstraint("organization_id", "user_id", name="uq_employment_application_org_user"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    desired_position: Mapped[str] = mapped_column(String(160), nullable=False)
+    qualifications: Mapped[str] = mapped_column(Text, nullable=False)
+    experience_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class ProgrammeVolunteerApplication(Base):
     """A volunteer's application to participate in an organisation programme."""
 
@@ -1299,6 +1330,7 @@ class ProgrammeVolunteerApplication(Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safeguarding_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -1335,6 +1367,42 @@ class ProgrammeVolunteerAllocation(Base):
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeActivityAttendance(Base):
+    """Individual attendance record for an allocated programme volunteer."""
+
+    __tablename__ = "programme_activity_attendance"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_activity_attendance_user"),
+        CheckConstraint(
+            "attendance_status IN ('present', 'late', 'absent', 'excused')",
+            name="ck_activity_attendance_status",
+        ),
+        Index("ix_activity_attendance_org_activity", "organization_id", "activity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    attendance_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
@@ -1563,3 +1631,296 @@ class ProgrammeParticipationRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class OrganizationPerson(Base):
+    """Organisation directory record, independent of a portal login account."""
+
+    __tablename__ = "organization_people"
+    __table_args__ = (
+        Index("ix_org_people_org_visibility", "organization_id", "visibility", "review_state"),
+        Index("ix_org_people_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    biography: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positions: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    person_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    profile_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    review_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    updated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class OrganizationPersonAuditEvent(Base):
+    """Append-only audit event for organisation directory profile changes."""
+
+    __tablename__ = "organization_person_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('person.created', 'person.updated', 'person.review_changed', "
+            "'person.publication_changed', 'person.archived', 'person.reactivated')",
+            name="ck_org_person_audit_action",
+        ),
+        Index(
+            "ix_org_person_audit_org_person_time",
+            "organization_id",
+            "person_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    person_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization_people.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class InstitutionalPartner(Base):
+    """Moderated organisation-level partner record."""
+    __tablename__ = "institutional_partners"
+    __table_args__ = (
+        CheckConstraint("partner_type IN ('university','government','ngo','private_sector','network','funder','community_org','other')", name="ck_institutional_partner_type"),
+        CheckConstraint("relationship_status IN ('prospect','active','paused','ended')", name="ck_institutional_partner_status"),
+        CheckConstraint("verification_state IN ('pending','verified','rejected')", name="ck_institutional_partner_verification"),
+        CheckConstraint("visibility IN ('private','public')", name="ck_institutional_partner_visibility"),
+        Index("ix_institutional_partners_org_status", "organization_id", "relationship_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    partner_type: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    description: Mapped[str | None] = mapped_column(Text)
+    website_url: Mapped[str | None] = mapped_column(String(1000))
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120))
+    relationship_status: Mapped[str] = mapped_column(String(16), nullable=False, default="prospect")
+    verification_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class InstitutionalPartnerContact(Base):
+    """Private partner liaison record with explicit contact permission tracking."""
+    __tablename__ = "institutional_partner_contacts"
+    __table_args__ = (
+        CheckConstraint("status IN ('active','inactive')", name="ck_partner_contact_status"),
+        Index("ix_partner_contacts_org_partner", "organization_id", "partner_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    job_title: Mapped[str | None] = mapped_column(String(160))
+    email: Mapped[str | None] = mapped_column(String(320))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    contact_permission: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    permission_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class ProgrammePartner(Base):
+    """Link a programme to a partner and define the relationship."""
+    __tablename__ = "programme_partners"
+    __table_args__ = (
+        UniqueConstraint("programme_id", "partner_id", name="uq_programme_partner"),
+        CheckConstraint("partner_role IN ('implementing_partner','funding_partner','technical_partner','research_partner','community_partner')", name="ck_programme_partner_role"),
+        CheckConstraint("status IN ('planned','active','ended')", name="ck_programme_partner_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    programme_id: Mapped[str] = mapped_column(String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    partner_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PublicContentEntry(Base):
+    """Moderated CMS record for public website consumption."""
+    __tablename__ = "public_content_entries"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "content_type", "slug", name="uq_public_content_slug"),
+        CheckConstraint("content_type IN ('page','programme','training_track','initiative','research_area','impact_metric','publication')", name="ck_public_content_type"),
+        CheckConstraint("publication_state IN ('draft','review','approved','published','archived')", name="ck_public_content_state"),
+        Index("ix_public_content_org_state", "organization_id", "publication_state"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    publication_state: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class OrganizationRecordAuditEvent(Base):
+    """Append-only audit history for partner and public CMS record changes."""
+
+    __tablename__ = "organization_record_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('partner', 'content')",
+            name="ck_org_record_audit_entity_type",
+        ),
+        CheckConstraint(
+            "action IN ('record.created', 'record.updated', 'record.state_changed')",
+            name="ck_org_record_audit_action",
+        ),
+        Index(
+            "ix_org_record_audit_entity_time",
+            "organization_id",
+            "entity_type",
+            "entity_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeDeliverableEvent(Base):
+    """Append-only audit event for deliverable assignment and evidence review."""
+
+    __tablename__ = "programme_deliverable_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('created', 'assigned', 'evidence_submitted', 'accepted', 'revisions_required')",
+            name="ck_programme_deliverable_event_action",
+        ),
+        Index(
+            "ix_programme_deliverable_events_history",
+            "organization_id",
+            "deliverable_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    deliverable_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_deliverables.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammePlanningEvent(Base):
+    """Append-only audit event for programme goals, milestones and indicators."""
+
+    __tablename__ = "programme_planning_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement', 'assignment', 'activity', 'volunteer_allocation')",
+            name="ck_programme_planning_event_entity",
+        ),
+        CheckConstraint(
+            "action IN ('created', 'assigned', 'status_changed', 'measurement_recorded')",
+            name="ck_programme_planning_event_action",
+        ),
+        Index(
+            "ix_programme_planning_events_history",
+            "organization_id",
+            "programme_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    entity_title: Mapped[str] = mapped_column(String(240), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+# fmt: on

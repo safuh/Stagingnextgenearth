@@ -23,20 +23,100 @@ from stagingnextgenearth.platform.models import (
     LearningModule,
     LearningResource,
     Membership,
+    Organization,
+    Programme,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["learning"])
-_MANAGE = {"admin", "programme_manager"}
-_LEARN = {"admin", "programme_manager", "researcher", "youth_volunteer", "institutional_partner"}
+public_router = APIRouter(tags=["public-learning"])
+_MANAGE = {"admin", "founder", "executive", "programme_manager"}
+_LEARN = {
+    "admin", "founder", "executive", "programme_manager", "researcher",
+    "youth_volunteer", "employee", "institutional_partner",
+}
 
+
+class PublicCourseRead(BaseModel):
+    """Publicly discoverable course fields; excludes learner and internal records."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    programme_id: str | None
+    title: str
+    slug: str
+    description: str
+    category: str | None
+    delivery_mode: str
+    status: str
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}/programmes/{programme_slug}/courses",
+    response_model=list[PublicCourseRead],
+)
+async def list_public_programme_courses(
+    organization_slug: str,
+    programme_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicCourseRead]:
+    """List published courses belonging to one publicly visible programme."""
+    programme = await session.scalar(
+        select(Programme)
+        .join(Organization, Organization.id == Programme.organization_id)
+        .where(
+            Organization.slug == organization_slug,
+            Programme.slug == programme_slug,
+            Programme.status.in_({"planned", "active"}),
+        )
+    )
+    if programme is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
+    rows = await session.scalars(
+        select(LearningCourse)
+        .where(
+            LearningCourse.organization_id == programme.organization_id,
+            LearningCourse.programme_id == programme.id,
+            LearningCourse.status == "published",
+        )
+        .order_by(LearningCourse.title)
+        .limit(250)
+    )
+    return [PublicCourseRead.model_validate(item) for item in rows.all()]
+
+
+@public_router.get(
+    "/public/organizations/{organization_slug}/courses",
+    response_model=list[PublicCourseRead],
+)
+async def list_public_courses(
+    organization_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PublicCourseRead]:
+    """List published courses for public discovery without exposing draft courses."""
+    organization = await session.scalar(
+        select(Organization).where(Organization.slug == organization_slug)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    rows = await session.scalars(
+        select(LearningCourse)
+        .where(
+            LearningCourse.organization_id == organization.id,
+            LearningCourse.status == "published",
+        )
+        .order_by(LearningCourse.title)
+        .limit(250)
+    )
+    return [PublicCourseRead.model_validate(item) for item in rows.all()]
 
 class CourseCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
     slug: str = Field(min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: str = Field(min_length=1, max_length=12000)
     category: str | None = Field(default=None, max_length=100)
+    programme_id: str | None = None
     delivery_mode: Literal["online", "in_person", "blended"] = "blended"
 
 
@@ -44,6 +124,7 @@ class CourseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     organization_id: str
+    programme_id: str | None
     title: str
     slug: str
     description: str
@@ -139,8 +220,18 @@ async def create_course(
 ) -> CourseRead:
     if membership.role not in _MANAGE:
         raise HTTPException(403, "Course management permission required")
+    if body.programme_id is not None:
+        programme_exists = await session.scalar(
+            select(Programme.id).where(
+                Programme.id == body.programme_id,
+                Programme.organization_id == organization_id,
+            )
+        )
+        if programme_exists is None:
+            raise HTTPException(404, "Programme not found in this organisation")
     course = LearningCourse(
-        organization_id=organization_id, title=body.title.strip(), slug=body.slug,
+        organization_id=organization_id, programme_id=body.programme_id,
+        title=body.title.strip(), slug=body.slug,
         description=body.description, category=body.category, delivery_mode=body.delivery_mode,
         status="draft", created_by=principal.user_id,
     )

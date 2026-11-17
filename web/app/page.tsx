@@ -2,7 +2,13 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { clearSession, login, logout, restoreSession } from "@/lib/api";
+import { apiGet, clearSession, login, logout, register, restoreSession } from "@/lib/api";
+
+type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string };
+type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
+type PublicPartner = { id: string; name: string; partner_type: string; description: string | null; website_url: string | null; country_code: string; region: string | null };
+type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
+type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string; programme_id: string | null };
 
 const portals = [
   {
@@ -34,10 +40,37 @@ const portals = [
 export default function HomePage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [catalogue, setCatalogue] = useState<PublicContent[]>([]);
+  const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
+  const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
+  const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
+  const [publicCourses, setPublicCourses] = useState<PublicCourse[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    // Public feeds are independent: a temporary failure in one endpoint must not
+    // suppress otherwise healthy programme, people, partner or CMS sections.
+    Promise.all([
+      apiGet<PublicContent[]>("/public/organizations/nextgen-for-earth/content").catch(() => []),
+      apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people").catch(() => []),
+      apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners").catch(() => []),
+      apiGet<PublicProgramme[]>("/public/organizations/nextgen-for-earth/programmes").catch(() => []),
+      apiGet<PublicCourse[]>("/public/organizations/nextgen-for-earth/courses").catch(() => []),
+    ]).then(([items, people, partners, programmes, courses]) => {
+      if (!active) return;
+      setCatalogue(items);
+      setPublicPeople(people);
+      setPublicPartners(partners);
+      setPublicProgrammes(programmes);
+      setPublicCourses(courses);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +89,7 @@ export default function HomePage() {
     setError("");
     setBusy(true);
     try {
+      if (creatingAccount) await register(identifier.trim(), password);
       const result = await login(identifier.trim(), password);
       setSubject(result.subject);
       setSignedIn(true);
@@ -87,6 +121,8 @@ export default function HomePage() {
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
           <a href="#portals">Portals</a>
+          <a href="/volunteer/apply">Volunteer</a>
+          <a href="/employment/apply">Careers</a>
           <a href="#access">Sign in</a>
         </nav>
         <a className="nav-cta" href="#access">Access platform <span aria-hidden="true">↗</span></a>
@@ -135,6 +171,40 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="portals section-wrap" id="programmes">
+        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
+        <div className="portal-grid">
+          {publicProgrammes.map((programme) => (
+            <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3><Link href={`/programmes/${programme.slug}`}>{programme.title}</Link></h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
+          ))}
+          {publicCourses.map((course) => {
+            const programme = publicProgrammes.find((item) => item.id === course.programme_id);
+            return (
+              <article className="portal-card" key={`course-${course.id}`}>
+                <p className="portal-tag">Training course · {course.delivery_mode.replaceAll("_", " ")}</p>
+                <h3>{course.title}</h3>
+                <p className="portal-description">{course.description}</p>
+                {programme && <p className="portal-description">Programme: {programme.title}</p>}
+                {course.category && <p className="portal-description">Category: {course.category}</p>}
+                <a href="#access">Sign in to access learning <span>↗</span></a>
+              </article>
+            );
+          })}
+          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area", "impact_metric", "publication"].includes(item.content_type)).map((item) => (
+            <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+          ))}
+        </div>
+        {publicProgrammes.length === 0 && publicCourses.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="people">
+        <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
+        <div className="portal-grid">
+          {publicPeople.map((person) => <article className="portal-card" key={person.id}><p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p>{person.biography && <p className="portal-description">{person.biography}</p>}</article>)}
+          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Institutional partner</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
+        </div>
+        {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Verified public profiles and partner relationships will appear here after approval.</p>}
+      </section>
+
       <section className="access-section" id="access">
         <div className="access-copy">
           <p className="eyebrow">SECURE WORKSPACE</p>
@@ -156,16 +226,17 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>Sign in</h3></div></div>
+              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>{creatingAccount ? "Create account" : "Sign in"}</h3></div></div>
               <form onSubmit={handleLogin}>
                 <label htmlFor="identifier">Email or account identifier</label>
                 <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
                 <label htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+                <input id="password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={creatingAccount ? 12 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
                 {error && <p className="form-error" role="alert">{error}</p>}
-                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue securely"} <span>→</span></button>
+                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? (creatingAccount ? "Creating account…" : "Signing in…") : (creatingAccount ? "Create account securely" : "Continue securely")} <span>→</span></button>
               </form>
-              <p className="login-footnote">Access is provided by your organisation administrator.</p>
+              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>
+              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
             </>
           )}
         </div>

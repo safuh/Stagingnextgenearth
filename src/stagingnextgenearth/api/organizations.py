@@ -109,7 +109,7 @@ async def get_organization_administration_summary(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> OrganizationAdministrationSummary:
     """Return governance metadata only to active administrators."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     organization = await session.scalar(
         select(Organization).where(Organization.id == organization_id)
@@ -139,7 +139,7 @@ async def transfer_organization_ownership(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, str]:
     """Atomically transfer ownership and preserve an active administrator."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
 
     organization = await session.scalar(
@@ -224,7 +224,7 @@ async def list_organization_audit_events(
     limit: int = Query(default=100, ge=1, le=200),
 ) -> list[dict[str, object]]:
     """List a bounded, tenant-scoped audit history for organisation administrators."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Administrator role required",

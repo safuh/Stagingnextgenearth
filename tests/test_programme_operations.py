@@ -70,6 +70,61 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert programme.status_code == 201
         base = f"{programmes}/{programme.json()['id']}"
+        planned = client.post(f"{base}/status", headers=manager, json={"status": "planned"})
+        assert planned.status_code == 200
+        activated = client.post(f"{base}/status", headers=manager, json={"status": "active"})
+        assert activated.status_code == 200
+        public_programmes = client.get("/api/public/organizations/operations-test/programmes")
+        assert public_programmes.status_code == 200
+        assert [row["id"] for row in public_programmes.json()] == [programme.json()["id"]]
+
+        updated_programme = client.patch(
+            f"{programmes}/{programme.json()['id']}",
+            headers=manager,
+            json={
+                "title": "Community tree restoration",
+                "summary": "Community-led restoration and monitoring.",
+                "start_date": "2026-12-01",
+                "end_date": "2027-12-01",
+            },
+        )
+        assert updated_programme.status_code == 200
+        assert updated_programme.json()["title"] == "Community tree restoration"
+        assert client.patch(
+            f"{programmes}/{programme.json()['id']}",
+            headers=manager,
+            json={"slug": "tree-growing"},
+        ).status_code == 200
+        project = client.post(
+            f"/api/organizations/{org_id}/projects",
+            headers=manager,
+            json={
+                "title": "Community tree nurseries",
+                "summary": "Establish locally managed tree nurseries.",
+                "programme_id": programme.json()["id"],
+                "county": "Kisii",
+            },
+        )
+        assert project.status_code == 201
+        linked_projects = client.get(
+            f"{programmes}/{programme.json()['id']}/projects",
+            headers=manager,
+        )
+        assert linked_projects.status_code == 200
+        assert [row["id"] for row in linked_projects.json()] == [project.json()["id"]]
+        public_projects = client.get(
+            "/api/public/organizations/operations-test/programmes/tree-growing/projects"
+        )
+        assert public_projects.status_code == 200
+        assert [row["id"] for row in public_projects.json()] == [project.json()["id"]]
+        assert "organization_id" not in public_projects.json()[0]
+        assert client.get(
+            "/api/public/organizations/operations-test/programmes/missing-programme/projects"
+        ).status_code == 404
+        assert client.get(
+            f"{programmes}/missing-programme/projects",
+            headers=manager,
+        ).status_code == 404
 
         # Existing active youth volunteers can apply to additional programmes.
         member_volunteer = _auth(client, "ops-member-volunteer@example.org")
@@ -97,7 +152,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         member_approval = client.post(
             f"{base}/volunteer-applications/{member_application.json()['id']}/decision",
             headers=manager,
-            json={"decision": "approved"},
+            json={"decision": "approved", "safeguarding_verified": True},
         )
         assert member_approval.status_code == 200
         assert member_approval.json()["status"] == "approved"
@@ -117,6 +172,10 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         assert application.status_code == 201
         application_id = application.json()["id"]
         assert application.json()["status"] == "pending"
+        manager_queue = client.get(f"{base}/volunteer-applications", headers=manager)
+        assert manager_queue.status_code == 200
+        applicant = next(row for row in manager_queue.json() if row["id"] == application_id)
+        assert applicant["applicant_identifier"] == "ops-participant@example.org"
         personal_applications = client.get(
             f"/api/organizations/{org_id}/my-volunteer-applications",
             headers=participant,
@@ -136,10 +195,16 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             },
         ).status_code == 409
 
-        approved = client.post(
+        approved_without_safeguarding = client.post(
             f"{base}/volunteer-applications/{application_id}/decision",
             headers=manager,
             json={"decision": "approved"},
+        )
+        assert approved_without_safeguarding.status_code == 409
+        approved = client.post(
+            f"{base}/volunteer-applications/{application_id}/decision",
+            headers=manager,
+            json={"decision": "approved", "safeguarding_verified": True},
         )
         assert approved.status_code == 200
         activity = client.post(
@@ -190,6 +255,63 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             f"/api/organizations/{org_id}/my-volunteer-allocations",
             headers=manager,
         ).json() == []
+        allocation_status_url = (
+            f"{base}/activities/{activity_id}/volunteers/{assignment.json()['id']}/status"
+        )
+        assert client.post(
+            allocation_status_url,
+            headers=participant,
+            json={"status": "completed"},
+        ).status_code == 403
+        allocation_completed = client.post(
+            allocation_status_url,
+            headers=manager,
+            json={"status": "completed"},
+        )
+        assert allocation_completed.status_code == 200
+        assert allocation_completed.json()["status"] == "completed"
+        assert client.post(
+            allocation_status_url,
+            headers=manager,
+            json={"status": "withdrawn"},
+        ).status_code == 409
+        attendance_url = f"{base}/activities/{activity_id}/attendance"
+        attendance_denied = client.post(
+            attendance_url,
+            headers=participant,
+            json={"user_id": application.json()["user_id"], "attendance_status": "present"},
+        )
+        assert attendance_denied.status_code == 403
+        attendance = client.post(
+            attendance_url,
+            headers=manager,
+            json={
+                "user_id": application.json()["user_id"],
+                "attendance_status": "present",
+                "note": "Checked against activity register",
+            },
+        )
+        assert attendance.status_code == 201
+        assert attendance.json()["attendance_status"] == "present"
+        attendance_duplicate = client.post(
+            attendance_url,
+            headers=manager,
+            json={"user_id": application.json()["user_id"], "attendance_status": "late"},
+        )
+        assert attendance_duplicate.status_code == 409
+        attendance_list = client.get(attendance_url, headers=manager)
+        assert attendance_list.status_code == 200
+        assert len(attendance_list.json()) == 1
+        assert attendance_list.json()[0]["user_id"] == application.json()["user_id"]
+        assert client.get(attendance_url, headers=participant).status_code == 403
+        delivery_summary = client.get(f"{base}/delivery-summary", headers=manager)
+        assert delivery_summary.status_code == 200
+        assert delivery_summary.json()["activities_total"] == 1
+        assert delivery_summary.json()["activities_completed"] == 1
+        assert delivery_summary.json()["volunteers_completed"] == 1
+        assert delivery_summary.json()["attendance_total"] == 1
+        assert delivery_summary.json()["attendance_present"] == 1
+
         duplicate = client.post(
             f"{base}/activities/{activity_id}/volunteers",
             headers=manager,
@@ -275,7 +397,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         partner_report = client.get(f"{base}/partner-reporting", headers=partner)
         assert partner_report.status_code == 200
         report_body = partner_report.json()
-        assert report_body["programme_title"] == "Tree growing programme"
+        assert report_body["programme_title"] == "Community tree restoration"
         assert report_body["indicators"][0]["latest_value"] == 250
         assert report_body["participation"] == [{
             "participant_group": "school",
@@ -358,5 +480,148 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
             headers=participant,
             json={"status": "in_progress"},
         ).status_code == 409
+        assignment_activity = client.get(
+            f"{base}/planning-activity",
+            headers=manager,
+        )
+        assert assignment_activity.status_code == 200
+        assignment_events = [
+            event for event in assignment_activity.json()
+            if event["entity_type"] == "assignment"
+            and event["entity_id"] == task_id
+        ]
+        assert [event["action"] for event in assignment_events] == [
+            "status_changed",
+            "status_changed",
+            "assigned",
+        ]
+        assert assignment_events[0]["details"] == {
+            "from": "in_progress",
+            "to": "completed",
+        }
+        assert assignment_events[-1]["details"]["assigned_to"] == application.json()["user_id"]
+        assert client.get(
+            f"{base}/planning-activity",
+            headers=participant,
+        ).status_code == 403
         assert client.get(f"{base}/goals", headers=participant).status_code == 200
         assert client.get(f"{base}/milestones", headers=participant).status_code == 200
+        completed_milestone = client.post(
+            f"{base}/milestones/{milestone_id}/status",
+            headers=manager,
+            json={"status": "completed"},
+        )
+        assert completed_milestone.status_code == 200
+
+        programme_id = programme.json()["id"]
+        deliverable_url = (
+            f"/api/organizations/{org_id}/programmes/{programme_id}/deliverables"
+        )
+        deliverable = client.post(
+            deliverable_url,
+            headers=manager,
+            json={
+                "title": "Verified baseline survey",
+                "description": "Baseline survey results for the restoration sites.",
+                "due_date": "2027-02-15",
+                "assigned_to": application.json()["user_id"],
+            },
+        )
+        assert deliverable.status_code == 201
+        assert deliverable.json()["assigned_to"] == application.json()["user_id"]
+        deliverable_id = deliverable.json()["id"]
+        assert client.get(deliverable_url, headers=partner).json() == []
+        contributor_deliverables = client.get(deliverable_url, headers=participant)
+        assert contributor_deliverables.status_code == 200
+        assert [item["id"] for item in contributor_deliverables.json()] == [deliverable_id]
+        denied_submission = client.post(
+            f"{deliverable_url}/{deliverable_id}/submit",
+            headers=partner,
+            json={"evidence_url": "https://example.org/evidence/baseline"},
+        )
+        assert denied_submission.status_code == 403
+        submitted = client.post(
+            f"{deliverable_url}/{deliverable_id}/submit",
+            headers=participant,
+            json={"evidence_url": "https://example.org/evidence/baseline"},
+        )
+        assert submitted.status_code == 200
+        assert submitted.json()["status"] == "submitted"
+        accepted = client.post(
+            f"{deliverable_url}/{deliverable_id}/decision",
+            headers=manager,
+            json={"decision": "accepted", "note": "Evidence reviewed."},
+        )
+        assert accepted.status_code == 200
+        deliverable_events_url = f"{deliverable_url}/{deliverable_id}/events"
+        manager_history = client.get(deliverable_events_url, headers=manager)
+        assert manager_history.status_code == 200
+        assert [event["action"] for event in manager_history.json()] == [
+            "created",
+            "assigned",
+            "evidence_submitted",
+            "accepted",
+        ]
+        contributor_history = client.get(
+            deliverable_events_url, headers=participant
+        )
+        assert contributor_history.status_code == 200
+        assert contributor_history.json()[-1]["action"] == "accepted"
+        assert client.get(
+            deliverable_events_url, headers=partner
+        ).status_code == 403
+
+        activity_feed = client.get(f"{deliverable_url}/activity", headers=manager)
+        assert activity_feed.status_code == 200
+        assert activity_feed.json()[0]["deliverable_id"] == deliverable_id
+        assert activity_feed.json()[0]["deliverable_title"] == "Verified baseline survey"
+        assert activity_feed.json()[0]["action"] == "accepted"
+        assert client.get(f"{deliverable_url}/activity", headers=participant).status_code == 403
+        assert client.get(f"{deliverable_url}/activity", headers=partner).status_code == 403
+        unified_timeline = client.get(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/activity-timeline",
+            headers=manager,
+        )
+        assert unified_timeline.status_code == 200
+        timeline = unified_timeline.json()
+        timeline_types = {event["entity_type"] for event in timeline}
+        assert {
+            "goal",
+            "milestone",
+            "indicator",
+            "measurement",
+            "assignment",
+            "activity",
+            "volunteer_allocation",
+            "deliverable",
+        }.issubset(timeline_types)
+        assert timeline == sorted(
+            timeline,
+            key=lambda event: (event["created_at"], event["id"]),
+            reverse=True,
+        )
+        assert client.get(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/activity-timeline",
+            headers=participant,
+        ).status_code == 403
+        assert client.get(
+            f"/api/organizations/{org_id}/programmes/missing-programme/activity-timeline",
+            headers=manager,
+        ).status_code == 404
+
+        public_report = client.get(
+            "/api/public/organizations/operations-test/programmes/tree-growing/report"
+        )
+        assert public_report.status_code == 200
+        report = public_report.json()
+        assert report["milestones"][0]["title"] == "Complete baseline survey"
+        assert report["milestones"][0]["goal_title"] == "Restore native woodland"
+        assert report["deliverables"][0]["title"] == "Verified baseline survey"
+        assert report["indicators"][0]["latest_value"] == 500
+        assert report["indicators"][0]["progress_percent"] == 50
+        assert "evidence_url" not in report["deliverables"][0]
+        assert "assigned_to" not in report["deliverables"][0]
+        assert "reported_by" not in report["indicators"][0]
+        assert client.get(
+            "/api/public/organizations/operations-test/programmes/missing-programme/report"
+        ).status_code == 404

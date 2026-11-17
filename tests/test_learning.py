@@ -85,6 +85,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert learner_directory.status_code == 403
 
+        programme_response = client.post(
+            f"/api/organizations/{org_id}/programmes",
+            headers=admin_headers,
+            json={
+                "title": "Climate Learning Programme",
+                "slug": "climate-learning-programme",
+                "summary": "Programme containing the learning curriculum.",
+            },
+        )
+        assert programme_response.status_code == 201
+        programme_id = programme_response.json()["id"]
+        planned_programme = client.post(
+            f"/api/organizations/{org_id}/programmes/{programme_id}/status",
+            headers=admin_headers,
+            json={"status": "planned"},
+        )
+        assert planned_programme.status_code == 200
+
         base = f"/api/organizations/{org_id}/learning"
         course_response = client.post(
             f"{base}/courses",
@@ -94,11 +112,13 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
                 "slug": "community-climate-action",
                 "description": "Practical climate literacy and community action.",
                 "category": "climate",
+                "programme_id": programme_id,
                 "delivery_mode": "blended",
             },
         )
         assert course_response.status_code == 201
         course_id = course_response.json()["id"]
+        assert course_response.json()["programme_id"] == programme_id
 
         module = client.post(
             f"{base}/courses/{course_id}/modules",
@@ -123,6 +143,21 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
         )
         assert published.status_code == 200
+
+        public_courses = client.get(
+            "/api/public/organizations/learning-lab/courses",
+        )
+        assert public_courses.status_code == 200
+        assert [item["id"] for item in public_courses.json()] == [course_id]
+        assert public_courses.json()[0]["programme_id"] == programme_id
+        programme_courses = client.get(
+            "/api/public/organizations/learning-lab/programmes/"
+            "climate-learning-programme/courses",
+        )
+        assert programme_courses.status_code == 200
+        assert [item["id"] for item in programme_courses.json()] == [course_id]
+        assert all("created_by" not in item for item in public_courses.json())
+        assert all("configuration" not in item for item in public_courses.json())
 
         resource = client.post(
             f"{base}/courses/{course_id}/resources",

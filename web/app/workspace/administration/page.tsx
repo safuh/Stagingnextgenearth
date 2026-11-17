@@ -7,7 +7,7 @@ import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 interface Organization { id: string; name: string; slug: string; country_code: string }
 interface Membership {
   id: string; organization_id: string; user_id: string;
-  role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
   status: "invited" | "active" | "suspended";
 }
 interface AuditEvent {
@@ -17,7 +17,7 @@ interface AuditEvent {
 interface AdministrationSummary {
   organization_id: string; organization_name: string; owner_user_id: string; created_at: string;
 }
-type InvitableRole = "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+type InvitableRole = "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "founder" | "executive";
 
 export default function AdministrationPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -35,7 +35,7 @@ export default function AdministrationPage() {
   const refresh = useCallback(async (id: string) => {
     const mine = await apiGet<Membership>(`/organizations/${id}/memberships/me`);
     setMembership(mine);
-    if (mine.role !== "admin") {
+    if (!["admin", "founder", "executive"].includes(mine.role)) {
       setMembers([]);
       setEvents([]);
       setAdministration(null);
@@ -130,10 +130,11 @@ export default function AdministrationPage() {
         <p className="eyebrow">ORGANISATION GOVERNANCE</p>
         <h1 className="workspace-title">Administration <em>workspace.</em></h1>
         <p className="workspace-muted">Manage membership access, roles, ownership and the organisation audit trail.</p>
+        <p><Link className="secondary-action" href="/workspace/administration/people">Manage people directory →</Link> · <Link className="secondary-action" href="/workspace/administration/partners">Manage partners & website content →</Link> · <Link className="secondary-action" href="/workspace/administration/applications">Review volunteer applications →</Link> · <Link className="secondary-action" href="/workspace/administration/employment-applications">Review employee applications →</Link></p>
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
-        {accessLoading ? <p className="workspace-muted">Checking organisation permissions…</p> : membership?.role !== "admin" ? (
+        {accessLoading ? <p className="workspace-muted">Checking organisation permissions…</p> : !membership || !["admin", "founder", "executive"].includes(membership.role) ? (
           <section className="staff-card"><h2>Administrator access required</h2><p>Your current organisation role does not permit membership administration. Ask an organisation administrator for access.</p><Link className="secondary-action" href="/workspace">Return to workspace</Link></section>
         ) : (
           <>
@@ -148,7 +149,7 @@ export default function AdministrationPage() {
                 <p>Invitations do not create accounts or grant access until the invited user accepts.</p>
                 <form onSubmit={invite}>
                   <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
-                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
+                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
               </section>
@@ -169,7 +170,7 @@ export default function AdministrationPage() {
                     <div className="admin-member-meta"><strong>{item.user_id}</strong><span>{item.role.replaceAll("_", " ")} · {item.status}</span></div>
                     <div className="admin-member-actions">
                       <label>Role<select aria-label={`Role for ${item.user_id}`} value={item.role} disabled={busyId === item.id || item.status !== "active"} onChange={(event) => void perform(item.id, "Member role updated.", () => apiPatch(`/organizations/${organizationId}/memberships/${item.id}/role`, { role: event.target.value }))}>
-                        {administration?.owner_user_id === membership.user_id && <option value="admin">Administrator</option>}<option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option>
+                        {administration?.owner_user_id === membership.user_id && <><option value="admin">Administrator</option><option value="founder">Founder</option><option value="executive">Executive</option></>}<option value="employee">Employee</option><option value="programme_manager">Programme manager</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option>
                       </select></label>
                       {item.status !== "invited" && <button className="secondary-action" disabled={busyId === item.id || item.role === "admin" && item.status === "active" && members.filter((m) => m.role === "admin" && m.status === "active").length <= 1 || item.user_id === membership.user_id && item.status === "active"} onClick={() => void perform(item.id, item.status === "suspended" ? "Membership reactivated." : "Membership suspended.", () => apiPatch(`/organizations/${organizationId}/memberships/${item.id}/status`, { status: item.status === "suspended" ? "active" : "suspended" }))}>
                         {item.status === "suspended" ? "Reactivate" : "Suspend"}

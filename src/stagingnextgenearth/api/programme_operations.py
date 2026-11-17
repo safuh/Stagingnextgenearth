@@ -5,14 +5,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     Membership,
     Programme,
     ProgrammeActivity,
+    ProgrammeActivityAttendance,
+    ProgrammePlanningEvent,
     ProgrammeVolunteerAllocation,
     ProgrammeVolunteerApplication,
     Project,
@@ -21,7 +24,7 @@ from stagingnextgenearth.platform.models import (
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["programme-operations"])
-_MANAGERS = {"admin", "programme_manager"}
+_MANAGERS = {"admin", "founder", "executive", "programme_manager"}
 
 
 async def _programme(
@@ -36,6 +39,33 @@ async def _programme(
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     return item
+
+
+async def _record_activity_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    entity_type: str,
+    entity_id: str,
+    entity_title: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammePlanningEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+            created_at=datetime.now(UTC),
+        )
+    )
 
 
 class ActivityCreate(BaseModel):
@@ -100,6 +130,8 @@ class VolunteerApplicationRead(BaseModel):
     reviewed_by: str | None
     reviewed_at: datetime | None
     review_note: str | None
+    safeguarding_confirmed: bool = False
+    applicant_identifier: str | None = None
 
 
 class ApplicationDecision(BaseModel):
@@ -107,6 +139,7 @@ class ApplicationDecision(BaseModel):
 
     decision: str = Field(pattern=r"^(approved|rejected)$")
     note: str | None = Field(default=None, max_length=4000)
+    safeguarding_confirmed: bool = False
 
 
 class VolunteerAllocationCreate(BaseModel):
@@ -169,6 +202,18 @@ async def create_activity(
         created_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="activity",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="created",
+        details={"location": item.location, "start_at": item.start_at.isoformat()},
+    )
     await session.commit()
     await session.refresh(item)
     return ActivityRead.model_validate(item)
@@ -296,6 +341,7 @@ async def apply_to_volunteer(
         status="pending",
     )
     session.add(item)
+    await session.flush()
     try:
         await session.commit()
         await session.refresh(item)
@@ -319,8 +365,9 @@ async def list_volunteer_applications(
     if membership.role not in _MANAGERS:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
-    rows = await session.scalars(
-        select(ProgrammeVolunteerApplication)
+    rows = await session.execute(
+        select(ProgrammeVolunteerApplication, User.identifier)
+        .join(User, User.id == ProgrammeVolunteerApplication.user_id)
         .where(
             ProgrammeVolunteerApplication.organization_id == organization_id,
             ProgrammeVolunteerApplication.programme_id == programme_id,
@@ -328,7 +375,12 @@ async def list_volunteer_applications(
         .order_by(ProgrammeVolunteerApplication.created_at.desc())
         .limit(500)
     )
-    return [VolunteerApplicationRead.model_validate(row) for row in rows.all()]
+    return [
+        VolunteerApplicationRead.model_validate(application).model_copy(
+            update={"applicant_identifier": identifier}
+        )
+        for application, identifier in rows.all()
+    ]
 
 
 @router.post(
@@ -360,6 +412,11 @@ async def decide_volunteer_application(
     if item.status != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Application has already been decided")
     if body.decision == "approved":
+        if not body.safeguarding_confirmed:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Confirm safeguarding and any required guardian consent before approval",
+            )
         existing = await session.scalar(
             select(Membership).where(
                 Membership.organization_id == organization_id,
@@ -386,6 +443,7 @@ async def decide_volunteer_application(
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
     item.review_note = body.note
+    item.safeguarding_confirmed = body.safeguarding_confirmed
     await session.commit()
     await session.refresh(item)
     return VolunteerApplicationRead.model_validate(item)
@@ -438,6 +496,18 @@ async def allocate_volunteer(
     )
     session.add(item)
     try:
+        await session.flush()
+        await _record_activity_event(
+            session,
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type="volunteer_allocation",
+            entity_id=item.id,
+            entity_title=activity.title,
+            actor_user_id=principal.user_id,
+            action="assigned",
+            details={"user_id": item.user_id, "activity_id": activity.id},
+        )
         await session.commit()
         await session.refresh(item)
     except IntegrityError as exc:
@@ -447,6 +517,72 @@ async def allocate_volunteer(
             "Volunteer is already allocated to this activity",
         ) from exc
     return VolunteerAllocationRead.model_validate(item)
+
+
+class VolunteerAllocationStatusUpdate(BaseModel):
+    """Terminal state requested for an existing volunteer allocation."""
+
+    status: str = Field(pattern=r"^(completed|withdrawn)$")
+
+
+@router.post(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/volunteers/{allocation_id}/status",
+    response_model=VolunteerAllocationRead,
+)
+async def update_volunteer_allocation_status(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    allocation_id: str,
+    body: VolunteerAllocationStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> VolunteerAllocationRead:
+    """Close an allocation as completed or withdrawn; retain its unique assignment record."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    allocation = await session.scalar(
+        select(ProgrammeVolunteerAllocation).where(
+            ProgrammeVolunteerAllocation.id == allocation_id,
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+            ProgrammeVolunteerAllocation.activity_id == activity_id,
+        )
+    )
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Volunteer allocation not found")
+    if allocation.status != "assigned":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Volunteer allocation is already closed")
+    activity = await session.scalar(
+        select(ProgrammeActivity).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    allocation.status = body.status
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="volunteer_allocation",
+        entity_id=allocation.id,
+        entity_title=activity.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={
+            "user_id": allocation.user_id,
+            "activity_id": activity.id,
+            "from": "assigned",
+            "to": body.status,
+        },
+    )
+    await session.commit()
+    await session.refresh(allocation)
+    return VolunteerAllocationRead.model_validate(allocation)
 
 
 class ActivityStatusUpdate(BaseModel):
@@ -464,6 +600,7 @@ async def update_activity_status(
     programme_id: str,
     activity_id: str,
     body: ActivityStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ActivityRead:
@@ -487,7 +624,202 @@ async def update_activity_status(
     }
     if body.status not in allowed.get(item.status, set()):
         raise HTTPException(status.HTTP_409_CONFLICT, "Invalid activity status transition")
+    previous_status = item.status
     item.status = body.status
+    await _record_activity_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="activity",
+        entity_id=item.id,
+        entity_title=item.title,
+        actor_user_id=principal.user_id,
+        action="status_changed",
+        details={"from": previous_status, "to": body.status},
+    )
     await session.commit()
     await session.refresh(item)
     return ActivityRead.model_validate(item)
+
+
+class ActivityAttendanceCreate(BaseModel):
+    """Attendance result for a volunteer allocated to this activity."""
+
+    user_id: str
+    attendance_status: str = Field(pattern=r"^(present|late|absent|excused)$")
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ActivityAttendanceRead(BaseModel):
+    """Attendance record response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    programme_id: str
+    activity_id: str
+    user_id: str
+    attendance_status: str
+    note: str | None
+    recorded_by: str
+    recorded_at: datetime
+
+
+@router.post(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/attendance",
+    response_model=ActivityAttendanceRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_activity_attendance(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    body: ActivityAttendanceCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ActivityAttendanceRead:
+    """Record attendance for an allocated volunteer; managers only."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    activity = await session.scalar(
+        select(ProgrammeActivity).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    allocation = await session.scalar(
+        select(ProgrammeVolunteerAllocation.id).where(
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+            ProgrammeVolunteerAllocation.activity_id == activity_id,
+            ProgrammeVolunteerAllocation.user_id == body.user_id,
+            ProgrammeVolunteerAllocation.status != "withdrawn",
+        )
+    )
+    if allocation is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Attendance can only be recorded for an allocated volunteer",
+        )
+    item = ProgrammeActivityAttendance(
+        organization_id=organization_id,
+        programme_id=programme_id,
+        activity_id=activity_id,
+        user_id=body.user_id,
+        attendance_status=body.attendance_status,
+        note=body.note.strip() if body.note else None,
+        recorded_by=principal.user_id,
+    )
+    session.add(item)
+    try:
+        await session.commit()
+        await session.refresh(item)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Attendance has already been recorded for this volunteer",
+        ) from exc
+    return ActivityAttendanceRead.model_validate(item)
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/activities/{activity_id}/attendance",
+    response_model=list[ActivityAttendanceRead],
+)
+async def list_activity_attendance(
+    organization_id: str,
+    programme_id: str,
+    activity_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ActivityAttendanceRead]:
+    """Return the attendance register to programme managers only."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    activity_id_found = await session.scalar(
+        select(ProgrammeActivity.id).where(
+            ProgrammeActivity.id == activity_id,
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+    )
+    if activity_id_found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
+    rows = await session.scalars(
+        select(ProgrammeActivityAttendance)
+        .where(
+            ProgrammeActivityAttendance.organization_id == organization_id,
+            ProgrammeActivityAttendance.programme_id == programme_id,
+            ProgrammeActivityAttendance.activity_id == activity_id,
+        )
+        .order_by(ProgrammeActivityAttendance.recorded_at, ProgrammeActivityAttendance.user_id)
+        .limit(1000)
+    )
+    return [ActivityAttendanceRead.model_validate(row) for row in rows.all()]
+
+
+@router.get(
+    "/organizations/{organization_id}/programmes/{programme_id}/delivery-summary",
+)
+async def programme_delivery_summary(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, int | str]:
+    """Aggregate operational delivery counts without exposing participant details."""
+    if membership.role not in _MANAGERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+    await _programme(session, organization_id, programme_id)
+    activity_rows = await session.execute(
+        select(ProgrammeActivity.status, func.count(ProgrammeActivity.id))
+        .where(
+            ProgrammeActivity.organization_id == organization_id,
+            ProgrammeActivity.programme_id == programme_id,
+        )
+        .group_by(ProgrammeActivity.status)
+    )
+    allocation_rows = await session.execute(
+        select(ProgrammeVolunteerAllocation.status, func.count(ProgrammeVolunteerAllocation.id))
+        .where(
+            ProgrammeVolunteerAllocation.organization_id == organization_id,
+            ProgrammeVolunteerAllocation.programme_id == programme_id,
+        )
+        .group_by(ProgrammeVolunteerAllocation.status)
+    )
+    attendance_rows = await session.execute(
+        select(
+            ProgrammeActivityAttendance.attendance_status,
+            func.count(ProgrammeActivityAttendance.id),
+        )
+        .where(
+            ProgrammeActivityAttendance.organization_id == organization_id,
+            ProgrammeActivityAttendance.programme_id == programme_id,
+        )
+        .group_by(ProgrammeActivityAttendance.attendance_status)
+    )
+    activities = {str(key): int(value) for key, value in activity_rows.all()}
+    allocations = {str(key): int(value) for key, value in allocation_rows.all()}
+    attendance = {str(key): int(value) for key, value in attendance_rows.all()}
+    return {
+        "programme_id": programme_id,
+        "activities_total": sum(activities.values()),
+        "activities_planned": activities.get("planned", 0),
+        "activities_in_progress": activities.get("in_progress", 0),
+        "activities_completed": activities.get("completed", 0),
+        "activities_cancelled": activities.get("cancelled", 0),
+        "volunteers_assigned": allocations.get("assigned", 0),
+        "volunteers_completed": allocations.get("completed", 0),
+        "volunteers_withdrawn": allocations.get("withdrawn", 0),
+        "attendance_total": sum(attendance.values()),
+        "attendance_present": attendance.get("present", 0),
+        "attendance_late": attendance.get("late", 0),
+        "attendance_absent": attendance.get("absent", 0),
+        "attendance_excused": attendance.get("excused", 0),
+    }

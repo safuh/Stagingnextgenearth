@@ -23,6 +23,9 @@ router = APIRouter(
 )
 InvitableRole = Literal[
     "programme_manager",
+    "founder",
+    "executive",
+    "employee",
     "researcher",
     "youth_volunteer",
     "institutional_partner",
@@ -56,8 +59,17 @@ async def invite_member(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Invite an existing user; administrator privileges cannot be delegated here."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    if body.role in {"founder", "executive"}:
+        owner_id = await session.scalar(
+            select(Organization.owner_user_id).where(Organization.id == organization_id)
+        )
+        if owner_id != membership.user_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only the organisation owner can invite founders or executives",
+            )
     user = await session.scalar(select(User).where(User.identifier == body.identifier))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
@@ -103,7 +115,7 @@ async def list_staff_directory(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, str]]:
     """Return minimal active-member identities to authorised programme staff."""
-    if membership.role not in {"admin", "programme_manager"}:
+    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme staff access required",
@@ -130,7 +142,7 @@ async def list_memberships(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[MembershipRead]:
     """Expose membership records only to organisation administrators."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     result = await session.scalars(
         select(Membership)
@@ -170,6 +182,9 @@ class MembershipRoleUpdate(BaseModel):
     role: Literal[
         "admin",
         "programme_manager",
+        "founder",
+        "executive",
+        "employee",
         "researcher",
         "youth_volunteer",
         "institutional_partner",
@@ -204,7 +219,11 @@ async def _current_admin(
         .where(Membership.id == membership_id)
         .with_for_update()
     )
-    if actor is None or actor.status != "active" or actor.role != "admin":
+    if (
+        actor is None
+        or actor.status != "active"
+        or actor.role not in {"admin", "founder", "executive"}
+    ):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Active administrator role required",
@@ -217,7 +236,7 @@ async def _active_admin_count(session: AsyncSession, organization_id: str) -> in
     count = await session.scalar(
         select(func.count(Membership.id)).where(
             Membership.organization_id == organization_id,
-            Membership.role == "admin",
+            Membership.role.in_({"admin", "founder", "executive"}),
             Membership.status == "active",
         )
     )
@@ -233,7 +252,7 @@ async def update_member_role(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Change a member role without permitting privilege escalation by non-admins."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
     actor = await _current_admin(session, membership.id)
@@ -252,12 +271,25 @@ async def update_member_role(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before changing the owner's role",
         )
-    if body.role == "admin" and membership.user_id != owner_id:
+    if body.role in {"admin", "founder", "executive"} and membership.user_id != owner_id:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can grant administrator access",
         )
-    if target.status == "active" and target.role == "admin" and body.role != "admin":
+    if (
+        target.role in {"admin", "founder", "executive"}
+        and body.role not in {"admin", "founder", "executive"}
+        and membership.user_id != owner_id
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can revoke elevated administrator access",
+        )
+    if (
+        target.status == "active"
+        and target.role in {"admin", "founder", "executive"}
+        and body.role not in {"admin", "founder", "executive"}
+    ):
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1
@@ -291,7 +323,7 @@ async def update_member_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Suspend or reactivate a member while preserving an active organisation owner."""
-    if membership.role != "admin":
+    if membership.role not in {"admin", "founder", "executive"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
     actor = await _current_admin(session, membership.id)
@@ -310,7 +342,20 @@ async def update_member_status(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before suspending the owner",
         )
-    if target.status == "active" and target.role == "admin" and body.status == "suspended":
+    if (
+        target.role in {"admin", "founder", "executive"}
+        and body.status == "suspended"
+        and membership.user_id != owner_id
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can suspend an elevated administrator",
+        )
+    if (
+        target.status == "active"
+        and target.role in {"admin", "founder", "executive"}
+        and body.status == "suspended"
+    ):
         if (
             target.user_id == membership.user_id
             or await _active_admin_count(session, organization_id) <= 1

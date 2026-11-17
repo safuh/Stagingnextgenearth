@@ -1,7 +1,7 @@
 """Programme indicator definitions and append-only progress measurements."""
 
 import math
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,12 +15,13 @@ from stagingnextgenearth.platform.models import (
     Programme,
     ProgrammeIndicator,
     ProgrammeIndicatorMeasurement,
+    ProgrammePlanningEvent,
 )
 
 from .dependencies import Principal, get_current_principal, get_session, require_membership
 
 router = APIRouter(tags=["programme-indicators"])
-_MANAGERS = {"admin", "programme_manager"}
+_MANAGERS = {"admin", "founder", "executive", "programme_manager"}
 
 
 async def _get_programme(
@@ -37,6 +38,35 @@ async def _get_programme(
     if programme is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Programme not found")
     return programme
+
+
+
+
+async def _record_indicator_event(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    programme_id: str,
+    entity_type: str,
+    entity_id: str,
+    entity_title: str,
+    actor_user_id: str,
+    action: str,
+    details: dict[str, object],
+) -> None:
+    session.add(
+        ProgrammePlanningEvent(
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            actor_user_id=actor_user_id,
+            action=action,
+            details=details,
+            created_at=datetime.now(UTC),
+        )
+    )
 
 
 class IndicatorCreate(BaseModel):
@@ -156,6 +186,18 @@ async def create_indicator(
     )
     session.add(item)
     try:
+        await session.flush()
+        await _record_indicator_event(
+            session,
+            organization_id=organization_id,
+            programme_id=programme_id,
+            entity_type="indicator",
+            entity_id=item.id,
+            entity_title=item.title,
+            actor_user_id=principal.user_id,
+            action="created",
+            details={"key": item.key, "unit": item.unit},
+        )
         await session.commit()
         await session.refresh(item)
     except IntegrityError as exc:
@@ -265,6 +307,24 @@ async def record_measurement(
         reported_by=principal.user_id,
     )
     session.add(item)
+    await session.flush()
+    await _record_indicator_event(
+        session,
+        organization_id=organization_id,
+        programme_id=programme_id,
+        entity_type="measurement",
+        entity_id=item.id,
+        entity_title=indicator.title,
+        actor_user_id=principal.user_id,
+        action="measurement_recorded",
+        details={
+            "indicator_id": indicator.id,
+            "period_start": body.period_start.isoformat(),
+            "period_end": body.period_end.isoformat(),
+            "value": body.value,
+            "unit": indicator.unit,
+        },
+    )
     await session.commit()
     await session.refresh(item)
     return MeasurementRead.model_validate(item)

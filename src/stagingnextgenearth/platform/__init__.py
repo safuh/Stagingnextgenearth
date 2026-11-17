@@ -1,3 +1,5 @@
+# ruff: noqa: E501, I001
+# fmt: off
 """NextGen for Earth platform domain and persistence models."""
 
 from .models import (
@@ -14,11 +16,18 @@ from .models import (
     LearningMentorship,
     LearningModule,
     LearningResource,
+    InstitutionalPartner,
     Membership,
     Organization,
     OrganizationAuditEvent,
+    OrganizationPerson,
+    OrganizationPersonAuditEvent,
+    OrganizationRecordAuditEvent,
     Programme,
+    ProgrammePartner,
+    PublicContentEntry,
     ProgrammeActivity,
+    ProgrammeActivityAttendance,
     ProgrammeAssignment,
     ProgrammeDeliverable,
     ProgrammeGoal,
@@ -58,11 +67,18 @@ __all__ = [
     "LearningMentorship",
     "LearningModule",
     "LearningResource",
+    "InstitutionalPartner",
     "Membership",
     "Organization",
     "OrganizationAuditEvent",
+    "OrganizationPerson",
+    "OrganizationPersonAuditEvent",
+    "OrganizationRecordAuditEvent",
     "Programme",
+    "ProgrammePartner",
+    "PublicContentEntry",
     "ProgrammeActivity",
+    "ProgrammeActivityAttendance",
     "ProgrammeAssignment",
     "ProgrammeDeliverable",
     "ProgrammeGoal",
@@ -87,3 +103,5 @@ __all__ = [
     "ResearchStudyCollaborator",
     "ResearchStudyProposal",
 ]
+
+# fmt: on
