@@ -100,7 +100,7 @@ async def list_research_studies(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ResearchStudyRead]:
     """List studies only for members with an appropriate research role."""
-    if membership.role not in _RESEARCH_ROLES:
+    if not await membership_has_any_role(session, membership, _RESEARCH_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research workspace access required")
     result = await session.scalars(
         select(ResearchStudy)
