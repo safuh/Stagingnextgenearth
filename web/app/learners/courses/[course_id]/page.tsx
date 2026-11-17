@@ -132,7 +132,8 @@ export default function LearnerClassroomPage() {
   async function submitAssessment(event: FormEvent<HTMLFormElement>, assessment: Assessment) {
     event.preventDefault();
     if (!organizationId) return;
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const response = String(data.get("response") ?? "").trim();
     if (!response) {
       setError("Enter your response before submitting.");
@@ -147,7 +148,7 @@ export default function LearnerClassroomPage() {
         { submission: { response } },
       );
       setNotice(`Your response to “${assessment.title}” has been submitted for review.`);
-      event.currentTarget.reset();
+      form.reset();
       await refreshProgress();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to submit this assessment.");
