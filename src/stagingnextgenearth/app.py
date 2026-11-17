@@ -13,7 +13,7 @@ from starlette.types import ExceptionHandler
 
 from .api.router import api_router
 from .auth.application import AuthenticationApplication
-from .core.config import Settings, get_settings
+from .core.config import Environment, Settings, get_settings
 from .core.errors import (
     BackboneError,
     backbone_error_handler,
@@ -24,6 +24,7 @@ from .core.errors import (
 from .core.lifespan import lifespan
 from .core.logging import configure_logging
 from .core.middleware import RequestContextMiddleware
+from .core.security_headers import SecurityHeadersMiddleware
 from .identity import create_sqlalchemy_auth_application
 from .scanning import ClamAVScanner
 from .storage import S3ObjectStorage
@@ -39,11 +40,15 @@ def create_app(
     resolved = settings or get_settings()
     configure_logging(resolved)
 
+    production = resolved.environment is Environment.PRODUCTION
     app = FastAPI(
         title=resolved.app_name,
         version=resolved.app_version,
         debug=resolved.debug,
         lifespan=lifespan,
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
     )
     app.state.settings = resolved
     app.state.object_storage = None
@@ -84,6 +89,7 @@ def create_app(
     app.state.auth_application_factory = auth_application_factory
 
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, production=production)
     if resolved.cors_origins:
         app.add_middleware(
             CORSMiddleware,
