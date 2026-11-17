@@ -698,3 +698,18 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert denied_learning_portfolio.status_code == 403
+
+        learning_portfolio_export = client.get(
+            f"{base}/portfolio-outcomes/export",
+            headers=admin_headers,
+        )
+        assert learning_portfolio_export.status_code == 200
+        assert learning_portfolio_export.headers["content-type"].startswith("text/csv")
+        assert learning_portfolio_export.content.startswith(b"\\xef\\xbb\\xbf")
+        assert "organisation_total,learners,1" in learning_portfolio_export.text
+        assert "Community Climate Action" in learning_portfolio_export.text
+        denied_learning_portfolio_export = client.get(
+            f"{base}/portfolio-outcomes/export",
+            headers=learner_headers,
+        )
+        assert denied_learning_portfolio_export.status_code == 403
