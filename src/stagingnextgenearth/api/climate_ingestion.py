@@ -58,7 +58,7 @@ class ClimateIngestionRead(BaseModel):
     finished_at: datetime | None = None
 
 
-@router.post("", response_model=ClimateIngestionRead, status_code=status.HTTP_202_ACCEPTED)
+@router.post("", response_model=ClimateIngestionRead, status_code=status.HTTP_200_OK)
 async def run_climate_ingestion(
     organization_id: str,
     body: ClimateIngestionCreate,
@@ -71,6 +71,11 @@ async def run_climate_ingestion(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Climate ingestion requires an administrator or researcher role",
+        )
+    if (body.point is None) == (body.area is None):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Specify exactly one point or bounding box",
         )
     try:
         request = ClimateProviderRequest(
