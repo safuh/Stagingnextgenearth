@@ -140,7 +140,12 @@ export default function LearnerPortalPage() {
                         <h3>{course.title}</h3>
                         <p className="portal-description">{course.description}</p>
                         {application ? (
-                          <p className="workspace-muted">Application: {application.status.replaceAll("_", " ")} · Progress {application.progress_percent}%</p>
+                          <>
+                            <p className="workspace-muted">Application: {application.status.replaceAll("_", " ")} · Progress {application.progress_percent}%</p>
+                            {(application.status === "approved" || application.status === "completed") && (
+                              <Link className="primary-action" href={`/learners/courses/${course.id}`}>Open classroom</Link>
+                            )}
+                          </>
                         ) : (
                           <button className="primary-action" disabled={busy} onClick={() => void apply(course)}>Apply for this course</button>
                         )}
