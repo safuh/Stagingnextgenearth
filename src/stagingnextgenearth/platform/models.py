@@ -1223,7 +1223,8 @@ class OrganizationAuditEvent(Base):
         CheckConstraint(
             "action IN ('membership.role_changed', 'membership.roles_changed', "
             "'membership.status_changed', 'organization.ownership_transferred', "
-            "'volunteer_application.decided', 'employment_application.decided', 'learning.mentorship.status_changed', 'climate.observation.reviewed')",
+            "'volunteer_application.decided', 'employment_application.decided', "
+            "'learning.mentorship.status_changed', 'climate.observation.reviewed')",
             name="ck_organization_audit_event_action",
         ),
         Index(
