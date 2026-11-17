@@ -891,8 +891,16 @@ export default function ResearchWorkspacePage() {
         },
       );
       setProtocolVersions((current) => [created, ...current]);
+      const activeStudy = studies.some((study) => study.id === governanceStudyId && study.status === "active");
+      if (activeStudy) {
+        setStudies((current) => current.map((study) => study.id === governanceStudyId
+          ? { ...study, status: "protocol" }
+          : study));
+      }
       form.reset();
-      setNotice(`Protocol version ${created.version_number} saved as a draft.`);
+      setNotice(activeStudy
+        ? `Protocol amendment v${created.version_number} saved. The active study has been paused and requires independent review plus a new ethics decision before field activity can resume.`
+        : `Protocol version ${created.version_number} saved as a draft.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create protocol version.");
     } finally { setGovernanceBusy(false); }
