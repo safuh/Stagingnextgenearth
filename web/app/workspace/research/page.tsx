@@ -301,6 +301,48 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  function exportMonthlyAnomalyCsv() {
+    if (!monthlyAnomaly) return;
+    const report = monthlyAnomaly;
+    const columns = [
+      "year", "month", "observed_total_mm", "observed_days", "expected_days",
+      "completeness", "baseline_mean_mm", "baseline_sample_standard_deviation_mm",
+      "baseline_year_count", "standardized_anomaly", "method", "classification",
+      "latitude", "longitude", "quality_status", "baseline_start", "baseline_end",
+      "target_start", "target_end", "minimum_completeness", "minimum_baseline_years",
+      "provenance_sources", "provider_ids", "ingestion_run_ids",
+    ];
+    const csvCell = (value: unknown) => {
+      let text = Array.isArray(value) ? value.join(";") : String(value ?? "");
+      // Prevent spreadsheet formula execution when opening exported CSV files.
+      if (/^[\\s]*[=+\\-@]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const metadata = [
+      report.latitude, report.longitude, report.quality_status,
+      report.baseline_start, report.baseline_end, report.target_start,
+      report.target_end, report.minimum_completeness,
+      report.minimum_baseline_years, report.provenance_sources,
+      report.provider_ids, report.ingestion_run_ids,
+    ];
+    const rows = report.points.map((point) => [
+      point.year, point.month, point.observed_total_mm, point.observed_days,
+      point.expected_days, point.completeness, point.baseline_mean_mm,
+      point.baseline_sample_standard_deviation_mm, point.baseline_year_count,
+      point.standardized_anomaly, point.method, point.classification, ...metadata,
+    ]);
+    const csv = [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\\r\\n");
+    const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `nextgen-monthly-precipitation-anomalies-${report.target_start}-to-${report.target_end}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function runMonthlyPrecipitationAnomaly(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMonthlyAnomalyError("");
@@ -853,7 +895,7 @@ export default function ResearchWorkspacePage() {
                       <article><span>Baseline minimum</span><strong>{monthlyAnomaly.minimum_baseline_years} years</strong></article>
                       <article><span>Quality status</span><strong>{monthlyAnomaly.quality_status}</strong></article>
                     </div>
-                    <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Month</th><th>Observed total</th><th>Completeness</th><th>Baseline mean</th><th>Baseline SD</th><th>Baseline years</th><th>Standardized anomaly</th></tr></thead>
+                    <div className="section-heading"><span className="workspace-muted">Reproducible table export · CSV</span><button type="button" className="secondary-action" onClick={exportMonthlyAnomalyCsv}>Export results CSV</button></div>\n                    <div className="research-table-wrap"><table className="research-table"><thead><tr><th>Month</th><th>Observed total</th><th>Completeness</th><th>Baseline mean</th><th>Baseline SD</th><th>Baseline years</th><th>Standardized anomaly</th></tr></thead>
                       <tbody>{monthlyAnomaly.points.map((point) => <tr key={`${point.year}-${point.month}`}><td>{new Date(Date.UTC(point.year, point.month - 1, 1)).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" })}</td><td>{point.observed_total_mm.toFixed(2)} mm</td><td>{(point.completeness * 100).toFixed(1)}%</td><td>{point.baseline_mean_mm.toFixed(2)} mm</td><td>{point.baseline_sample_standard_deviation_mm.toFixed(2)} mm</td><td>{point.baseline_year_count}</td><td>{point.standardized_anomaly.toFixed(3)}</td></tr>)}</tbody>
                     </table></div>
                     <p className="workspace-muted">Sources: {monthlyAnomaly.provenance_sources.join(", ") || "Not recorded"}. Providers: {monthlyAnomaly.provider_ids.join(", ") || "Not recorded"}. Ingestion runs: {monthlyAnomaly.ingestion_run_ids.length}. Location: {monthlyAnomaly.latitude}, {monthlyAnomaly.longitude}.</p>
