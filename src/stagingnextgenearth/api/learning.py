@@ -532,7 +532,9 @@ async def list_course_assessments(
 ) -> list[dict[str, object]]:
     """List assessment instructions without exposing private configuration payloads."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
+    if course.status != "published" and not await membership_has_any_role(
+        session, membership, _MANAGE
+    ):
         raise HTTPException(404, "Course not found")
     if not await membership_has_any_role(session, membership, _MANAGE):
         if not await membership_has_any_role(session, membership, _LEARN):
@@ -959,7 +961,9 @@ async def course_curriculum(
 ) -> dict[str, object]:
     """Return ordered modules and lessons without exposing draft content to learners."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
+    if course.status != "published" and not await membership_has_any_role(
+        session, membership, _MANAGE
+    ):
         raise HTTPException(404, "Course not found")
     if not await membership_has_any_role(session, membership, _MANAGE):
         if not await membership_has_any_role(session, membership, _LEARN):
@@ -1122,7 +1126,9 @@ async def list_learning_resources(
 ) -> list[dict[str, object]]:
     """List course resources while never returning internal storage references."""
     course = await _course(session, organization_id, course_id)
-    if course.status != "published" and not await membership_has_any_role(session, membership, _MANAGE):
+    if course.status != "published" and not await membership_has_any_role(
+        session, membership, _MANAGE
+    ):
         raise HTTPException(404, "Course not found")
     if not await membership_has_any_role(session, membership, _MANAGE):
         if not await membership_has_any_role(session, membership, _LEARN):
