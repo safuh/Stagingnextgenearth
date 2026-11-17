@@ -1,9 +1,11 @@
 """Versioned research protocol and independent ethics-review workflows."""
 
+import csv
+import io
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,6 +148,86 @@ async def list_research_governance_audit_events(
         .limit(limit)
     )
     return [ResearchGovernanceAuditRead.model_validate(event) for event in events.all()]
+
+
+@audit_router.get("/audit-events/export")
+async def export_research_governance_audit_events(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=5000, ge=1, le=5000),
+) -> Response:
+    """Export bounded research governance metadata with spreadsheet formula protection."""
+    if not await membership_has_any_role(
+        session, membership, _REVIEW_ROLES - {"programme_manager"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Organisation leadership role required")
+    actions = {
+        "research.study.status_changed",
+        "research.protocol.version_created",
+        "research.protocol.submitted",
+        "research.protocol.reviewed",
+        "research.ethics.review_recorded",
+    }
+    result = await session.scalars(
+        select(OrganizationAuditEvent)
+        .where(
+            OrganizationAuditEvent.organization_id == organization_id,
+            OrganizationAuditEvent.action.in_(actions),
+        )
+        .order_by(OrganizationAuditEvent.created_at.desc(), OrganizationAuditEvent.id.desc())
+        .limit(limit + 1)
+    )
+    events = result.all()
+    truncated = len(events) > limit
+
+    def cell(value: object) -> str:
+        text_value = "" if value is None else str(value)
+        return f"'{text_value}" if text_value.startswith(("=", "+", "-", "@")) else text_value
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow(
+        [
+            "recorded_at",
+            "action",
+            "actor_user_id",
+            "subject_user_id",
+            "study_id",
+            "protocol_version_id",
+            "version_number",
+            "decision",
+            "from_status",
+            "to_status",
+            "reference",
+        ]
+    )
+    for event in events[:limit]:
+        changes = event.changes
+        writer.writerow(
+            [
+                cell(event.created_at.isoformat()),
+                cell(event.action),
+                cell(event.actor_user_id),
+                cell(event.subject_user_id),
+                cell(changes.get("study_id")),
+                cell(changes.get("protocol_version_id")),
+                cell(changes.get("version_number")),
+                cell(changes.get("decision")),
+                cell(changes.get("from_status")),
+                cell(changes.get("to_status")),
+                cell(changes.get("reference")),
+            ]
+        )
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="research-governance-audit.csv"',
+            "X-Records-Truncated": "true" if truncated else "false",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 async def _study(session: AsyncSession, organization_id: str, study_id: str) -> ResearchStudy:

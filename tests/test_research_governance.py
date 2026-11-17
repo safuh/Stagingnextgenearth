@@ -141,12 +141,12 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
         json={
             "protocol_version_id": protocol_id,
             "decision": "approved",
-            "reference": "ERB-2026-041",
+            "reference": "=ERB-2026-041",
             "note": "The committee approved the submitted protocol and consent process.",
         },
     )
     assert ethics.status_code == 201
-    assert ethics.json()["reference"] == "ERB-2026-041"
+    assert ethics.json()["reference"] == "=ERB-2026-041"
 
     protocol_history = client.get(
         f"{base_url}/protocol-versions/{protocol_id}/reviews",
@@ -231,6 +231,41 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert governance_audit.status_code == 200
     assert len(governance_audit.json()) == len(research_audit)
     assert all(item["action"].startswith("research.") for item in governance_audit.json())
+    governance_export = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events/export",
+        headers=lead_headers,
+    )
+    assert governance_export.status_code == 200
+    assert governance_export.content.startswith(b"\xef\xbb\xbf")
+    assert b"'=ERB-2026-041" in governance_export.content
+    assert governance_export.headers["x-records-truncated"] == "false"
+    truncated_export = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events/export?limit=1",
+        headers=lead_headers,
+    )
+    assert truncated_export.status_code == 200
+    assert truncated_export.headers["x-records-truncated"] == "true"
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events/export?limit=5001",
+            headers=lead_headers,
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events/export",
+            headers=reviewer_headers,
+        ).status_code
+        == 403
+    )
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events/export",
+            headers=outsider_headers,
+        ).status_code
+        == 404
+    )
     assert (
         client.get(
             f"/api/organizations/{organization_id}/research-governance/audit-events",
