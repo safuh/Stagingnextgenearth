@@ -16,9 +16,6 @@ class FakeApi:
             {"id": "course-2", "slug": "draft-course", "status": "draft"},
         ]
 
-    def request_subject_value(self) -> str:
-        return self.subject
-
     def register_or_reuse(self, identifier: str, password: str) -> None:
         self.subject = identifier
         assert password
