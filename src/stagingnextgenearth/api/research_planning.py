@@ -137,7 +137,7 @@ async def _study(
 async def _role(
     session: AsyncSession, study: ResearchStudy, principal: Principal, membership: Membership
 ) -> str | None:
-    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:
+    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:  # noqa: E501
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
