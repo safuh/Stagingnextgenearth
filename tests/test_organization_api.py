@@ -1210,6 +1210,36 @@ def test_administration_summary_is_visible_only_to_administrators(client: TestCl
     assert summary.json()["owner_user_id"] == owner_user_id
     assert summary.json()["owner_user_id"] != accepted.json()["user_id"]
 
+    candidate_token = register_and_login(client, "summary-candidate@example.org")
+    candidate_headers = {"Authorization": f"Bearer {candidate_token}"}
+    application = client.post(
+        f"/api/organizations/{organization_id}/employment-applications",
+        headers=candidate_headers,
+        json={
+            "full_name": "Candidate Example",
+            "desired_position": "Programme Officer",
+            "qualifications": "Relevant programme coordination and community experience.",
+        },
+    )
+    assert application.status_code == 201
+
+    operations_for_member = client.get(
+        f"/api/organizations/{organization_id}/operations-summary",
+        headers=member_headers,
+    )
+    assert operations_for_member.status_code == 403
+    operations = client.get(
+        f"/api/organizations/{organization_id}/operations-summary",
+        headers=owner_headers,
+    )
+    assert operations.status_code == 200
+    assert operations.json() == {
+        "organization_id": organization_id,
+        "pending_employment_applications": 1,
+        "pending_volunteer_applications": 0,
+        "pending_membership_invitations": 0,
+    }
+
 def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
     client: TestClient,
 ) -> None:

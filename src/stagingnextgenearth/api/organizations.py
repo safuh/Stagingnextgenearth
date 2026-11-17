@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,8 @@ from stagingnextgenearth.platform.models import (
     Membership,
     Organization,
     OrganizationAuditEvent,
+    OrganizationEmploymentApplication,
+    ProgrammeVolunteerApplication,
 )
 
 from .dependencies import (
@@ -129,6 +131,61 @@ async def get_organization_administration_summary(
         organization_name=organization.name,
         owner_user_id=organization.owner_user_id,
         created_at=organization.created_at,
+    )
+
+
+class OrganizationOperationsSummary(BaseModel):
+    """Privacy-preserving action counts for the founder dashboard."""
+
+    organization_id: str
+    pending_employment_applications: int
+    pending_volunteer_applications: int
+    pending_membership_invitations: int
+
+
+@router.get(
+    "/{organization_id}/operations-summary",
+    response_model=OrganizationOperationsSummary,
+)
+async def get_organization_operations_summary(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> OrganizationOperationsSummary:
+    """Return actionable counts without exposing applicant personal information."""
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    organization = await session.scalar(
+        select(Organization.id).where(Organization.id == organization_id)
+    )
+    if organization is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+
+    employment_count = await session.scalar(
+        select(func.count()).select_from(OrganizationEmploymentApplication).where(
+            OrganizationEmploymentApplication.organization_id == organization_id,
+            OrganizationEmploymentApplication.status == "pending",
+        )
+    )
+    volunteer_count = await session.scalar(
+        select(func.count()).select_from(ProgrammeVolunteerApplication).where(
+            ProgrammeVolunteerApplication.organization_id == organization_id,
+            ProgrammeVolunteerApplication.status == "pending",
+        )
+    )
+    invitation_count = await session.scalar(
+        select(func.count()).select_from(Membership).where(
+            Membership.organization_id == organization_id,
+            Membership.status == "invited",
+        )
+    )
+    return OrganizationOperationsSummary(
+        organization_id=organization_id,
+        pending_employment_applications=int(employment_count or 0),
+        pending_volunteer_applications=int(volunteer_count or 0),
+        pending_membership_invitations=int(invitation_count or 0),
     )
 
 
