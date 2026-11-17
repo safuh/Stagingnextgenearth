@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, clearSession, login, logout, restoreSession } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
@@ -38,12 +38,6 @@ const portals = [
 ];
 
 export default function HomePage() {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [signedIn, setSignedIn] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
   const [catalogue, setCatalogue] = useState<PublicContent[]>([]);
   const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
   const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
@@ -71,43 +65,7 @@ export default function HomePage() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    restoreSession().then((session) => {
-      if (!active || !session) return;
-      setSubject(session.subject);
-      setSignedIn(true);
-    }).catch(() => {
-      if (active) setSignedIn(false);
-    });
-    return () => { active = false; };
-  }, []);
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const result = await login(identifier.trim(), password);
-      setSubject(result.subject);
-      setSignedIn(true);
-      setPassword("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to sign in.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await logout();
-    } catch {
-      clearSession();
-    }
-    setSignedIn(false);
-    setSubject("");
-  }
 
   return (
     <main>
@@ -241,31 +199,12 @@ export default function HomePage() {
           <div className="access-points"><span>✓ Organisation-scoped access</span><span>✓ Role-based permissions</span><span>✓ Research data governance</span></div>
         </div>
         <div className="login-panel">
-          {signedIn ? (
-            <div className="signed-in">
-              <span className="login-icon">✓</span>
-              <p className="eyebrow">SESSION ACTIVE</p>
-              <h3>Signed in</h3>
-              <p className="muted">{subject || "Your account"} is authenticated in this browser session.</p>
-              <p className="session-note">Choose the workspace that matches your access. Learner applications remain separate from staff and partner administration.</p>
-              <Link className="button button-primary full" href="/workspace">Open organisation workspace <span>→</span></Link><Link className="button button-primary full" href="/learners">Open learner portal <span>→</span></Link>
-              <button className="button button-primary full" onClick={handleLogout}>Sign out</button>
-            </div>
-          ) : (
-            <>
-              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>Organisation sign in</h3></div></div>
-              <form onSubmit={handleLogin}>
-                <label htmlFor="identifier">Email or account identifier</label>
-                <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-                {error && <p className="form-error" role="alert">{error}</p>}
-                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue securely"} <span>→</span></button>
-              </form>
-              <p className="login-footnote">Staff and institutional partners must register an identity and then receive an organisation invitation. Learners use the separate learner portal.</p>
-              <Link className="text-link" href="/workspace/accept-invitation">Have an invitation? Accept it here</Link><p className="login-footnote">New staff or partner? <Link href="/staff/register">Register an account first</Link>.</p><p className="login-footnote">Are you a learner? <Link href="/learners">Create a learner account or access your courses</Link>.</p>
-            </>
-          )}
+          <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">CHOOSE YOUR ACCESS</p><h3>Continue to your portal</h3></div></div>
+          <p className="session-note">Organisation members and learners have separate entry journeys. Registering an identity does not automatically grant staff or partner permissions.</p>
+          <Link className="button button-primary full" href="/staff/login">Staff & institutional partner sign in <span>→</span></Link>
+          <Link className="button button-primary full" href="/workspace/accept-invitation">Accept an organisation invitation <span>→</span></Link>
+          <Link className="text-link" href="/staff/register">New employee or partner? Register an identity</Link>
+          <Link className="text-link" href="/learners">Learner portal: register, apply or continue learning</Link>
         </div>
       </section>
 
