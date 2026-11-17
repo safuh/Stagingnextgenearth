@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry, OrganizationRecordAuditEvent
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import Principal, get_current_principal, get_session, membership_has_any_role, require_membership
 router = APIRouter(tags=["public-content"])
 ContentType = Literal["page","programme","training_track","initiative","research_area","impact_metric","publication"]
 class ContentCreate(BaseModel):
@@ -39,17 +39,18 @@ class ContentRead(BaseModel):
     published_at: datetime | None
     approved_by: str | None
     approved_at: datetime | None
-def _admin(m: Membership) -> None:
-    if m.role not in {"admin", "founder", "executive"}:
+    created_by: str
+async def _admin(m: Membership, session: AsyncSession) -> None:
+    if not await membership_has_any_role(session, m, {"admin", "founder", "executive"}):
         raise HTTPException(403, "Administrator role required")
 @router.get("/organizations/{organization_id}/content", response_model=list[ContentRead])
 async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
-    _admin(membership)
+    await _admin(membership, session)
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == organization_id).order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000))
     return [ContentRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/content", response_model=ContentRead, status_code=201)
 async def create_content(organization_id: str, body: ContentCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
-    _admin(membership)
+    await _admin(membership, session)
     row = PublicContentEntry(organization_id=organization_id, content_type=body.content_type, slug=body.slug, title=body.title.strip(), summary=body.summary, body=body.body, metadata_json=body.metadata_json, publication_state="draft", source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
     session.add(row)
     await session.flush()
@@ -65,7 +66,7 @@ async def create_content(organization_id: str, body: ContentCreate, principal: A
     return ContentRead.model_validate(row)
 @router.patch("/organizations/{organization_id}/content/{content_id}", response_model=ContentRead)
 async def update_content(organization_id: str, content_id: str, body: ContentUpdate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
-    _admin(membership)
+    await _admin(membership, session)
     row = await session.scalar(select(PublicContentEntry).where(PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id))
     if row is None:
         raise HTTPException(404, "Content entry not found")
@@ -148,7 +149,7 @@ async def content_audit_events(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ContentAuditRead]:
-    _admin(membership)
+    await _admin(membership, session)
     entry = await session.scalar(select(PublicContentEntry).where(
         PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id
     ))

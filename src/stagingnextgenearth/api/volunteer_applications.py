@@ -16,7 +16,13 @@ from stagingnextgenearth.platform.models import (
     ProgrammeVolunteerApplication,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["volunteer-applications"])
 _ADMINS = {"admin", "founder", "executive"}
@@ -90,8 +96,10 @@ async def submit_volunteer_application(
     # Existing active youth volunteers may apply to additional programmes.
     # Other members must use their organisation's internal assignment workflow.
     if existing_membership is not None and (
-        existing_membership.role != "youth_volunteer"
-        or existing_membership.status != "active"
+        existing_membership.status != "active"
+        or not await membership_has_any_role(
+            session, existing_membership, {"youth_volunteer"}
+        )
     ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -131,7 +139,7 @@ async def list_volunteer_applications(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[VolunteerApplicationRead]:
     """Return private applicant details only to programme management roles."""
-    if membership.role not in _PROGRAMME_MANAGERS:
+    if not await membership_has_any_role(session, membership, _PROGRAMME_MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     programme = await session.scalar(
         select(Programme.id).where(
@@ -173,7 +181,7 @@ async def decide_volunteer_application(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VolunteerApplicationRead:
     """Approve only after staff have verified safeguarding requirements."""
-    if membership.role not in _PROGRAMME_MANAGERS:
+    if not await membership_has_any_role(session, membership, _PROGRAMME_MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     item = await session.scalar(
         select(ProgrammeVolunteerApplication).where(
@@ -207,7 +215,10 @@ async def decide_volunteer_application(
             )
         )
         if existing is not None and (
-            existing.role != "youth_volunteer" or existing.status != "active"
+            existing.status != "active"
+            or not await membership_has_any_role(
+                session, existing, {"youth_volunteer"}
+            )
         ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,

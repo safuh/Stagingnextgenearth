@@ -22,7 +22,12 @@ def upgrade() -> None:
         sa.Column("attendance_status", sa.String(length=16), nullable=False),
         sa.Column("note", sa.String(length=1000), nullable=True),
         sa.Column("recorded_by", sa.String(length=36), nullable=False),
-        sa.Column("recorded_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "recorded_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "attendance_status IN ('present', 'late', 'absent', 'excused')",
             name="ck_activity_attendance_status",

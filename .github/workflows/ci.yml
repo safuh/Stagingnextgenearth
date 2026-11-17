@@ -62,7 +62,13 @@ jobs:
       - name: Mypy
         run: uv run mypy src
       - name: Tests
-        run: uv run pytest -q
+        shell: bash
+        run: |
+          set +e
+          uv run pytest -q --tb=short --show-capture=no > pytest.log 2>&1
+          test_status=$?
+          tail -n 160 pytest.log
+          exit "$test_status"
 
   geospatial:
     runs-on: ubuntu-latest

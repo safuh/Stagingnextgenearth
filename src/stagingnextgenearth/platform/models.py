@@ -76,7 +76,7 @@ class Membership(Base):
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
         CheckConstraint(
             "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
-            "'youth_volunteer', 'employee', 'institutional_partner')",
+            "'youth_volunteer', 'employee', 'institutional_partner', 'learner')",
             name="ck_membership_role",
         ),
         CheckConstraint(
@@ -95,6 +95,39 @@ class Membership(Base):
     )
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MembershipRole(Base):
+    """One assigned role on an organisation membership.
+
+    Membership.role remains the compatibility/primary role while role grants are
+    migrated to this association table and permission checks are updated.
+    """
+
+    __tablename__ = "organization_membership_roles"
+    __table_args__ = (
+        UniqueConstraint(
+            "membership_id", "role", name="uq_membership_role_assignment"
+        ),
+        CheckConstraint(
+            "role IN ('admin', 'founder', 'executive', 'programme_manager', "
+            "'researcher', 'youth_volunteer', 'employee', "
+            "'institutional_partner', 'learner')",
+            name="ck_membership_role_assignment",
+        ),
+        Index("ix_membership_roles_membership_role", "membership_id", "role"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    membership_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organization_memberships.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

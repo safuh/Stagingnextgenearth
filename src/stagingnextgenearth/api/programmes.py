@@ -21,7 +21,13 @@ from stagingnextgenearth.platform.models import (
     Project,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(prefix="/organizations/{organization_id}/programmes", tags=["programmes"])
 public_router = APIRouter(tags=["public-programmes"])
@@ -67,7 +73,9 @@ async def create_programme(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Create a draft programme; only administrators and programme managers may write."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient organisation permissions")
     programme = Programme(
         organization_id=organization_id,
@@ -147,7 +155,9 @@ async def update_programme(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Update programme metadata without changing its lifecycle state."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     programme = await session.scalar(
         select(Programme).where(
@@ -224,7 +234,9 @@ async def update_programme_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Apply a guarded lifecycle transition to an organisation's programme."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     programme = await session.scalar(
         select(Programme).where(

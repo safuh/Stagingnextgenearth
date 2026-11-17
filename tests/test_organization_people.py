@@ -147,3 +147,50 @@ def test_people_directory_is_tenant_scoped(client: TestClient) -> None:
         f"/api/organizations/{org['id']}/people", headers=second_headers
     )
     assert response.status_code == 404
+
+def test_founder_and_executive_secondary_roles_receive_directory_admin_access(
+    client: TestClient,
+) -> None:
+    owner_token = register_and_login(client, "directory-role-owner@example.org")
+    founder_token = register_and_login(client, "directory-founder@example.org")
+    executive_token = register_and_login(client, "directory-executive@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    founder_headers = {"Authorization": f"Bearer {founder_token}"}
+    executive_headers = {"Authorization": f"Bearer {executive_token}"}
+    organisation = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Directory Role Checks", "slug": "directory-role-checks"},
+    ).json()
+    organisation_id = organisation["id"]
+
+    for identifier, headers, role in (
+        ("directory-founder@example.org", founder_headers, "founder"),
+        ("directory-executive@example.org", executive_headers, "executive"),
+    ):
+        invitation = client.post(
+            f"/api/organizations/{organisation_id}/memberships",
+            headers=owner_headers,
+            json={"identifier": identifier, "role": "researcher"},
+        )
+        assert invitation.status_code == 201
+        accepted = client.post(
+            f"/api/organizations/{organisation_id}/memberships/"
+            f"{invitation.json()['id']}/accept",
+            headers=headers,
+        )
+        assert accepted.status_code == 200
+        membership_id = accepted.json()["id"]
+        assigned = client.patch(
+            f"/api/organizations/{organisation_id}/memberships/{membership_id}/roles",
+            headers=owner_headers,
+            json={"roles": ["researcher", role]},
+        )
+        assert assigned.status_code == 200
+        assert set(assigned.json()["roles"]) == {"researcher", role}
+        directory = client.get(
+            f"/api/organizations/{organisation_id}/people",
+            headers=headers,
+        )
+        assert directory.status_code == 200
+

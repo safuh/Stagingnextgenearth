@@ -17,14 +17,20 @@ from stagingnextgenearth.platform.models import (
     ResearchDatasetFile,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 from .research_collaborators import study_access_role
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-exports"],
 )
-_REGISTRY_READ_ROLES = {"admin", "programme_manager", "researcher", "institutional_partner"}
+_REGISTRY_READ_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}  # noqa: E501
 
 
 class ResearchExportFile(BaseModel):
@@ -99,7 +105,7 @@ async def create_research_export_manifest(
         session, organization_id, dataset.study_id, principal, membership
     )
     if (
-        membership.role not in _REGISTRY_READ_ROLES
+        not await membership_has_any_role(session, membership, _REGISTRY_READ_ROLES)
         and study_role is None
         and dataset.owner_user_id != principal.user_id
     ):
@@ -107,7 +113,7 @@ async def create_research_export_manifest(
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
 
@@ -258,7 +264,7 @@ async def _get_exportable_dataset(
         session, organization_id, dataset.study_id, principal, membership
     )
     if (
-        membership.role not in _REGISTRY_READ_ROLES
+        not await membership_has_any_role(session, membership, _REGISTRY_READ_ROLES)
         and study_role is None
         and dataset.owner_user_id != principal.user_id
     ):
@@ -266,7 +272,7 @@ async def _get_exportable_dataset(
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})  # noqa: E501
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
     return dataset

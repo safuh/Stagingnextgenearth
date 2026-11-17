@@ -991,12 +991,20 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
         json={"identifier": "membership-user@example.org", "role": "researcher"},
     )
     assert invitation.status_code == 201
+    assert invitation.json()["identifier"] == "membership-user@example.org"
     member_id = invitation.json()["id"]
     accepted = client.post(
         f"/api/organizations/{organization_id}/memberships/{member_id}/accept",
         headers=member_headers,
     )
     assert accepted.status_code == 200
+    assert accepted.json()["identifier"] == "membership-user@example.org"
+    own_membership = client.get(
+        f"/api/organizations/{organization_id}/memberships/me",
+        headers=member_headers,
+    )
+    assert own_membership.status_code == 200
+    assert own_membership.json()["identifier"] == "membership-user@example.org"
 
     # A regular member cannot alter membership privileges or status.
     forbidden_role = client.patch(
@@ -1042,6 +1050,10 @@ def test_membership_role_and_status_changes_preserve_owner_and_admin_access(
         headers=owner_headers,
     )
     assert memberships.status_code == 200
+    assert any(
+        item["identifier"] == "membership-user@example.org"
+        for item in memberships.json()
+    )
     owner_membership = next(
         item for item in memberships.json() if item["role"] == "admin"
     )
@@ -1197,3 +1209,148 @@ def test_administration_summary_is_visible_only_to_administrators(client: TestCl
     assert summary.json()["organization_id"] == organization_id
     assert summary.json()["owner_user_id"] == owner_user_id
     assert summary.json()["owner_user_id"] != accepted.json()["user_id"]
+
+def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
+    client: TestClient,
+) -> None:
+    owner_token = register_and_login(client, "multi-role-owner@example.org")
+    member_token = register_and_login(client, "multi-role-member@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+    organization = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Multi Role Organisation", "slug": "multi-role-organisation"},
+    ).json()
+    organization_id = organization["id"]
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "multi-role-member@example.org", "role": "employee"},
+    )
+    assert invitation.status_code == 201
+    membership_id = invitation.json()["id"]
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/accept",
+        headers=member_headers,
+    )
+    assert accepted.status_code == 200
+
+    assigned = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["employee", "researcher", "institutional_partner"]},
+    )
+    assert assigned.status_code == 200
+    assert assigned.json()["role"] == "employee"
+    assert set(assigned.json()["roles"]) == {
+        "employee",
+        "researcher",
+        "institutional_partner",
+    }
+
+    forbidden_elevation = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=member_headers,
+        json={"roles": ["employee", "admin"]},
+    )
+    assert forbidden_elevation.status_code == 403
+
+    primary_role_removal = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["researcher"]},
+    )
+    assert primary_role_removal.status_code == 422
+
+    audit = client.get(
+        f"/api/organizations/{organization_id}/audit-events",
+        headers=owner_headers,
+    )
+    assert audit.status_code == 200
+    assert any(
+        event["action"] == "membership.roles_changed"
+        for event in audit.json()
+    )
+
+    # Secondary administrator grants must be honoured by governance endpoints too.
+    elevated = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["employee", "admin"]},
+    )
+    assert elevated.status_code == 200
+    assert elevated.json()["role"] == "employee"
+    assert set(elevated.json()["roles"]) == {"employee", "admin"}
+
+    secondary_admin_summary = client.get(
+        f"/api/organizations/{organization_id}/administration-summary",
+        headers=member_headers,
+    )
+    secondary_admin_audit = client.get(
+        f"/api/organizations/{organization_id}/audit-events",
+        headers=member_headers,
+    )
+    assert secondary_admin_summary.status_code == 200
+    assert secondary_admin_audit.status_code == 200
+
+    # Changing the primary role must not silently leave a secondary admin grant behind.
+    ambiguous_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert ambiguous_demotion.status_code == 409
+
+    revoked_secondary_admin = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["employee"]},
+    )
+    assert revoked_secondary_admin.status_code == 200
+    assert revoked_secondary_admin.json()["roles"] == ["employee"]
+
+    changed_primary_role = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert changed_primary_role.status_code == 200
+    assert changed_primary_role.json()["roles"] == ["researcher"]
+
+    # A demotion must also be blocked when the primary role is elevated but
+    # another elevated role remains as a secondary grant.
+    promoted_primary = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "admin"},
+    )
+    assert promoted_primary.status_code == 200
+    with_secondary_founder = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["admin", "founder"]},
+    )
+    assert with_secondary_founder.status_code == 200
+
+    ambiguous_elevated_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert ambiguous_elevated_demotion.status_code == 409
+
+    revoke_secondary_founder = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["admin"]},
+    )
+    assert revoke_secondary_founder.status_code == 200
+    final_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert final_demotion.status_code == 200
+    assert final_demotion.json()["roles"] == ["researcher"]
+

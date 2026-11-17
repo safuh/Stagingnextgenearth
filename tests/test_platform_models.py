@@ -6,11 +6,13 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from stagingnextgenearth.api.dependencies import get_membership_roles, membership_has_any_role
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import User
 from stagingnextgenearth.platform import (
     ClimateObservation,
     Membership,
+    MembershipRole,
     Organization,
     Programme,
     ProgrammeDeliverable,
@@ -41,13 +43,16 @@ async def test_platform_domain_tables_create_and_persist() -> None:
             session.add(organization)
             await session.flush()
 
+            membership = Membership(
+                organization_id=organization.id,
+                user_id=user.id,
+                role="admin",
+                status="active",
+            )
+            session.add(membership)
+            await session.flush()
             session.add(
-                Membership(
-                    organization_id=organization.id,
-                    user_id=user.id,
-                    role="admin",
-                    status="active",
-                )
+                MembershipRole(membership_id=membership.id, role="researcher")
             )
             programme = Programme(
                 organization_id=organization.id,
@@ -108,6 +113,26 @@ async def test_platform_domain_tables_create_and_persist() -> None:
                 )
             )
             await session.commit()
+
+            assigned_role = await session.scalar(
+                select(MembershipRole).where(
+                    MembershipRole.membership_id == membership.id,
+                    MembershipRole.role == "researcher",
+                )
+            )
+            assert assigned_role is not None
+
+            resolved_roles = await get_membership_roles(session, membership)
+            assert resolved_roles == frozenset({"admin", "researcher"})
+            assert await membership_has_any_role(
+                session, membership, {"researcher"}
+            )
+            assert await membership_has_any_role(
+                session, membership, {"admin"}
+            )
+            assert not await membership_has_any_role(
+                session, membership, {"youth_volunteer"}
+            )
 
             assert await session.scalar(
                 select(Organization).where(Organization.slug == "nextgen-for-earth")

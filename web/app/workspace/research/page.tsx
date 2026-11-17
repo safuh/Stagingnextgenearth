@@ -11,7 +11,8 @@ interface Organization {
 }
 interface Membership {
   user_id: string;
-  role: "admin" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  roles?: Membership["role"][];
   status: string;
 }
 interface Study {
@@ -76,7 +77,7 @@ interface ClimateAnalysisSummary {
 }
 
 
-const RESEARCH_ROLES = ["admin", "programme_manager", "researcher", "institutional_partner"];
+const RESEARCH_ROLES = ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"];
 
 export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -118,7 +119,8 @@ export default function ResearchWorkspacePage() {
       apiGet<Dataset[]>(`/organizations/${organizationId}/research-datasets?limit=200`),
     ]).then(([member, studyItems, datasetItems]) => {
       if (!active) return;
-      if (!RESEARCH_ROLES.includes(member.role) || member.status !== "active") {
+      const assignedRoles = member.roles?.length ? member.roles : [member.role];
+      if (!assignedRoles.some((role) => RESEARCH_ROLES.includes(role)) || member.status !== "active") {
         setError("Research workspace access is not available for this membership.");
         return;
       }
@@ -193,12 +195,17 @@ export default function ResearchWorkspacePage() {
   const [coverageError, setCoverageError] = useState("");
 
 
-  const isReviewer = membership?.role === "admin" || membership?.role === "programme_manager";
+  const membershipRoles = membership?.roles?.length
+    ? membership.roles
+    : membership ? [membership.role] : [];
+  const isReviewer = membershipRoles.some((role) =>
+    ["admin", "founder", "executive", "programme_manager"].includes(role)
+  );
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
     // Reload when the active organisation or membership changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, membership?.role, membership?.status]);
+  }, [organizationId, membership?.role, membership?.roles, membership?.status]);
 
 
   async function loadClimateObservations() {

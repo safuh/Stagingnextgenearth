@@ -16,7 +16,13 @@ from stagingnextgenearth.platform.models import (
     ResearchStudyCollaborator,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}/collaborators",
@@ -62,8 +68,13 @@ async def _get_study(
     return study
 
 
-def _can_manage(study: ResearchStudy, principal: Principal, membership: Membership) -> bool:
-    return membership.role == "admin" or study.lead_researcher_id == principal.user_id
+async def _can_manage(
+    session: AsyncSession,
+    study: ResearchStudy,
+    principal: Principal,
+    membership: Membership,
+) -> bool:
+    return await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id  # noqa: E501
 
 
 @router.post("", response_model=CollaboratorRead, status_code=status.HTTP_201_CREATED)
@@ -77,7 +88,7 @@ async def invite_study_collaborator(
 ) -> CollaboratorRead:
     """Allow the study lead or organisation admin to invite an active member."""
     study = await _get_study(session, organization_id, study_id)
-    if not _can_manage(study, principal, membership):
+    if not await _can_manage(session, study, principal, membership):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Study lead or administrator required")
 
     user = await session.scalar(select(User).where(User.identifier == body.identifier))
@@ -129,7 +140,7 @@ async def list_study_collaborators(
 ) -> list[CollaboratorRead]:
     """List collaborators for the lead, administrators, or active collaborators."""
     study = await _get_study(session, organization_id, study_id)
-    if not _can_manage(study, principal, membership):
+    if not await _can_manage(session, study, principal, membership):
         active_collaboration = await session.scalar(
             select(ResearchStudyCollaborator.id).where(
                 ResearchStudyCollaborator.study_id == study_id,
@@ -186,7 +197,7 @@ async def revoke_study_collaborator(
 ) -> CollaboratorRead:
     """Revoke an invitation or active collaboration without deleting its history."""
     study = await _get_study(session, organization_id, study_id)
-    if not _can_manage(study, principal, membership):
+    if not await _can_manage(session, study, principal, membership):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Study lead or administrator required")
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
@@ -227,7 +238,7 @@ async def study_access_role(
     )
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
-    if membership.role == "admin" or study.lead_researcher_id == principal.user_id:
+    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:  # noqa: E501
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(

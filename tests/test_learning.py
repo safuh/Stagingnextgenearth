@@ -51,6 +51,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert organisation.status_code == 201
         org_id = organisation.json()["id"]
+        public_organisation = client.get(
+            "/api/public/organizations/learning-lab",
+        )
+        assert public_organisation.status_code == 200
+        assert public_organisation.json() == {
+            "id": org_id,
+            "name": "Learning Lab",
+            "slug": "learning-lab",
+        }
         invitation = client.post(
             f"/api/organizations/{org_id}/memberships",
             headers=admin_headers,
@@ -78,7 +87,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             "admin",
             "youth_volunteer",
         }
-        assert all(set(item) == {"user_id", "role"} for item in staff_directory.json())
+        assert all(set(item) == {"user_id", "role", "roles"} for item in staff_directory.json())
+        assert all(item["roles"] == [item["role"]] for item in staff_directory.json())
         learner_directory = client.get(
             f"/api/organizations/{org_id}/memberships/directory",
             headers=learner_headers,
@@ -143,6 +153,75 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
         )
         assert published.status_code == 200
+
+        # Staff membership alone must not grant access to learner curriculum.
+        employee_headers = _register(client, "learning-employee@example.org")
+        employee_invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=admin_headers,
+            json={"identifier": "learning-employee@example.org", "role": "employee"},
+        )
+        assert employee_invitation.status_code == 201
+        employee_acceptance = client.post(
+            f"/api/organizations/{org_id}/memberships/"
+            f"{employee_invitation.json()['id']}/accept",
+            headers=employee_headers,
+        )
+        assert employee_acceptance.status_code == 200
+        employee_curriculum = client.get(
+            f"{base}/courses/{course_id}/curriculum",
+            headers=employee_headers,
+        )
+        assert employee_curriculum.status_code == 403
+
+        # A public learner can self-register and apply without being pre-invited.
+        public_learner_headers = _register(client, "public-learner@example.org")
+        public_application = client.post(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=public_learner_headers,
+        )
+        assert public_application.status_code == 201
+        own_applications = client.get(
+            f"{base}/my-enrollments",
+            headers=public_learner_headers,
+        )
+        assert own_applications.status_code == 200
+        assert own_applications.json()[0]["course_id"] == course_id
+        assert own_applications.json()[0]["status"] == "applied"
+        pending_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=public_learner_headers,
+        )
+        assert pending_membership.status_code == 404
+        pending_curriculum = client.get(
+            f"{base}/courses/{course_id}/curriculum",
+            headers=public_learner_headers,
+        )
+        assert pending_curriculum.status_code == 404
+        from stagingnextgenearth.auth import TokenService
+
+        public_learner_login = client.post(
+            "/api/auth/login",
+            json={
+                "identifier": "public-learner@example.org",
+                "password": "correct horse battery staple",
+            },
+        )
+        public_learner_id = TokenService(
+            settings.jwt_secret_key.get_secret_value()
+        ).decode(public_learner_login.json()["access_token"], expected_type="access")["sub"]
+        public_approval = client.post(
+            f"{base}/courses/{course_id}/enrollments/{public_learner_id}/decision",
+            headers=admin_headers,
+            json={"decision": "approved"},
+        )
+        assert public_approval.status_code == 200
+        public_membership = client.get(
+            f"/api/organizations/{org_id}/memberships/me",
+            headers=public_learner_headers,
+        )
+        assert public_membership.status_code == 200
+        assert public_membership.json()["role"] == "learner"
 
         public_courses = client.get(
             "/api/public/organizations/learning-lab/courses",

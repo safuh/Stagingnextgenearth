@@ -15,7 +15,13 @@ from stagingnextgenearth.platform.models import (
     ResearchStudy,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/climate-observations",
@@ -86,7 +92,7 @@ async def create_climate_observation(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ClimateObservationRead:
     """Persist a measurement as pending; verification is a separate workflow."""
-    if membership.role not in _WRITE_ROLES:
+    if not await membership_has_any_role(session, membership, _WRITE_ROLES):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Climate observation submission is not permitted"
         )
@@ -300,7 +306,7 @@ async def review_climate_observation(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ClimateObservationRead:
     """Record one independent review decision; decisions are immutable."""
-    if membership.role not in _REVIEW_ROLES:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate quality reviewer role required")
     observation = await session.scalar(
         select(ClimateObservation).where(

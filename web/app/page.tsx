@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, clearSession, login, logout, register, restoreSession } from "@/lib/api";
+import { apiGet, restoreSession } from "@/lib/api";
+import { ORGANIZATION_SLUG } from "@/lib/organization";
 
-type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string };
+type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; description: string | null; website_url: string | null; country_code: string; region: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
@@ -38,29 +39,26 @@ const portals = [
 ];
 
 export default function HomePage() {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [creatingAccount, setCreatingAccount] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
   const [catalogue, setCatalogue] = useState<PublicContent[]>([]);
   const [publicPeople, setPublicPeople] = useState<PublicPerson[]>([]);
   const [publicPartners, setPublicPartners] = useState<PublicPartner[]>([]);
   const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
   const [publicCourses, setPublicCourses] = useState<PublicCourse[]>([]);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let active = true;
+    restoreSession()
+      .then((session) => { if (active) setSignedIn(Boolean(session)); })
+      .catch(() => { if (active) setSignedIn(false); });
     // Public feeds are independent: a temporary failure in one endpoint must not
     // suppress otherwise healthy programme, people, partner or CMS sections.
     Promise.all([
-      apiGet<PublicContent[]>("/public/organizations/nextgen-for-earth/content").catch(() => []),
-      apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people").catch(() => []),
-      apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners").catch(() => []),
-      apiGet<PublicProgramme[]>("/public/organizations/nextgen-for-earth/programmes").catch(() => []),
-      apiGet<PublicCourse[]>("/public/organizations/nextgen-for-earth/courses").catch(() => []),
+      apiGet<PublicContent[]>(`/public/organizations/${ORGANIZATION_SLUG}/content`).catch(() => []),
+      apiGet<PublicPerson[]>(`/public/organizations/${ORGANIZATION_SLUG}/people`).catch(() => []),
+      apiGet<PublicPartner[]>(`/public/organizations/${ORGANIZATION_SLUG}/partners`).catch(() => []),
+      apiGet<PublicProgramme[]>(`/public/organizations/${ORGANIZATION_SLUG}/programmes`).catch(() => []),
+      apiGet<PublicCourse[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`).catch(() => []),
     ]).then(([items, people, partners, programmes, courses]) => {
       if (!active) return;
       setCatalogue(items);
@@ -72,44 +70,7 @@ export default function HomePage() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    restoreSession().then((session) => {
-      if (!active || !session) return;
-      setSubject(session.subject);
-      setSignedIn(true);
-    }).catch(() => {
-      if (active) setSignedIn(false);
-    });
-    return () => { active = false; };
-  }, []);
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      if (creatingAccount) await register(identifier.trim(), password);
-      const result = await login(identifier.trim(), password);
-      setSubject(result.subject);
-      setSignedIn(true);
-      setPassword("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to sign in.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await logout();
-    } catch {
-      clearSession();
-    }
-    setSignedIn(false);
-    setSubject("");
-  }
 
   return (
     <main>
@@ -120,10 +81,12 @@ export default function HomePage() {
         </Link>
         <nav aria-label="Main navigation">
           <a href="#platform">Platform</a>
-          <a href="#portals">Portals</a>
+          <a href="#programmes">Programmes</a>
+          <a href="#research">Research</a>
+          <a href="#activities">Activities</a>
           <a href="/volunteer/apply">Volunteer</a>
           <a href="/employment/apply">Careers</a>
-          <a href="#access">Sign in</a>
+          <a href="/staff/login">Staff sign in</a>
         </nav>
         <a className="nav-cta" href="#access">Access platform <span aria-hidden="true">↗</span></a>
       </header>
@@ -165,14 +128,14 @@ export default function HomePage() {
               <p className="portal-tag">{portal.tag}</p>
               <h3>{portal.title}</h3>
               <p className="portal-description">{portal.description}</p>
-              <a href="#access" aria-label={`Sign in for ${portal.title}`}>Open portal <span>↗</span></a>
+              <a href={index === 1 ? "/learners" : "/staff/login"} aria-label={index === 1 ? "Open learner and volunteer portal" : `Open ${portal.title} sign in`}>Open portal <span>↗</span></a>
             </article>
           ))}
         </div>
       </section>
 
       <section className="portals section-wrap" id="programmes">
-        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Approved programme and training catalogue published by the organisation.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">OUR WORK</p><h2>Programmes & <em>initiatives.</em></h2></div><p>Current organisational programmes and training opportunities.</p></div>
         <div className="portal-grid">
           {publicProgrammes.map((programme) => (
             <article className="portal-card" key={programme.id}><p className="portal-tag">Programme · {programme.status}</p><h3><Link href={`/programmes/${programme.slug}`}>{programme.title}</Link></h3><p className="portal-description">{programme.summary}</p>{(programme.start_date || programme.end_date) && <p className="portal-description">{programme.start_date ?? "Date to be announced"} – {programme.end_date ?? "Ongoing"}</p>}</article>
@@ -186,15 +149,43 @@ export default function HomePage() {
                 <p className="portal-description">{course.description}</p>
                 {programme && <p className="portal-description">Programme: {programme.title}</p>}
                 {course.category && <p className="portal-description">Category: {course.category}</p>}
-                <a href="#access">Sign in to access learning <span>↗</span></a>
+                <Link href="/learners">Apply or access learning <span>↗</span></Link>
               </article>
             );
           })}
-          {catalogue.filter((item) => ["programme", "training_track", "initiative", "research_area", "impact_metric", "publication"].includes(item.content_type)).map((item) => (
-            <article className="portal-card" key={`content-${item.id}`}><p className="portal-tag">{item.content_type.replaceAll("_", " ")}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
-          ))}
+
         </div>
         {publicProgrammes.length === 0 && publicCourses.length === 0 && catalogue.length === 0 && <p className="muted">The public catalogue is being prepared. Approved entries will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="activities">
+        <div className="section-heading"><div><p className="eyebrow">ONGOING DELIVERY</p><h2>Work in <em>motion.</em></h2></div><p>Current activities connected to programme delivery, learning and community engagement.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "initiative").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Ongoing activity</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+          ))}
+          {catalogue.filter((item) => item.content_type === "training_track").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Training track</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "initiative" || item.content_type === "training_track").length === 0 && <p className="muted">Activity and training information will appear here as it is published.</p>}
+      </section>
+      <section className="portals section-wrap" id="research">
+        <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2>Research & <em>publications.</em></h2></div><p>Research outputs and knowledge products attributed to the organisation&apos;s published catalogue.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p>{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">View publication <span>↗</span></a>}</article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").length === 0 && <p className="muted">Published research records will appear here.</p>}
+      </section>
+      <section className="portals section-wrap" id="impact">
+        <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2>Evidence of <em>progress.</em></h2></div><p>Impact figures shown here are sourced from the organisation&apos;s published website and should be updated through reviewed reporting.</p></div>
+        <div className="portal-grid">
+          {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
+            <article className="portal-card" key={item.id}><p className="portal-tag">Published impact figure</p><h3>{item.metadata_json?.display_value || "—"}</h3><p className="portal-description">{item.title}</p></article>
+          ))}
+        </div>
+        {catalogue.filter((item) => item.content_type === "impact_metric").length === 0 && <p className="muted">Reviewed impact figures will appear here.</p>}
       </section>
       <section className="portals section-wrap" id="people">
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2>People & <em>partners.</em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
@@ -209,36 +200,16 @@ export default function HomePage() {
         <div className="access-copy">
           <p className="eyebrow">SECURE WORKSPACE</p>
           <h2>{signedIn ? "Welcome to the platform." : "Your work starts here."}</h2>
-          <p>Sign in with your organisation account to access the workspaces and
-            programmes available to your membership.</p>
+          <p>Staff and institutional partners sign in after receiving an organisation invitation. Learners create accounts through the separate learning portal.</p>
           <div className="access-points"><span>✓ Organisation-scoped access</span><span>✓ Role-based permissions</span><span>✓ Research data governance</span></div>
         </div>
         <div className="login-panel">
-          {signedIn ? (
-            <div className="signed-in">
-              <span className="login-icon">✓</span>
-              <p className="eyebrow">SESSION ACTIVE</p>
-              <h3>Signed in</h3>
-              <p className="muted">{subject || "Your account"} is authenticated in this browser session.</p>
-              <p className="session-note">Your active organisation memberships and published learning programmes are available in the workspace.</p>
-              <Link className="button button-primary full" href="/workspace">Open organisation workspace <span>→</span></Link>
-              <button className="button button-primary full" onClick={handleLogout}>Sign out</button>
-            </div>
-          ) : (
-            <>
-              <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">MEMBER ACCESS</p><h3>{creatingAccount ? "Create account" : "Sign in"}</h3></div></div>
-              <form onSubmit={handleLogin}>
-                <label htmlFor="identifier">Email or account identifier</label>
-                <input id="identifier" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={creatingAccount ? 12 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
-                {error && <p className="form-error" role="alert">{error}</p>}
-                <button className="button button-primary full" type="submit" disabled={busy}>{busy ? (creatingAccount ? "Creating account…" : "Signing in…") : (creatingAccount ? "Create account securely" : "Continue securely")} <span>→</span></button>
-              </form>
-              <p className="login-footnote">{creatingAccount ? "After creating your account, submit a programme or employment application. Organisation access is granted only after review or invitation." : "Access is provided by your organisation administrator."}</p>
-              <button className="text-link" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); setPassword(""); }}>{creatingAccount ? "Already have an account? Sign in" : "New to NextGen? Create an account"}</button>
-            </>
-          )}
+          <div className="login-heading"><span className="login-icon">↗</span><div><p className="eyebrow">CHOOSE YOUR ACCESS</p><h3>Continue to your portal</h3></div></div>
+          <p className="session-note">Organisation members and learners have separate entry journeys. Registering an identity does not automatically grant staff or partner permissions.</p>
+          <Link className="button button-primary full" href="/staff/login">Staff & institutional partner sign in <span>→</span></Link>
+          <Link className="button button-primary full" href="/workspace/accept-invitation">Accept an organisation invitation <span>→</span></Link>
+          <Link className="text-link" href="/staff/register">New employee or partner? Register an identity</Link>
+          <Link className="text-link" href="/learners">Learner portal: register, apply or continue learning</Link>
         </div>
       </section>
 

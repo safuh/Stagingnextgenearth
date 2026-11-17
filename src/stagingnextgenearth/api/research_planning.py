@@ -18,13 +18,19 @@ from stagingnextgenearth.platform.models import (
     ResearchStudyProposal,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}",
     tags=["research-planning"],
 )
-_REVIEW_ROLES = {"admin", "programme_manager"}
+_REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _WRITE_ROLES = {"editor", "contributor"}
 
 
@@ -131,7 +137,7 @@ async def _study(
 async def _role(
     session: AsyncSession, study: ResearchStudy, principal: Principal, membership: Membership
 ) -> str | None:
-    if membership.role == "admin" or study.lead_researcher_id == principal.user_id:
+    if await membership_has_any_role(session, membership, {"admin", "founder", "executive"}) or study.lead_researcher_id == principal.user_id:  # noqa: E501
         return "editor"
     collaborator = await session.scalar(
         select(ResearchStudyCollaborator).where(
@@ -148,7 +154,7 @@ async def _access(
     session: AsyncSession, study: ResearchStudy, principal: Principal, membership: Membership
 ) -> str:
     role = await _role(session, study, principal, membership)
-    if role is None and membership.role not in _REVIEW_ROLES:
+    if role is None and not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Study access required")
     return role or "reviewer"
 
@@ -359,7 +365,7 @@ async def review_proposal(
     )
     if proposal is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Proposal not found")
-    if membership.role not in _REVIEW_ROLES:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Independent reviewer role required")
     if proposal.created_by == principal.user_id or study.lead_researcher_id == principal.user_id:
         raise HTTPException(

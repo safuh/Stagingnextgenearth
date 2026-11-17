@@ -9,13 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import Membership, Project, ResearchStudy
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies",
     tags=["research"],
 )
-_RESEARCH_ROLES = {"admin", "programme_manager", "researcher", "institutional_partner"}
+_RESEARCH_ROLES = {
+    "admin",
+    "founder",
+    "executive",
+    "programme_manager",
+    "researcher",
+    "institutional_partner",
+}
 
 
 class ResearchStudyCreate(BaseModel):
@@ -53,7 +66,7 @@ async def create_research_study(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchStudyRead:
     """Create a concept study and bind its lead researcher to the caller."""
-    if membership.role not in _RESEARCH_ROLES:
+    if not await membership_has_any_role(session, membership, _RESEARCH_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research workspace access required")
     if body.project_id is not None:
         project = await session.scalar(
@@ -87,7 +100,7 @@ async def list_research_studies(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ResearchStudyRead]:
     """List studies only for members with an appropriate research role."""
-    if membership.role not in _RESEARCH_ROLES:
+    if not await membership_has_any_role(session, membership, _RESEARCH_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research workspace access required")
     result = await session.scalars(
         select(ResearchStudy)

@@ -21,7 +21,13 @@ from stagingnextgenearth.platform.models import (
     Project,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["programme-operations"])
 _MANAGERS = {"admin", "founder", "executive", "programme_manager"}
@@ -176,7 +182,7 @@ async def create_activity(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ActivityRead:
     """Create a programme activity; project links must remain in the same programme."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     if body.project_id is not None:
@@ -324,8 +330,10 @@ async def apply_to_volunteer(
         )
     )
     if existing_membership is not None and (
-        existing_membership.role != "youth_volunteer"
-        or existing_membership.status != "active"
+        existing_membership.status != "active"
+        or not await membership_has_any_role(
+            session, existing_membership, {"youth_volunteer"}
+        )
     ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -362,7 +370,7 @@ async def list_volunteer_applications(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[VolunteerApplicationRead]:
     """List applications for programme managers only."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     rows = await session.execute(
@@ -397,7 +405,7 @@ async def decide_volunteer_application(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VolunteerApplicationRead:
     """Approve an applicant into the youth-volunteer role or reject the application."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     item = await session.scalar(
@@ -424,7 +432,10 @@ async def decide_volunteer_application(
             )
         )
         if existing is not None and (
-            existing.role != "youth_volunteer" or existing.status != "active"
+            existing.status != "active"
+            or not await membership_has_any_role(
+                session, existing, {"youth_volunteer"}
+            )
         ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
@@ -464,7 +475,7 @@ async def allocate_volunteer(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VolunteerAllocationRead:
     """Allocate an active youth-volunteer member to a programme activity."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     activity = await session.scalar(
@@ -477,14 +488,15 @@ async def allocate_volunteer(
     if activity is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found")
     volunteer = await session.scalar(
-        select(Membership.id).where(
+        select(Membership).where(
             Membership.organization_id == organization_id,
             Membership.user_id == body.user_id,
-            Membership.role == "youth_volunteer",
             Membership.status == "active",
         )
     )
-    if volunteer is None:
+    if volunteer is None or not await membership_has_any_role(
+        session, volunteer, {"youth_volunteer"}
+    ):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "User is not an active volunteer")
     item = ProgrammeVolunteerAllocation(
         organization_id=organization_id,
@@ -540,7 +552,7 @@ async def update_volunteer_allocation_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VolunteerAllocationRead:
     """Close an allocation as completed or withdrawn; retain its unique assignment record."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     allocation = await session.scalar(
         select(ProgrammeVolunteerAllocation).where(
@@ -605,7 +617,7 @@ async def update_activity_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ActivityRead:
     """Apply a guarded activity lifecycle transition."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     item = await session.scalar(
         select(ProgrammeActivity).where(
@@ -681,7 +693,7 @@ async def record_activity_attendance(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ActivityAttendanceRead:
     """Record attendance for an allocated volunteer; managers only."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     activity = await session.scalar(
         select(ProgrammeActivity).where(
@@ -740,7 +752,7 @@ async def list_activity_attendance(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ActivityAttendanceRead]:
     """Return the attendance register to programme managers only."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     activity_id_found = await session.scalar(
         select(ProgrammeActivity.id).where(
@@ -774,7 +786,7 @@ async def programme_delivery_summary(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, int | str]:
     """Aggregate operational delivery counts without exposing participant details."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     activity_rows = await session.execute(

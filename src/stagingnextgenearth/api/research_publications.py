@@ -23,7 +23,13 @@ from stagingnextgenearth.platform.models import (
     ResearchStudyCollaborator,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 PublicationType = Literal[
     "article", "book", "chapter", "conference_paper", "report", "preprint", "other"
@@ -169,11 +175,11 @@ async def _study_role(
     session: AsyncSession, study: ResearchStudy, principal: Principal, membership: Membership
 ) -> str:
     if (
-        membership.role in {"admin", "founder", "executive"}
+        await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         or study.lead_researcher_id == principal.user_id
     ):
         return "editor"
-    if membership.role in _REVIEW_ROLES:
+    if await membership_has_any_role(session, membership, _REVIEW_ROLES):
         return "reviewer"
     collaborator = await session.scalar(select(ResearchStudyCollaborator).where(
         ResearchStudyCollaborator.study_id == study.id,

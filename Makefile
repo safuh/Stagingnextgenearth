@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history docker-up docker-down docker-test docker-prod
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod
 
 install:
 	uv sync --extra dev
@@ -45,3 +45,7 @@ docker-test:
 
 docker-prod:
 	bash scripts/docker-production.sh
+
+# Bootstrap depends on the schema being current. This is additive and never resets volumes.
+bootstrap: migrate-up
+	uv run python scripts/bootstrap_nextgen.py $(if $(MANIFEST),--manifest $(MANIFEST),)

@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.models import Membership, Programme, Project
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(prefix="/organizations/{organization_id}/projects", tags=["projects"])
 
@@ -48,7 +54,7 @@ async def create_project(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProjectRead:
     """Create a planned project; only administrators and programme managers may write."""
-    if membership.role not in {"admin", "programme_manager"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive", "programme_manager"}):  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient organisation permissions")
     if body.programme_id is not None:
         programme = await session.scalar(

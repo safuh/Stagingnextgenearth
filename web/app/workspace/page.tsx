@@ -15,8 +15,9 @@ interface MyMembership {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
   status: string;
+  roles?: MyMembership["role"][];
 }
 interface Programme {
   id: string;
@@ -107,6 +108,9 @@ export default function WorkspacePage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const membershipRoles = membership
+    ? (membership.roles?.length ? membership.roles : [membership.role])
+    : [];
 
   useEffect(() => {
     if (!hasSession()) {
@@ -285,29 +289,29 @@ export default function WorkspacePage() {
               <section className="role-workspace" aria-label="Role-specific workspace">
                 <div>
                   <span className="eyebrow">YOUR ACCESS</span>
-                  <h2>{membership.role.replaceAll("_", " ")}</h2>
+                  <h2>{membershipRoles.map((role) => role.replaceAll("_", " ")).join(" · ")}</h2>
                   <p>Workspace sections are shown according to your active organisation role. The API independently enforces every permission.</p>
                 </div>
                 <div className="role-workspace-links">
-                  {["admin", "founder", "executive", "programme_manager"].includes(membership.role) && (
+                  {membershipRoles.some((role) => ["admin", "founder", "executive", "programme_manager"].includes(role)) && (
                     <>
                       <Link href="/workspace/programmes">Programme management →</Link>
                       <Link href="/workspace/learning-admin">Learning operations →</Link>
                     </>
                   )}
-                  {["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"].includes(membership.role) && (
+                  {membershipRoles.some((role) => ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"].includes(role)) && (
                     <Link href="/workspace/research">Research workspace →</Link>
                   )}
-                  {membership.role === "youth_volunteer" && (
+                  {membershipRoles.includes("youth_volunteer") && (
                     <Link href="/workspace/youth">Youth & volunteer portal →</Link>
                   )}
-                  {membership.role === "institutional_partner" && (
+                  {membershipRoles.includes("institutional_partner") && (
                     <Link href="/workspace/partner">Institutional partner portal →</Link>
                   )}
-                  {membership.role === "programme_manager" && (
+                  {membershipRoles.includes("programme_manager") && (
                     <Link href="/workspace/administration/applications">Review volunteer applications →</Link>
                   )}
-                  {["admin", "founder", "executive"].includes(membership.role) && (
+                  {membershipRoles.some((role) => ["admin", "founder", "executive"].includes(role)) && (
                     <Link href="/workspace/administration">Organisation administration →</Link>
                   )}
                 </div>
@@ -318,7 +322,7 @@ export default function WorkspacePage() {
                 <button key={item} className={panel === item ? "active" : ""} onClick={() => { setPanel(item); setSelectedCourse(null); }}>{item}</button>
               ))}
             </nav>
-            {(membership?.role === "admin" || membership?.role === "programme_manager") && (
+            {(membershipRoles.includes("admin") || membershipRoles.includes("founder") || membershipRoles.includes("executive") || membershipRoles.includes("programme_manager")) && (
               <Link className="staff-portal-link" href="/workspace/learning-admin">Learning operations · staff workspace →</Link>
             )}
             {panel === "overview" && (

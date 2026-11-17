@@ -16,7 +16,13 @@ from stagingnextgenearth.platform.models import (
     Project,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/programmes/{programme_id}/deliverables",
@@ -135,7 +141,7 @@ async def create_deliverable(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DeliverableRead:
     """Create a programme output and optionally assign it to an active member."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     await _programme(session, organization_id, programme_id)
     if body.project_id is not None:
@@ -213,7 +219,7 @@ async def list_deliverables(
     )
     # Contributors see only work assigned to their own account. In particular,
     # evidence references and reviewer notes for other members stay private.
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         statement = statement.where(
             ProgrammeDeliverable.assigned_to == membership.user_id
         )
@@ -244,7 +250,7 @@ async def submit_deliverable_evidence(
     )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
-    if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
+    if not await membership_has_any_role(session, membership, _MANAGERS) and item.assigned_to != principal.user_id:  # noqa: E501
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Only the assignee or a manager may submit evidence",
@@ -285,7 +291,7 @@ async def review_deliverable_evidence(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DeliverableRead:
     """Accept evidence or request revisions; only programme managers may decide."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     item = await session.scalar(
         select(ProgrammeDeliverable).where(
@@ -325,7 +331,7 @@ async def list_programme_deliverable_activity(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ProgrammeActivityRead]:
     """Return the latest programme deliverable events to programme managers."""
-    if membership.role not in _MANAGERS:
+    if not await membership_has_any_role(session, membership, _MANAGERS):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme management permission required",
@@ -379,7 +385,7 @@ async def list_deliverable_events(
     )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
-    if membership.role not in _MANAGERS and item.assigned_to != principal.user_id:
+    if not await membership_has_any_role(session, membership, _MANAGERS) and item.assigned_to != principal.user_id:  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Deliverable history access denied")
     events = await session.scalars(
         select(ProgrammeDeliverableEvent)

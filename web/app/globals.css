@@ -818,3 +818,22 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .climate-observation-card span { color: var(--muted, #64736b); font-size: .88rem; }
 .climate-review-controls { display: grid; gap: .65rem; }
 @media (max-width: 680px) { .climate-submission-form { grid-template-columns: 1fr; } .climate-observation-card { grid-template-columns: 1fr; } }
+
+/* Founder / executive briefing: browser print-to-PDF layout. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff !important; color: #17251e !important; }
+  .workspace-topbar, .print-briefing, .workspace-signout { display: none !important; }
+  .workspace-shell, .workspace-content { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .workspace-content { gap: .8rem !important; }
+  .staff-card, .admin-grid > section, .workspace-stats > article {
+    break-inside: avoid;
+    box-shadow: none !important;
+    background: #fff !important;
+    border-color: #d6ded8 !important;
+  }
+  .workspace-stats { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  a { color: #17251e !important; text-decoration: none !important; }
+  .workspace-error { border: 1px solid #a33; }
+}

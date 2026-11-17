@@ -4,18 +4,26 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     Membership,
+    MembershipRole,
     Organization,
     OrganizationAuditEvent,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_membership_roles,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/memberships",
@@ -29,6 +37,7 @@ InvitableRole = Literal[
     "researcher",
     "youth_volunteer",
     "institutional_partner",
+    "learner",
 ]
 
 
@@ -47,8 +56,10 @@ class MembershipRead(BaseModel):
     id: str
     organization_id: str
     user_id: str
+    identifier: str | None = None
     role: str
     status: str
+    roles: list[str] = Field(default_factory=list)
 
 
 @router.post("", response_model=MembershipRead, status_code=status.HTTP_201_CREATED)
@@ -59,7 +70,7 @@ async def invite_member(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Invite an existing user; administrator privileges cannot be delegated here."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     if body.role in {"founder", "executive"}:
         owner_id = await session.scalar(
@@ -88,24 +99,36 @@ async def invite_member(
         status="invited",
     )
     session.add(invitation)
+    await session.flush()
+    session.add(MembershipRole(membership_id=invitation.id, role=body.role))
     try:
         await session.commit()
         await session.refresh(invitation)
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Membership already exists") from exc
-    return MembershipRead.model_validate(invitation)
+    roles = sorted(await get_membership_roles(session, invitation))
+    return MembershipRead.model_validate(invitation).model_copy(
+        update={"identifier": user.identifier, "roles": roles}
+    )
 
 
 @router.get("/me", response_model=MembershipRead)
 async def get_my_membership(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Return the caller's own active tenant membership and role."""
     if membership.organization_id != organization_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
-    return MembershipRead.model_validate(membership)
+    identifier = await session.scalar(
+        select(User.identifier).where(User.id == membership.user_id)
+    )
+    roles = sorted(await get_membership_roles(session, membership))
+    return MembershipRead.model_validate(membership).model_copy(
+        update={"identifier": identifier, "roles": roles}
+    )
 
 
 @router.get("/directory")
@@ -113,9 +136,11 @@ async def list_staff_directory(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     """Return minimal active-member identities to authorised programme staff."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Programme staff access required",
@@ -129,10 +154,16 @@ async def list_staff_directory(
         .order_by(Membership.role, Membership.user_id)
         .limit(1000)
     )
-    return [
-        {"user_id": item.user_id, "role": item.role}
-        for item in rows.all()
-    ]
+    directory: list[dict[str, object]] = []
+    for item in rows.all():
+        directory.append(
+            {
+                "user_id": item.user_id,
+                "role": item.role,
+                "roles": sorted(await get_membership_roles(session, item)),
+            }
+        )
+    return directory
 
 
 @router.get("", response_model=list[MembershipRead])
@@ -142,14 +173,23 @@ async def list_memberships(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[MembershipRead]:
     """Expose membership records only to organisation administrators."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
-    result = await session.scalars(
-        select(Membership)
+    result = await session.execute(
+        select(Membership, User.identifier)
+        .join(User, User.id == Membership.user_id)
         .where(Membership.organization_id == organization_id)
         .order_by(Membership.created_at)
     )
-    return [MembershipRead.model_validate(item) for item in result.all()]
+    reads: list[MembershipRead] = []
+    for item, identifier in result.all():
+        roles = sorted(await get_membership_roles(session, item))
+        reads.append(
+            MembershipRead.model_validate(item).model_copy(
+                update={"identifier": identifier, "roles": roles}
+            )
+        )
+    return reads
 
 
 @router.post("/{membership_id}/accept", response_model=MembershipRead)
@@ -173,7 +213,13 @@ async def accept_invitation(
     invitation.status = "active"
     await session.commit()
     await session.refresh(invitation)
-    return MembershipRead.model_validate(invitation)
+    identifier = await session.scalar(
+        select(User.identifier).where(User.id == invitation.user_id)
+    )
+    roles = sorted(await get_membership_roles(session, invitation))
+    return MembershipRead.model_validate(invitation).model_copy(
+        update={"identifier": identifier, "roles": roles}
+    )
 
 
 class MembershipRoleUpdate(BaseModel):
@@ -188,6 +234,7 @@ class MembershipRoleUpdate(BaseModel):
         "researcher",
         "youth_volunteer",
         "institutional_partner",
+        "learner",
     ]
 
 
@@ -222,7 +269,9 @@ async def _current_admin(
     if (
         actor is None
         or actor.status != "active"
-        or actor.role not in {"admin", "founder", "executive"}
+        or not await membership_has_any_role(
+            session, actor, {"admin", "founder", "executive"}
+        )
     ):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
@@ -233,11 +282,18 @@ async def _current_admin(
 
 async def _active_admin_count(session: AsyncSession, organization_id: str) -> int:
     """Count active administrators before a potentially demoting operation."""
+    elevated_roles = {"admin", "founder", "executive"}
     count = await session.scalar(
-        select(func.count(Membership.id)).where(
+        select(func.count(func.distinct(Membership.id)))
+        .outerjoin(
+            MembershipRole,
+            MembershipRole.membership_id == Membership.id,
+        )
+        .where(
             Membership.organization_id == organization_id,
-            Membership.role.in_({"admin", "founder", "executive"}),
             Membership.status == "active",
+            (Membership.role.in_(elevated_roles))
+            | (MembershipRole.role.in_(elevated_roles)),
         )
     )
     return int(count or 0)
@@ -252,7 +308,7 @@ async def update_member_role(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Change a member role without permitting privilege escalation by non-admins."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
     actor = await _current_admin(session, membership.id)
@@ -276,18 +332,27 @@ async def update_member_role(
             status.HTTP_403_FORBIDDEN,
             "Only the organisation owner can grant administrator access",
         )
+    target_roles = await get_membership_roles(session, target)
     if (
-        target.role in {"admin", "founder", "executive"}
+        target_roles & {"admin", "founder", "executive"}
         and body.role not in {"admin", "founder", "executive"}
-        and membership.user_id != owner_id
     ):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "Only the organisation owner can revoke elevated administrator access",
-        )
+        if membership.user_id != owner_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only the organisation owner can revoke elevated administrator access",
+            )
+        secondary_elevated_roles = (
+            target_roles & {"admin", "founder", "executive"}
+        ) - {target.role}
+        if secondary_elevated_roles:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Remove secondary administrator roles through the roles endpoint first",
+            )
     if (
         target.status == "active"
-        and target.role in {"admin", "founder", "executive"}
+        and target_roles & {"admin", "founder", "executive"}
         and body.role not in {"admin", "founder", "executive"}
     ):
         if (
@@ -300,6 +365,13 @@ async def update_member_role(
             )
     previous_role = target.role
     target.role = body.role
+    await session.execute(
+        delete(MembershipRole).where(
+            MembershipRole.membership_id == target.id,
+            MembershipRole.role == previous_role,
+        )
+    )
+    session.add(MembershipRole(membership_id=target.id, role=body.role))
     session.add(
         OrganizationAuditEvent(
             organization_id=organization_id,
@@ -311,7 +383,109 @@ async def update_member_role(
     )
     await session.commit()
     await session.refresh(target)
-    return MembershipRead.model_validate(target)
+    roles = sorted(await get_membership_roles(session, target))
+    return MembershipRead.model_validate(target).model_copy(update={"roles": roles})
+
+
+
+class MembershipRolesUpdate(BaseModel):
+    """Complete role assignment set; the legacy primary role must remain included."""
+
+    roles: list[
+        Literal[
+            "admin",
+            "founder",
+            "executive",
+            "programme_manager",
+            "employee",
+            "researcher",
+            "youth_volunteer",
+            "institutional_partner",
+            "learner",
+        ]
+    ] = Field(min_length=1, max_length=9)
+
+
+@router.patch("/{membership_id}/roles", response_model=MembershipRead)
+async def update_member_roles(
+    organization_id: str,
+    membership_id: str,
+    body: MembershipRolesUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MembershipRead:
+    """Replace secondary role grants while preserving the primary compatibility role."""
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
+    owner_id = await _organization_owner(session, organization_id)
+    actor = await _current_admin(session, membership.id)
+    target = await session.scalar(
+        select(Membership)
+        .where(
+            Membership.id == membership_id,
+            Membership.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Membership not found")
+    requested = set(body.roles)
+    if len(requested) != len(body.roles):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Role assignments must be unique")
+    if target.role not in requested:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "The primary role must remain in the assigned role set; change it separately",
+        )
+    elevated = {"admin", "founder", "executive"}
+    if target.user_id == owner_id and not requested.intersection(elevated):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The organisation owner must retain an administrator role",
+        )
+    if requested.intersection(elevated) and actor.user_id != owner_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the organisation owner can grant administrator roles",
+        )
+    current = await get_membership_roles(session, target)
+    if current.intersection(elevated) and not requested.intersection(elevated):
+        if actor.user_id != owner_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only the organisation owner can revoke administrator roles",
+            )
+        if target.status == "active" and await _active_admin_count(
+            session, organization_id
+        ) <= 1:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "The last active administrator cannot lose administrator access",
+            )
+    for role in current - requested:
+        await session.execute(
+            delete(MembershipRole).where(
+                MembershipRole.membership_id == target.id,
+                MembershipRole.role == role,
+            )
+        )
+    for role in requested - current:
+        session.add(MembershipRole(membership_id=target.id, role=role))
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=actor.user_id,
+            subject_user_id=target.user_id,
+            action="membership.roles_changed",
+            changes={"roles": {"before": sorted(current), "after": sorted(requested)}},
+        )
+    )
+    await session.commit()
+    await session.refresh(target)
+    roles = sorted(await get_membership_roles(session, target))
+    return MembershipRead.model_validate(target).model_copy(update={"roles": roles})
 
 
 @router.patch("/{membership_id}/status", response_model=MembershipRead)
@@ -323,7 +497,9 @@ async def update_member_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MembershipRead:
     """Suspend or reactivate a member while preserving an active organisation owner."""
-    if membership.role not in {"admin", "founder", "executive"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     owner_id = await _organization_owner(session, organization_id)
     actor = await _current_admin(session, membership.id)
@@ -342,8 +518,9 @@ async def update_member_status(
             status.HTTP_409_CONFLICT,
             "Transfer organisation ownership before suspending the owner",
         )
+    target_roles = await get_membership_roles(session, target)
     if (
-        target.role in {"admin", "founder", "executive"}
+        target_roles & {"admin", "founder", "executive"}
         and body.status == "suspended"
         and membership.user_id != owner_id
     ):
@@ -353,7 +530,7 @@ async def update_member_status(
         )
     if (
         target.status == "active"
-        and target.role in {"admin", "founder", "executive"}
+        and target_roles & {"admin", "founder", "executive"}
         and body.status == "suspended"
     ):
         if (
