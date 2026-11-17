@@ -271,6 +271,47 @@ def provision_programmes(api: Api, organization_id: str, programmes: list[dict[s
         by_slug[slug] = created
 
 
+def provision_learners(
+    api: Api, organization_id: str, learners: list[dict[str, Any]]
+) -> None:
+    """Create learner identities and submit course applications without auto-approval."""
+    courses = api.request(
+        "GET", f"/organizations/{organization_id}/learning/courses", expected=(200,)
+    )
+    courses_by_slug = {
+        str(item["slug"]): item for item in courses
+        if item.get("status") == "published"
+    }
+    for item in learners:
+        identifier = str(item["identifier"]).strip()
+        course_slug = str(item["course_slug"]).strip()
+        password = env_required(str(item["password_env"]).strip())
+        course = courses_by_slug.get(course_slug)
+        if course is None:
+            raise ApiError(
+                f"Published course {course_slug!r} was not found for learner {identifier}"
+            )
+
+        # The public learner journey creates an identity, not an organisation role.
+        api.register_or_reuse(identifier, password)
+        existing = api.request(
+            "GET", f"/organizations/{organization_id}/learning/my-enrollments",
+            expected=(200,),
+        )
+        if any(row.get("course_id") == course["id"] for row in existing):
+            print(f"Learner application already exists: {identifier} → {course_slug}")
+            continue
+        api.request(
+            "POST",
+            f"/organizations/{organization_id}/learning/courses/{course['id']}/enrollments",
+            expected=(201,),
+        )
+        print(
+            f"Learner application submitted for staff review: "
+            f"{identifier} → {course_slug}"
+        )
+
+
 def provision_people(api: Api, organization_id: str, people: list[dict[str, Any]]) -> None:
     existing = api.request(
         "GET", f"/organizations/{organization_id}/people", expected=(200,)
@@ -465,6 +506,7 @@ def main() -> int:
             api, organization_id, manifest.get("research_studies", [])
         )
         provision_content(api, organization_id, manifest.get("content", []))
+        provision_learners(api, organization_id, manifest.get("learners", []))
         provision_staff(
             api, organization_id, identifier, password, manifest.get("staff", [])
         )
