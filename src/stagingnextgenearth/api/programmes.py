@@ -234,7 +234,9 @@ async def update_programme_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProgrammeRead:
     """Apply a guarded lifecycle transition to an organisation's programme."""
-    if membership.role not in {"admin", "founder", "executive", "programme_manager"}:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
     programme = await session.scalar(
         select(Programme).where(
