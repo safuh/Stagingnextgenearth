@@ -458,7 +458,7 @@ async def update_member_roles(
             )
     for role in current - requested:
         await session.execute(
-            MembershipRole.__table__.delete().where(
+            delete(MembershipRole).where(
                 MembershipRole.membership_id == target.id,
                 MembershipRole.role == role,
             )
