@@ -875,7 +875,7 @@ async def export_course_attendance(
             for value in values
         ])
     return Response(
-        content="\\ufeff" + output.getvalue(),
+        content="\ufeff" + output.getvalue(),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="attendance-{course_id}.csv"',
