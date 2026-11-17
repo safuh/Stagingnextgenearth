@@ -259,6 +259,34 @@ export default function LearningAdminPage() {
     event.currentTarget.reset();
   }
 
+  async function recordBulkAttendance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const learnerIds = String(data.get("learner_ids") ?? "")
+      .split(/[\\n,]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (learnerIds.length === 0) {
+      setError("Enter at least one learner ID.");
+      return;
+    }
+    if (new Set(learnerIds).size !== learnerIds.length) {
+      setError("Each learner ID must appear only once.");
+      return;
+    }
+    await action("Bulk attendance recorded for " + learnerIds.length + " learners.", () =>
+      apiPost(base + "/courses/" + courseId + "/attendance/bulk", {
+        session_key: data.get("session_key"),
+        session_title: data.get("session_title"),
+        session_date: data.get("session_date"),
+        learners: learnerIds.map((learner_id) => ({
+          learner_id,
+          attendance_status: data.get("attendance_status"),
+        })),
+      }),
+    );
+    event.currentTarget.reset();
+  }
   async function assignMentor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -412,7 +440,16 @@ export default function LearningAdminPage() {
               <label>Status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record attendance</button>
             </form>
-            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {item.learner_id} · {item.attendance_status}</small></article>)}
+            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {item.learner_id} · {item.attendance_status}</small></article>)}            <h3>Workshop roll call</h3>
+            <p className="workspace-muted">Record one session for multiple approved learners. Enter one learner ID per line or separate IDs with commas.</p>
+            <form onSubmit={recordBulkAttendance}>
+              <label>Session key<input name="session_key" required /></label>
+              <label>Session title<input name="session_title" required /></label>
+              <label>Date<input name="session_date" type="date" required /></label>
+              <label>Learner IDs<textarea name="learner_ids" rows={6} placeholder="Paste learner IDs, one per line" required /></label>
+              <label>Attendance status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
+              <button className="primary-action" disabled={busy || !courseId}>Record workshop roll call</button>
+            </form>
           </section>
         </div>
       </section>
