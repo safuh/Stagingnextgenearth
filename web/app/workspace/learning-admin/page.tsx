@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface MemberChoice {
   user_id: string;
@@ -287,6 +287,12 @@ export default function LearningAdminPage() {
     );
     event.currentTarget.reset();
   }
+  async function closeMentorship(id: string, status: "completed" | "ended") {
+    await action("Mentorship marked " + status + ".", () => apiPatch(
+      base + "/courses/" + courseId + "/mentorships/" + id + "/status",
+      { status },
+    ));
+  }
   async function assignMentor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -423,7 +429,7 @@ export default function LearningAdminPage() {
               <label>Notes<textarea name="notes" /></label>
               <button className="primary-action" disabled={busy || !courseId}>Assign mentor</button>
             </form>
-            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>{item.mentor_id} → {item.mentee_id}</strong><small>{item.status} · {item.notes || "No notes"}</small></article>)}
+            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>{item.mentor_id} → {item.mentee_id}</strong><small>{item.status} · {item.notes || "No notes"}</small>{item.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => closeMentorship(item.id, "completed")}>Complete</button><button disabled={busy} onClick={() => closeMentorship(item.id, "ended")}>End assignment</button></div>}</article>)}
           </section>
           <section className="staff-card">
             <h2>Attendance</h2>

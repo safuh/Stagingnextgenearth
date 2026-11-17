@@ -212,6 +212,10 @@ class MentorAssign(BaseModel):
     notes: str | None = Field(default=None, max_length=5000)
 
 
+class MentorshipStatusUpdate(BaseModel):
+    status: Literal["completed", "ended"]
+
+
 class AttendanceCreate(BaseModel):
     session_key: str = Field(min_length=1, max_length=100)
     session_title: str = Field(min_length=2, max_length=240)
@@ -814,6 +818,46 @@ async def assign_mentor(
         raise HTTPException(409, "This mentorship assignment already exists") from exc
     return {"id": assignment.id, "mentor_id": assignment.mentor_id,
             "mentee_id": assignment.mentee_id, "status": assignment.status}
+
+
+@router.patch("/courses/{course_id}/mentorships/{mentorship_id}/status")
+async def update_mentorship_status(
+    organization_id: str, course_id: str, mentorship_id: str, body: MentorshipStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Close an active mentorship and append an organisation audit event."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Mentorship management permission required")
+    await _course(session, organization_id, course_id)
+    assignment = await session.scalar(
+        select(LearningMentorship).where(
+            LearningMentorship.id == mentorship_id,
+            LearningMentorship.course_id == course_id,
+        )
+    )
+    if assignment is None:
+        raise HTTPException(404, "Mentorship assignment not found")
+    if assignment.status != "active":
+        raise HTTPException(409, "Only active mentorships can be closed")
+    previous_status = assignment.status
+    assignment.status = body.status
+    session.add(OrganizationAuditEvent(
+        organization_id=organization_id,
+        actor_user_id=principal.user_id,
+        subject_user_id=assignment.mentee_id,
+        action="learning.mentorship.status_changed",
+        changes={
+            "mentorship_id": assignment.id,
+            "course_id": course_id,
+            "mentor_id": assignment.mentor_id,
+            "from": previous_status,
+            "to": body.status,
+        },
+    ))
+    await session.commit()
+    return {"id": assignment.id, "status": assignment.status}
 
 
 @router.post("/courses/{course_id}/attendance/bulk", status_code=201)
