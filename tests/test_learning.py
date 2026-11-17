@@ -565,6 +565,19 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert mentorship.status_code == 201
+        closed_mentorship = client.patch(
+            f"{base}/courses/{course_id}/mentorships/{mentorship.json()['id']}/status",
+            headers=admin_headers,
+            json={"status": "completed"},
+        )
+        assert closed_mentorship.status_code == 200
+        assert closed_mentorship.json()["status"] == "completed"
+        repeated_close = client.patch(
+            f"{base}/courses/{course_id}/mentorships/{mentorship.json()['id']}/status",
+            headers=admin_headers,
+            json={"status": "ended"},
+        )
+        assert repeated_close.status_code == 409
         mentorship_rows = client.get(
             f"{base}/courses/{course_id}/mentorships",
             headers=admin_headers,
