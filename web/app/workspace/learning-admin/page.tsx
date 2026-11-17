@@ -69,6 +69,33 @@ interface Mentorship {
   status: string;
   notes: string | null;
 }
+interface ProgrammeOutcomes {
+  programme_id: string;
+  programme_title: string;
+  course_count: number;
+  average_progress: number;
+  totals: {
+    learners: number;
+    approved: number;
+    completed: number;
+    attendance_records: number;
+    attendance_sessions: number;
+    mentorship_assignments: number;
+    active_mentorships: number;
+    assessment_submissions: number;
+    evaluated_submissions: number;
+    pending_evaluations: number;
+  };
+  courses: Array<{
+    course_id: string;
+    title: string;
+    status: string;
+    learners: number;
+    completed: number;
+    average_progress: number;
+    pending_evaluations: number;
+  }>;
+}
 interface CourseReport {
   learners: number;
   approved: number;
@@ -95,6 +122,8 @@ export default function LearningAdminPage() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [mentorships, setMentorships] = useState<Mentorship[]>([]);
   const [report, setReport] = useState<CourseReport | null>(null);
+  const [programmeOutcomes, setProgrammeOutcomes] = useState<ProgrammeOutcomes | null>(null);
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -160,6 +189,20 @@ export default function LearningAdminPage() {
     ).then((outline) => setModules(outline.modules))
       .catch(() => setModules([]));
   }, [courseId, organizationId, refreshReports]);
+
+  async function loadProgrammeOutcomes() {
+    if (!organizationId || !selectedProgrammeId) return;
+    setError("");
+    setProgrammeOutcomes(null);
+    try {
+      const result = await apiGet<ProgrammeOutcomes>(
+        `/organizations/${organizationId}/learning/programmes/${selectedProgrammeId}/outcomes`,
+      );
+      setProgrammeOutcomes(result);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load programme outcomes.");
+    }
+  }
 
   async function action(label: string, work: () => Promise<unknown>) {
     setBusy(true);
@@ -337,6 +380,41 @@ export default function LearningAdminPage() {
             </select>
           </div>
         )}
+        <section className="staff-card" aria-labelledby="programme-outcomes-heading">
+          <p className="eyebrow">PROGRAMME PERFORMANCE</p>
+          <h2 id="programme-outcomes-heading">Programme outcomes</h2>
+          <div className="staff-actions">
+            <label>Programme
+              <select value={selectedProgrammeId} onChange={(event) => setSelectedProgrammeId(event.target.value)}>
+                <option value="">Choose a programme</option>
+                {programmes.map((programme) => (
+                  <option key={programme.id} value={programme.id}>{programme.title}</option>
+                ))}
+              </select>
+            </label>
+            <button className="secondary-action" disabled={!selectedProgrammeId} onClick={loadProgrammeOutcomes}>Load outcomes</button>
+          </div>
+          {programmeOutcomes && (
+            <>
+              <div className="staff-grid">
+                <article><strong>{programmeOutcomes.course_count}</strong><span>Courses</span></article>
+                <article><strong>{programmeOutcomes.totals.learners}</strong><span>Enrolments</span></article>
+                <article><strong>{programmeOutcomes.totals.completed}</strong><span>Completions</span></article>
+                <article><strong>{programmeOutcomes.average_progress}%</strong><span>Average progress</span></article>
+                <article><strong>{programmeOutcomes.totals.attendance_sessions}</strong><span>Workshop sessions</span></article>
+                <article><strong>{programmeOutcomes.totals.active_mentorships}/{programmeOutcomes.totals.mentorship_assignments}</strong><span>Active mentorships</span></article>
+                <article><strong>{programmeOutcomes.totals.pending_evaluations}</strong><span>Pending evaluations</span></article>
+                <article><strong>{programmeOutcomes.totals.assessment_submissions}</strong><span>Assessment submissions</span></article>
+              </div>
+              {programmeOutcomes.courses.map((course) => (
+                <article className="staff-record" key={course.course_id}>
+                  <strong>{course.title}</strong>
+                  <small>{course.status} · {course.learners} learners · {course.completed} completed · {course.average_progress}% average progress · {course.pending_evaluations} pending evaluations</small>
+                </article>
+              ))}
+            </>
+          )}
+        </section>
         {report && (
           <section className="staff-card" aria-labelledby="course-report-heading">
             <p className="eyebrow">COURSE PERFORMANCE</p>
