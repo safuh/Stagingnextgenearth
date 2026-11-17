@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Mapped, mapped_column
@@ -1308,7 +1309,16 @@ class OrganizationEmploymentApplication(Base):
         CheckConstraint("status IN ('pending','approved','rejected','withdrawn')",
                         name="ck_employment_application_status"),
         Index("ix_employment_applications_org_status", "organization_id", "status"),
-        UniqueConstraint("organization_id", "user_id", name="uq_employment_application_org_user"),
+        # Preserve withdrawn and rejected applications for review, while allowing an
+        # applicant to submit again once they have no application awaiting a decision.
+        Index(
+            "uq_employment_applications_org_user_pending",
+            "organization_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text("status = 'pending'"),
+        ),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)

@@ -8,6 +8,15 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
+from stagingnextgenearth.identity.models import User
+from stagingnextgenearth.identity.refresh_tokens import RefreshToken
+from stagingnextgenearth.platform.models import (
+    Membership,
+    MembershipRole,
+    Organization,
+    OrganizationEmploymentApplication,
+    OrganizationPerson,
+)
 
 
 def _login(client: TestClient, identifier: str) -> dict[str, str]:
@@ -28,7 +37,20 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
 
     async def prepare() -> None:
         async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+            await connection.run_sync(
+                lambda sync_connection: Base.metadata.create_all(
+                    sync_connection,
+                    tables=[
+                        User.__table__,
+                        RefreshToken.__table__,
+                        Organization.__table__,
+                        Membership.__table__,
+                        MembershipRole.__table__,
+                        OrganizationEmploymentApplication.__table__,
+                        OrganizationPerson.__table__,
+                    ],
+                )
+            )
         await engine.dispose()
 
     asyncio.run(prepare())
@@ -65,19 +87,66 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
         )
         assert public_duplicate.status_code == 409
         assert client.post(base, headers=candidate, json=payload).status_code == 409
+        public_mine = client.get(
+            "/api/public/organizations/employment-test/my-employment-applications",
+            headers=candidate,
+        )
+        assert public_mine.status_code == 200
+        assert [item["id"] for item in public_mine.json()] == [application_id]
+        assert public_mine.json()[0]["applicant_identifier"] is None
+        assert client.get(
+            "/api/public/organizations/employment-test/my-employment-applications",
+            headers=owner,
+        ).json() == []
+        assert client.post(
+            (
+                "/api/public/organizations/employment-test/employment-applications/"
+                f"{application_id}/withdraw"
+            ),
+            headers=owner,
+        ).status_code == 404
+
+        withdrawn = client.post(
+            (
+                "/api/public/organizations/employment-test/employment-applications/"
+                f"{application_id}/withdraw"
+            ),
+            headers=candidate,
+        )
+        assert withdrawn.status_code == 200
+        assert withdrawn.json()["status"] == "withdrawn"
+        assert client.post(
+            f"{base}/{application_id}/decision",
+            headers=owner,
+            json={"decision": "approved"},
+        ).status_code == 409
+
+        resubmitted = client.post(
+            "/api/public/organizations/employment-test/employment-applications",
+            headers=candidate,
+            json={**payload, "experience_summary": "Updated fieldwork experience."},
+        )
+        assert resubmitted.status_code == 201
+        resubmitted_id = resubmitted.json()["id"]
+        assert resubmitted_id != application_id
+        assert [item["status"] for item in client.get(
+            "/api/public/organizations/employment-test/my-employment-applications",
+            headers=candidate,
+        ).json()] == ["pending", "withdrawn"]
         mine = client.get(
             f"/api/organizations/{org_id}/my-employment-applications",
             headers=candidate,
         )
         assert mine.status_code == 200
-        assert [item["id"] for item in mine.json()] == [application_id]
+        assert [item["id"] for item in mine.json()] == [resubmitted_id, application_id]
 
         queue = client.get(base, headers=owner)
         assert queue.status_code == 200
+        assert queue.json()[0]["id"] == resubmitted_id
         assert queue.json()[0]["applicant_identifier"] == "employment-candidate@example.org"
 
         decision = client.post(
-            f"{base}/{application_id}/decision",
+            f"{base}/{resubmitted_id}/decision",
             headers=owner,
             json={"decision": "approved", "note": "References and qualifications reviewed."},
         )

@@ -161,7 +161,9 @@ These foundation checks must continue passing as product code is added.
 - [x] Public partner and CMS feeds use reduced schemas that omit moderation and internal source metadata.
 - [x] Public volunteer/ambassador expression-of-interest flow and administration review queue.
 - [x] Volunteer approval requires a recorded safeguarding and any required guardian-consent confirmation.
-- [ ] New-candidate employee application workflow and automated invitation notifications.
+- [x] New-candidate employee application workflow, including candidate status history,
+      withdrawal and secure employee onboarding after independent approval.
+- [ ] Automated invitation notifications.
 - [x] Append-only partner/CMS audit-event history with tenant-scoped admin read endpoints; partner-contact consent workflows remain.
 - [ ] KoboToolbox/ODK field data integration.
 - [ ] Email and calendar notifications.

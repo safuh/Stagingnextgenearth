@@ -27,6 +27,20 @@ async def test_alembic_upgrade_and_downgrade() -> None:
         "organization_membership_roles": {
             "id", "membership_id", "role", "created_at",
         },
+        "organization_employment_applications": {
+            "id",
+            "organization_id",
+            "user_id",
+            "full_name",
+            "desired_position",
+            "qualifications",
+            "experience_summary",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+            "created_at",
+        },
         "programmes": {"id", "organization_id", "title", "slug", "status"},
         "programme_volunteer_applications": {
             "id", "organization_id", "programme_id", "user_id", "status",
