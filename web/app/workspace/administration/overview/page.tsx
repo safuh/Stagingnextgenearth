@@ -13,7 +13,8 @@ type Study = { id: string; title: string; status: string; study_type: string | n
 type Course = { id: string; title: string; status: string };
 type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
 type OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number; pending_directory_reviews: number };
-type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };\ntype PortfolioOverview = { programmes_total: number; programmes_active: number; activities_total: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number; programmes: (DeliverySummary & { programme_title: string; programme_status: string })[] };
+type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
+type PortfolioOverview = { programmes_total: number; programmes_active: number; activities_total: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number; programmes: (DeliverySummary & { programme_title: string; programme_status: string })[] };
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
 type ResearchGovernance = { study: Study; proposals: ResearchProposal[]; milestones: ResearchMilestone[] };
@@ -30,7 +31,8 @@ export default function ExecutiveOverviewPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
-  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});\n  const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
+  const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -76,7 +78,8 @@ export default function ExecutiveOverviewPage() {
       : null;
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
-    setPortfolio(portfolioSnapshot);\n    setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
+    setPortfolio(portfolioSnapshot);
+    setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
   }, []);
