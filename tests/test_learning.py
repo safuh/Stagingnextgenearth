@@ -667,3 +667,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
         )
         assert missing_programme_outcomes.status_code == 404
+        exported_outcomes = client.get(
+            f"{base}/programmes/{programme_id}/outcomes/export",
+            headers=admin_headers,
+        )
+        assert exported_outcomes.status_code == 200
+        assert exported_outcomes.headers["content-type"].startswith("text/csv")
+        assert "programme_total,learners,3" in exported_outcomes.text
+        denied_outcomes_export = client.get(
+            f"{base}/programmes/{programme_id}/outcomes/export",
+            headers=learner_headers,
+        )
+        assert denied_outcomes_export.status_code == 403
