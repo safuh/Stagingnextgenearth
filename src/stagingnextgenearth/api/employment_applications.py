@@ -17,7 +17,13 @@ from stagingnextgenearth.platform.models import (
     OrganizationPerson,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["employment-applications"])
 _ADMINS = {"admin", "founder", "executive"}
@@ -174,7 +180,7 @@ async def list_employment_applications(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[EmploymentApplicationRead]:
-    if membership.role not in _ADMINS:
+    if not await membership_has_any_role(session, membership, _ADMINS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     rows = await session.execute(
         select(OrganizationEmploymentApplication, User.identifier)
@@ -202,7 +208,7 @@ async def decide_employment_application(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> EmploymentApplicationRead:
-    if membership.role not in _ADMINS:
+    if not await membership_has_any_role(session, membership, _ADMINS):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
     item = await session.scalar(
         select(OrganizationEmploymentApplication).where(
