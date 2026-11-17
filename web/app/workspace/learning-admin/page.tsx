@@ -34,6 +34,15 @@ interface Enrollment {
   progress_percent: number;
   applied_at: string;
 }
+interface EvaluationHistory {
+  id: string;
+  score: number;
+  feedback: string | null;
+  previous_score: number | null;
+  previous_feedback: string | null;
+  evaluated_by: string;
+  evaluated_at: string;
+}
 interface Submission {
   id: string;
   assessment_id: string;
@@ -44,6 +53,7 @@ interface Submission {
   feedback: string | null;
   submitted_at: string;
   evaluated_at: string | null;
+  evaluation_history: EvaluationHistory[];
 }
 interface Attendance {
   id: string;
@@ -225,12 +235,13 @@ export default function LearningAdminPage() {
 
   async function evaluate(event: FormEvent<HTMLFormElement>, attemptId: string) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await action("Assessment evaluation saved.", () => apiPost(
       base + `/submissions/${attemptId}/evaluate`,
       { score: Number(data.get("score")), feedback: data.get("feedback") || null },
     ));
-    event.currentTarget.reset();
+    form.reset();
   }
 
   async function createAssessment(event: FormEvent<HTMLFormElement>) {
@@ -407,7 +418,39 @@ export default function LearningAdminPage() {
                   <label>Score (%)<input name="score" type="number" min="0" max="100" required /></label>
                   <label>Feedback<textarea name="feedback" /></label>
                   <button className="primary-action" disabled={busy}>Save evaluation</button>
-                </form> : <p>Score: {item.score}% · {item.feedback || "No feedback"}</p>}
+                </form> : (
+                  <>
+                    <p>Latest score: {item.score}% · {item.feedback || "No feedback"}</p>
+                    <details>
+                      <summary>Revise evaluation</summary>
+                      <form onSubmit={(event) => evaluate(event, item.id)}>
+                        <label>Revised score (%)<input name="score" type="number" min="0" max="100" defaultValue={item.score ?? 0} required /></label>
+                        <label>Updated feedback<textarea name="feedback" defaultValue={item.feedback ?? ""} /></label>
+                        <button className="primary-action" disabled={busy}>Save revision</button>
+                      </form>
+                    </details>
+                    {item.evaluation_history.length > 0 && (
+                      <details>
+                        <summary>Evaluation history ({item.evaluation_history.length})</summary>
+                        <ol>
+                          {item.evaluation_history.map((evaluation) => (
+                            <li key={evaluation.id}>
+                              <strong>{evaluation.score}%</strong>
+                              <small>
+                                {new Date(evaluation.evaluated_at).toLocaleString()} ·
+                                reviewer {evaluation.evaluated_by}
+                              </small>
+                              <p>{evaluation.feedback || "No feedback recorded."}</p>
+                              {evaluation.previous_score !== null && (
+                                <small>Revised from {evaluation.previous_score}%</small>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    )}
+                  </>
+                )}
               </article>
             ))}
           </section>

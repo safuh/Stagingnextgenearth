@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import (
     LearningAssessment,
     LearningAssessmentAttempt,
+    LearningAssessmentEvaluation,
     LearningAttendance,
     LearningCertificate,
     LearningCourse,
@@ -677,12 +678,73 @@ async def evaluate_submission(
         ))
     if attempt is None:
         raise HTTPException(404, "Submission not found")
+    evaluated_at = datetime.now(UTC)
+    evaluation = LearningAssessmentEvaluation(
+        attempt_id=attempt.id,
+        score=body.score,
+        feedback=body.feedback,
+        previous_score=attempt.score,
+        previous_feedback=attempt.feedback,
+        evaluated_by=principal.user_id,
+        evaluated_at=evaluated_at,
+    )
+    session.add(evaluation)
     attempt.score = body.score
     attempt.feedback = body.feedback
     attempt.evaluated_by = principal.user_id
-    attempt.evaluated_at = datetime.now(UTC)
+    attempt.evaluated_at = evaluated_at
     await session.commit()
-    return {"id": attempt.id, "score": attempt.score, "evaluated_at": attempt.evaluated_at}
+    await session.refresh(evaluation)
+    return {
+        "id": attempt.id,
+        "evaluation_id": evaluation.id,
+        "score": attempt.score,
+        "evaluated_at": attempt.evaluated_at,
+    }
+
+
+@router.get("/submissions/{attempt_id}/evaluations")
+async def list_submission_evaluations(
+    organization_id: str,
+    attempt_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """Return the immutable evaluation timeline to authorised tenant staff."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Evaluation history permission required")
+    attempt = await session.scalar(
+        select(LearningAssessmentAttempt)
+        .join(LearningAssessment)
+        .join(LearningCourse)
+        .where(
+            LearningAssessmentAttempt.id == attempt_id,
+            LearningCourse.organization_id == organization_id,
+        )
+    )
+    if attempt is None:
+        raise HTTPException(404, "Submission not found")
+    rows = await session.scalars(
+        select(LearningAssessmentEvaluation)
+        .where(LearningAssessmentEvaluation.attempt_id == attempt_id)
+        .order_by(
+            LearningAssessmentEvaluation.evaluated_at,
+            LearningAssessmentEvaluation.id,
+        )
+        .limit(100)
+    )
+    return [
+        {
+            "id": row.id,
+            "score": row.score,
+            "feedback": row.feedback,
+            "previous_score": row.previous_score,
+            "previous_feedback": row.previous_feedback,
+            "evaluated_by": row.evaluated_by,
+            "evaluated_at": row.evaluated_at,
+        }
+        for row in rows.all()
+    ]
 
 
 
@@ -704,6 +766,29 @@ async def list_course_submissions(
         .order_by(LearningAssessmentAttempt.submitted_at.desc())
         .limit(500)
     )
+    submission_rows = rows.all()
+    attempt_ids = [attempt.id for attempt, _ in submission_rows]
+    evaluation_rows = list(
+        await session.scalars(
+            select(LearningAssessmentEvaluation)
+            .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
+            .order_by(
+                LearningAssessmentEvaluation.evaluated_at,
+                LearningAssessmentEvaluation.id,
+            )
+        )
+    ) if attempt_ids else []
+    history_by_attempt: dict[str, list[dict[str, object]]] = {}
+    for evaluation in evaluation_rows:
+        history_by_attempt.setdefault(evaluation.attempt_id, []).append({
+            "id": evaluation.id,
+            "score": evaluation.score,
+            "feedback": evaluation.feedback,
+            "previous_score": evaluation.previous_score,
+            "previous_feedback": evaluation.previous_feedback,
+            "evaluated_by": evaluation.evaluated_by,
+            "evaluated_at": evaluation.evaluated_at,
+        })
     return [
         {
             "id": attempt.id,
@@ -715,8 +800,9 @@ async def list_course_submissions(
             "feedback": attempt.feedback,
             "submitted_at": attempt.submitted_at,
             "evaluated_at": attempt.evaluated_at,
+            "evaluation_history": history_by_attempt.get(attempt.id, []),
         }
-        for attempt, assessment in rows.all()
+        for attempt, assessment in submission_rows
     ]
 
 

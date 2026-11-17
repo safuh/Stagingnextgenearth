@@ -1067,6 +1067,40 @@ class LearningAssessmentAttempt(Base):
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class LearningAssessmentEvaluation(Base):
+    """Append-only snapshot of each staff evaluation or re-evaluation."""
+
+    __tablename__ = "learning_assessment_evaluations"
+    __table_args__ = (
+        CheckConstraint(
+            "score >= 0 AND score <= 100",
+            name="ck_learning_assessment_evaluation_score",
+        ),
+        Index(
+            "ix_learning_assessment_evaluations_attempt",
+            "attempt_id",
+            "evaluated_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    attempt_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("learning_assessment_attempts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    score: Mapped[int] = mapped_column(nullable=False)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    previous_score: Mapped[int | None] = mapped_column(nullable=True)
+    previous_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evaluated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class LearningMentorship(Base):
     """Course-scoped mentor assignment."""
 
