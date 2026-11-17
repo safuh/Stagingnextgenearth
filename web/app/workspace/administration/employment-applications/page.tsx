@@ -9,6 +9,7 @@ type Application = {
   id: string; organization_id: string; user_id: string; full_name: string;
   desired_position: string; qualifications: string; experience_summary: string | null;
   status: string; review_note: string | null; applicant_identifier: string | null;
+  reviewed_by: string | null; reviewed_at: string | null;
 };
 
 export default function EmploymentApplicationsPage() {
@@ -95,7 +96,14 @@ export default function EmploymentApplicationsPage() {
         <section className="staff-card admin-member-section">
           <h2>Application history</h2>
           {applications.filter((item) => item.status !== "pending").map((item) => (
-            <p key={item.id}>{item.full_name} · {item.desired_position} · {item.status}{item.review_note ? ` · ${item.review_note}` : ""}</p>
+            <article className="admin-member-row" key={item.id}>
+              <div className="admin-member-meta">
+                <strong>{item.full_name}</strong>
+                <span>{item.desired_position} · {item.status}</span>
+                {item.reviewed_at && <small>Reviewed {new Date(item.reviewed_at).toLocaleString()}{item.reviewed_by ? ` · Reviewer ${item.reviewed_by}` : ""}</small>}
+                {item.review_note && <p>{item.review_note}</p>}
+              </div>
+            </article>
           ))}
         </section>
       </section>

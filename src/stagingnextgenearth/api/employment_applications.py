@@ -13,6 +13,7 @@ from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     Membership,
     Organization,
+    OrganizationAuditEvent,
     OrganizationEmploymentApplication,
     OrganizationPerson,
 )
@@ -255,6 +256,20 @@ async def decide_employment_application(
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
     item.review_note = body.note
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=item.user_id,
+            action="employment_application.decided",
+            changes={
+                "application_id": item.id,
+                "decision": body.decision,
+                "previous_status": "pending",
+                "employee_membership_created": body.decision == "approved",
+            },
+        )
+    )
     await session.commit()
     await session.refresh(item)
     return EmploymentApplicationRead.model_validate(item)
