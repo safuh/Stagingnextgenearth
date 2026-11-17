@@ -183,7 +183,7 @@ def test_climate_observation_review_writes_immutable_audit_history(
         event = history.json()[0]
         assert event["action"] == "climate.observation.reviewed"
         assert event["actor_user_id"] == accepted.json()["user_id"]
-        assert event["subject_user_id"] == owner["Authorization"].split()[1] or event["subject_user_id"]
+        assert event["subject_user_id"] is not None
         assert event["changes"]["observation_id"] == observation_id
         assert event["changes"]["decision"] == "verified"
         assert event["changes"]["note"] == "Cross-checked against station log."
