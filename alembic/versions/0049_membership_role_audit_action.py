@@ -6,7 +6,6 @@ Revises: 0048_membership_role_assignments
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0049_membership_role_audit_action"
