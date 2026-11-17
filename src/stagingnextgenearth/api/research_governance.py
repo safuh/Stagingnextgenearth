@@ -29,7 +29,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-studies/{study_id}",
     tags=["research-governance"],
 )
-_REVIEW_ROLES = {"admin", "programme_manager"}
+_REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _WRITE_ROLES = {"editor", "contributor"}
 
 
