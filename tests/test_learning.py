@@ -87,7 +87,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             "admin",
             "youth_volunteer",
         }
-        assert all(set(item) == {"user_id", "role"} for item in staff_directory.json())
+        assert all(set(item) == {"user_id", "role", "roles"} for item in staff_directory.json())
+        assert all(item["roles"] == [item["role"]] for item in staff_directory.json())
         learner_directory = client.get(
             f"/api/organizations/{org_id}/memberships/directory",
             headers=learner_headers,
