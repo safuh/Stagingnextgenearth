@@ -4,7 +4,7 @@ import csv
 import io
 import secrets
 from datetime import UTC, date, datetime
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
