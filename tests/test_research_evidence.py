@@ -1,10 +1,10 @@
 """Contract tests for the study evidence ledger."""
 
 from stagingnextgenearth.api.research_evidence import (
+    EvidenceAnalysisRun,
     EvidenceClimateSummary,
     EvidenceDataset,
     EvidencePublication,
-    EvidenceAnalysisRun,
     ResearchEvidenceLedgerRead,
     router,
 )
@@ -37,6 +37,7 @@ def test_evidence_ledger_contract_exposes_traceability_not_private_file_data() -
                 access_classification="organization",
                 manifest_sha256="a" * 64,
                 file_count=2,
+                files_truncated=False,
             )
         ],
         analysis_runs=[
