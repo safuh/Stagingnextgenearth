@@ -91,6 +91,31 @@ export default function ExecutiveOverviewPage() {
     setLastUpdated(new Date());
   }, []);
 
+  async function exportDeliveryPortfolio() {
+    if (!orgId) return;
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/backend/organizations/${orgId}/delivery-overview/export`,
+        { credentials: "same-origin", cache: "no-store" },
+      );
+      if (!response.ok) {
+        throw new Error(`Unable to export delivery overview (${response.status}).`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "organisation-delivery-overview.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to export delivery overview.");
+    }
+  }
+
   async function exportLearningPortfolio() {
     if (!orgId) return;
     setError("");
@@ -160,7 +185,7 @@ export default function ExecutiveOverviewPage() {
           <article><span>PARTNER RECORDS</span><strong>{partners.length}</strong><p>{partners.filter(p => p.verification_state !== "verified").length} awaiting verification</p></article>
           <article><span>CMS REVIEW QUEUE</span><strong>{count("review")}</strong><p>{count("approved")} approved · {count("published")} published</p></article>
         </div>
-        {portfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">ORGANISATION-WIDE DELIVERY</p><h2>Portfolio performance</h2></div><span className="workspace-muted">{portfolio.programmes_total} programmes · {portfolio.programmes_active} active</span></div><div className="workspace-stats admin-stats"><article><span>ACTIVITIES RECORDED</span><strong>{portfolio.activities_total}</strong><p>{portfolio.activities_completed} completed</p></article><article><span>VOLUNTEER ASSIGNMENTS</span><strong>{portfolio.volunteers_assigned + portfolio.volunteers_completed}</strong><p>{portfolio.volunteers_completed} completed · {portfolio.volunteers_assigned} active</p></article><article><span>ATTENDANCE RECORDS</span><strong>{portfolio.attendance_total}</strong><p>{portfolio.attendance_present} marked present</p></article></div><p className="workspace-muted">Totals aggregate recorded programme activities, volunteer allocations and attendance across the organisation. They are operational records, not independently verified impact measures.</p></section>}
+        {portfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">ORGANISATION-WIDE DELIVERY</p><h2>Portfolio performance</h2></div><div><button className="secondary-action" type="button" onClick={exportDeliveryPortfolio}>Export CSV</button> <span className="workspace-muted">{portfolio.programmes_total} programmes · {portfolio.programmes_active} active</span></div></div><div className="workspace-stats admin-stats"><article><span>ACTIVITIES RECORDED</span><strong>{portfolio.activities_total}</strong><p>{portfolio.activities_completed} completed</p></article><article><span>VOLUNTEER ASSIGNMENTS</span><strong>{portfolio.volunteers_assigned + portfolio.volunteers_completed}</strong><p>{portfolio.volunteers_completed} completed · {portfolio.volunteers_assigned} active</p></article><article><span>ATTENDANCE RECORDS</span><strong>{portfolio.attendance_total}</strong><p>{portfolio.attendance_present} marked present</p></article></div><p className="workspace-muted">Totals aggregate recorded programme activities, volunteer allocations and attendance across the organisation. They are operational records, not independently verified impact measures.</p></section>}
         {learningPortfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">LEARNING & CAPACITY OUTCOMES</p><h2>Organisation training performance</h2></div><div><button className="secondary-action" type="button" onClick={exportLearningPortfolio}>Export CSV</button> <Link className="secondary-action" href="/workspace/learning-admin">Learning administration</Link></div></div><div className="workspace-stats admin-stats"><article><span>LEARNERS ENROLLED</span><strong>{learningPortfolio.totals.learners}</strong><p>{learningPortfolio.totals.approved} approved</p></article><article><span>COURSE COMPLETIONS</span><strong>{learningPortfolio.totals.completed}</strong><p>{learningPortfolio.average_progress}% average progress</p></article><article><span>ASSESSMENT EVALUATIONS</span><strong>{learningPortfolio.totals.evaluated_submissions}</strong><p>{learningPortfolio.totals.pending_evaluations} awaiting review</p></article><article><span>MENTORSHIP</span><strong>{learningPortfolio.totals.active_mentorships}</strong><p>{learningPortfolio.totals.mentorship_assignments} total assignments</p></article></div>{learningPortfolio.programmes.length === 0 ? <p className="workspace-muted">No programme-linked courses or learner outcomes have been recorded.</p> : learningPortfolio.programmes.slice(0, 8).map(item => <article className="admin-member-row" key={item.programme_id}><div className="admin-member-meta"><strong>{item.programme_title}</strong><span>{item.course_count} courses · {item.totals.learners} learners · {item.totals.completed} completions · {item.average_progress}% average progress · {item.totals.pending_evaluations} pending evaluations</span></div></article>)}<p className="workspace-muted">Learning figures aggregate programme-linked courses. Learners enrolled in multiple courses are counted once per course; these totals represent enrolments, not unique individuals.</p></section>}
         <div className="staff-grid admin-grid">
           <section className="staff-card">

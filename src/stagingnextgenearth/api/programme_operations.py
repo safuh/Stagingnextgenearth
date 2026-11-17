@@ -1,9 +1,11 @@
 """Programme activity scheduling and volunteer application/allocation workflows."""
 
+import csv
+import io
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -960,3 +962,72 @@ async def organization_delivery_overview(
         **totals,
         "programmes": rows,
     }
+
+@router.get("/organizations/{organization_id}/delivery-overview/export")
+async def export_organisation_delivery_overview(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Response:
+    """Export tenant-scoped programme delivery totals as spreadsheet-safe CSV."""
+    report = await organization_delivery_overview(organization_id, membership, session)
+
+    def safe_cell(value: object) -> str:
+        rendered = "" if value is None else str(value)
+        if rendered.startswith(("=", "+", "-", "@", "\t", "\r")):
+            return "'" + rendered
+        return rendered
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["section", "metric", "value"])
+    for key in (
+        "programmes_total",
+        "programmes_active",
+        "activities_total",
+        "activities_planned",
+        "activities_in_progress",
+        "activities_completed",
+        "activities_cancelled",
+        "volunteers_assigned",
+        "volunteers_completed",
+        "volunteers_withdrawn",
+        "attendance_total",
+        "attendance_present",
+        "attendance_late",
+        "attendance_absent",
+        "attendance_excused",
+    ):
+        writer.writerow(["organisation_total", safe_cell(key), safe_cell(report[key])])
+    writer.writerow([])
+    writer.writerow([
+        "programme_id", "programme_title", "programme_status",
+        "activities_total", "activities_planned", "activities_in_progress",
+        "activities_completed", "activities_cancelled", "volunteers_assigned",
+        "volunteers_completed", "volunteers_withdrawn", "attendance_total",
+        "attendance_present", "attendance_late", "attendance_absent",
+        "attendance_excused",
+    ])
+    programmes = report["programmes"]
+    if isinstance(programmes, list):
+        for programme in programmes:
+            if not isinstance(programme, dict):
+                continue
+            writer.writerow([
+                safe_cell(programme.get(key))
+                for key in (
+                    "programme_id", "programme_title", "programme_status",
+                    "activities_total", "activities_planned", "activities_in_progress",
+                    "activities_completed", "activities_cancelled", "volunteers_assigned",
+                    "volunteers_completed", "volunteers_withdrawn", "attendance_total",
+                    "attendance_present", "attendance_late", "attendance_absent",
+                    "attendance_excused",
+                )
+            ])
+    return Response(
+        content=chr(0xFEFF) + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="organisation-delivery-overview.csv"'
+        },
+    )
