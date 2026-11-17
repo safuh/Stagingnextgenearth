@@ -50,6 +50,7 @@ interface ResearchAnalysisRun {
   created_by: string; created_at: string;
 }
 interface DatasetFile { id: string; version: number; original_filename: string; media_type: string; size_bytes: number; sha256_hex: string | null; status: string; scan_status: string; uploaded_at: string | null; }
+interface DatasetManifest { dataset_id: string; dataset_version: string; manifest_sha256: string; file_count: number; files: { file_id: string; version: number; filename: string; media_type: string; size_bytes: number; sha256: string }[]; }
 interface ClimateUnitSummary {
   unit: string; count: number; missing_count: number; mean: number | null; median: number | null;
   sample_standard_deviation: number | null; standard_error: number | null; minimum: number | null; maximum: number | null;
@@ -185,6 +186,8 @@ export default function ResearchWorkspacePage() {
   const [datasetFiles, setDatasetFiles] = useState<Record<string, DatasetFile[]>>({});
   const [analysisRuns, setAnalysisRuns] = useState<Record<string, ResearchAnalysisRun[]>>({});
   const [analysisRunsLoading, setAnalysisRunsLoading] = useState<string | null>(null);
+  const [datasetManifests, setDatasetManifests] = useState<Record<string, DatasetManifest>>({});
+  const [manifestLoading, setManifestLoading] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [climateObservations, setClimateObservations] = useState<ClimateObservation[]>([]);
@@ -634,6 +637,20 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  async function loadDatasetManifest(datasetId: string) {
+    setManifestLoading(datasetId);
+    try {
+      const manifest = await apiGet<DatasetManifest>(
+        "/organizations/" + organizationId + "/research-datasets/" + datasetId + "/manifest",
+      );
+      setDatasetManifests((current) => ({ ...current, [datasetId]: manifest }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to verify the approved dataset manifest.");
+    } finally {
+      setManifestLoading(null);
+    }
+  }
+
   async function retryDatasetFileScan(datasetId: string, fileId: string) {
     setUploading(datasetId); setError(""); setNotice("");
     try {
@@ -1016,6 +1033,8 @@ export default function ResearchWorkspacePage() {
                             {datasetFiles[dataset.id] && <ul className="dataset-file-list">{datasetFiles[dataset.id].map((file) => <li key={file.id}><strong>v{file.version} · {file.original_filename}</strong><span>{file.status.replace(/_/g, " ")} / scan: {file.scan_status}</span>{file.status === "quarantined" && <button type="button" className="text-action" disabled={uploading === dataset.id} onClick={() => retryDatasetFileScan(dataset.id, file.id)}>{uploading === dataset.id ? "Retrying…" : "Retry verification / scan"}</button>}<small>{Math.ceil(file.size_bytes / 1024)} KB{file.sha256_hex ? " · SHA-256 " + file.sha256_hex.slice(0, 12) + "…" : ""}</small></li>)}</ul>}
                             <button type="button" className="text-action" disabled={historyLoading === dataset.id} onClick={() => loadReviewHistory(dataset.id)}>{historyLoading === dataset.id ? "Loading history…" : "Review history"}</button>
                             <button type="button" className="text-action" disabled={analysisRunsLoading === dataset.id || dataset.status !== "approved"} onClick={() => loadAnalysisRuns(dataset.id)}>{analysisRunsLoading === dataset.id ? "Loading analysis runs…" : "Reproducible analysis history"}</button>
+                            <button type="button" className="text-action" disabled={manifestLoading === dataset.id || dataset.status !== "approved"} onClick={() => loadDatasetManifest(dataset.id)}>{manifestLoading === dataset.id ? "Verifying manifest…" : "Verify dataset integrity"}</button>
+                            {datasetManifests[dataset.id] && <div className="dataset-review-history" aria-live="polite"><strong>Manifest SHA-256</strong><p><code>{datasetManifests[dataset.id].manifest_sha256}</code></p><p>{datasetManifests[dataset.id].file_count} clean, available file version(s) · dataset version {datasetManifests[dataset.id].dataset_version}</p><ul>{datasetManifests[dataset.id].files.map((file) => <li key={file.file_id + ":" + file.version}>{file.filename} · v{file.version} · SHA-256 {file.sha256.slice(0, 16)}…</li>)}</ul><small>Digest covers canonical dataset identity and clean file-version metadata; it does not expose storage locations or file contents.</small></div>}
                             {analysisRuns[dataset.id] && <div className="dataset-review-history" aria-live="polite">
                               {analysisRuns[dataset.id].length === 0 ? <p className="workspace-muted">No analysis runs have been recorded for this dataset.</p> : <ol>{analysisRuns[dataset.id].map((run) => <li key={run.id}>
                                 <strong>{run.software_name} {run.software_version}</strong> · {new Date(run.created_at).toLocaleString()}
