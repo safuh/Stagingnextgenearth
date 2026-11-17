@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
 
 interface Organization { id: string; name: string; country_code: string; }
-interface Membership { role: string; status: string; }
+interface Membership { role: string; roles?: string[]; status: string; }
 interface Programme { id: string; title: string; summary: string | null; status: string; start_date: string | null; end_date: string | null; }
 interface Course { id: string; title: string; description: string; category: string | null; delivery_mode: string; status: string; }
 interface Progress { course_id: string; enrollment_status: string; progress_percent: number; completed_lesson_ids: string[]; assessments: Array<{ assessment_id: string; score: number | null; feedback: string | null }>; }
@@ -65,7 +65,7 @@ export default function YouthWorkspacePage() {
       apiGet<Attendance[]>(`/organizations/${organizationId}/learning/my-attendance`),
     ]).then(async ([member, programmeItems, courseItems, applicationItems, allocationItems, mentorshipItems, attendanceItems]) => {
       if (!active) return;
-      if (member.role !== "youth_volunteer" || member.status !== "active") {
+      if (!(member.roles ?? [member.role]).includes("youth_volunteer") || member.status !== "active") {
         setError("This workspace is available to active youth-volunteer members.");
         return;
       }
