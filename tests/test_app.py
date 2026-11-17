@@ -117,9 +117,10 @@ def test_production_disables_interactive_api_documentation() -> None:
         database_url="postgresql+asyncpg://app:secret@localhost:5432/app",
         jwt_secret_key="a" * 48,
     )
-    with TestClient(create_app(settings)) as client:
-        assert client.get("/docs").status_code == 404
-        assert client.get("/redoc").status_code == 404
+    app = create_app(settings)
+    assert app.docs_url is None
+    assert app.redoc_url is None
+    assert app.openapi_url is None
         assert client.get("/openapi.json").status_code == 404
         response = client.get("/api/health")
     assert response.headers["Strict-Transport-Security"].startswith("max-age=31536000")
