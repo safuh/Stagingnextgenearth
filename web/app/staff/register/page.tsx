@@ -31,7 +31,7 @@ export default function StaffAccountRegistrationPage() {
     <main className="workspace-shell">
       <header className="workspace-topbar">
         <Link className="brand" href="/">NextGen For Earth</Link>
-        <Link className="secondary-action" href="/#access">Member sign in</Link>
+        <Link className="secondary-action" href="/staff/login">Member sign in</Link>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">STAFF & INSTITUTIONAL PARTNER ONBOARDING</p>
@@ -55,7 +55,7 @@ export default function StaffAccountRegistrationPage() {
               <input id="staff-password" type="password" autoComplete="new-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required />
               <button className="primary-action" disabled={busy}>{busy ? "Creating account…" : "Create account"}</button>
             </form>
-            <p className="workspace-muted">Already registered? <Link href="/#access">Sign in to your existing account</Link>.</p>
+            <p className="workspace-muted">Already registered? <Link href="/staff/login">Sign in to your existing account</Link>.</p>
           </section>
         )}
         <p><Link href="/">Return to the public website</Link></p>
