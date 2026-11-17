@@ -19,3 +19,5 @@ Download the same bounded report as a spreadsheet-safe CSV:
 `GET /api/organizations/{organization_id}/research-studies/{study_id}/evidence-ledger/export?limit=100`
 
 The export uses the same active-membership and study-access checks as the JSON endpoint, retains deterministic record ordering, includes the study snapshot, protocol and ethics governance summary, dataset fingerprints, analysis-run lineage, publication provenance counts and climate review summary, and applies formula-injection neutralization to text cells. It is UTF-8 with a byte-order mark for spreadsheet compatibility. The CSV deliberately excludes file names and storage locations, download links, file bytes and individual climate measurements.
+
+Protocol, protocol-review and ethics-review history endpoints use bounded pagination; see [Research protocol and ethics governance](research-governance.md) for limits and ordering.
