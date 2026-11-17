@@ -14,6 +14,7 @@ from stagingnextgenearth.platform.models import (
     Organization,
     OrganizationAuditEvent,
     OrganizationEmploymentApplication,
+    OrganizationPerson,
     ProgrammeVolunteerApplication,
 )
 
@@ -141,6 +142,7 @@ class OrganizationOperationsSummary(BaseModel):
     pending_employment_applications: int
     pending_volunteer_applications: int
     pending_membership_invitations: int
+    pending_directory_reviews: int
 
 
 @router.get(
@@ -181,11 +183,19 @@ async def get_organization_operations_summary(
             Membership.status == "invited",
         )
     )
+    directory_review_count = await session.scalar(
+        select(func.count()).select_from(OrganizationPerson).where(
+            OrganizationPerson.organization_id == organization_id,
+            OrganizationPerson.review_state == "pending",
+            OrganizationPerson.status == "active",
+        )
+    )
     return OrganizationOperationsSummary(
         organization_id=organization_id,
         pending_employment_applications=int(employment_count or 0),
         pending_volunteer_applications=int(volunteer_count or 0),
         pending_membership_invitations=int(invitation_count or 0),
+        pending_directory_reviews=int(directory_review_count or 0),
     )
 
 
