@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import (
     ClimateObservation,
     Membership,
+    OrganizationAuditEvent,
     Project,
     ResearchStudy,
 )
@@ -328,6 +329,77 @@ async def review_climate_observation(
     observation.reviewed_by = principal.user_id
     observation.reviewed_at = datetime.now(UTC)
     observation.review_note = body.note.strip() if body.note else None
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=observation.created_by,
+            action="climate.observation.reviewed",
+            changes={
+                "observation_id": observation.id,
+                "decision": body.decision,
+                "variable": observation.variable,
+                "source": observation.source,
+                "observed_at": observation.observed_at.isoformat(),
+                "note": observation.review_note,
+            },
+        )
+    )
     await session.commit()
     await session.refresh(observation)
     return ClimateObservationRead.model_validate(observation)
+
+
+
+class ClimateObservationReviewAuditRead(BaseModel):
+    """Immutable audit event for one climate observation quality decision."""
+
+    id: str
+    actor_user_id: str
+    subject_user_id: str | None
+    action: Literal["climate.observation.reviewed"]
+    changes: dict[str, object]
+    created_at: datetime
+
+
+@router.get(
+    "/{observation_id}/review-history",
+    response_model=list[ClimateObservationReviewAuditRead],
+)
+async def climate_observation_review_history(
+    organization_id: str,
+    observation_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ClimateObservationReviewAuditRead]:
+    """Return immutable review decisions for an organisation observation."""
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Climate quality reviewer role required",
+        )
+    observation = await session.scalar(
+        select(ClimateObservation.id).where(
+            ClimateObservation.id == observation_id,
+            ClimateObservation.organization_id == organization_id,
+        )
+    )
+    if observation is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Climate observation not found",
+        )
+    events = await session.scalars(
+        select(OrganizationAuditEvent)
+        .where(
+            OrganizationAuditEvent.organization_id == organization_id,
+            OrganizationAuditEvent.action == "climate.observation.reviewed",
+            OrganizationAuditEvent.changes["observation_id"].as_string() == observation_id,
+        )
+        .order_by(OrganizationAuditEvent.created_at.asc(), OrganizationAuditEvent.id.asc())
+        .limit(100)
+    )
+    return [
+        ClimateObservationReviewAuditRead.model_validate(event)
+        for event in events.all()
+    ]
