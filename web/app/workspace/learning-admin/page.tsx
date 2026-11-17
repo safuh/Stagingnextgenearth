@@ -190,6 +190,31 @@ export default function LearningAdminPage() {
       .catch(() => setModules([]));
   }, [courseId, organizationId, refreshReports]);
 
+  async function exportProgrammeOutcomes() {
+    if (!organizationId || !selectedProgrammeId) return;
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/backend/organizations/${organizationId}/learning/programmes/${selectedProgrammeId}/outcomes/export`,
+        { credentials: "same-origin", cache: "no-store" },
+      );
+      if (!response.ok) {
+        throw new Error(`Unable to export programme outcomes (${response.status}).`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `programme-${selectedProgrammeId}-outcomes.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to export programme outcomes.");
+    }
+  }
+
   async function loadProgrammeOutcomes() {
     if (!organizationId || !selectedProgrammeId) return;
     setError("");
@@ -393,6 +418,7 @@ export default function LearningAdminPage() {
               </select>
             </label>
             <button className="secondary-action" disabled={!selectedProgrammeId} onClick={loadProgrammeOutcomes}>Load outcomes</button>
+            <button className="secondary-action" disabled={!selectedProgrammeId} onClick={exportProgrammeOutcomes}>Export CSV</button>
           </div>
           {programmeOutcomes && (
             <>
