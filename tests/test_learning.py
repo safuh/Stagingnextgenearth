@@ -512,6 +512,14 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert attendance_rows.status_code == 200
         assert attendance_rows.json()[0]["learner_id"] == learner_id
+        attendance_export = client.get(
+            f"{base}/courses/{course_id}/attendance/export",
+            headers=admin_headers,
+        )
+        assert attendance_export.status_code == 200
+        assert "text/csv" in attendance_export.headers["content-type"]
+        assert "session_key,session_title,session_date,learner_id,attendance_status" in attendance_export.text
+        assert learner_id in attendance_export.text
         learner_attendance_access = client.get(
             f"{base}/courses/{course_id}/attendance",
             headers=learner_headers,
