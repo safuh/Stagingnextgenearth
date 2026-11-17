@@ -112,6 +112,7 @@ async def get_research_dataset_manifest(
             sha256=item.sha256_hex,
         )
         for item in result.all()
+        if item.sha256_hex is not None
     ]
     manifest_data = {
         "dataset_id": dataset.id,
