@@ -49,11 +49,11 @@ export default function HomePage() {
     // Public feeds are independent: a temporary failure in one endpoint must not
     // suppress otherwise healthy programme, people, partner or CMS sections.
     Promise.all([
-      apiGet<PublicContent[]>("/public/organizations/nextgen-for-earth/content").catch(() => []),
-      apiGet<PublicPerson[]>("/public/organizations/nextgen-for-earth/people").catch(() => []),
-      apiGet<PublicPartner[]>("/public/organizations/nextgen-for-earth/partners").catch(() => []),
-      apiGet<PublicProgramme[]>("/public/organizations/nextgen-for-earth/programmes").catch(() => []),
-      apiGet<PublicCourse[]>("/public/organizations/nextgen-for-earth/courses").catch(() => []),
+      apiGet<PublicContent[]>("/public/organizations/next-gen-for-earth/content").catch(() => []),
+      apiGet<PublicPerson[]>("/public/organizations/next-gen-for-earth/people").catch(() => []),
+      apiGet<PublicPartner[]>("/public/organizations/next-gen-for-earth/partners").catch(() => []),
+      apiGet<PublicProgramme[]>("/public/organizations/next-gen-for-earth/programmes").catch(() => []),
+      apiGet<PublicCourse[]>("/public/organizations/next-gen-for-earth/courses").catch(() => []),
     ]).then(([items, people, partners, programmes, courses]) => {
       if (!active) return;
       setCatalogue(items);
