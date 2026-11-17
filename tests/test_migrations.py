@@ -24,6 +24,9 @@ async def test_alembic_upgrade_and_downgrade() -> None:
         "refresh_tokens": {"token_id", "subject", "expires_at", "revoked"},
         "organizations": {"id", "name", "slug", "owner_user_id"},
         "organization_memberships": {"id", "organization_id", "user_id", "role", "status"},
+        "organization_membership_roles": {
+            "id", "membership_id", "role", "created_at",
+        },
         "programmes": {"id", "organization_id", "title", "slug", "status"},
         "programme_volunteer_applications": {
             "id", "organization_id", "programme_id", "user_id", "status",
@@ -255,6 +258,15 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             )
             assert learner_role_constraint is not None
             assert "'learner'" in learner_role_constraint
+
+            role_assignment_constraint = await connection.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'ck_membership_role_assignment'"
+                )
+            )
+            assert role_assignment_constraint is not None
+            assert "'researcher'" in role_assignment_constraint
 
             geometry_type = await connection.scalar(
                 text(
