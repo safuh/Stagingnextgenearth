@@ -40,6 +40,42 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         }).json()
         org_id = org["id"]
 
+        # A secondary administrator grant must be honoured by partner routes.
+        client.post("/api/auth/register", json={
+            "identifier": "partner-executive@example.org",
+            "password": "correct horse battery staple",
+        })
+        invited_executive = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=headers,
+            json={"identifier": "partner-executive@example.org", "role": "employee"},
+        )
+        assert invited_executive.status_code == 201
+        executive_login = client.post("/api/auth/login", json={
+            "identifier": "partner-executive@example.org",
+            "password": "correct horse battery staple",
+        })
+        executive_headers = {
+            "Authorization": "Bearer " + executive_login.json()["access_token"]
+        }
+        accepted_executive = client.post(
+            f"/api/organizations/{org_id}/memberships/{invited_executive.json()['id']}/accept",
+            headers=executive_headers,
+        )
+        assert accepted_executive.status_code == 200
+        assigned_roles = client.patch(
+            f"/api/organizations/{org_id}/memberships/{invited_executive.json()['id']}/roles",
+            headers=headers,
+            json={"roles": ["employee", "executive"]},
+        )
+        assert assigned_roles.status_code == 200
+        secondary_admin_partner = client.post(
+            f"/api/organizations/{org_id}/partners",
+            headers=executive_headers,
+            json={"name": "Secondary Role Partner", "partner_type": "ngo"},
+        )
+        assert secondary_admin_partner.status_code == 201
+
         partner = client.post(f"/api/organizations/{org_id}/partners", headers=headers, json={
             "name": "University of Nairobi", "partner_type": "university",
             "source_url": "https://nextgenforearth.org/",
