@@ -43,6 +43,6 @@ def downgrade() -> None:
     op.create_check_constraint(
         "ck_organization_audit_event_action",
         "organization_audit_events",
-        "action IN ('membership.role_changed', 'membership.status_changed', "
-        "'organization.ownership_transferred')",
+        "action IN ('membership.role_changed', 'membership.roles_changed', "
+        "'membership.status_changed', 'organization.ownership_transferred')",
     )
