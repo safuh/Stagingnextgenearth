@@ -1232,11 +1232,42 @@ async def course_progress(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course reporting permission required")
     await _course(session, organization_id, course_id)
-    rows = await session.scalars(select(LearningEnrollment).where(
-        LearningEnrollment.course_id == course_id))
+    rows = await session.scalars(
+        select(LearningEnrollment).where(LearningEnrollment.course_id == course_id)
+    )
     enrollments = rows.all()
-    return {"course_id": course_id, "learners": len(enrollments),
-            "approved": sum(x.status in {"approved", "completed"} for x in enrollments),
-            "completed": sum(x.status == "completed" for x in enrollments),
-            "average_progress": round(sum(x.progress_percent for x in enrollments) /
-                                      len(enrollments), 1) if enrollments else 0.0}
+    attendance_rows = await session.scalars(
+        select(LearningAttendance).where(LearningAttendance.course_id == course_id)
+    )
+    attendance = attendance_rows.all()
+    mentorship_rows = await session.scalars(
+        select(LearningMentorship).where(LearningMentorship.course_id == course_id)
+    )
+    mentorships = mentorship_rows.all()
+    attempt_rows = await session.scalars(
+        select(LearningAssessmentAttempt)
+        .join(LearningAssessment)
+        .where(LearningAssessment.course_id == course_id)
+    )
+    attempts = attempt_rows.all()
+    attendance_by_status = {
+        status: sum(row.attendance_status == status for row in attendance)
+        for status in ("present", "late", "absent", "excused")
+    }
+    return {
+        "course_id": course_id,
+        "learners": len(enrollments),
+        "approved": sum(x.status in {"approved", "completed"} for x in enrollments),
+        "completed": sum(x.status == "completed" for x in enrollments),
+        "average_progress": round(
+            sum(x.progress_percent for x in enrollments) / len(enrollments), 1
+        ) if enrollments else 0.0,
+        "attendance_records": len(attendance),
+        "attendance_by_status": attendance_by_status,
+        "attendance_sessions": len({row.session_key for row in attendance}),
+        "mentorship_assignments": len(mentorships),
+        "active_mentorships": sum(row.status == "active" for row in mentorships),
+        "assessment_submissions": len(attempts),
+        "evaluated_submissions": sum(row.evaluated_at is not None for row in attempts),
+        "pending_evaluations": sum(row.evaluated_at is None for row in attempts),
+    }

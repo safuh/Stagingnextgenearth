@@ -559,3 +559,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert summary.status_code == 200
         assert summary.json()["completed"] == 1
+        assert summary.json()["attendance_records"] == 1
+        assert summary.json()["attendance_by_status"]["present"] == 1
+        assert summary.json()["attendance_sessions"] == 1
+        assert summary.json()["mentorship_assignments"] >= 1
+        assert summary.json()["assessment_submissions"] >= 1
+        assert summary.json()["pending_evaluations"] >= 1
