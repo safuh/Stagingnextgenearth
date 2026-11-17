@@ -16,7 +16,6 @@ from typing import Any
 
 from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
-    ClimatePoint,
     ClimateProviderRequest,
 )
 
@@ -76,12 +75,7 @@ class CopernicusERA5Provider:
         last_instant = end - timedelta(microseconds=1)
         if last_instant < start:
             raise ValueError("request must cover at least one hourly interval")
-        first_day = start.date()
-        last_day = last_instant.date()
-        day_count = (last_day - first_day).days + 1
-        if day_count > self.max_days:
-            raise ValueError(f"ERA5 request exceeds the {self.max_days}-day limit")
-
+        self._validate_window(request)
         self._validate_area_size(request)
         cds_request = self._build_request(request, start, last_instant)
         content = await asyncio.to_thread(self._retrieve, cds_request)
@@ -125,6 +119,17 @@ class CopernicusERA5Provider:
                 request.area.east,
             ]
         return result
+
+    def _validate_window(self, request: ClimateProviderRequest) -> None:
+        start = request.start.astimezone(UTC).replace(
+            minute=0, second=0, microsecond=0
+        )
+        last = request.end.astimezone(UTC) - timedelta(microseconds=1)
+        if last < start:
+            raise ValueError("request must cover at least one hourly interval")
+        day_count = (last.date() - start.date()).days + 1
+        if day_count > self.max_days:
+            raise ValueError(f"ERA5 request exceeds the {self.max_days}-day limit")
 
     def _validate_area_size(self, request: ClimateProviderRequest) -> None:
         if request.area is None:
