@@ -215,6 +215,8 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert third_version.status_code == 201
     assert third_version.json()["version_number"] == 3
+    ordered_versions = client.get(f"{base_url}/protocol-versions", headers=lead_headers)
+    assert [item["version_number"] for item in ordered_versions.json()] == [3, 2, 1]
     comparison = client.get(
         f"{base_url}/protocol-versions/{protocol_id}/compare/{third_version.json()['id']}",
         headers=lead_headers,
