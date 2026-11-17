@@ -15,7 +15,13 @@ from stagingnextgenearth.platform.models import (
     OrganizationPersonAuditEvent,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 
 router = APIRouter(tags=["organisation-directory"])
 PERSON_TYPES = {
@@ -103,8 +109,13 @@ class PublicPersonRead(BaseModel):
     website_url: str | None
 
 
-def _require_admin(membership: Membership) -> None:
-    if membership.role not in {"admin", "founder", "executive"}:
+async def _require_admin(
+    membership: Membership,
+    session: AsyncSession,
+) -> None:
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator role required")
 
 
@@ -132,7 +143,7 @@ async def list_people(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PersonRead]:
     """List the full directory to administrators only."""
-    _require_admin(membership)
+    await _require_admin(membership, session)
     rows = await session.scalars(
         select(OrganizationPerson)
         .where(OrganizationPerson.organization_id == organization_id)
