@@ -8,7 +8,7 @@ from stagingnextgenearth.climate_anomalies import standardized_anomaly
 
 
 def test_standardized_anomaly_reports_reproducible_baseline_statistics() -> None:
-    result = standardized_anomaly(15, [5, 7, 9, 11, 13, 15, 17, 19, 21, 23])
+    result = standardized_anomaly(15, [6, 8, 10, 12, 14, 16, 18, 20, 22, 24])
     assert result.method == "sample_standardized_anomaly_z_score"
     assert result.baseline_count == 10
     assert result.baseline_mean == 15
