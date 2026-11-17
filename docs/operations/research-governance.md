@@ -34,7 +34,7 @@ Protocol version creation, submission, independent review and formal ethics deci
 
 ## Research governance audit workspace
 
-Founders, executives and administrators can load `GET /api/organizations/{organization_id}/research-governance/audit-events` from the Research workspace. The endpoint returns only research protocol, ethics and study lifecycle events, in newest-first order, with a maximum of 200 records. It excludes protocol content and review notes. Access is tenant-scoped and limited to organisation leadership.
+Founders, executives and administrators can load `GET /api/organizations/{organization_id}/research-governance/audit-events` from the Research workspace. The endpoint returns only research protocol, ethics and study lifecycle events, in newest-first order, with a page size of at most 200 and an offset capped at 100,000. The workspace presents 100 records per page and supports previous/next navigation. It excludes protocol content and review notes. Access is tenant-scoped and limited to organisation leadership.
 
 ## Governance audit CSV export
 

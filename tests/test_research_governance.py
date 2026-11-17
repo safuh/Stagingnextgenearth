@@ -231,6 +231,23 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert governance_audit.status_code == 200
     assert len(governance_audit.json()) == len(research_audit)
     assert all(item["action"].startswith("research.") for item in governance_audit.json())
+    audit_first_page = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events?limit=1&offset=0",
+        headers=lead_headers,
+    )
+    audit_second_page = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events?limit=1&offset=1",
+        headers=lead_headers,
+    )
+    assert audit_first_page.status_code == audit_second_page.status_code == 200
+    assert audit_first_page.json()[0]["id"] != audit_second_page.json()[0]["id"]
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/audit-events?offset=100001",
+            headers=lead_headers,
+        ).status_code
+        == 422
+    )
     governance_export = client.get(
         f"/api/organizations/{organization_id}/research-governance/audit-events/export",
         headers=lead_headers,
