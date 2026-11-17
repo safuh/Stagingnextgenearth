@@ -13,6 +13,8 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 
 2. **Learner journey (4 min)**
    - Open `/learners`.
+   - Optionally pre-create learner demo identities from the bootstrap manifest using a dedicated password environment variable per account.
+   - The bootstrap submits applications to published courses but deliberately does not approve them or grant learner memberships.
    - Register a new learner account with a unique test email.
    - Apply to a published course.
    - Show the learner's own application status.
