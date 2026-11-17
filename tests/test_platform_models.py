@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import User
+from stagingnextgenearth.api.dependencies import get_membership_roles, membership_has_any_role
 from stagingnextgenearth.platform import (
     ClimateObservation,
     Membership,
@@ -120,6 +121,18 @@ async def test_platform_domain_tables_create_and_persist() -> None:
                 )
             )
             assert assigned_role is not None
+
+            resolved_roles = await get_membership_roles(session, membership)
+            assert resolved_roles == frozenset({"admin", "researcher"})
+            assert await membership_has_any_role(
+                session, membership, {"researcher"}
+            )
+            assert await membership_has_any_role(
+                session, membership, {"admin"}
+            )
+            assert not await membership_has_any_role(
+                session, membership, {"youth_volunteer"}
+            )
 
             assert await session.scalar(
                 select(Organization).where(Organization.slug == "nextgen-for-earth")
