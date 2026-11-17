@@ -27,6 +27,7 @@ class NormalizedClimateValue:
 
 _RULES: dict[str, tuple[str, float, float]] = {
     "precipitation": ("mm/day", 0.0, 2000.0),
+    "precipitation_hourly": ("mm", 0.0, 500.0),
     "air_temperature_2m": ("degC", -100.0, 65.0),
     "relative_humidity": ("%", 0.0, 100.0),
     "wind_speed_10m": ("m/s", 0.0, 150.0),
@@ -36,6 +37,8 @@ _RULES: dict[str, tuple[str, float, float]] = {
 _CONVERSIONS: dict[tuple[str, str], tuple[str, float, float, str]] = {
     ("precipitation", "mm"): ("mm/day", 1.0, 0.0, "mm to mm/day daily accumulation"),
     ("precipitation", "mm/day"): ("mm/day", 1.0, 0.0, "identity"),
+    ("precipitation_hourly", "m"): ("mm", 1000.0, 0.0, "metres to millimetres hourly accumulation"),
+    ("precipitation_hourly", "mm"): ("mm", 1.0, 0.0, "identity"),
     ("precipitation", "cm"): ("mm/day", 10.0, 0.0, "cm to mm/day daily accumulation"),
     ("precipitation", "in"): ("mm/day", 25.4, 0.0, "inches to mm/day daily accumulation"),
     ("air_temperature_2m", "degc"): ("degC", 1.0, 0.0, "identity"),
