@@ -1,13 +1,21 @@
 """Research study workspace endpoints with strict organisation scoping."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stagingnextgenearth.platform.models import Membership, Project, ResearchStudy
+from stagingnextgenearth.platform.models import (
+    Membership,
+    OrganizationAuditEvent,
+    Project,
+    ResearchEthicsReviewEvent,
+    ResearchProtocolVersion,
+    ResearchPublication,
+    ResearchStudy,
+)
 
 from .dependencies import (
     Principal,
@@ -39,6 +47,12 @@ class ResearchStudyCreate(BaseModel):
     study_type: str | None = Field(default=None, max_length=80)
     project_id: str | None = None
     ethics_reference: str | None = Field(default=None, max_length=160)
+
+
+class ResearchStudyStatusUpdate(BaseModel):
+    """Target state for a governed research-study lifecycle transition."""
+
+    status: Literal["protocol", "active", "completed", "published", "archived"]
 
 
 class ResearchStudyRead(BaseModel):
@@ -108,3 +122,98 @@ async def list_research_studies(
         .order_by(ResearchStudy.created_at.desc())
     )
     return [ResearchStudyRead.model_validate(item) for item in result.all()]
+
+
+@router.patch("/{study_id}/status", response_model=ResearchStudyRead)
+async def update_research_study_status(
+    organization_id: str,
+    study_id: str,
+    body: ResearchStudyStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ResearchStudyRead:
+    """Advance a study through protocol, ethics, delivery and publication gates."""
+    if not await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive", "programme_manager"}
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Research lifecycle management permission required"
+        )
+    study = await session.scalar(
+        select(ResearchStudy)
+        .where(ResearchStudy.id == study_id, ResearchStudy.organization_id == organization_id)
+        .with_for_update()
+    )
+    if study is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
+
+    transitions = {
+        "concept": "protocol",
+        "protocol": "active",
+        "active": "completed",
+        "completed": "published",
+        "published": "archived",
+    }
+    target = body.status
+    if transitions.get(study.status) != target:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Study cannot transition from {study.status} to {target}",
+        )
+
+    if target in {"protocol", "active"}:
+        latest_protocol = await session.scalar(
+            select(ResearchProtocolVersion)
+            .where(ResearchProtocolVersion.study_id == study_id)
+            .order_by(
+                ResearchProtocolVersion.version_number.desc(), ResearchProtocolVersion.id.desc()
+            )
+            .limit(1)
+        )
+        if latest_protocol is None or latest_protocol.status != "approved":
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "The latest protocol version must be approved before this transition",
+            )
+        if target == "active":
+            ethics_decision = await session.scalar(
+                select(ResearchEthicsReviewEvent)
+                .where(
+                    ResearchEthicsReviewEvent.study_id == study_id,
+                    ResearchEthicsReviewEvent.protocol_version_id == latest_protocol.id,
+                )
+                .order_by(
+                    ResearchEthicsReviewEvent.reviewed_at.desc(),
+                    ResearchEthicsReviewEvent.id.desc(),
+                )
+                .limit(1)
+            )
+            if ethics_decision is None or ethics_decision.decision not in {"approved", "exempt"}:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "A matching ethics approval or exemption is required before activation",
+                )
+    if target == "published":
+        publication_id = await session.scalar(
+            select(ResearchPublication.id).where(ResearchPublication.study_id == study_id).limit(1)
+        )
+        if publication_id is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "At least one linked publication is required before publication status",
+            )
+
+    previous_status = study.status
+    study.status = target
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            action="research.study.status_changed",
+            changes={"study_id": study_id, "from_status": previous_status, "to_status": target},
+        )
+    )
+    await session.commit()
+    await session.refresh(study)
+    return ResearchStudyRead.model_validate(study)

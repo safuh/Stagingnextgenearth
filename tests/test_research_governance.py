@@ -283,3 +283,146 @@ def test_ethics_review_cannot_reference_unapproved_or_foreign_protocol(
         },
     )
     assert pending.status_code == 409
+
+
+def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
+    client: TestClient,
+) -> None:
+    lead_headers = _register(client, "lifecycle-lead@example.org")
+    reviewer_headers = _register(client, "lifecycle-reviewer@example.org")
+    researcher_headers = _register(client, "lifecycle-researcher@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={"name": "Lifecycle Research Lab", "slug": "lifecycle-research-lab"},
+    ).json()
+    organization_id = organization["id"]
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=lead_headers,
+        json={"identifier": "lifecycle-reviewer@example.org", "role": "programme_manager"},
+    )
+    assert invitation.status_code == 201
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+        headers=reviewer_headers,
+    )
+    assert accepted.status_code == 200
+    researcher_invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=lead_headers,
+        json={"identifier": "lifecycle-researcher@example.org", "role": "researcher"},
+    )
+    assert researcher_invitation.status_code == 201
+    researcher_accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/"
+        f"{researcher_invitation.json()['id']}/accept",
+        headers=researcher_headers,
+    )
+    assert researcher_accepted.status_code == 200
+
+    study = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=lead_headers,
+        json={"title": "Lifecycle gate study"},
+    ).json()
+    study_id = study["id"]
+    base = f"/api/organizations/{organization_id}/research-studies/{study_id}"
+    status_url = f"{base}/status"
+
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "protocol"}).status_code
+        == 409
+    )
+    protocol = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Lifecycle protocol",
+            "objectives": "Evaluate the effect of seasonal rainfall variability.",
+            "methodology": "Use calibrated observations and documented statistical methods.",
+        },
+    )
+    assert protocol.status_code == 201
+    protocol_id = protocol.json()["id"]
+    assert (
+        client.post(
+            f"{base}/protocol-versions/{protocol_id}/submit", headers=lead_headers
+        ).status_code
+        == 200
+    )
+    review = client.post(
+        f"{base}/protocol-versions/{protocol_id}/reviews",
+        headers=reviewer_headers,
+        json={"decision": "approved", "note": "Protocol methods and safeguards are adequate."},
+    )
+    assert review.status_code == 201
+    moved_to_protocol = client.patch(status_url, headers=lead_headers, json={"status": "protocol"})
+    assert moved_to_protocol.status_code == 200
+    assert moved_to_protocol.json()["status"] == "protocol"
+
+    # Approval of a protocol alone is not sufficient to begin field activity.
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
+    )
+    ethics = client.post(
+        f"{base}/ethics-reviews",
+        headers=reviewer_headers,
+        json={
+            "protocol_version_id": protocol_id,
+            "decision": "approved",
+            "reference": "ERB-LIFECYCLE-01",
+            "note": "Participant consent and data safeguards are approved.",
+        },
+    )
+    assert ethics.status_code == 201
+    activated = client.patch(status_url, headers=lead_headers, json={"status": "active"})
+    assert activated.status_code == 200
+    assert activated.json()["status"] == "active"
+
+    completed = client.patch(status_url, headers=lead_headers, json={"status": "completed"})
+    assert completed.status_code == 200
+    # A completed study cannot be marked published without a linked publication record.
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "published"}).status_code
+        == 409
+    )
+    publication = client.post(
+        f"{base}/publications",
+        headers=lead_headers,
+        json={
+            "title": "Seasonal rainfall variability findings",
+            "authors": ["Research Team"],
+            "publication_type": "report",
+        },
+    )
+    assert publication.status_code == 201
+    published = client.patch(status_url, headers=lead_headers, json={"status": "published"})
+    assert published.status_code == 200
+    assert published.json()["status"] == "published"
+    archived = client.patch(status_url, headers=lead_headers, json={"status": "archived"})
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+    assert (
+        client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
+    )
+
+    # A non-manager researcher cannot alter the organisation's study lifecycle.
+    assert (
+        client.patch(status_url, headers=researcher_headers, json={"status": "active"}).status_code
+        == 403
+    )
+
+    audit_events = client.get(
+        f"/api/organizations/{organization_id}/audit-events", headers=lead_headers
+    )
+    assert audit_events.status_code == 200
+    lifecycle_events = [
+        event for event in audit_events.json() if event["action"] == "research.study.status_changed"
+    ]
+    assert len(lifecycle_events) == 5
+    assert lifecycle_events[0]["changes"] == {
+        "study_id": study_id,
+        "from_status": "published",
+        "to_status": "archived",
+    }
