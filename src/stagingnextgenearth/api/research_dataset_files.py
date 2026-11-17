@@ -20,7 +20,13 @@ from stagingnextgenearth.platform.models import (
 )
 from stagingnextgenearth.storage import ObjectStorage
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 from .research_collaborators import study_access_role
 
 router = APIRouter(
@@ -126,11 +132,11 @@ async def create_dataset_file_upload_intent(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _WRITE_ROLES and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _WRITE_ROLES) and study_role not in {"editor", "contributor"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     if (
         dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role not in {"editor", "contributor"}
     ):
         raise HTTPException(
@@ -238,11 +244,11 @@ async def complete_dataset_file_upload(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _WRITE_ROLES and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _WRITE_ROLES) and study_role not in {"editor", "contributor"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset upload is not permitted")
     if (
         record.created_by != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role not in {"editor", "contributor"}
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Uploader or study collaborator required")
@@ -347,14 +353,14 @@ async def create_dataset_file_download(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _READ_ROLES and study_role not in {
+    if not await membership_has_any_role(session, membership, _READ_ROLES) and study_role not in {
         "editor", "contributor", "viewer"
     }:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset file access is not permitted")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset file not found")
@@ -408,14 +414,14 @@ async def list_dataset_files(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _WRITE_ROLES | {"institutional_partner"} and study_role not in {
+    if not await membership_has_any_role(session, membership, _WRITE_ROLES | {"institutional_partner"}) and study_role not in {
         "editor", "contributor", "viewer"
     }:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registry access required")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
