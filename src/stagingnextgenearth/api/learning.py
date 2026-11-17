@@ -766,6 +766,27 @@ async def list_course_submissions(
         .order_by(LearningAssessmentAttempt.submitted_at.desc())
         .limit(500)
     )
+    submission_rows = rows.all()
+    attempt_ids = [attempt.id for attempt, _ in submission_rows]
+    evaluation_rows = await session.scalars(
+        select(LearningAssessmentEvaluation)
+        .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
+        .order_by(
+            LearningAssessmentEvaluation.evaluated_at,
+            LearningAssessmentEvaluation.id,
+        )
+    ) if attempt_ids else []
+    history_by_attempt: dict[str, list[dict[str, object]]] = {}
+    for evaluation in evaluation_rows:
+        history_by_attempt.setdefault(evaluation.attempt_id, []).append({
+            "id": evaluation.id,
+            "score": evaluation.score,
+            "feedback": evaluation.feedback,
+            "previous_score": evaluation.previous_score,
+            "previous_feedback": evaluation.previous_feedback,
+            "evaluated_by": evaluation.evaluated_by,
+            "evaluated_at": evaluation.evaluated_at,
+        })
     return [
         {
             "id": attempt.id,
@@ -777,8 +798,9 @@ async def list_course_submissions(
             "feedback": attempt.feedback,
             "submitted_at": attempt.submitted_at,
             "evaluated_at": attempt.evaluated_at,
+            "evaluation_history": history_by_attempt.get(attempt.id, []),
         }
-        for attempt, assessment in rows.all()
+        for attempt, assessment in submission_rows
     ]
 
 
