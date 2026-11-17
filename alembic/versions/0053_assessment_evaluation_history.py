@@ -10,7 +10,6 @@ from uuid import uuid4
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "0053_assessment_evaluation_history"
 down_revision: str | None = "0052_mentorship_lifecycle_audit"
 branch_labels: str | Sequence[str] | None = None
