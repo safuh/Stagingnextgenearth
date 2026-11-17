@@ -19,6 +19,7 @@ type LearningPortfolio = { programmes_total: number; courses_total: number; aver
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
 type ResearchGovernance = { study: Study; proposals: ResearchProposal[]; milestones: ResearchMilestone[] };
+type ClimateStewardship = { observation_count: number; pending_review: number; verified: number; rejected: number; first_observed_at: string | null; last_observed_at: string | null; sources: { name: string; count: number }[]; variables: { name: string; count: number }[]; inventory_truncated: boolean; interpretation: string };
 
 export default function ExecutiveOverviewPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
@@ -34,7 +35,7 @@ export default function ExecutiveOverviewPage() {
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
   const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
-  const [learningPortfolio, setLearningPortfolio] = useState<LearningPortfolio | null>(null);
+  const [learningPortfolio, setLearningPortfolio] = useState<LearningPortfolio | null>(null);\n  const [climateStewardship, setClimateStewardship] = useState<ClimateStewardship | null>(null);
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,7 +86,7 @@ export default function ExecutiveOverviewPage() {
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
     setPortfolio(portfolioSnapshot);
-    setLearningPortfolio(learningSnapshot);
+    setLearningPortfolio(learningSnapshot);\n    setClimateStewardship(climateSnapshot);
     setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
@@ -234,3 +235,4 @@ export default function ExecutiveOverviewPage() {
     </section>
   </main>;
 }
+        {climateStewardship && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">CLIMATE DATA STEWARDSHIP</p><h2>Research data inventory</h2></div><Link className="secondary-action" href="/workspace/research">Research workspace</Link></div><div className="workspace-stats admin-stats"><article><span>OBSERVATIONS HELD</span><strong>{climateStewardship.observation_count}</strong><p>{climateStewardship.sources.length} recorded sources</p></article><article><span>AWAITING REVIEW</span><strong>{climateStewardship.pending_review}</strong><p>{climateStewardship.verified} verified · {climateStewardship.rejected} rejected</p></article><article><span>OBSERVATION WINDOW</span><strong>{climateStewardship.first_observed_at ? new Date(climateStewardship.first_observed_at).toLocaleDateString() : "—"}</strong><p>Latest: {climateStewardship.last_observed_at ? new Date(climateStewardship.last_observed_at).toLocaleDateString() : "—"}</p></article></div><div className="admin-member-row"><div className="admin-member-meta"><strong>Sources</strong><span>{climateStewardship.sources.map(item => item.name + " (" + item.count + ")").join(" · ") || "No observations recorded"}</span></div></div><div className="admin-member-row"><div className="admin-member-meta"><strong>Variables</strong><span>{climateStewardship.variables.map(item => item.name + " (" + item.count + ")").join(" · ") || "No observations recorded"}</span></div></div><p className="workspace-muted">This is a tenant-scoped inventory of observations held in the portal, not independent scientific validation or a measure of environmental impact.{climateStewardship.inventory_truncated ? " Only the 20 most frequent sources or variables are shown." : ""}</p></section>}
