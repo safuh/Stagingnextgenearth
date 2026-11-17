@@ -83,6 +83,20 @@ def test_employment_application_requires_review_before_employee_membership(tmp_p
         )
         assert decision.status_code == 200
         assert decision.json()["status"] == "approved"
+
+        audit = client.get(
+            f"/api/organizations/{org_id}/audit-events?limit=100",
+            headers=owner,
+        )
+        assert audit.status_code == 200
+        event = next(
+            item for item in audit.json()
+            if item["action"] == "employment_application.decided"
+        )
+        assert event["subject_user_id"] == created.json()["user_id"]
+        assert event["changes"]["application_id"] == application_id
+        assert event["changes"]["decision"] == "approved"
+        assert event["changes"]["employee_membership_created"] is True
         memberships = client.get(f"/api/organizations/{org_id}/memberships", headers=owner)
         assert memberships.status_code == 200
         employee = next(
