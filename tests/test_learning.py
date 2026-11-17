@@ -679,3 +679,22 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=learner_headers,
         )
         assert denied_outcomes_export.status_code == 403
+
+        learning_portfolio = client.get(
+            f"{base}/portfolio-outcomes",
+            headers=admin_headers,
+        )
+        assert learning_portfolio.status_code == 200
+        learning_portfolio_body = learning_portfolio.json()
+        assert learning_portfolio_body["programmes_total"] == 1
+        assert learning_portfolio_body["courses_total"] == 1
+        assert learning_portfolio_body["totals"]["learners"] == 1
+        assert learning_portfolio_body["totals"]["completed"] == 1
+        assert learning_portfolio_body["totals"]["attendance_records"] == 2
+        assert learning_portfolio_body["totals"]["pending_evaluations"] == 0
+        assert learning_portfolio_body["programmes"][0]["programme_id"] == programme_id
+        denied_learning_portfolio = client.get(
+            f"{base}/portfolio-outcomes",
+            headers=learner_headers,
+        )
+        assert denied_learning_portfolio.status_code == 403

@@ -13,7 +13,9 @@ type Study = { id: string; title: string; status: string; study_type: string | n
 type Course = { id: string; title: string; status: string };
 type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
 type OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number; pending_directory_reviews: number };
-type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };\ntype PortfolioOverview = { programmes_total: number; programmes_active: number; activities_total: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number; programmes: (DeliverySummary & { programme_title: string; programme_status: string })[] };
+type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
+type PortfolioOverview = { programmes_total: number; programmes_active: number; activities_total: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number; programmes: (DeliverySummary & { programme_title: string; programme_status: string })[] };
+type LearningPortfolio = { programmes_total: number; courses_total: number; average_progress: number; totals: { learners: number; approved: number; completed: number; attendance_records: number; attendance_sessions: number; mentorship_assignments: number; active_mentorships: number; assessment_submissions: number; evaluated_submissions: number; pending_evaluations: number }; programmes: { programme_id: string; programme_title: string; course_count: number; average_progress: number; totals: { learners: number; completed: number; pending_evaluations: number } }[] };
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
 type ResearchGovernance = { study: Study; proposals: ResearchProposal[]; milestones: ResearchMilestone[] };
@@ -30,7 +32,9 @@ export default function ExecutiveOverviewPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
-  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});\n  const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
+  const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
+  const [learningPortfolio, setLearningPortfolio] = useState<LearningPortfolio | null>(null);
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,13 +74,19 @@ export default function ExecutiveOverviewPage() {
     }));
     const portfolioResult = await Promise.allSettled([
       apiGet<PortfolioOverview>(`/organizations/${id}/delivery-overview`),
+      apiGet<LearningPortfolio>(`/organizations/${id}/learning/portfolio-outcomes`),
     ]);
     const portfolioSnapshot = portfolioResult[0].status === "fulfilled"
       ? portfolioResult[0].value
       : null;
+    const learningSnapshot = portfolioResult[1].status === "fulfilled"
+      ? portfolioResult[1].value
+      : null;
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
-    setPortfolio(portfolioSnapshot);\n    setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
+    setPortfolio(portfolioSnapshot);
+    setLearningPortfolio(learningSnapshot);
+    setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
   }, []);
@@ -126,6 +136,7 @@ export default function ExecutiveOverviewPage() {
           <article><span>CMS REVIEW QUEUE</span><strong>{count("review")}</strong><p>{count("approved")} approved · {count("published")} published</p></article>
         </div>
         {portfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">ORGANISATION-WIDE DELIVERY</p><h2>Portfolio performance</h2></div><span className="workspace-muted">{portfolio.programmes_total} programmes · {portfolio.programmes_active} active</span></div><div className="workspace-stats admin-stats"><article><span>ACTIVITIES RECORDED</span><strong>{portfolio.activities_total}</strong><p>{portfolio.activities_completed} completed</p></article><article><span>VOLUNTEER ASSIGNMENTS</span><strong>{portfolio.volunteers_assigned + portfolio.volunteers_completed}</strong><p>{portfolio.volunteers_completed} completed · {portfolio.volunteers_assigned} active</p></article><article><span>ATTENDANCE RECORDS</span><strong>{portfolio.attendance_total}</strong><p>{portfolio.attendance_present} marked present</p></article></div><p className="workspace-muted">Totals aggregate recorded programme activities, volunteer allocations and attendance across the organisation. They are operational records, not independently verified impact measures.</p></section>}
+        {learningPortfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">LEARNING & CAPACITY OUTCOMES</p><h2>Organisation training performance</h2></div><Link className="secondary-action" href="/workspace/learning-admin">Learning administration</Link></div><div className="workspace-stats admin-stats"><article><span>LEARNERS ENROLLED</span><strong>{learningPortfolio.totals.learners}</strong><p>{learningPortfolio.totals.approved} approved</p></article><article><span>COURSE COMPLETIONS</span><strong>{learningPortfolio.totals.completed}</strong><p>{learningPortfolio.average_progress}% average progress</p></article><article><span>ASSESSMENT EVALUATIONS</span><strong>{learningPortfolio.totals.evaluated_submissions}</strong><p>{learningPortfolio.totals.pending_evaluations} awaiting review</p></article><article><span>MENTORSHIP</span><strong>{learningPortfolio.totals.active_mentorships}</strong><p>{learningPortfolio.totals.mentorship_assignments} total assignments</p></article></div>{learningPortfolio.programmes.length === 0 ? <p className="workspace-muted">No programme-linked courses or learner outcomes have been recorded.</p> : learningPortfolio.programmes.slice(0, 8).map(item => <article className="admin-member-row" key={item.programme_id}><div className="admin-member-meta"><strong>{item.programme_title}</strong><span>{item.course_count} courses · {item.totals.learners} learners · {item.totals.completed} completions · {item.average_progress}% average progress · {item.totals.pending_evaluations} pending evaluations</span></div></article>)}<p className="workspace-muted">Learning figures aggregate programme-linked courses. Learners enrolled in multiple courses are counted once per course; these totals represent enrolments, not unique individuals.</p></section>}
         <div className="staff-grid admin-grid">
           <section className="staff-card">
             <div className="section-heading"><div><p className="eyebrow">PROGRAMME PORTFOLIO</p><h2>Programme status</h2></div><Link className="secondary-action" href="/workspace/programmes">Manage</Link></div>

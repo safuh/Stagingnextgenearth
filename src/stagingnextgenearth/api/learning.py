@@ -1667,3 +1667,68 @@ async def course_progress(
         "evaluated_submissions": sum(row.evaluated_at is not None for row in attempts),
         "pending_evaluations": sum(row.evaluated_at is None for row in attempts),
     }
+
+
+@router.get("/portfolio-outcomes")
+async def organisation_learning_outcomes(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Aggregate learning outcomes across every programme in an organisation."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Learning portfolio reporting permission required")
+    programme_rows = await session.scalars(
+        select(Programme)
+        .where(Programme.organization_id == organization_id)
+        .order_by(Programme.title, Programme.id)
+        .limit(100)
+    )
+    reports = [
+        cast(
+            dict[str, Any],
+            await programme_outcomes(
+                organization_id, programme.id, membership, session
+            ),
+        )
+        for programme in programme_rows.all()
+    ]
+    metric_keys = (
+        "learners",
+        "approved",
+        "completed",
+        "attendance_records",
+        "attendance_sessions",
+        "mentorship_assignments",
+        "active_mentorships",
+        "assessment_submissions",
+        "evaluated_submissions",
+        "pending_evaluations",
+    )
+    totals = {
+        key: sum(int(report["totals"][key]) for report in reports)
+        for key in metric_keys
+    }
+    learner_count = totals["learners"]
+    weighted_progress = sum(
+        float(report["average_progress"]) * int(report["totals"]["learners"])
+        for report in reports
+    )
+    return {
+        "organization_id": organization_id,
+        "programmes_total": len(reports),
+        "courses_total": sum(int(report["course_count"]) for report in reports),
+        "average_progress": round(weighted_progress / learner_count, 1)
+        if learner_count else 0.0,
+        "totals": totals,
+        "programmes": [
+            {
+                "programme_id": report["programme_id"],
+                "programme_title": report["programme_title"],
+                "course_count": report["course_count"],
+                "average_progress": report["average_progress"],
+                "totals": report["totals"],
+            }
+            for report in reports
+        ],
+    }
