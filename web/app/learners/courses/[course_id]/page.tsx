@@ -182,7 +182,7 @@ export default function LearnerClassroomPage() {
               <h2>Your course progress</h2>
               <p className="workspace-muted">{progress.enrollment_status.replaceAll("_", " ")} · {progress.progress_percent}% complete</p>
               <progress value={progress.progress_percent} max={100} aria-label="Course completion" />
-              {certificateCode && <p role="status">Certificate issued. Verification code: <strong>{certificateCode}</strong></p>}
+              {certificateCode && <p role="status">Certificate issued. Verification code: <strong>{certificateCode}</strong>. <Link href="/certificates/verify">Open public certificate verification</Link></p>}
             </section>
             <section className="staff-card">
               <h2>Course curriculum</h2>
