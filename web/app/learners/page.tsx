@@ -35,9 +35,9 @@ export default function LearnerPortalPage() {
   async function loadLearnerData() {
     const [organization, available] = await Promise.all([
       apiGet<{ id: string; name: string; slug: string }>(
-        "/public/organizations/nextgen-for-earth",
+        "/public/organizations/next-gen-for-earth",
       ),
-      apiGet<Course[]>("/public/organizations/nextgen-for-earth/courses"),
+      apiGet<Course[]>("/public/organizations/next-gen-for-earth/courses"),
     ]);
     setCourses(available);
     const mine = await apiGet<Application[]>(
