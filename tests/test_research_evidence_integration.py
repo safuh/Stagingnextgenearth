@@ -1,6 +1,8 @@
 """Integration tests for tenant and study authorization on the evidence ledger."""
 
 import asyncio
+import csv
+import io
 from pathlib import Path
 
 import pytest
@@ -67,10 +69,7 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
     assert study.status_code == 201
     study_id = study.json()["id"]
 
-    ledger_url = (
-        f"/api/organizations/{organization_id}/research-studies/"
-        f"{study_id}/evidence-ledger"
-    )
+    ledger_url = f"/api/organizations/{organization_id}/research-studies/{study_id}/evidence-ledger"
     response = client.get(ledger_url, headers=lead_headers)
     assert response.status_code == 200
     payload = response.json()
@@ -91,6 +90,16 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
         "traceability_inventory_not_independent_scientific_validation"
     )
 
+    exported = client.get(f"{ledger_url}/export", headers=lead_headers)
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith("text/csv")
+    assert 'attachment; filename="research-evidence-' in exported.headers["content-disposition"]
+    assert exported.content.startswith(b"\xef\xbb\xbf")
+    records = list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))
+    assert [row["record_type"] for row in records] == ["study", "climate_summary"]
+    assert all("storage_key" not in key for key in records[0])
+    assert "value" not in records[0]
+
     # The same study identifier cannot be resolved through another tenant.
     other_organization = client.post(
         "/api/organizations",
@@ -104,10 +113,18 @@ def test_evidence_ledger_is_study_scoped_and_tenant_isolated(
         headers=other_headers,
     )
     assert cross_tenant.status_code == 404
+    cross_tenant_export = client.get(
+        f"/api/organizations/{other_organization.json()['id']}/research-studies/"
+        f"{study_id}/evidence-ledger/export",
+        headers=other_headers,
+    )
+    assert cross_tenant_export.status_code == 404
 
     # Membership checks deliberately conceal organisation resources from outsiders.
     outsider = client.get(ledger_url, headers=other_headers)
     assert outsider.status_code == 404
+    outsider_export = client.get(f"{ledger_url}/export", headers=other_headers)
+    assert outsider_export.status_code == 404
 
 
 def test_evidence_ledger_rejects_invalid_result_limits(client: TestClient) -> None:
@@ -122,9 +139,8 @@ def test_evidence_ledger_rejects_invalid_result_limits(client: TestClient) -> No
         headers=headers,
         json={"title": "Bounded evidence study"},
     ).json()
-    url = (
-        f"/api/organizations/{organization['id']}/research-studies/"
-        f"{study['id']}/evidence-ledger"
-    )
+    url = f"/api/organizations/{organization['id']}/research-studies/{study['id']}/evidence-ledger"
     assert client.get(f"{url}?limit=0", headers=headers).status_code == 422
     assert client.get(f"{url}?limit=501", headers=headers).status_code == 422
+    assert client.get(f"{url}/export?limit=0", headers=headers).status_code == 422
+    assert client.get(f"{url}/export?limit=501", headers=headers).status_code == 422
