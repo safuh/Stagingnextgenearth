@@ -54,7 +54,7 @@ async def create_project(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ProjectRead:
     """Create a planned project; only administrators and programme managers may write."""
-    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive", "programme_manager"}):
+    if not await membership_has_any_role(session, membership, {"admin", "founder", "executive", "programme_manager"}):  # noqa: E501
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient organisation permissions")
     if body.programme_id is not None:
         programme = await session.scalar(
