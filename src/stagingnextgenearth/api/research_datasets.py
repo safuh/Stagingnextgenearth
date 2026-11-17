@@ -32,9 +32,9 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-datasets"],
 )
-_REGISTRY_ROLES = {"admin", "programme_manager", "researcher", "institutional_partner"}
-_CREATE_ROLES = {"admin", "programme_manager", "researcher"}
-_REVIEW_ROLES = {"admin", "programme_manager"}
+_REGISTRY_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}
+_CREATE_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher"}
+_REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 
 
 class ResearchDatasetCreate(BaseModel):
