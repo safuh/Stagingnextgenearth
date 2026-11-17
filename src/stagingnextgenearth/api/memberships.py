@@ -19,7 +19,6 @@ from stagingnextgenearth.platform.models import (
 from .dependencies import (
     Principal,
     get_current_principal,
-    get_membership_roles,
     get_session,
     membership_has_any_role,
     require_membership,
