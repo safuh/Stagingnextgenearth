@@ -506,8 +506,10 @@ async def decide_enrollment(
                     status="active",
                 )
             )
-        elif existing_membership.status != "active"
-        or not await membership_has_any_role(session, existing_membership, _LEARN):
+        elif (
+            existing_membership.status != "active"
+            or not await membership_has_any_role(session, existing_membership, _LEARN)
+        ):
             raise HTTPException(
                 409,
                 "Applicant has an incompatible or inactive organisation membership",
