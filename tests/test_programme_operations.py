@@ -338,7 +338,7 @@ def test_programme_activity_and_participant_allocation(tmp_path: Path) -> None:
         )
         assert delivery_export.status_code == 200
         assert delivery_export.headers["content-type"].startswith("text/csv")
-        assert delivery_export.content.startswith(b"\\xef\\xbb\\xbf")
+        assert delivery_export.content.startswith(b"\xef\xbb\xbf")
         assert "organisation_total,activities_completed,1" in delivery_export.text
         assert "Community tree restoration" in delivery_export.text
         assert client.get(
