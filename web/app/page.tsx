@@ -121,7 +121,7 @@ export default function HomePage() {
           <a href="#programmes">Programmes</a>\n          <a href="#research">Research</a>\n          <a href="#activities">Activities</a>
           <a href="/volunteer/apply">Volunteer</a>
           <a href="/employment/apply">Careers</a>
-          <a href="#access">Sign in</a>
+          <a href="/staff/login">Staff sign in</a>
         </nav>
         <a className="nav-cta" href="#access">Access platform <span aria-hidden="true">↗</span></a>
       </header>
@@ -163,7 +163,7 @@ export default function HomePage() {
               <p className="portal-tag">{portal.tag}</p>
               <h3>{portal.title}</h3>
               <p className="portal-description">{portal.description}</p>
-              <a href={index === 1 ? "/learners" : "#access"} aria-label={index === 1 ? "Open learner and volunteer portal" : `Sign in for ${portal.title}`}>Open portal <span>↗</span></a>
+              <a href={index === 1 ? "/learners" : "/staff/login"} aria-label={index === 1 ? "Open learner and volunteer portal" : `Open ${portal.title} sign in`}>Open portal <span>↗</span></a>
             </article>
           ))}
         </div>
