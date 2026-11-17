@@ -20,8 +20,9 @@ def test_analysis_history_route_is_registered_with_bounded_limit() -> None:
         for parameter in route.dependant.query_params
         if parameter.name == "limit"
     )
-    assert limit.field_info.ge == 1
-    assert limit.field_info.le == 500
+    constraints = limit.field_info.metadata
+    assert any(getattr(item, "ge", None) == 1 for item in constraints)
+    assert any(getattr(item, "le", None) == 500 for item in constraints)
 
 
 def test_analysis_run_read_contract_exposes_provenance_without_file_contents() -> None:
