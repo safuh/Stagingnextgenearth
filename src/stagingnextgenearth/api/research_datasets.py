@@ -19,7 +19,13 @@ from stagingnextgenearth.platform.models import (
     ResearchStudy,
 )
 
-from .dependencies import Principal, get_current_principal, get_session, require_membership
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_session,
+    membership_has_any_role,
+    require_membership,
+)
 from .research_collaborators import study_access_role
 
 router = APIRouter(
@@ -146,7 +152,7 @@ async def create_research_dataset(
     study_role = await study_access_role(
         session, organization_id, body.study_id, principal, membership
     )
-    if membership.role not in _CREATE_ROLES and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset registration is not permitted")
     if body.study_id is not None:
         study = await session.scalar(
@@ -191,7 +197,7 @@ async def list_research_datasets(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[ResearchDatasetRead]:
     """List registry metadata; restricted entries are visible only to owner/admin."""
-    has_registry_access = membership.role in _REGISTRY_ROLES
+    has_registry_access = await membership_has_any_role(session, membership, _REGISTRY_ROLES)
     statement = select(ResearchDataset).where(
         ResearchDataset.organization_id == organization_id
     )
@@ -210,7 +216,7 @@ async def list_research_datasets(
         if (
             item.access_classification == "restricted"
             and item.owner_user_id != principal.user_id
-            and membership.role != "admin"
+            and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
             and study_role is None
         ):
             continue
@@ -241,11 +247,11 @@ async def update_research_dataset(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _CREATE_ROLES and study_role not in {"editor", "contributor"}:
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role not in {"editor", "contributor"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset editing is not permitted")
     if (
         dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role not in {"editor", "contributor"}
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
@@ -275,7 +281,7 @@ async def update_research_dataset(
         target_role = await study_access_role(
             session, organization_id, changes["study_id"], principal, membership
         )
-        if membership.role not in _CREATE_ROLES and target_role not in {"editor", "contributor"}:
+        if not await membership_has_any_role(session, membership, _CREATE_ROLES) and target_role not in {"editor", "contributor"}:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Target study access required")
         study = await session.scalar(
             select(ResearchStudy.id).where(
@@ -339,12 +345,12 @@ async def list_research_dataset_reviews(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _REGISTRY_ROLES and study_role is None:
+    if not await membership_has_any_role(session, membership, _REGISTRY_ROLES) and study_role is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Research registry access required")
     if (
         dataset.access_classification == "restricted"
         and dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role is None
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
@@ -376,11 +382,11 @@ async def submit_research_dataset(
     study_role = await study_access_role(
         session, organization_id, dataset.study_id, principal, membership
     )
-    if membership.role not in _CREATE_ROLES and study_role != "editor":
+    if not await membership_has_any_role(session, membership, _CREATE_ROLES) and study_role != "editor":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset submission is not permitted")
     if (
         dataset.owner_user_id != principal.user_id
-        and membership.role != "admin"
+        and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"})
         and study_role != "editor"
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset owner or study editor required")
@@ -403,7 +409,7 @@ async def review_research_dataset(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResearchDatasetRead:
     """Record an independent, one-time approval or rejection decision."""
-    if membership.role not in _REVIEW_ROLES:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Dataset reviewer role required")
     dataset = await session.scalar(
         select(ResearchDataset)
@@ -415,7 +421,7 @@ async def review_research_dataset(
     )
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
-    if dataset.access_classification == "restricted" and membership.role != "admin":
+    if dataset.access_classification == "restricted" and not await membership_has_any_role(session, membership, {"admin", "founder", "executive"}):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Restricted datasets require an administrator reviewer",
