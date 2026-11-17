@@ -13,7 +13,7 @@ from stagingnextgenearth.climate_anomalies import standardized_anomaly
 from stagingnextgenearth.climate_monthly import complete_monthly_total
 from stagingnextgenearth.platform.models import ClimateObservation, Membership
 
-from .dependencies import get_session, require_membership
+from .dependencies import get_session, membership_has_any_role, require_membership
 
 router = APIRouter(
     prefix="/organizations/{organization_id}/climate-observations",
@@ -87,6 +87,15 @@ async def monthly_precipitation_anomalies(
     A single exact coordinate is required to prevent spatial pooling. Only
     daily precipitation in mm/day is accepted; rejected records are excluded.
     """
+    if not await membership_has_any_role(
+        session,
+        membership,
+        {"founder", "admin", "executive", "researcher", "programme_manager"},
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "A research or organisational leadership role is required",
+        )
     if not all((
         _month_boundary(baseline_start, end=False),
         _month_boundary(baseline_end, end=True),
