@@ -23,7 +23,9 @@ from stagingnextgenearth.platform.models import (
     LearningModule,
     LearningResource,
     Membership,
+    MembershipRole,
     Organization,
+    OrganizationAuditEvent,
     Programme,
 )
 
@@ -31,6 +33,7 @@ from .dependencies import (
     Principal,
     get_current_principal,
     get_session,
+    get_membership_roles,
     membership_has_any_role,
     require_membership,
 )
@@ -514,6 +517,34 @@ async def decide_enrollment(
                 409,
                 "Applicant has an incompatible or inactive organisation membership",
             )
+        else:
+            # Course approval is an explicit learner-role grant. Preserve any
+            # existing staff/volunteer/partner role as the membership's primary
+            # role and add learner as a separate, auditable assignment.
+            current_roles = await get_membership_roles(session, existing_membership)
+            if "learner" not in current_roles:
+                session.add(
+                    MembershipRole(
+                        membership_id=existing_membership.id,
+                        role="learner",
+                    )
+                )
+                session.add(
+                    OrganizationAuditEvent(
+                        organization_id=organization_id,
+                        actor_user_id=principal.user_id,
+                        subject_user_id=learner_id,
+                        action="membership.roles_changed",
+                        changes={
+                            "roles": {
+                                "before": sorted(current_roles),
+                                "after": sorted(current_roles | {"learner"}),
+                            },
+                            "reason": "course_enrollment_approved",
+                            "course_id": course_id,
+                        },
+                    )
+                )
     enrollment.status = body.decision
     enrollment.reviewed_by = principal.user_id
     enrollment.reviewed_at = datetime.now(UTC)
