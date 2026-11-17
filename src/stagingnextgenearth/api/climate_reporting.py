@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from stagingnextgenearth.platform.models import ClimateObservation, Membership
 
@@ -277,7 +277,7 @@ async def climate_stewardship_summary(
     ).all()
     quality = {state: int(count) for state, count in quality_rows}
 
-    async def dimension_counts(column: ColumnElement[str]) -> list[ClimateDimensionCount]:
+    async def dimension_counts(column: InstrumentedAttribute[str]) -> list[ClimateDimensionCount]:
         rows = (
             await session.execute(
                 select(column, func.count(ClimateObservation.id))
