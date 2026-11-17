@@ -60,3 +60,29 @@ retain the quality status when interpreting coverage.
   or completeness of the underlying environmental process.
 - Configure domain-specific thresholds and review procedures with qualified
   climate researchers before using the outputs for research conclusions.
+
+
+## Independent review and audit history
+
+A reviewer with an active `admin` or `programme_manager` membership may
+submit one decision for a pending observation:
+
+`POST /api/organizations/{organization_id}/climate-observations/{observation_id}/review`
+
+The request contains `decision` (`verified` or `rejected`) and an optional
+review note. Submitters cannot review their own observations. A second review
+decision is rejected with HTTP 409; corrections must use a separately governed
+follow-up process rather than rewriting the original decision.
+
+Each successful decision and its organisation audit event are committed in
+the same database transaction. The audit event records the reviewer, submitting
+user, observation identifier, decision, source, variable, observation timestamp
+and review note. The event is append-only through the application API.
+
+Authorised climate reviewers can retrieve the bounded audit history with:
+
+`GET /api/organizations/{organization_id}/climate-observations/{observation_id}/review-history`
+
+The response is tenant-scoped and ordered oldest first. This history is a
+governance record; it does not independently validate the measurement or
+replace source documents, calibration records or research methods.
