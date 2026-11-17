@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type Programme = {
   id: string;
@@ -58,7 +59,7 @@ export default function ProgrammeDetailPage() {
       setError("");
       try {
         const programmes = await apiGet<Programme[]>(
-          "/public/organizations/nextgen-for-earth/programmes",
+          `/public/organizations/${ORGANIZATION_SLUG}/programmes`,
         );
         const selected = programmes.find((item) => item.slug === slug) ?? null;
         if (!selected) {
@@ -67,13 +68,13 @@ export default function ProgrammeDetailPage() {
         }
         const [linkedCourses, linkedProjects, programmeReport] = await Promise.all([
           apiGet<Course[]>(
-            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/courses`,
+            `/public/organizations/${ORGANIZATION_SLUG}/programmes/${encodeURIComponent(slug)}/courses`,
           ),
           apiGet<ProgrammeProject[]>(
-            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/projects`,
+            `/public/organizations/${ORGANIZATION_SLUG}/programmes/${encodeURIComponent(slug)}/projects`,
           ),
           apiGet<ProgrammeReport>(
-            `/public/organizations/nextgen-for-earth/programmes/${encodeURIComponent(slug)}/report`,
+            `/public/organizations/${ORGANIZATION_SLUG}/programmes/${encodeURIComponent(slug)}/report`,
           ),
         ]);
         if (active) {
