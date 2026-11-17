@@ -163,3 +163,15 @@ async def test_nasa_power_converts_request_window_to_utc_dates() -> None:
     assert captured["start"] == "20251231"
     assert captured["end"] == "20260101"
     assert all(item.observed_at.date().isoformat() == "2026-01-01" for item in measurements)
+
+
+@pytest.mark.asyncio
+async def test_nasa_power_rejects_overlong_request_before_network_access() -> None:
+    provider = NASAPowerProvider(max_days=2)
+    request = ClimateProviderRequest(
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        end=datetime(2026, 1, 4, tzinfo=UTC),
+        point=ClimatePoint(latitude=-1.286, longitude=36.817),
+    )
+    with pytest.raises(ValueError, match="2-day limit"):
+        await anext(provider.fetch(request))

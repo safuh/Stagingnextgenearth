@@ -27,7 +27,7 @@ COPERNICUS_CITATION = (
 
 _DEFAULT_VARIABLES = {
     "2m_temperature": "air_temperature_2m",
-    "total_precipitation": "precipitation",
+    "total_precipitation": "precipitation_hourly",
 }
 
 

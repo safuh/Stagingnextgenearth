@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .employment_applications import router as employment_applications_router
 from .climate import router as climate_router
+from .climate_ingestion import router as climate_ingestion_router
 from .climate_analysis import router as climate_analysis_router
 from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
@@ -70,6 +71,7 @@ api_router.include_router(research_datasets_router)
 api_router.include_router(research_dataset_files_router)
 api_router.include_router(research_exports_router)
 api_router.include_router(climate_router)
+api_router.include_router(climate_ingestion_router)
 api_router.include_router(climate_reporting_router)
 api_router.include_router(climate_analysis_router)
 

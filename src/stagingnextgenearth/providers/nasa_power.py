@@ -47,6 +47,7 @@ class NASAPowerProvider:
         community: str = "AG",
         timeout_seconds: float = 30.0,
         max_retries: int = 2,
+        max_days: int = 366,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.parameter_variables = dict(
@@ -71,9 +72,12 @@ class NASAPowerProvider:
             raise ValueError("timeout_seconds must be positive")
         if max_retries < 0 or max_retries > 5:
             raise ValueError("max_retries must be between 0 and 5")
+        if not 1 <= max_days <= 366:
+            raise ValueError("max_days must be between 1 and 366")
         self.community = community.upper()
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+        self.max_days = max_days
         self._client = client
 
     async def fetch(
@@ -88,6 +92,8 @@ class NASAPowerProvider:
         end_date = (end_utc - timedelta(microseconds=1)).date()
         if end_date < start_date:
             raise ValueError("request must cover at least one calendar day")
+        if (end_date - start_date).days + 1 > self.max_days:
+            raise ValueError(f"NASA POWER request exceeds the {self.max_days}-day limit")
 
         params = {
             "parameters": ",".join(self.parameter_variables),

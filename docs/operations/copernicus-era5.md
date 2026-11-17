@@ -33,9 +33,9 @@ reviewed.
 | CDS variable | Platform variable |
 |---|---|
 | `2m_temperature` | `air_temperature_2m` |
-| `total_precipitation` | `precipitation` |
+| `total_precipitation` | `precipitation_hourly` |
 
-ERA5 is hourly and grid-based. A point request selects the nearest grid cell
+ERA5 is hourly and grid-based. Hourly total precipitation is converted from metres to millimetres per hourly accumulation and stored as `precipitation_hourly`; it is not relabelled as a daily total. A point request selects the nearest grid cell
 inside a small request envelope; an area request returns grid-cell
 measurements. The source units are preserved unchanged. In particular,
 ERA5 total precipitation is not silently converted from metres to millimetres.
