@@ -397,7 +397,8 @@ async def apply_for_course(
         )
     )
     if existing_membership is not None and (
-        existing_membership.status != "active" or existing_not await membership_has_any_role(session, membership, _LEARN)
+        existing_membership.status != "active"
+        or not await membership_has_any_role(session, existing_membership, _LEARN)
     ):
         raise HTTPException(403, "This account is not eligible for learner applications")
     enrollment = LearningEnrollment(
@@ -505,7 +506,8 @@ async def decide_enrollment(
                     status="active",
                 )
             )
-        elif existing_membership.status != "active" or existing_not await membership_has_any_role(session, membership, _LEARN):
+        elif existing_membership.status != "active"
+        or not await membership_has_any_role(session, existing_membership, _LEARN):
             raise HTTPException(
                 409,
                 "Applicant has an incompatible or inactive organisation membership",
