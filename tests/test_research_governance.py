@@ -213,6 +213,17 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert third_version.status_code == 201
     assert third_version.json()["version_number"] == 3
 
+    audit = client.get(f"/api/organizations/{organization_id}/audit-events", headers=lead_headers)
+    assert audit.status_code == 200
+    research_audit = [item for item in audit.json() if item["action"].startswith("research.")]
+    actions = [item["action"] for item in research_audit]
+    assert actions.count("research.protocol.version_created") == 3
+    assert actions.count("research.protocol.submitted") == 2
+    assert actions.count("research.protocol.reviewed") == 2
+    assert actions.count("research.ethics.review_recorded") == 1
+    assert all("note" not in item["changes"] for item in research_audit)
+    assert all(item["actor_user_id"] for item in research_audit)
+
     # History endpoints are bounded and use stable newest-first/oldest-first ordering.
     first_page = client.get(f"{base_url}/protocol-versions?limit=1", headers=lead_headers)
     second_page = client.get(f"{base_url}/protocol-versions?limit=1&offset=1", headers=lead_headers)
