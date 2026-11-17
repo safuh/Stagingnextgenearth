@@ -5,7 +5,7 @@ from importlib.util import find_spec
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
@@ -42,6 +42,17 @@ class ClimateIngestionCreate(BaseModel):
     point: ClimatePoint | None = None
     area: ClimateBoundingBox | None = None
     chirps_variant: Literal["rnl", "sat"] = "rnl"
+
+    @model_validator(mode="after")
+    def validate_request_bounds(self) -> "ClimateIngestionCreate":
+        for name, value in (("start", self.start), ("end", self.end)):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError(f"{name} must include a timezone")
+        if self.end <= self.start:
+            raise ValueError("end must be later than start")
+        if (self.point is None) == (self.area is None):
+            raise ValueError("specify exactly one point or bounding box")
+        return self
 
 
 class ClimateIngestionRead(BaseModel):

@@ -46,8 +46,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "action IN ('membership.role_changed', 'membership.status_changed', "
-            "'organization.ownership_transferred')",
+            "action IN ('membership.role_changed', 'membership.roles_changed', "
+            "'membership.status_changed', 'organization.ownership_transferred')",
             name="ck_organization_audit_event_action",
         ),
         sa.PrimaryKeyConstraint("id"),

@@ -25,7 +25,9 @@ def _request(**kwargs):
 def test_era5_builds_bounded_point_request() -> None:
     provider = CopernicusERA5Provider()
     request = _request(point=ClimatePoint(latitude=-1.28, longitude=36.82))
-    payload = provider._build_request(request, request.start, request.end)
+    payload = provider._build_request(
+        request, request.start, request.end - timedelta(microseconds=1)
+    )
 
     assert payload["product_type"] == ["reanalysis"]
     assert payload["variable"] == ["2m_temperature", "total_precipitation"]

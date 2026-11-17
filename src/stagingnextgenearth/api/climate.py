@@ -122,7 +122,7 @@ async def create_climate_observation(
         organization_id=organization_id,
         study_id=body.study_id,
         project_id=body.project_id,
-        observed_at=body.observed_at,
+        observed_at=body.observed_at.astimezone(UTC),
         variable=body.variable.strip(),
         value=body.value,
         unit=body.unit.strip(),
