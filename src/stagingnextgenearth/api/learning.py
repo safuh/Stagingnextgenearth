@@ -786,7 +786,11 @@ async def assign_mentor(
         and await membership_has_any_role(session, mentor_membership, _MANAGE | {"researcher"})
     )
     if not eligible_mentor or mentee_membership is None or body.mentor_id == body.mentee_id:
-        raise HTTPException(422, "Mentor and mentee must be distinct active organisation members and the mentor must hold an eligible role")
+        raise HTTPException(
+            422,
+            "Mentor and mentee must be distinct active members; "
+            "the mentor must hold an eligible role",
+        )
     assignment = LearningMentorship(course_id=course_id, mentor_id=body.mentor_id,
         mentee_id=body.mentee_id, notes=body.notes, assigned_by=principal.user_id, status="active")
     session.add(assignment)
