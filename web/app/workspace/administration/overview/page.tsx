@@ -13,7 +13,7 @@ type Study = { id: string; title: string; status: string; study_type: string | n
 type Course = { id: string; title: string; status: string };
 type Summary = { organization_id: string; organization_name: string; owner_user_id: string; created_at: string };
 type OperationsSummary = { organization_id: string; pending_employment_applications: number; pending_volunteer_applications: number; pending_membership_invitations: number; pending_directory_reviews: number };
-type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };
+type DeliverySummary = { programme_id: string; activities_total: number; activities_planned: number; activities_in_progress: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number };\ntype PortfolioOverview = { programmes_total: number; programmes_active: number; activities_total: number; activities_completed: number; volunteers_assigned: number; volunteers_completed: number; attendance_total: number; attendance_present: number; programmes: (DeliverySummary & { programme_title: string; programme_status: string })[] };
 type ResearchProposal = { id: string; title: string; status: string; version_number: number; submitted_at: string | null };
 type ResearchMilestone = { id: string; title: string; status: string; progress_percent: number; due_date: string | null };
 type ResearchGovernance = { study: Study; proposals: ResearchProposal[]; milestones: ResearchMilestone[] };
@@ -30,7 +30,7 @@ export default function ExecutiveOverviewPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
-  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});
+  const [delivery, setDelivery] = useState<Record<string, DeliverySummary>>({});\n  const [portfolio, setPortfolio] = useState<PortfolioOverview | null>(null);
   const [researchGovernance, setResearchGovernance] = useState<ResearchGovernance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,16 +68,15 @@ export default function ExecutiveOverviewPage() {
         milestones: milestoneResult.status === "fulfilled" ? milestoneResult.value : [],
       };
     }));
-    const deliveryResults = await Promise.allSettled(programmeRows.slice(0, 8).map(async programme => {
-      const item = await apiGet<DeliverySummary>(`/organizations/${id}/programmes/${programme.id}/delivery-summary`);
-      return [programme.id, item] as const;
-    }));
-    const deliveryRows = deliveryResults.flatMap(result =>
-      result.status === "fulfilled" ? [result.value] : []
-    );
+    const portfolioResult = await Promise.allSettled([
+      apiGet<PortfolioOverview>(`/organizations/${id}/delivery-overview`),
+    ]);
+    const portfolioSnapshot = portfolioResult[0].status === "fulfilled"
+      ? portfolioResult[0].value
+      : null;
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
-    setDelivery(Object.fromEntries(deliveryRows));
+    setPortfolio(portfolioSnapshot);\n    setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
     setLastUpdated(new Date());
   }, []);
@@ -126,6 +125,7 @@ export default function ExecutiveOverviewPage() {
           <article><span>PARTNER RECORDS</span><strong>{partners.length}</strong><p>{partners.filter(p => p.verification_state !== "verified").length} awaiting verification</p></article>
           <article><span>CMS REVIEW QUEUE</span><strong>{count("review")}</strong><p>{count("approved")} approved · {count("published")} published</p></article>
         </div>
+        {portfolio && <section className="staff-card admin-member-section"><div className="section-heading"><div><p className="eyebrow">ORGANISATION-WIDE DELIVERY</p><h2>Portfolio performance</h2></div><span className="workspace-muted">{portfolio.programmes_total} programmes · {portfolio.programmes_active} active</span></div><div className="workspace-stats admin-stats"><article><span>ACTIVITIES RECORDED</span><strong>{portfolio.activities_total}</strong><p>{portfolio.activities_completed} completed</p></article><article><span>VOLUNTEER ASSIGNMENTS</span><strong>{portfolio.volunteers_assigned + portfolio.volunteers_completed}</strong><p>{portfolio.volunteers_completed} completed · {portfolio.volunteers_assigned} active</p></article><article><span>ATTENDANCE RECORDS</span><strong>{portfolio.attendance_total}</strong><p>{portfolio.attendance_present} marked present</p></article></div><p className="workspace-muted">Totals aggregate recorded programme activities, volunteer allocations and attendance across the organisation. They are operational records, not independently verified impact measures.</p></section>}
         <div className="staff-grid admin-grid">
           <section className="staff-card">
             <div className="section-heading"><div><p className="eyebrow">PROGRAMME PORTFOLIO</p><h2>Programme status</h2></div><Link className="secondary-action" href="/workspace/programmes">Manage</Link></div>
