@@ -140,6 +140,20 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
         assert approved.json()["status"] == "approved"
         assert approved.json()["safeguarding_confirmed"] is True
 
+        audit = client.get(
+            f"/api/organizations/{org_id}/audit-events?limit=100",
+            headers=owner,
+        )
+        assert audit.status_code == 200
+        decision_event = next(
+            event for event in audit.json()
+            if event["action"] == "volunteer_application.decided"
+        )
+        assert decision_event["subject_user_id"] == application.json()["user_id"]
+        assert decision_event["changes"]["application_id"] == application_id
+        assert decision_event["changes"]["decision"] == "approved"
+        assert decision_event["changes"]["safeguarding_confirmed"] is True
+
         memberships = client.get(
             f"/api/organizations/{org_id}/memberships",
             headers=owner,
