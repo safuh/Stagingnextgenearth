@@ -125,6 +125,7 @@ async def list_research_governance_audit_events(
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=100000),
 ) -> list[ResearchGovernanceAuditRead]:
     """List bounded research governance audit events for organisation leaders."""
     if not await membership_has_any_role(
@@ -145,6 +146,7 @@ async def list_research_governance_audit_events(
             OrganizationAuditEvent.action.in_(actions),
         )
         .order_by(OrganizationAuditEvent.created_at.desc(), OrganizationAuditEvent.id.desc())
+        .offset(offset)
         .limit(limit)
     )
     return [ResearchGovernanceAuditRead.model_validate(event) for event in events.all()]
