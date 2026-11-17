@@ -1,10 +1,12 @@
 """Tenant-scoped learning management workflows."""
 
+import csv
+import io
 import secrets
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -746,6 +748,54 @@ async def list_course_attendance(
         }
         for row in rows.all()
     ]
+
+
+@router.get("/courses/{course_id}/attendance/export")
+async def export_course_attendance(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Response:
+    """Export a bounded, tenant-scoped attendance register as spreadsheet-safe CSV."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Attendance export permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.scalars(
+        select(LearningAttendance)
+        .where(LearningAttendance.course_id == course_id)
+        .order_by(
+            LearningAttendance.session_date.desc(),
+            LearningAttendance.session_title,
+            LearningAttendance.learner_id,
+        )
+        .limit(5000)
+    )
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(
+        ["session_key", "session_title", "session_date", "learner_id", "attendance_status"]
+    )
+    for row in rows.all():
+        values = [
+            row.session_key,
+            row.session_title,
+            row.session_date.isoformat(),
+            row.learner_id,
+            row.attendance_status,
+        ]
+        writer.writerow([
+            "'" + value if value.startswith(("=", "+", "-", "@")) else value
+            for value in values
+        ])
+    return Response(
+        content="\\ufeff" + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="attendance-{course_id}.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/courses/{course_id}/mentorships")
