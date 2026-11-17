@@ -43,14 +43,32 @@ class ContentRead(BaseModel):
 async def _admin(m: Membership, session: AsyncSession) -> None:
     if not await membership_has_any_role(session, m, {"admin", "founder", "executive"}):
         raise HTTPException(403, "Administrator role required")
+
+
+async def _contributor(m: Membership, session: AsyncSession) -> None:
+    if not await membership_has_any_role(
+        session, m, {"admin", "founder", "executive", "employee", "researcher"}
+    ):
+        raise HTTPException(403, "Content contributor role required")
 @router.get("/organizations/{organization_id}/content", response_model=list[ContentRead])
-async def list_content(organization_id: str, membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
-    await _admin(membership, session)
-    rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == organization_id).order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000))
+async def list_content(organization_id: str, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> list[ContentRead]:
+    reviewer = await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    )
+    if not reviewer:
+        await _contributor(membership, session)
+    statement = select(PublicContentEntry).where(
+        PublicContentEntry.organization_id == organization_id
+    )
+    if not reviewer:
+        statement = statement.where(PublicContentEntry.created_by == principal.user_id)
+    rows = await session.scalars(
+        statement.order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(1000)
+    )
     return [ContentRead.model_validate(x) for x in rows.all()]
 @router.post("/organizations/{organization_id}/content", response_model=ContentRead, status_code=201)
 async def create_content(organization_id: str, body: ContentCreate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
-    await _admin(membership, session)
+    await _contributor(membership, session)
     row = PublicContentEntry(organization_id=organization_id, content_type=body.content_type, slug=body.slug, title=body.title.strip(), summary=body.summary, body=body.body, metadata_json=body.metadata_json, publication_state="draft", source_url=body.source_url, source_label="NextGen For Earth website", created_by=principal.user_id, updated_by=principal.user_id)
     session.add(row)
     await session.flush()
@@ -66,11 +84,23 @@ async def create_content(organization_id: str, body: ContentCreate, principal: A
     return ContentRead.model_validate(row)
 @router.patch("/organizations/{organization_id}/content/{content_id}", response_model=ContentRead)
 async def update_content(organization_id: str, content_id: str, body: ContentUpdate, principal: Annotated[Principal, Depends(get_current_principal)], membership: Annotated[Membership, Depends(require_membership)], session: Annotated[AsyncSession, Depends(get_session)]) -> ContentRead:
-    await _admin(membership, session)
+    reviewer = await membership_has_any_role(
+        session, membership, {"admin", "founder", "executive"}
+    )
+    if not reviewer:
+        await _contributor(membership, session)
     row = await session.scalar(select(PublicContentEntry).where(PublicContentEntry.id == content_id, PublicContentEntry.organization_id == organization_id))
     if row is None:
         raise HTTPException(404, "Content entry not found")
     changes = body.model_dump(exclude_unset=True)
+    if not reviewer:
+        if row.created_by != principal.user_id:
+            raise HTTPException(404, "Content entry not found")
+        if row.publication_state != "draft":
+            raise HTTPException(409, "Submitted content must be returned to draft by an authorised reviewer before editing")
+        requested_state = changes.get("publication_state")
+        if requested_state not in {None, "review"}:
+            raise HTTPException(403, "Contributors may only submit drafts for review")
     next_state = changes.pop("publication_state", None)
     changed_fields = sorted([*changes, *([ "publication_state" ] if next_state is not None else [])])
     previous_state = row.publication_state
