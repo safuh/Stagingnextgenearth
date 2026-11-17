@@ -161,7 +161,7 @@ export default function ExecutiveOverviewPage() {
         </div>
         <section className="staff-card admin-member-section">
           <div className="section-heading"><div><p className="eyebrow">PEOPLE & CAPACITY</p><h2>Organisation membership</h2></div><Link className="secondary-action" href="/workspace/administration">Manage access</Link></div>
-          {members.slice(0, 12).map(m => <article className="admin-member-row" key={m.id}><div className="admin-member-meta"><strong>{m.user_id}</strong><span>{m.role.replaceAll("_"," ")} · {m.status}</span></div></article>)}
+          {members.slice(0, 12).map(m => <article className="admin-member-row" key={m.id}><div className="admin-member-meta"><strong>{m.user_id}</strong><span>{(m.roles?.length ? m.roles : [m.role]).map(item => item.replaceAll("_", " ")).join(" · ")} · {m.status}</span></div></article>)}
           <p className="workspace-muted">Public directory profiles are managed separately from login memberships; this panel reports only accounts with organisation access.</p>
         </section>
         <p className="workspace-muted">Last refreshed: {lastUpdated?.toLocaleString() ?? "—"}. Reload the page to refresh the snapshot.</p>
