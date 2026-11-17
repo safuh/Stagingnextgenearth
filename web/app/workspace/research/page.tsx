@@ -24,6 +24,14 @@ interface Study {
   lead_researcher_id: string;
   ethics_reference: string | null;
 }
+interface ProtocolVersion {
+  id: string; study_id: string; version_number: number; title: string;
+  objectives: string; methodology: string; sampling_and_participants: string | null;
+  data_management: string | null; risk_and_safeguarding: string | null;
+  status: string; submitted_at: string | null; created_at: string;
+}
+interface ProtocolReview { id: string; protocol_version_id: string; decision: string; note: string | null; reviewed_at: string; }
+interface EthicsReview { id: string; study_id: string; protocol_version_id: string | null; decision: string; reference: string | null; note: string | null; reviewed_at: string; }
 interface EvidenceLedger {
   study_id: string; study_title: string; generated_at: string;
   datasets: { dataset_id: string; title: string; version: string; access_classification: string; manifest_sha256: string; file_count: number; files_truncated: boolean }[];
@@ -126,6 +134,7 @@ export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
   const workspaceGeneration = useRef(0);
+  const governanceRequest = useRef(0);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [studies, setStudies] = useState<Study[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -134,6 +143,13 @@ export default function ResearchWorkspacePage() {
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceExporting, setEvidenceExporting] = useState(false);
   const [lifecycleSaving, setLifecycleSaving] = useState<string | null>(null);
+  const [governanceStudyId, setGovernanceStudyId] = useState("");
+  const [protocolVersions, setProtocolVersions] = useState<ProtocolVersion[]>([]);
+  const [protocolReviews, setProtocolReviews] = useState<Record<string, ProtocolReview[]>>({});
+  const [ethicsReviews, setEthicsReviews] = useState<EthicsReview[]>([]);
+  const [governanceLoading, setGovernanceLoading] = useState(false);
+  const [governanceBusy, setGovernanceBusy] = useState(false);
+  const [protocolReviewNotes, setProtocolReviewNotes] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -184,6 +200,16 @@ export default function ResearchWorkspacePage() {
 
   useEffect(() => {
     workspaceGeneration.current += 1;
+    governanceRequest.current += 1;
+    setGovernanceStudyId("");
+    setProtocolVersions([]);
+    setProtocolReviews({});
+    setEthicsReviews([]);
+    setProtocolReviewNotes({});
+    setGovernanceLoading(false);
+    setGovernanceBusy(false);
+    setEvidenceStudyId("");
+    setEvidenceLedger(null);
     setClimateObservations([]);
     setClimateListLoading(false);
     setAnalysis(null);
@@ -262,6 +288,7 @@ export default function ResearchWorkspacePage() {
   const isReviewer = membershipRoles.some((role) =>
     ["admin", "founder", "executive", "programme_manager"].includes(role)
   );
+  const canAuthorProtocols = membershipRoles.some((role) => ["admin", "founder", "executive"].includes(role));
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
     // Reload when the active organisation or membership changes.
@@ -746,6 +773,112 @@ export default function ResearchWorkspacePage() {
     }
   }
 
+  async function loadStudyGovernance(studyId: string) {
+    const generation = workspaceGeneration.current;
+    const request = ++governanceRequest.current;
+    setGovernanceStudyId(studyId);
+    setGovernanceLoading(true);
+    setError("");
+    setProtocolVersions([]);
+    setProtocolReviews({});
+    setEthicsReviews([]);
+    try {
+      const [protocols, ethics] = await Promise.all([
+        apiGet<ProtocolVersion[]>(`/organizations/${organizationId}/research-studies/${studyId}/protocol-versions?limit=100`),
+        apiGet<EthicsReview[]>(`/organizations/${organizationId}/research-studies/${studyId}/ethics-reviews?limit=100`),
+      ]);
+      const reviewEntries = await Promise.all(protocols.map(async (protocol) => [
+        protocol.id,
+        await apiGet<ProtocolReview[]>(`/organizations/${organizationId}/research-studies/${studyId}/protocol-versions/${protocol.id}/reviews?limit=100`),
+      ] as const));
+      if (generation !== workspaceGeneration.current || request !== governanceRequest.current) return;
+      setProtocolVersions(protocols);
+      setProtocolReviews(Object.fromEntries(reviewEntries));
+      setEthicsReviews(ethics);
+    } catch (cause) {
+      if (generation === workspaceGeneration.current && request === governanceRequest.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to load study governance records.");
+      }
+    } finally {
+      if (generation === workspaceGeneration.current && request === governanceRequest.current) setGovernanceLoading(false);
+    }
+  }
+
+  async function createProtocolVersion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!governanceStudyId) return;
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    setGovernanceBusy(true); setError(""); setNotice("");
+    try {
+      const created = await apiPost<ProtocolVersion>(
+        `/organizations/${organizationId}/research-studies/${governanceStudyId}/protocol-versions`,
+        {
+          title: String(values.get("protocol_title") || ""),
+          objectives: String(values.get("protocol_objectives") || ""),
+          methodology: String(values.get("protocol_methodology") || ""),
+          sampling_and_participants: String(values.get("protocol_sampling") || "") || null,
+          data_management: String(values.get("protocol_data") || "") || null,
+          risk_and_safeguarding: String(values.get("protocol_risk") || "") || null,
+        },
+      );
+      setProtocolVersions((current) => [created, ...current]);
+      form.reset();
+      setNotice(`Protocol version ${created.version_number} saved as a draft.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create protocol version.");
+    } finally { setGovernanceBusy(false); }
+  }
+
+  async function submitProtocolVersion(protocolId: string) {
+    setGovernanceBusy(true); setError(""); setNotice("");
+    try {
+      const updated = await apiPost<ProtocolVersion>(
+        `/organizations/${organizationId}/research-studies/${governanceStudyId}/protocol-versions/${protocolId}/submit`, {},
+      );
+      setProtocolVersions((items) => items.map((item) => item.id === protocolId ? updated : item));
+      setNotice(`Protocol v${updated.version_number} submitted for independent review.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to submit protocol."); }
+    finally { setGovernanceBusy(false); }
+  }
+
+  async function reviewProtocolVersion(protocolId: string, decision: "approved" | "revisions_required" | "rejected") {
+    const note = (protocolReviewNotes[protocolId] || "").trim();
+    if (note.length < 10) { setError("Enter a review note of at least 10 characters before recording a decision."); return; }
+    setGovernanceBusy(true); setError(""); setNotice("");
+    try {
+      await apiPost<ProtocolReview>(
+        `/organizations/${organizationId}/research-studies/${governanceStudyId}/protocol-versions/${protocolId}/reviews`,
+        { decision, note },
+      );
+      await loadStudyGovernance(governanceStudyId);
+      setNotice(`Protocol review recorded: ${decision.replace(/_/g, " ")}.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record protocol review."); }
+    finally { setGovernanceBusy(false); }
+  }
+
+  async function recordEthicsReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    setGovernanceBusy(true); setError(""); setNotice("");
+    try {
+      const created = await apiPost<EthicsReview>(
+        `/organizations/${organizationId}/research-studies/${governanceStudyId}/ethics-reviews`,
+        {
+          protocol_version_id: String(values.get("ethics_protocol") || ""),
+          decision: String(values.get("ethics_decision") || "approved"),
+          reference: String(values.get("ethics_reference") || "") || null,
+          note: String(values.get("ethics_note") || ""),
+        },
+      );
+      setEthicsReviews((items) => [created, ...items]);
+      form.reset();
+      setNotice(`Ethics decision recorded: ${created.decision}.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record ethics decision."); }
+    finally { setGovernanceBusy(false); }
+  }
+
   async function transitionStudy(studyId: string, targetStatus: string) {
     setLifecycleSaving(studyId);
     setError("");
@@ -1092,10 +1225,64 @@ export default function ResearchWorkspacePage() {
                             </button>
                           </div>
                         )}
+                        <div className="dataset-review-actions">
+                          <button type="button" className="secondary-action" onClick={() => void loadStudyGovernance(study.id)} disabled={governanceLoading && governanceStudyId === study.id}>
+                            {governanceLoading && governanceStudyId === study.id ? "Loading governance…" : governanceStudyId === study.id ? "Refresh governance" : "Manage protocol & ethics"}
+                          </button>
+                        </div>
                       </article>
                     ))}</div>
                   )}
                 </section>
+                {governanceStudyId && (
+                  <section className="research-section" aria-live="polite">
+                    <div className="section-heading"><div><p className="eyebrow">RESEARCH GOVERNANCE</p><h2>Protocol and ethics workspace</h2><p>{studies.find((item) => item.id === governanceStudyId)?.title || "Selected study"} · immutable protocol versions and independent decisions</p></div><button type="button" className="secondary-action" onClick={() => { governanceRequest.current += 1; setGovernanceStudyId(""); }}>Close</button></div>
+                    {governanceLoading ? <p className="workspace-muted">Loading governance history…</p> : <>
+                      {(studies.find((item) => item.id === governanceStudyId)?.lead_researcher_id === membership?.user_id || canAuthorProtocols) && (
+                        <section className="staff-card">
+                          <p className="eyebrow">RESEARCH DESIGN</p><h3>Create protocol version</h3>
+                          <p>Each submission creates a new immutable version. Existing versions cannot be overwritten.</p>
+                          <form onSubmit={createProtocolVersion}>
+                            <label>Protocol title<input name="protocol_title" minLength={3} maxLength={240} required /></label>
+                            <label>Research objectives<textarea name="protocol_objectives" minLength={20} maxLength={12000} rows={3} required /></label>
+                            <label>Methodology<textarea name="protocol_methodology" minLength={30} maxLength={20000} rows={5} required /></label>
+                            <label>Sampling and participants<textarea name="protocol_sampling" maxLength={12000} rows={3} /></label>
+                            <label>Data management<textarea name="protocol_data" maxLength={12000} rows={3} /></label>
+                            <label>Risk and safeguarding<textarea name="protocol_risk" maxLength={12000} rows={3} /></label>
+                            <button className="primary-action" disabled={governanceBusy}>{governanceBusy ? "Saving…" : "Save protocol draft"}</button>
+                          </form>
+                        </section>
+                      )}
+                      <h3>Protocol versions</h3>
+                      {protocolVersions.length === 0 ? <p className="workspace-muted">No protocol versions have been created for this study.</p> : protocolVersions.map((protocol) => (
+                        <article className="research-record" key={protocol.id}>
+                          <div className="research-record-top"><strong>Version {protocol.version_number}: {protocol.title}</strong><span className="status-chip">{protocol.status.replace(/_/g, " ")}</span></div>
+                          <p><strong>Objectives:</strong> {protocol.objectives}</p><p><strong>Methodology:</strong> {protocol.methodology}</p>
+                          {protocol.sampling_and_participants && <p><strong>Sampling:</strong> {protocol.sampling_and_participants}</p>}
+                          {protocol.data_management && <p><strong>Data management:</strong> {protocol.data_management}</p>}
+                          {protocol.risk_and_safeguarding && <p><strong>Risk and safeguarding:</strong> {protocol.risk_and_safeguarding}</p>}
+                          {protocol.status === "draft" && (studies.find((item) => item.id === governanceStudyId)?.lead_researcher_id === membership?.user_id || canAuthorProtocols) && <button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void submitProtocolVersion(protocol.id)}>Submit for independent review</button>}
+                          {isReviewer && protocol.status === "submitted" && studies.find((item) => item.id === governanceStudyId)?.lead_researcher_id !== membership?.user_id && <div className="climate-review-controls"><label>Independent review note<textarea rows={3} minLength={10} maxLength={5000} value={protocolReviewNotes[protocol.id] || ""} onChange={(event) => setProtocolReviewNotes((items) => ({ ...items, [protocol.id]: event.target.value }))} placeholder="Assess methods, participant safeguards and data management" /></label><div className="dataset-review-actions"><button type="button" className="primary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "approved")}>Approve</button><button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "revisions_required")}>Request revisions</button><button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "rejected")}>Reject</button></div></div>}
+                          <h4>Review history</h4>
+                          {(protocolReviews[protocol.id] || []).length === 0 ? <p className="workspace-muted">No independent reviews recorded.</p> : (protocolReviews[protocol.id] || []).map((review) => <p key={review.id} className="workspace-muted">{review.decision.replace(/_/g, " ")} · {new Date(review.reviewed_at).toLocaleString()} · {review.note}</p>)}
+                        </article>
+                      ))}
+                      {isReviewer && protocolVersions.some((protocol) => protocol.status === "approved") && (
+                        <section className="staff-card"><p className="eyebrow">ETHICS COMMITTEE</p><h3>Record formal ethics decision</h3><p>Only an approved protocol version can receive an ethics decision. The reviewer must be independent of its authors and study lead.</p>
+                          <form onSubmit={recordEthicsReview}>
+                            <label>Approved protocol version<select name="ethics_protocol" required defaultValue=""><option value="">Select approved version</option>{protocolVersions.filter((protocol) => protocol.status === "approved").map((protocol) => <option key={protocol.id} value={protocol.id}>v{protocol.version_number} · {protocol.title}</option>)}</select></label>
+                            <label>Decision<select name="ethics_decision" defaultValue="approved"><option value="approved">Approved</option><option value="exempt">Exempt</option><option value="revisions_required">Revisions required</option><option value="rejected">Rejected</option></select></label>
+                            <label>Committee reference<input name="ethics_reference" maxLength={160} /></label>
+                            <label>Decision rationale<textarea name="ethics_note" minLength={10} maxLength={5000} rows={3} required /></label>
+                            <button className="primary-action" disabled={governanceBusy}>{governanceBusy ? "Recording…" : "Record ethics decision"}</button>
+                          </form>
+                        </section>
+                      )}
+                      <h3>Ethics review history</h3>
+                      {ethicsReviews.length === 0 ? <p className="workspace-muted">No ethics committee decisions recorded.</p> : ethicsReviews.map((review) => <article className="research-record" key={review.id}><div className="research-record-top"><strong>{review.decision.replace(/_/g, " ")}</strong><span>{review.reference || "No committee reference"}</span></div><p>{review.note}</p><p className="workspace-muted">{review.protocol_version_id ? `Protocol ${protocolVersions.find((item) => item.id === review.protocol_version_id)?.version_number ?? "version"}` : "No linked protocol"} · {new Date(review.reviewed_at).toLocaleString()}</p></article>)}
+                    </>}
+                  </section>
+                )}
                 <section className="research-section">
                   <div className="section-heading"><div><p className="eyebrow">RESEARCH TRACEABILITY</p><h2>Study evidence ledger</h2><p>Connect approved dataset fingerprints, reproducible analysis runs, publications and reviewed climate records.</p></div></div>
                   <div className="research-form-pair">
