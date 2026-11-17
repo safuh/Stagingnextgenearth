@@ -835,3 +835,128 @@ async def programme_delivery_summary(
         "attendance_absent": attendance.get("absent", 0),
         "attendance_excused": attendance.get("excused", 0),
     }
+
+
+@router.get("/organizations/{organization_id}/delivery-overview")
+async def organization_delivery_overview(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return tenant-scoped portfolio delivery totals and per-programme breakdowns."""
+    if not await membership_has_any_role(session, membership, _MANAGERS):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Programme management permission required")
+
+    programmes_result = await session.scalars(
+        select(Programme)
+        .where(Programme.organization_id == organization_id)
+        .order_by(Programme.title, Programme.id)
+        .limit(200)
+    )
+    programmes = list(programmes_result.all())
+    programme_ids = [item.id for item in programmes]
+    activity_counts: dict[str, dict[str, int]] = {}
+    allocation_counts: dict[str, dict[str, int]] = {}
+    attendance_counts: dict[str, dict[str, int]] = {}
+
+    if programme_ids:
+        activity_rows = await session.execute(
+            select(
+                ProgrammeActivity.programme_id,
+                ProgrammeActivity.status,
+                func.count(ProgrammeActivity.id),
+            )
+            .where(
+                ProgrammeActivity.organization_id == organization_id,
+                ProgrammeActivity.programme_id.in_(programme_ids),
+            )
+            .group_by(ProgrammeActivity.programme_id, ProgrammeActivity.status)
+        )
+        allocation_rows = await session.execute(
+            select(
+                ProgrammeVolunteerAllocation.programme_id,
+                ProgrammeVolunteerAllocation.status,
+                func.count(ProgrammeVolunteerAllocation.id),
+            )
+            .where(
+                ProgrammeVolunteerAllocation.organization_id == organization_id,
+                ProgrammeVolunteerAllocation.programme_id.in_(programme_ids),
+            )
+            .group_by(
+                ProgrammeVolunteerAllocation.programme_id,
+                ProgrammeVolunteerAllocation.status,
+            )
+        )
+        attendance_rows = await session.execute(
+            select(
+                ProgrammeActivityAttendance.programme_id,
+                ProgrammeActivityAttendance.attendance_status,
+                func.count(ProgrammeActivityAttendance.id),
+            )
+            .where(
+                ProgrammeActivityAttendance.organization_id == organization_id,
+                ProgrammeActivityAttendance.programme_id.in_(programme_ids),
+            )
+            .group_by(
+                ProgrammeActivityAttendance.programme_id,
+                ProgrammeActivityAttendance.attendance_status,
+            )
+        )
+        for programme_id, state, total in activity_rows.all():
+            activity_counts.setdefault(programme_id, {})[state] = int(total)
+        for programme_id, state, total in allocation_rows.all():
+            allocation_counts.setdefault(programme_id, {})[state] = int(total)
+        for programme_id, state, total in attendance_rows.all():
+            attendance_counts.setdefault(programme_id, {})[state] = int(total)
+
+    rows: list[dict[str, int | str]] = []
+    for programme in programmes:
+        activities = activity_counts.get(programme.id, {})
+        allocations = allocation_counts.get(programme.id, {})
+        attendance = attendance_counts.get(programme.id, {})
+        rows.append(
+            {
+                "programme_id": programme.id,
+                "programme_title": programme.title,
+                "programme_status": programme.status,
+                "activities_total": sum(activities.values()),
+                "activities_planned": activities.get("planned", 0),
+                "activities_in_progress": activities.get("in_progress", 0),
+                "activities_completed": activities.get("completed", 0),
+                "activities_cancelled": activities.get("cancelled", 0),
+                "volunteers_assigned": allocations.get("assigned", 0),
+                "volunteers_completed": allocations.get("completed", 0),
+                "volunteers_withdrawn": allocations.get("withdrawn", 0),
+                "attendance_total": sum(attendance.values()),
+                "attendance_present": attendance.get("present", 0),
+                "attendance_late": attendance.get("late", 0),
+                "attendance_absent": attendance.get("absent", 0),
+                "attendance_excused": attendance.get("excused", 0),
+            }
+        )
+
+    total_keys = (
+        "activities_total",
+        "activities_planned",
+        "activities_in_progress",
+        "activities_completed",
+        "activities_cancelled",
+        "volunteers_assigned",
+        "volunteers_completed",
+        "volunteers_withdrawn",
+        "attendance_total",
+        "attendance_present",
+        "attendance_late",
+        "attendance_absent",
+        "attendance_excused",
+    )
+    totals: dict[str, int] = {
+        key: sum(int(row[key]) for row in rows) for key in total_keys
+    }
+    return {
+        "organization_id": organization_id,
+        "programmes_total": len(programmes),
+        "programmes_active": sum(item.status == "active" for item in programmes),
+        **totals,
+        "programmes": rows,
+    }
