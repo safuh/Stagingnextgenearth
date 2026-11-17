@@ -165,7 +165,7 @@ async def create_person(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PersonRead:
     """Create a directory profile without creating or implying a login account."""
-    _require_admin(membership)
+    await _require_admin(membership, session)
     person = OrganizationPerson(
         organization_id=organization_id,
         full_name=body.full_name.strip(),
@@ -209,7 +209,7 @@ async def update_person(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PersonRead:
     """Edit a profile and explicitly control verification/publication state."""
-    _require_admin(membership)
+    await _require_admin(membership, session)
     person = await session.scalar(
         select(OrganizationPerson).where(
             OrganizationPerson.id == person_id,
@@ -326,7 +326,7 @@ async def list_person_audit_events(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[PersonAuditRead]:
     """Return a bounded audit trail to organisation administrators only."""
-    _require_admin(membership)
+    await _require_admin(membership, session)
     person = await session.scalar(
         select(OrganizationPerson.id).where(
             OrganizationPerson.id == person_id,
