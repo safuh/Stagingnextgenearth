@@ -607,4 +607,4 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert summary.json()["attendance_sessions"] == 2
         assert summary.json()["mentorship_assignments"] >= 1
         assert summary.json()["assessment_submissions"] >= 1
-        assert summary.json()["pending_evaluations"] >= 1
+        assert summary.json()["pending_evaluations"] == 0
