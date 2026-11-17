@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from stagingnextgenearth.api.dependencies import get_membership_roles, membership_has_any_role
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import User
-from stagingnextgenearth.api.dependencies import get_membership_roles, membership_has_any_role
 from stagingnextgenearth.platform import (
     ClimateObservation,
     Membership,
