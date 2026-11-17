@@ -7,6 +7,7 @@ only a descriptive z-score against an explicitly supplied baseline sample.
 from dataclasses import dataclass
 from math import isfinite, sqrt
 from statistics import fmean
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +18,7 @@ class StandardizedAnomaly:
     baseline_mean: float
     baseline_sample_standard_deviation: float
     baseline_count: int
-    method: str = "sample_standardized_anomaly_z_score"
+    method: Literal["sample_standardized_anomaly_z_score"] = "sample_standardized_anomaly_z_score"
     classification: str = "unclassified"
 
 
