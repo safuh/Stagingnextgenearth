@@ -354,6 +354,8 @@ async def review_climate_observation(
 class ClimateObservationReviewAuditRead(BaseModel):
     """Immutable audit event for one climate observation quality decision."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     actor_user_id: str
     subject_user_id: str | None
