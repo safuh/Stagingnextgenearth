@@ -16,7 +16,7 @@ from stagingnextgenearth.platform.models import (
     ProgrammeParticipationRecord,
 )
 
-from .dependencies import get_session, require_membership
+from .dependencies import get_session, membership_has_any_role, require_membership
 
 router = APIRouter(tags=["partner-reporting"])
 _MINIMUM_DISCLOSURE_COUNT = 5
@@ -60,7 +60,7 @@ async def get_partner_programme_report(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PartnerProgrammeReport:
     """Return a deliberately minimised report only to institutional partners."""
-    if membership.role != "institutional_partner":
+    if not await membership_has_any_role(session, membership, {"institutional_partner"}):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Institutional partner access required",
