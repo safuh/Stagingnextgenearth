@@ -477,6 +477,35 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert attendance.status_code == 201
+        bulk_attendance = client.post(
+            f"{base}/courses/{course_id}/attendance/bulk",
+            headers=admin_headers,
+            json={
+                "session_key": "workshop-2026-02",
+                "session_title": "Second community climate workshop",
+                "session_date": "2026-11-17",
+                "learners": [
+                    {"learner_id": learner_id, "attendance_status": "late"},
+                ],
+            },
+        )
+        assert bulk_attendance.status_code == 201
+        assert bulk_attendance.json()["recorded"] == 1
+        duplicate_bulk = client.post(
+            f"{base}/courses/{course_id}/attendance/bulk",
+            headers=admin_headers,
+            json={
+                "session_key": "workshop-2026-02",
+                "session_title": "Second community climate workshop",
+                "session_date": "2026-11-17",
+                "learners": [
+                    {"learner_id": learner_id, "attendance_status": "present"},
+                    {"learner_id": learner_id, "attendance_status": "late"},
+                ],
+            },
+        )
+        assert duplicate_bulk.status_code == 422
+
         attendance_rows = client.get(
             f"{base}/courses/{course_id}/attendance",
             headers=admin_headers,
