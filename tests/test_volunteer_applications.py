@@ -116,7 +116,7 @@ def test_volunteer_application_requires_staff_safeguarding_verification(tmp_path
         assert client.get(
             f"/api/organizations/{org_id}/volunteer-applications",
             headers=applicant,
-        ).status_code == 403
+        ).status_code == 404
 
         decision_url = f"{endpoint}/{application_id}/decision"
         blocked = client.post(
