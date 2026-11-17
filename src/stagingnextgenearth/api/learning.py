@@ -527,7 +527,7 @@ async def list_course_assessments(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
+        await _approved_enrollment(session, course_id, principal.user_id)
     rows = await session.scalars(
         select(LearningAssessment)
         .where(LearningAssessment.course_id == course_id)
@@ -954,7 +954,7 @@ async def course_curriculum(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
+        await _approved_enrollment(session, course_id, principal.user_id)
     modules = await session.scalars(
         select(LearningModule).where(LearningModule.course_id == course_id)
         .order_by(LearningModule.position)
@@ -1117,7 +1117,7 @@ async def list_learning_resources(
     if membership.role not in _MANAGE:
         if membership.role not in _LEARN:
             raise HTTPException(403, "Learner access required")
-        enrollment = await _approved_enrollment(session, course_id, principal.user_id)
+        await _approved_enrollment(session, course_id, principal.user_id)
     resources = await session.scalars(
         select(LearningResource).where(LearningResource.course_id == course_id)
         .order_by(LearningResource.title).limit(200)
