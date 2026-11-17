@@ -1732,3 +1732,64 @@ async def organisation_learning_outcomes(
             for report in reports
         ],
     }
+
+@router.get("/portfolio-outcomes/export")
+async def export_organisation_learning_outcomes(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Response:
+    """Export organisation learning outcomes as formula-safe UTF-8 CSV."""
+    report = await organisation_learning_outcomes(organization_id, membership, session)
+
+    def safe_cell(value: object) -> str:
+        rendered = "" if value is None else str(value)
+        if rendered.startswith(("=", "+", "-", "@", "\t", "\r")):
+            return "'" + rendered
+        return rendered
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["section", "metric", "value"])
+    writer.writerow(["organisation", "programmes_total", safe_cell(report["programmes_total"])])
+    writer.writerow(["organisation", "courses_total", safe_cell(report["courses_total"])])
+    writer.writerow(["organisation", "average_progress", safe_cell(report["average_progress"])])
+    totals = report["totals"]
+    if isinstance(totals, dict):
+        for key, value in totals.items():
+            writer.writerow(["organisation_total", safe_cell(key), safe_cell(value)])
+    writer.writerow([])
+    writer.writerow([
+        "programme_id", "programme_title", "course_count", "average_progress",
+        "learners", "approved", "completed", "attendance_records",
+        "attendance_sessions", "mentorship_assignments", "active_mentorships",
+        "assessment_submissions", "evaluated_submissions", "pending_evaluations",
+    ])
+    programmes = report["programmes"]
+    if isinstance(programmes, list):
+        for programme in programmes:
+            if not isinstance(programme, dict):
+                continue
+            programme_totals = programme.get("totals", {})
+            writer.writerow([
+                safe_cell(programme.get("programme_id")),
+                safe_cell(programme.get("programme_title")),
+                safe_cell(programme.get("course_count")),
+                safe_cell(programme.get("average_progress")),
+                *[
+                    safe_cell(programme_totals.get(key))
+                    for key in (
+                        "learners", "approved", "completed", "attendance_records",
+                        "attendance_sessions", "mentorship_assignments",
+                        "active_mentorships", "assessment_submissions",
+                        "evaluated_submissions", "pending_evaluations",
+                    )
+                ],
+            ])
+    return Response(
+        content=chr(0xFEFF) + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="organisation-learning-outcomes.csv"'
+        },
+    )
