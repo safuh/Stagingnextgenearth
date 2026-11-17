@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stagingnextgenearth.auth import TokenError, TokenService
 from stagingnextgenearth.identity.models import User
-from stagingnextgenearth.platform.models import Membership
+from stagingnextgenearth.platform.models import Membership, MembershipRole
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -55,6 +55,34 @@ async def get_current_principal(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account is unavailable",
                             headers={"WWW-Authenticate": "Bearer"})
     return Principal(user_id=user)
+
+
+async def get_membership_roles(
+    session: AsyncSession,
+    membership: Membership,
+) -> frozenset[str]:
+    """Resolve all assigned roles, retaining the legacy primary role as fallback.
+
+    The primary role is always included so older rows and staged deployments
+    remain authorization-compatible while role assignments are migrated.
+    """
+    assigned = await session.scalars(
+        select(MembershipRole.role).where(
+            MembershipRole.membership_id == membership.id
+        )
+    )
+    return frozenset({membership.role, *assigned.all()})
+
+
+async def membership_has_any_role(
+    session: AsyncSession,
+    membership: Membership,
+    allowed_roles: set[str] | frozenset[str],
+) -> bool:
+    """Return whether an active membership holds any requested role."""
+    if membership.status != "active":
+        return False
+    return bool(await get_membership_roles(session, membership) & allowed_roles)
 
 
 async def require_membership(
