@@ -77,6 +77,7 @@ export default function ExecutiveOverviewPage() {
     const portfolioResult = await Promise.allSettled([
       apiGet<PortfolioOverview>(`/organizations/${id}/delivery-overview`),
       apiGet<LearningPortfolio>(`/organizations/${id}/learning/portfolio-outcomes`),
+      apiGet<ClimateStewardship>(`/organizations/${id}/climate-observations/stewardship`),
     ]);
     const portfolioSnapshot = portfolioResult[0].status === "fulfilled"
       ? portfolioResult[0].value
@@ -84,10 +85,14 @@ export default function ExecutiveOverviewPage() {
     const learningSnapshot = portfolioResult[1].status === "fulfilled"
       ? portfolioResult[1].value
       : null;
+    const climateSnapshot = portfolioResult[2].status === "fulfilled"
+      ? portfolioResult[2].value
+      : null;
     setMembers(memberRows); setProgrammes(programmeRows); setPartners(partnerRows);
     setContent(contentRows); setStudies(studyRows); setCourses(courseRows); setSummary(orgSummary); setOperations(operationsSummary);
     setPortfolio(portfolioSnapshot);
     setLearningPortfolio(learningSnapshot);
+    setClimateStewardship(climateSnapshot);
     setClimateStewardship(climateSnapshot);
     setDelivery(Object.fromEntries(portfolioSnapshot?.programmes.map(item => [item.programme_id, item]) ?? []));
     setResearchGovernance(governanceRows);
