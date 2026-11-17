@@ -1318,3 +1318,39 @@ def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
     assert changed_primary_role.status_code == 200
     assert changed_primary_role.json()["roles"] == ["researcher"]
 
+    # A demotion must also be blocked when the primary role is elevated but
+    # another elevated role remains as a secondary grant.
+    promoted_primary = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "admin"},
+    )
+    assert promoted_primary.status_code == 200
+    with_secondary_founder = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["admin", "founder"]},
+    )
+    assert with_secondary_founder.status_code == 200
+
+    ambiguous_elevated_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert ambiguous_elevated_demotion.status_code == 409
+
+    revoke_secondary_founder = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["admin"]},
+    )
+    assert revoke_secondary_founder.status_code == 200
+    final_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert final_demotion.status_code == 200
+    assert final_demotion.json()["roles"] == ["researcher"]
+
