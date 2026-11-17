@@ -1294,3 +1294,27 @@ def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
     assert secondary_admin_summary.status_code == 200
     assert secondary_admin_audit.status_code == 200
 
+    # Changing the primary role must not silently leave a secondary admin grant behind.
+    ambiguous_demotion = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert ambiguous_demotion.status_code == 409
+
+    revoked_secondary_admin = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["employee"]},
+    )
+    assert revoked_secondary_admin.status_code == 200
+    assert revoked_secondary_admin.json()["roles"] == ["employee"]
+
+    changed_primary_role = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/role",
+        headers=owner_headers,
+        json={"role": "researcher"},
+    )
+    assert changed_primary_role.status_code == 200
+    assert changed_primary_role.json()["roles"] == ["researcher"]
+
