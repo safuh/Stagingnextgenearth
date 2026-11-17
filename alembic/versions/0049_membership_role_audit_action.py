@@ -1,6 +1,6 @@
 """Allow audit records for multi-role membership changes.
 
-Revision ID: 0049_membership_role_audit_action
+Revision ID: 0049_membership_audit_action
 Revises: 0048_membership_role_assignments
 """
 
@@ -8,7 +8,7 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0049_membership_role_audit_action"
+revision: str = "0049_membership_audit_action"
 down_revision: str | None = "0048_membership_role_assignments"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
