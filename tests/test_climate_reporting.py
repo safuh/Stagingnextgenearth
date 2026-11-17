@@ -146,6 +146,18 @@ def test_climate_flagged_report_and_daily_missingness_are_tenant_scoped(
         assert coverage.json()["coverage_ratio"] == 0.666667
         assert coverage.json()["missing_data_policy"] == "report_only_no_imputation"
 
+        stewardship = client.get(f"{base}/stewardship", headers=owner)
+        assert stewardship.status_code == 200
+        stewardship_report = stewardship.json()
+        assert stewardship_report["observation_count"] == 2
+        assert stewardship_report["pending_review"] == 2
+        assert stewardship_report["verified"] == 0
+        assert stewardship_report["sources"] == [{"name": "field station", "count": 2}]
+        assert stewardship_report["variables"] == [{"name": "relative_humidity", "count": 2}]
+        assert stewardship_report["interpretation"] == "portal_inventory_not_independent_validation"
+
+        assert client.get(f"{base}/stewardship", headers=other).status_code == 404
+
         assert client.get(
             f"{base}/flagged",
             headers=other,
