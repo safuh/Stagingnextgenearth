@@ -30,7 +30,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/research-datasets",
     tags=["research-exports"],
 )
-_REGISTRY_READ_ROLES = {"admin", "programme_manager", "researcher", "institutional_partner"}
+_REGISTRY_READ_ROLES = {"admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"}
 
 
 class ResearchExportFile(BaseModel):
