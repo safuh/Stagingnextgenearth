@@ -772,16 +772,21 @@ async def assign_mentor(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Mentorship assignment permission required")
     await _course(session, organization_id, course_id)
-    mentor_membership = await session.scalar(select(Membership.id).where(
-        Membership.organization_id == organization_id, Membership.user_id == body.mentor_id,
-        Membership.status == "active", Membership.role.in_(_MANAGE | {"researcher"}),
+    mentor_membership = await session.scalar(select(Membership).where(
+        Membership.organization_id == organization_id,
+        Membership.user_id == body.mentor_id,
+        Membership.status == "active",
     ))
     mentee_membership = await session.scalar(select(Membership.id).where(
         Membership.organization_id == organization_id, Membership.user_id == body.mentee_id,
         Membership.status == "active",
     ))
-    if mentor_membership is None or mentee_membership is None or body.mentor_id == body.mentee_id:
-        raise HTTPException(422, "Mentor and mentee must be distinct active organisation members")
+    eligible_mentor = (
+        mentor_membership is not None
+        and await membership_has_any_role(session, mentor_membership, _MANAGE | {"researcher"})
+    )
+    if not eligible_mentor or mentee_membership is None or body.mentor_id == body.mentee_id:
+        raise HTTPException(422, "Mentor and mentee must be distinct active organisation members and the mentor must hold an eligible role")
     assignment = LearningMentorship(course_id=course_id, mentor_id=body.mentor_id,
         mentee_id=body.mentee_id, notes=body.notes, assigned_by=principal.user_id, status="active")
     session.add(assignment)
