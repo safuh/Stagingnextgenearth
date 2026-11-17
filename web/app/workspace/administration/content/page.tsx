@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiGet, apiPatch, clearSession } from "@/lib/api";
 
 interface Organization { id: string; name: string }
-interface Membership { role: string; user_id: string }
+interface Membership { role: string; roles: string[]; user_id: string }
 interface ContentEntry {
   id: string;
   content_type: string;
@@ -100,7 +100,7 @@ export default function ContentReviewPage() {
   }
 
   const visible = entries.filter((entry) => filter === "all" || entry.publication_state === filter);
-  const canReview = ["admin", "founder", "executive"].includes(membership?.role ?? "");
+  const canReview = (membership?.roles ?? [membership?.role ?? ""]).some((role) => ["admin", "founder", "executive"].includes(role));
 
   if (loading) return <main className="workspace-shell"><p>Loading CMS review queue…</p></main>;
 
