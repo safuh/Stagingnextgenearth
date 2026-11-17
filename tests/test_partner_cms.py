@@ -161,6 +161,68 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert "verification_state" not in public_partners.json()[0]
         assert "source_url" not in public_partners.json()[0]
 
+        client.post("/api/auth/register", json={
+            "identifier": "cms-contributor@example.org",
+            "password": "correct horse battery staple",
+        })
+        contributor_invite = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=headers,
+            json={"identifier": "cms-contributor@example.org", "role": "employee"},
+        )
+        assert contributor_invite.status_code == 201
+        contributor_login = client.post("/api/auth/login", json={
+            "identifier": "cms-contributor@example.org",
+            "password": "correct horse battery staple",
+        })
+        contributor_headers = {
+            "Authorization": "Bearer " + contributor_login.json()["access_token"]
+        }
+        accepted_contributor = client.post(
+            f"/api/organizations/{org_id}/memberships/{contributor_invite.json()['id']}/accept",
+            headers=contributor_headers,
+        )
+        assert accepted_contributor.status_code == 200
+        contributor_entry = client.post(
+            f"/api/organizations/{org_id}/content",
+            headers=contributor_headers,
+            json={
+                "content_type": "research_area",
+                "slug": "community-climate-research",
+                "title": "Community Climate Research",
+                "summary": "A contributor-authored draft.",
+            },
+        )
+        assert contributor_entry.status_code == 201
+        contributor_id = contributor_entry.json()["id"]
+        own_records = client.get(
+            f"/api/organizations/{org_id}/content", headers=contributor_headers
+        )
+        assert [record["id"] for record in own_records.json()] == [contributor_id]
+        denied_transition = client.patch(
+            f"/api/organizations/{org_id}/content/{contributor_id}",
+            headers=contributor_headers,
+            json={"publication_state": "approved"},
+        )
+        assert denied_transition.status_code == 403
+        submitted = client.patch(
+            f"/api/organizations/{org_id}/content/{contributor_id}",
+            headers=contributor_headers,
+            json={"publication_state": "review"},
+        )
+        assert submitted.status_code == 200
+        assert submitted.json()["publication_state"] == "review"
+        locked_submission = client.patch(
+            f"/api/organizations/{org_id}/content/{contributor_id}",
+            headers=contributor_headers,
+            json={"title": "Attempt to edit submitted content"},
+        )
+        assert locked_submission.status_code == 409
+        assert client.get(
+            f"/api/organizations/{org_id}/content/{contributor_id}/audit-events",
+            headers=contributor_headers,
+        ).status_code == 403
+
         entry = client.post(f"/api/organizations/{org_id}/content", headers=headers, json={
             "content_type": "programme",
             "slug": "research-capacity-building",
