@@ -59,6 +59,20 @@ interface Mentorship {
   status: string;
   notes: string | null;
 }
+interface CourseReport {
+  learners: number;
+  approved: number;
+  completed: number;
+  average_progress: number;
+  attendance_records: number;
+  attendance_by_status: Record<string, number>;
+  attendance_sessions: number;
+  mentorship_assignments: number;
+  active_mentorships: number;
+  assessment_submissions: number;
+  evaluated_submissions: number;
+  pending_evaluations: number;
+}
 
 export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -70,6 +84,7 @@ export default function LearningAdminPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [mentorships, setMentorships] = useState<Mentorship[]>([]);
+  const [report, setReport] = useState<CourseReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -112,16 +127,18 @@ export default function LearningAdminPage() {
   const refreshReports = useCallback(async (id = courseId) => {
     if (!organizationId || !id) return;
     const root = `/organizations/${organizationId}/learning/courses/${id}`;
-    const [applications, work, attendanceRows, mentoring] = await Promise.all([
+    const [applications, work, attendanceRows, mentoring, courseReport] = await Promise.all([
       apiGet<Enrollment[]>(`${root}/enrollments`),
       apiGet<Submission[]>(`${root}/submissions`),
       apiGet<Attendance[]>(`${root}/attendance`),
       apiGet<Mentorship[]>(`${root}/mentorships`),
+      apiGet<CourseReport>(`${root}/progress`),
     ]);
     setEnrollments(applications);
     setSubmissions(work);
     setAttendance(attendanceRows);
     setMentorships(mentoring);
+    setReport(courseReport);
   }, [courseId, organizationId]);
 
   useEffect(() => {
@@ -274,6 +291,25 @@ export default function LearningAdminPage() {
               {courses.map((course) => <option key={course.id} value={course.id}>{course.title}{course.programme_id ? ` · ${programmes.find((item) => item.id === course.programme_id)?.title ?? "Linked programme"}` : ""} · {course.status}</option>)}
             </select>
           </div>
+        )}
+        {report && (
+          <section className="staff-card" aria-labelledby="course-report-heading">
+            <p className="eyebrow">COURSE PERFORMANCE</p>
+            <h2 id="course-report-heading">Delivery overview</h2>
+            <div className="staff-grid">
+              <article><strong>{report.learners}</strong><span>Applicants / learners</span></article>
+              <article><strong>{report.approved}</strong><span>Approved enrolments</span></article>
+              <article><strong>{report.completed}</strong><span>Completed learners</span></article>
+              <article><strong>{report.average_progress}%</strong><span>Average progress</span></article>
+              <article><strong>{report.attendance_sessions}</strong><span>Recorded sessions</span></article>
+              <article><strong>{report.attendance_records}</strong><span>Attendance records</span></article>
+              <article><strong>{report.active_mentorships}/{report.mentorship_assignments}</strong><span>Active mentorships</span></article>
+              <article><strong>{report.pending_evaluations}</strong><span>Pending evaluations</span></article>
+            </div>
+            <h3>Attendance breakdown</h3>
+            <p className="workspace-muted">Present: {report.attendance_by_status.present ?? 0} · Late: {report.attendance_by_status.late ?? 0} · Absent: {report.attendance_by_status.absent ?? 0} · Excused: {report.attendance_by_status.excused ?? 0}</p>
+            <p className="workspace-muted">Assessment submissions: {report.assessment_submissions} · Evaluated: {report.evaluated_submissions}</p>
+          </section>
         )}
         <div className="staff-grid">
           <section className="staff-card">
