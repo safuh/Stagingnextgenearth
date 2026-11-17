@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
+import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null };
@@ -49,11 +50,11 @@ export default function HomePage() {
     // Public feeds are independent: a temporary failure in one endpoint must not
     // suppress otherwise healthy programme, people, partner or CMS sections.
     Promise.all([
-      apiGet<PublicContent[]>("/public/organizations/next-gen-for-earth/content").catch(() => []),
-      apiGet<PublicPerson[]>("/public/organizations/next-gen-for-earth/people").catch(() => []),
-      apiGet<PublicPartner[]>("/public/organizations/next-gen-for-earth/partners").catch(() => []),
-      apiGet<PublicProgramme[]>("/public/organizations/next-gen-for-earth/programmes").catch(() => []),
-      apiGet<PublicCourse[]>("/public/organizations/next-gen-for-earth/courses").catch(() => []),
+      apiGet<PublicContent[]>(`/public/organizations/${ORGANIZATION_SLUG}/content`).catch(() => []),
+      apiGet<PublicPerson[]>(`/public/organizations/${ORGANIZATION_SLUG}/people`).catch(() => []),
+      apiGet<PublicPartner[]>(`/public/organizations/${ORGANIZATION_SLUG}/partners`).catch(() => []),
+      apiGet<PublicProgramme[]>(`/public/organizations/${ORGANIZATION_SLUG}/programmes`).catch(() => []),
+      apiGet<PublicCourse[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`).catch(() => []),
     ]).then(([items, people, partners, programmes, courses]) => {
       if (!active) return;
       setCatalogue(items);
