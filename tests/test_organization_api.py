@@ -1273,3 +1273,24 @@ def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
         for event in audit.json()
     )
 
+    # Secondary administrator grants must be honoured by governance endpoints too.
+    elevated = client.patch(
+        f"/api/organizations/{organization_id}/memberships/{membership_id}/roles",
+        headers=owner_headers,
+        json={"roles": ["employee", "admin"]},
+    )
+    assert elevated.status_code == 200
+    assert elevated.json()["role"] == "employee"
+    assert set(elevated.json()["roles"]) == {"employee", "admin"}
+
+    secondary_admin_summary = client.get(
+        f"/api/organizations/{organization_id}/administration-summary",
+        headers=member_headers,
+    )
+    secondary_admin_audit = client.get(
+        f"/api/organizations/{organization_id}/audit-events",
+        headers=member_headers,
+    )
+    assert secondary_admin_summary.status_code == 200
+    assert secondary_admin_audit.status_code == 200
+
