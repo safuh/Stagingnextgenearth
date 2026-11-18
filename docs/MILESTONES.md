@@ -266,3 +266,11 @@ These foundation checks must continue passing as product code is added.
 - [x] Apply spreadsheet formula-injection protection, UTF-8 BOM, bounded output, no-store caching and truncation metadata.
 - [x] Add an export action to the founder/executive overview.
 - [x] Verify role restrictions and export response metadata in integration tests.
+
+
+## M77 — Enforce study-level evidence ledger access
+
+- Require an effective study role before returning the study evidence ledger or its CSV export; organisation membership alone is insufficient.
+- Keep restricted dataset metadata behind the same effective study-membership boundary used by the dataset registry.
+- Keep analysis provenance linked only to datasets visible in the caller's evidence inventory.
+- Add regression coverage for denied study access on both JSON and CSV routes.
