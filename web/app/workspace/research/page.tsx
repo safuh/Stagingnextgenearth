@@ -981,8 +981,16 @@ export default function ResearchWorkspacePage() {
         },
       );
       setEthicsReviews((items) => [created, ...items]);
+      const activeStudy = studies.some((study) => study.id === governanceStudyId && study.status === "active");
+      if (activeStudy && ["revisions_required", "rejected"].includes(created.decision)) {
+        setStudies((items) => items.map((study) => study.id === governanceStudyId
+          ? { ...study, status: "protocol" }
+          : study));
+      }
       form.reset();
-      setNotice(`Ethics decision recorded: ${created.decision}.`);
+      setNotice(activeStudy && ["revisions_required", "rejected"].includes(created.decision)
+        ? `Ethics decision recorded: ${created.decision.replace(/_/g, " ")}. The active study has been paused pending committee clearance.`
+        : `Ethics decision recorded: ${created.decision}.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record ethics decision."); }
     finally { setGovernanceBusy(false); }
   }

@@ -642,7 +642,9 @@ async def record_ethics_review(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> EthicsReviewRead:
     """Record a formal ethics outcome, separate from protocol and dataset review."""
-    study = await _study(session, organization_id, study_id)
+    # Lock the study row so an adverse committee decision cannot race with
+    # a concurrent lifecycle transition that would otherwise leave fieldwork active.
+    study = await _study(session, organization_id, study_id, lock=True)
     if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Ethics reviewer role required")
     if study.lead_researcher_id == principal.user_id:
@@ -684,6 +686,24 @@ async def record_ethics_review(
             },
         )
     )
+    if study.status == "active" and body.decision in {"revisions_required", "rejected"}:
+        study.status = "protocol"
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=study.lead_researcher_id,
+                action="research.study.status_changed",
+                changes={
+                    "study_id": study_id,
+                    "from_status": "active",
+                    "to_status": "protocol",
+                    "reason": "adverse_ethics_decision_requires_pause",
+                    "protocol_version_id": protocol.id,
+                    "ethics_decision": body.decision,
+                },
+            )
+        )
     await session.commit()
     await session.refresh(event)
     return EthicsReviewRead.model_validate(event)
