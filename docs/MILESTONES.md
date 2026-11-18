@@ -161,7 +161,9 @@ These foundation checks must continue passing as product code is added.
 - [x] Public partner and CMS feeds use reduced schemas that omit moderation and internal source metadata.
 - [x] Public volunteer/ambassador expression-of-interest flow and administration review queue.
 - [x] Volunteer approval requires a recorded safeguarding and any required guardian-consent confirmation.
-- [ ] New-candidate employee application workflow and automated invitation notifications.
+- [x] New-candidate employee application workflow, including candidate status history,
+      withdrawal and secure employee onboarding after independent approval.
+- [ ] Automated invitation notifications.
 - [x] Append-only partner/CMS audit-event history with tenant-scoped admin read endpoints; partner-contact consent workflows remain.
 - [ ] KoboToolbox/ODK field data integration.
 - [ ] Email and calendar notifications.
@@ -281,3 +283,12 @@ These foundation checks must continue passing as product code is added.
 - Guard evidence-ledger loads and CSV downloads against stale responses after organisation or study selection changes.
 - Prevent older concurrent requests from overwriting a newer ledger or triggering a download for a previously selected study.
 - Reset in-flight evidence workspace state when the organisation context changes.
+
+
+## M79 — Candidate employment application self-service
+
+- [x] Let authenticated candidates view their own application history without exposing applicant identifiers.
+- [x] Allow candidates to withdraw only their own pending application; preserve the review record.
+- [x] Permit a fresh application after withdrawal or rejection while enforcing one pending application per candidate and organisation.
+- [x] Add a public careers-page flow for sign-in, application status, withdrawal and history.
+- [x] Cover tenant ownership, duplicate submissions, withdrawal and resubmission in API tests.
