@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
+import sys
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlsplit, urlunsplit
@@ -15,7 +17,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
-from stagingnextgenearth.core.database import Base
 
 
 @pytest.mark.integration
@@ -66,12 +67,13 @@ def test_concurrent_protocol_creations_allocate_distinct_versions() -> None:
     )
 
     try:
-
-        async def prepare_schema() -> None:
-            async with engine.begin() as connection:
-                await connection.run_sync(Base.metadata.create_all)
-
-        asyncio.run(prepare_schema())
+        migration_environment = os.environ.copy()
+        migration_environment["DATABASE_URL"] = database_url
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            check=True,
+            env=migration_environment,
+        )
         with TestClient(create_app(settings)) as client:
             lead = client.post(
                 "/api/auth/register",
