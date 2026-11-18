@@ -134,6 +134,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert reviewed.status_code == 201
     assert reviewed.json()["decision"] == "approved"
+    assert reviewed.json()["reviewer_user_id"]
 
     ethics = client.post(
         f"{base_url}/ethics-reviews",
@@ -147,6 +148,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert ethics.status_code == 201
     assert ethics.json()["reference"] == "\t=ERB-2026-041"
+    assert ethics.json()["reviewer_user_id"]
 
     protocol_history = client.get(
         f"{base_url}/protocol-versions/{protocol_id}/reviews",
@@ -154,6 +156,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert protocol_history.status_code == 200
     assert [item["decision"] for item in protocol_history.json()] == ["approved"]
+    assert protocol_history.json()[0]["reviewer_user_id"] == reviewed.json()["reviewer_user_id"]
 
     ethics_history = client.get(
         f"{base_url}/ethics-reviews",
@@ -161,6 +164,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert ethics_history.status_code == 200
     assert [item["decision"] for item in ethics_history.json()] == ["approved"]
+    assert ethics_history.json()[0]["reviewer_user_id"] == ethics.json()["reviewer_user_id"]
 
     versions = client.get(f"{base_url}/protocol-versions", headers=lead_headers)
     assert versions.status_code == 200

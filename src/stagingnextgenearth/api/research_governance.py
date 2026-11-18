@@ -109,6 +109,7 @@ class ProtocolReviewRead(BaseModel):
 
     id: str
     protocol_version_id: str
+    reviewer_user_id: str
     decision: str
     note: str | None
     reviewed_at: datetime
@@ -129,6 +130,7 @@ class EthicsReviewRead(BaseModel):
     id: str
     study_id: str
     protocol_version_id: str | None
+    reviewer_user_id: str
     decision: str
     reference: str | None
     note: str | None
