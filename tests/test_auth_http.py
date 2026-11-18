@@ -177,3 +177,52 @@ def test_malformed_refresh_token_is_rejected(client: TestClient) -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "invalid_refresh_token"
+
+
+def test_login_is_rate_limited_per_client_and_endpoint() -> None:
+    identity_store = MemoryIdentityStore()
+    refresh_store = MemoryRefreshStore()
+    hasher = PasswordHasher()
+    token_service = TokenService("x" * 32)
+
+    def application_factory(_session: object) -> AuthenticationApplication:
+        authentication = AuthenticationService(
+            credential_store=identity_store,
+            password_hasher=hasher,
+            token_service=token_service,
+            access_token_lifetime=timedelta(minutes=15),
+        )
+        refresh = RefreshTokenService(
+            token_service=token_service,
+            refresh_token_store=refresh_store,
+            access_token_lifetime=timedelta(minutes=15),
+            refresh_token_lifetime=timedelta(days=7),
+        )
+        return AuthenticationApplication(
+            registration_service=RegistrationService(identity_store, hasher),
+            login_service=LoginService(authentication),
+            refresh_token_service=refresh,
+        )
+
+    settings = Settings(
+        environment=Environment.TEST,
+        database_url="sqlite+aiosqlite:///:memory:",
+        auth_rate_limit_requests=2,
+        auth_rate_limit_window_seconds=60,
+        api_prefix="/v1",
+    )
+    with TestClient(create_app(settings, application_factory)) as limited_client:
+        payload = {"identifier": "missing", "password": "wrong-password"}
+        first = limited_client.post("/v1/auth/login", json=payload)
+        second = limited_client.post("/v1/auth/login", json=payload)
+        blocked = limited_client.post("/v1/auth/login", json=payload)
+
+    assert first.status_code == 401
+    assert first.headers["X-RateLimit-Limit"] == "2"
+    assert first.headers["X-RateLimit-Remaining"] == "1"
+    assert second.status_code == 401
+    assert second.headers["X-RateLimit-Remaining"] == "0"
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["code"] == "authentication_rate_limited"
+    assert int(blocked.headers["Retry-After"]) >= 1
+    assert blocked.headers["Cache-Control"] == "no-store"

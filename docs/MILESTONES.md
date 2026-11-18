@@ -302,3 +302,11 @@ These foundation checks must continue passing as product code is added.
 - [x] Score weighted responses server-side and persist the immutable learner attempt result.
 - [x] Prevent generic submission and manual staff re-scoring from bypassing automated quiz rules.
 - [x] Cover answer-key secrecy, malformed answers, weighted scoring, pass thresholds and re-scoring denial.
+
+## M81 — Authentication abuse controls
+
+- [x] Add configurable fixed-window limits for login, registration, refresh and logout.
+- [x] Return generic 429 responses with retry guidance and rate-limit headers.
+- [x] Bound in-process client tracking and avoid trusting spoofable forwarding headers.
+- [x] Add regression coverage for threshold enforcement and authentication no-cache headers.
+- [x] Document the single-process limitation and mandatory shared ingress controls for production replicas.
