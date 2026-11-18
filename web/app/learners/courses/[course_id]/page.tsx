@@ -44,7 +44,12 @@ interface Assessment {
   instructions: string;
   pass_mark: number;
   due_at: string | null;
+  automated: boolean;
 }
+interface QuizOption { id: string; text: string }
+interface QuizQuestion { id: string; prompt: string; points: number; options: QuizOption[] }
+interface Quiz { id: string; title: string; instructions: string; pass_mark: number; questions: QuizQuestion[] }
+interface QuizResult { id: string; score: number; passed: boolean; pass_mark: number; earned_points: number; total_points: number }
 interface Resource {
   id: string;
   title: string;
@@ -66,6 +71,9 @@ export default function LearnerClassroomPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [certificateCode, setCertificateCode] = useState("");
+  const [quizzes, setQuizzes] = useState<Record<string, Quiz>>({});
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, Record<string, string>>>({});
+  const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
 
   useEffect(() => {
     let active = true;
@@ -124,6 +132,57 @@ export default function LearnerClassroomPage() {
       setNotice(`“${lesson.title}” marked complete. Your progress has been updated.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record lesson completion.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadQuiz(assessment: Assessment) {
+    if (!organizationId) return;
+    setBusy(true);
+    setError("");
+    try {
+      const quiz = await apiGet<Quiz>(
+        `/organizations/${organizationId}/learning/assessments/${assessment.id}/quiz`,
+      );
+      setQuizzes((current) => ({ ...current, [assessment.id]: quiz }));
+      setQuizAnswers((current) => ({ ...current, [assessment.id]: {} }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load this quiz.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setQuizAnswer(assessmentId: string, questionId: string, optionId: string) {
+    setQuizAnswers((current) => ({
+      ...current,
+      [assessmentId]: { ...(current[assessmentId] ?? {}), [questionId]: optionId },
+    }));
+  }
+
+  async function submitQuiz(event: FormEvent<HTMLFormElement>, assessment: Assessment) {
+    event.preventDefault();
+    if (!organizationId) return;
+    const quiz = quizzes[assessment.id];
+    const answers = quizAnswers[assessment.id] ?? {};
+    if (!quiz || quiz.questions.some((question) => !answers[question.id])) {
+      setError("Choose an answer for every question before submitting.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiPost<QuizResult>(
+        `/organizations/${organizationId}/learning/assessments/${assessment.id}/quiz-attempts`,
+        { answers },
+      );
+      setQuizResults((current) => ({ ...current, [assessment.id]: result }));
+      setNotice(`Quiz submitted: ${result.score}% — ${result.passed ? "pass" : "not yet passed"}.`);
+      await refreshProgress();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit this quiz.");
     } finally {
       setBusy(false);
     }
@@ -215,11 +274,50 @@ export default function LearnerClassroomPage() {
                   <h3>{assessment.title}</h3>
                   <p className="portal-description">{assessment.instructions}</p>
                   {assessment.due_at && <p className="workspace-muted">Due {new Date(assessment.due_at).toLocaleString()}</p>}
-                  <form onSubmit={(event) => void submitAssessment(event, assessment)}>
-                    <label htmlFor={`response-${assessment.id}`}>Your response</label>
-                    <textarea id={`response-${assessment.id}`} name="response" rows={5} maxLength={20000} required />
-                    <button className="primary-action" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
-                  </form>
+                  {assessment.automated ? (
+                    <>
+                      {!quizzes[assessment.id] && !quizResults[assessment.id] && (
+                        <button className="primary-action" disabled={busy} onClick={() => void loadQuiz(assessment)}>
+                          {busy ? "Loading…" : "Start quiz"}
+                        </button>
+                      )}
+                      {quizzes[assessment.id] && !quizResults[assessment.id] && (
+                        <form onSubmit={(event) => void submitQuiz(event, assessment)}>
+                          {quizzes[assessment.id].questions.map((question, questionIndex) => (
+                            <fieldset key={question.id} className="portal-card">
+                              <legend><strong>{questionIndex + 1}. {question.prompt}</strong> · {question.points} point(s)</legend>
+                              {question.options.map((option) => (
+                                <label key={option.id}>
+                                  <input
+                                    type="radio"
+                                    name={`${assessment.id}-${question.id}`}
+                                    value={option.id}
+                                    checked={quizAnswers[assessment.id]?.[question.id] === option.id}
+                                    onChange={() => setQuizAnswer(assessment.id, question.id, option.id)}
+                                  />
+                                  {option.text}
+                                </label>
+                              ))}
+                            </fieldset>
+                          ))}
+                          <button className="primary-action" disabled={busy}>
+                            {busy ? "Submitting…" : "Submit quiz"}
+                          </button>
+                        </form>
+                      )}
+                      {quizResults[assessment.id] && (
+                        <p className="workspace-notice" role="status">
+                          Result: {quizResults[assessment.id].score}% · {quizResults[assessment.id].passed ? "Passed" : "Not passed"}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <form onSubmit={(event) => void submitAssessment(event, assessment)}>
+                      <label htmlFor={`response-${assessment.id}`}>Your response</label>
+                      <textarea id={`response-${assessment.id}`} name="response" rows={5} maxLength={20000} required />
+                      <button className="primary-action" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
+                    </form>
+                  )}
                 </article>
               ))}
               {progress.assessments.map((attempt, index) => (

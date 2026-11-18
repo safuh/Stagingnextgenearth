@@ -163,8 +163,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert employee_invitation.status_code == 201
         employee_acceptance = client.post(
-            f"/api/organizations/{org_id}/memberships/"
-            f"{employee_invitation.json()['id']}/accept",
+            f"/api/organizations/{org_id}/memberships/{employee_invitation.json()['id']}/accept",
             headers=employee_headers,
         )
         assert employee_acceptance.status_code == 200
@@ -207,9 +206,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
                 "password": "correct horse battery staple",
             },
         )
-        public_learner_id = TokenService(
-            settings.jwt_secret_key.get_secret_value()
-        ).decode(public_learner_login.json()["access_token"], expected_type="access")["sub"]
+        public_learner_id = TokenService(settings.jwt_secret_key.get_secret_value()).decode(
+            public_learner_login.json()["access_token"], expected_type="access"
+        )["sub"]
         public_approval = client.post(
             f"{base}/courses/{course_id}/enrollments/{public_learner_id}/decision",
             headers=admin_headers,
@@ -230,8 +229,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert [item["id"] for item in public_courses.json()] == [course_id]
         assert public_courses.json()[0]["programme_id"] == programme_id
         programme_courses = client.get(
-            "/api/public/organizations/learning-lab/programmes/"
-            "climate-learning-programme/courses",
+            "/api/public/organizations/learning-lab/programmes/climate-learning-programme/courses",
         )
         assert programme_courses.status_code == 200
         assert [item["id"] for item in programme_courses.json()] == [course_id]
@@ -297,19 +295,18 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert membership_audit.status_code == 200
         learner_role_event = next(
-            event for event in membership_audit.json()
+            event
+            for event in membership_audit.json()
             if event["action"] == "membership.roles_changed"
             and event["subject_user_id"] == learner_id
         )
         assert learner_role_event["changes"]["reason"] == "course_enrollment_approved"
 
-        curriculum = client.get(f"{base}/courses/{course_id}/curriculum",
-                                headers=learner_headers)
+        curriculum = client.get(f"{base}/courses/{course_id}/curriculum", headers=learner_headers)
         assert curriculum.status_code == 200
         assert curriculum.json()["modules"][0]["lessons"][0]["title"] == "Local climate risks"
 
-        resources = client.get(f"{base}/courses/{course_id}/resources",
-                               headers=learner_headers)
+        resources = client.get(f"{base}/courses/{course_id}/resources", headers=learner_headers)
         assert resources.status_code == 200
         assert resources.json()[0]["title"] == "Climate field guide"
         assert "storage_reference" not in resources.json()[0]
@@ -375,6 +372,92 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert staff_submissions.status_code == 200
         assert staff_submissions.json()[0]["id"] == submission.json()["id"]
         assert staff_submissions.json()[0]["submission"]["answers"] == ["risk", "adaptation"]
+
+        automated_quiz = client.post(
+            f"{base}/courses/{course_id}/assessments",
+            headers=admin_headers,
+            json={
+                "title": "Climate decision-making quiz",
+                "assessment_type": "quiz",
+                "instructions": "Choose the best answer for each question.",
+                "pass_mark": 60,
+                "configuration": {
+                    "questions": [
+                        {
+                            "id": "q1",
+                            "prompt": "Which action reduces flood exposure?",
+                            "options": [
+                                {"id": "a", "text": "Restore wetlands"},
+                                {"id": "b", "text": "Build on floodplains"},
+                            ],
+                            "correct_option_id": "a",
+                            "points": 2,
+                        },
+                        {
+                            "id": "q2",
+                            "prompt": "What supports climate adaptation?",
+                            "options": [
+                                {"id": "a", "text": "Risk-informed planning"},
+                                {"id": "b", "text": "Ignoring local evidence"},
+                            ],
+                            "correct_option_id": "a",
+                            "points": 1,
+                        },
+                    ]
+                },
+            },
+        )
+        assert automated_quiz.status_code == 201
+        quiz_id = automated_quiz.json()["id"]
+        automated_catalog = client.get(
+            f"{base}/courses/{course_id}/assessments", headers=learner_headers
+        )
+        quiz_summary = next(item for item in automated_catalog.json() if item["id"] == quiz_id)
+        assert quiz_summary["automated"] is True
+        assert "configuration" not in quiz_summary
+        quiz = client.get(f"{base}/assessments/{quiz_id}/quiz", headers=learner_headers)
+        assert quiz.status_code == 200
+        assert len(quiz.json()["questions"]) == 2
+        assert "correct_option_id" not in quiz.text
+        assert (
+            client.post(
+                f"{base}/assessments/{quiz_id}/submissions",
+                headers=learner_headers,
+                json={"submission": {"answers": {"q1": "a", "q2": "a"}}},
+            ).status_code
+            == 409
+        )
+        incomplete_quiz = client.post(
+            f"{base}/assessments/{quiz_id}/quiz-attempts",
+            headers=learner_headers,
+            json={"answers": {"q1": "a"}},
+        )
+        assert incomplete_quiz.status_code == 422
+        invalid_option = client.post(
+            f"{base}/assessments/{quiz_id}/quiz-attempts",
+            headers=learner_headers,
+            json={"answers": {"q1": "unknown", "q2": "a"}},
+        )
+        assert invalid_option.status_code == 422
+        quiz_result = client.post(
+            f"{base}/assessments/{quiz_id}/quiz-attempts",
+            headers=learner_headers,
+            json={"answers": {"q1": "a", "q2": "b"}},
+        )
+        assert quiz_result.status_code == 201
+        assert quiz_result.json()["score"] == 67
+        assert quiz_result.json()["passed"] is True
+        assert quiz_result.json()["earned_points"] == 2
+        assert quiz_result.json()["total_points"] == 3
+        assert (
+            client.post(
+                f"{base}/submissions/{quiz_result.json()['id']}/evaluate",
+                headers=admin_headers,
+                json={"score": 100, "feedback": "Attempted override."},
+            ).status_code
+            == 409
+        )
+
         learner_submission_access = client.get(
             f"{base}/courses/{course_id}/submissions",
             headers=learner_headers,
@@ -455,8 +538,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert late_invitation.status_code == 201
         late_acceptance = client.post(
-            f"/api/organizations/{org_id}/memberships/"
-            f"{late_invitation.json()['id']}/accept",
+            f"/api/organizations/{org_id}/memberships/{late_invitation.json()['id']}/accept",
             headers=late_learner_headers,
         )
         assert late_acceptance.status_code == 200
