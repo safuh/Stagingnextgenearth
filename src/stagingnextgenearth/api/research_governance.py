@@ -663,6 +663,17 @@ async def record_ethics_review(
         )
     if protocol.created_by == principal.user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Protocol authors cannot review its ethics")
+    latest_version_number = await session.scalar(
+        select(func.max(ResearchProtocolVersion.version_number)).where(
+            ResearchProtocolVersion.study_id == study_id
+        )
+    )
+    if protocol.version_number != latest_version_number:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Ethics review must reference the latest protocol version; superseded versions "
+            "cannot receive new committee decisions",
+        )
     event = ResearchEthicsReviewEvent(
         study_id=study_id,
         protocol_version_id=protocol.id,

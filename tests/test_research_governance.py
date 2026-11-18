@@ -546,6 +546,18 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
         json={"decision": "approved", "note": "The amended methods and safeguards are acceptable."},
     )
     assert amendment_review.status_code == 201
+    # A superseded protocol cannot receive a new ethics decision after amendment.
+    stale_ethics = client.post(
+        f"{base}/ethics-reviews",
+        headers=reviewer_headers,
+        json={
+            "protocol_version_id": protocol_id,
+            "decision": "approved",
+            "reference": "ERB-STALE-001",
+            "note": "This decision references a superseded protocol version.",
+        },
+    )
+    assert stale_ethics.status_code == 409
     # The first version's ethics approval cannot authorise the amended protocol.
     assert (
         client.patch(status_url, headers=lead_headers, json={"status": "active"}).status_code == 409
