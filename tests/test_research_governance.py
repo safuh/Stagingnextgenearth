@@ -649,3 +649,125 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
     assert amendment_pause["changes"]["from_status"] == "active"
     assert amendment_pause["changes"]["to_status"] == "protocol"
     assert amendment_pause["changes"]["protocol_version_id"] == amendment_id
+
+
+def test_adverse_ethics_decision_pauses_active_study(client: TestClient) -> None:
+    lead_headers = _register(client, "ethics-pause-lead@example.org")
+    reviewer_headers = _register(client, "ethics-pause-reviewer@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=lead_headers,
+        json={"name": "Ethics Pause Lab", "slug": "ethics-pause-lab"},
+    )
+    assert organization.status_code == 201
+    organization_id = organization.json()["id"]
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=lead_headers,
+        json={"identifier": "ethics-pause-reviewer@example.org", "role": "programme_manager"},
+    )
+    assert invitation.status_code == 201
+    assert (
+        client.post(
+            f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+            headers=reviewer_headers,
+        ).status_code
+        == 200
+    )
+
+    study_response = client.post(
+        f"/api/organizations/{organization_id}/research-studies",
+        headers=lead_headers,
+        json={"title": "Active study subject to ethics review"},
+    )
+    assert study_response.status_code == 201
+    study_id = study_response.json()["id"]
+    base = f"/api/organizations/{organization_id}/research-studies/{study_id}"
+    protocol_response = client.post(
+        f"{base}/protocol-versions",
+        headers=lead_headers,
+        json={
+            "title": "Approved study protocol",
+            "objectives": "Evaluate seasonal climate adaptation outcomes.",
+            "methodology": "Analyse validated observations and structured interviews.",
+        },
+    )
+    assert protocol_response.status_code == 201
+    protocol_id = protocol_response.json()["id"]
+    assert (
+        client.post(
+            f"{base}/protocol-versions/{protocol_id}/submit", headers=lead_headers
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"{base}/protocol-versions/{protocol_id}/reviews",
+            headers=reviewer_headers,
+            json={
+                "decision": "approved",
+                "note": "The protocol methods and safeguards are adequate.",
+            },
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            f"{base}/ethics-reviews",
+            headers=reviewer_headers,
+            json={
+                "protocol_version_id": protocol_id,
+                "decision": "approved",
+                "reference": "ERB-APPROVED-001",
+                "note": "Initial ethics approval granted for the submitted protocol.",
+            },
+        ).status_code
+        == 201
+    )
+
+    lifecycle_url = f"/api/organizations/{organization_id}/research-studies/{study_id}/status"
+    assert (
+        client.patch(lifecycle_url, headers=lead_headers, json={"status": "protocol"}).json()[
+            "status"
+        ]
+        == "protocol"
+    )
+    assert (
+        client.patch(lifecycle_url, headers=lead_headers, json={"status": "active"}).json()[
+            "status"
+        ]
+        == "active"
+    )
+
+    adverse = client.post(
+        f"{base}/ethics-reviews",
+        headers=reviewer_headers,
+        json={
+            "protocol_version_id": protocol_id,
+            "decision": "revisions_required",
+            "reference": "ERB-REVISION-002",
+            "note": "Additional participant safeguards must be documented before resumption.",
+        },
+    )
+    assert adverse.status_code == 201
+    assert adverse.json()["decision"] == "revisions_required"
+
+    studies = client.get(
+        f"/api/organizations/{organization_id}/research-studies", headers=lead_headers
+    )
+    assert studies.status_code == 200
+    assert next(item for item in studies.json() if item["id"] == study_id)["status"] == "protocol"
+
+    audit = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events?limit=100",
+        headers=lead_headers,
+    )
+    assert audit.status_code == 200
+    pause_events = [
+        event
+        for event in audit.json()
+        if event["action"] == "research.study.status_changed"
+        and event["changes"].get("reason") == "adverse_ethics_decision_requires_pause"
+    ]
+    assert len(pause_events) == 1
+    assert pause_events[0]["changes"]["ethics_decision"] == "revisions_required"
