@@ -143,6 +143,9 @@ export default function ResearchWorkspacePage() {
   const [organizationId, setOrganizationId] = useState("");
   const workspaceGeneration = useRef(0);
   const governanceRequest = useRef(0);
+  const evidenceContextGeneration = useRef(0);
+  const evidenceLoadRequest = useRef(0);
+  const evidenceExportRequest = useRef(0);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [studies, setStudies] = useState<Study[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -230,8 +233,13 @@ export default function ResearchWorkspacePage() {
     setResearchAuditExporting(false);
     setGovernanceLoading(false);
     setGovernanceBusy(false);
+    evidenceContextGeneration.current += 1;
+    evidenceLoadRequest.current += 1;
+    evidenceExportRequest.current += 1;
     setEvidenceStudyId("");
     setEvidenceLedger(null);
+    setEvidenceLoading(false);
+    setEvidenceExporting(false);
     setClimateObservations([]);
     setClimateListLoading(false);
     setAnalysis(null);
@@ -753,46 +761,66 @@ export default function ResearchWorkspacePage() {
   }
   async function loadEvidenceLedger() {
     if (!evidenceStudyId) return;
+    const context = evidenceContextGeneration.current;
+    const request = ++evidenceLoadRequest.current;
+    const requestedOrganizationId = organizationId;
+    const requestedStudyId = evidenceStudyId;
     setEvidenceLoading(true);
     setError("");
     setEvidenceLedger(null);
     try {
       const report = await apiGet<EvidenceLedger>(
-        `/organizations/${organizationId}/research-studies/${evidenceStudyId}/evidence-ledger?limit=100`,
+        `/organizations/${requestedOrganizationId}/research-studies/${requestedStudyId}/evidence-ledger?limit=100`,
       );
-      setEvidenceLedger(report);
+      if (context === evidenceContextGeneration.current && request === evidenceLoadRequest.current) {
+        setEvidenceLedger(report);
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load the study evidence ledger.");
+      if (context === evidenceContextGeneration.current && request === evidenceLoadRequest.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to load the study evidence ledger.");
+      }
     } finally {
-      setEvidenceLoading(false);
+      if (context === evidenceContextGeneration.current && request === evidenceLoadRequest.current) {
+        setEvidenceLoading(false);
+      }
     }
   }
 
   async function downloadEvidenceLedger() {
     if (!evidenceStudyId) return;
+    const context = evidenceContextGeneration.current;
+    const request = ++evidenceExportRequest.current;
+    const requestedOrganizationId = organizationId;
+    const requestedStudyId = evidenceStudyId;
     setEvidenceExporting(true);
     setError("");
     setNotice("");
     try {
       const response = await fetch(
-        `/api/backend/organizations/${organizationId}/research-studies/${evidenceStudyId}/evidence-ledger/export?limit=100`,
+        `/api/backend/organizations/${requestedOrganizationId}/research-studies/${requestedStudyId}/evidence-ledger/export?limit=100`,
         { credentials: "same-origin", cache: "no-store", headers: { Accept: "text/csv" } },
       );
       if (!response.ok) throw new Error(`Evidence export failed (${response.status}).`);
+      if (context !== evidenceContextGeneration.current || request !== evidenceExportRequest.current) return;
       const blob = await response.blob();
+      if (context !== evidenceContextGeneration.current || request !== evidenceExportRequest.current) return;
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = objectUrl;
-      anchor.download = `research-evidence-${evidenceStudyId}.csv`;
+      anchor.download = `research-evidence-${requestedStudyId}.csv`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       setNotice("Study evidence ledger CSV downloaded. The export contains metadata and aggregate climate review counts only.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to download the study evidence ledger.");
+      if (context === evidenceContextGeneration.current && request === evidenceExportRequest.current) {
+        setError(cause instanceof Error ? cause.message : "Unable to download the study evidence ledger.");
+      }
     } finally {
-      setEvidenceExporting(false);
+      if (context === evidenceContextGeneration.current && request === evidenceExportRequest.current) {
+        setEvidenceExporting(false);
+      }
     }
   }
 
@@ -1414,7 +1442,7 @@ export default function ResearchWorkspacePage() {
                 <section className="research-section">
                   <div className="section-heading"><div><p className="eyebrow">RESEARCH TRACEABILITY</p><h2>Study evidence ledger</h2><p>Connect approved dataset fingerprints, reproducible analysis runs, publications and reviewed climate records.</p></div></div>
                   <div className="research-form-pair">
-                    <label>Research study<select value={evidenceStudyId} onChange={(event) => { setEvidenceStudyId(event.target.value); setEvidenceLedger(null); }}><option value="">Select a study</option>{studies.map((study) => <option value={study.id} key={study.id}>{study.title}</option>)}</select></label>
+                    <label>Research study<select value={evidenceStudyId} onChange={(event) => { evidenceContextGeneration.current += 1; evidenceLoadRequest.current += 1; evidenceExportRequest.current += 1; setEvidenceStudyId(event.target.value); setEvidenceLedger(null); setEvidenceLoading(false); setEvidenceExporting(false); }}><option value="">Select a study</option>{studies.map((study) => <option value={study.id} key={study.id}>{study.title}</option>)}</select></label>
                     <div className="form-actions"><button type="button" className="primary-action" disabled={!evidenceStudyId || evidenceLoading} onClick={() => void loadEvidenceLedger()}>{evidenceLoading ? "Building ledger…" : "Build evidence ledger"}</button><button type="button" className="secondary-action" disabled={!evidenceStudyId || evidenceExporting} onClick={() => void downloadEvidenceLedger()}>{evidenceExporting ? "Preparing CSV…" : "Download CSV"}</button></div>
                   </div>
                   {evidenceLedger && (

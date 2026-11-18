@@ -274,3 +274,10 @@ These foundation checks must continue passing as product code is added.
 - Keep restricted dataset metadata behind the same effective study-membership boundary used by the dataset registry.
 - Keep analysis provenance linked only to datasets visible in the caller's evidence inventory.
 - Add regression coverage for denied study access on both JSON and CSV routes.
+
+
+## M78 — Research evidence workspace request isolation
+
+- Guard evidence-ledger loads and CSV downloads against stale responses after organisation or study selection changes.
+- Prevent older concurrent requests from overwriting a newer ledger or triggering a download for a previously selected study.
+- Reset in-flight evidence workspace state when the organisation context changes.
