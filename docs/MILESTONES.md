@@ -248,3 +248,12 @@ These foundation checks must continue passing as product code is added.
 - [x] Require committee decisions to reference the study's latest protocol version.
 - [x] Reject stale-version ethics submissions with HTTP 409 while retaining historical decisions for audit.
 - [x] Add lifecycle regression coverage proving an earlier approved version cannot receive a new decision after amendment.
+
+
+### M75 — Research ethics and protocol oversight snapshot
+
+- [x] Add a leadership-only, tenant-scoped research governance overview endpoint.
+- [x] Summarise the latest protocol version, independent protocol decision, current-version ethics decision, reviewer and committee reference without exposing review notes.
+- [x] Distinguish pending protocol review, required ethics clearance, adverse ethics outcomes and studies paused pending committee clearance.
+- [x] Integrate governance indicators and per-study status into the founder/executive overview.
+- [x] Keep superseded ethics decisions historical; they never count as current clearance.
