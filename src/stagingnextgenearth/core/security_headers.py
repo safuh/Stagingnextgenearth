@@ -10,9 +10,16 @@ from starlette.responses import Response
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Apply conservative security headers without caching authentication responses."""
 
-    def __init__(self, app: object, *, production: bool = False) -> None:
+    def __init__(
+        self,
+        app: object,
+        *,
+        production: bool = False,
+        api_prefix: str = "/api",
+    ) -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self.production = production
+        self.auth_prefixes = (f"{api_prefix.rstrip('/')}/auth/",)
 
     async def dispatch(
         self,
@@ -28,7 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=(), payment=()",
         )
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
-        if request.url.path.startswith(("/api/auth/", "/api/session")):
+        if request.url.path.startswith(self.auth_prefixes):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
         if self.production:

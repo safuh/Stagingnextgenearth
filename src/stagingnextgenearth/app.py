@@ -23,7 +23,7 @@ from .core.errors import (
 )
 from .core.lifespan import lifespan
 from .core.logging import configure_logging
-from .core.middleware import RequestContextMiddleware
+from .core.middleware import AuthenticationRateLimitMiddleware, RequestContextMiddleware
 from .core.security_headers import SecurityHeadersMiddleware
 from .identity import create_sqlalchemy_auth_application
 from .scanning import ClamAVScanner
@@ -89,7 +89,17 @@ def create_app(
     app.state.auth_application_factory = auth_application_factory
 
     app.add_middleware(RequestContextMiddleware)
-    app.add_middleware(SecurityHeadersMiddleware, production=production)
+    app.add_middleware(
+        AuthenticationRateLimitMiddleware,
+        requests=resolved.auth_rate_limit_requests,
+        window_seconds=resolved.auth_rate_limit_window_seconds,
+        api_prefix=resolved.api_prefix,
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        production=production,
+        api_prefix=resolved.api_prefix,
+    )
     if resolved.cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -103,9 +113,7 @@ def create_app(
     app.add_exception_handler(
         RequestValidationError, cast(ExceptionHandler, validation_error_handler)
     )
-    app.add_exception_handler(
-        StarletteHTTPException, cast(ExceptionHandler, http_error_handler)
-    )
+    app.add_exception_handler(StarletteHTTPException, cast(ExceptionHandler, http_error_handler))
     app.add_exception_handler(Exception, unhandled_error_handler)
 
     app.include_router(api_router, prefix=resolved.api_prefix)
