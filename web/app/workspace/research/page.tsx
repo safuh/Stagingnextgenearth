@@ -37,8 +37,8 @@ interface ProtocolComparison {
   changed_field_count: number;
   fields: { field: string; before: string | null; after: string | null; changed: boolean }[];
 }
-interface ProtocolReview { id: string; protocol_version_id: string; decision: string; note: string | null; reviewed_at: string; }
-interface EthicsReview { id: string; study_id: string; protocol_version_id: string | null; decision: string; reference: string | null; note: string | null; reviewed_at: string; }
+interface ProtocolReview { id: string; protocol_version_id: string; reviewer_user_id: string; decision: string; note: string | null; reviewed_at: string; }
+interface EthicsReview { id: string; study_id: string; protocol_version_id: string | null; reviewer_user_id: string; decision: string; reference: string | null; note: string | null; reviewed_at: string; }
 interface ResearchAuditEvent { id: string; actor_user_id: string; subject_user_id: string | null; action: string; changes: Record<string, unknown>; created_at: string; }
 interface EvidenceLedger {
   study_id: string; study_title: string; generated_at: string;
@@ -1384,7 +1384,7 @@ export default function ResearchWorkspacePage() {
                           {protocol.status === "draft" && (studies.find((item) => item.id === governanceStudyId)?.lead_researcher_id === membership?.user_id || canAuthorProtocols) && <button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void submitProtocolVersion(protocol.id)}>Submit for independent review</button>}
                           {isReviewer && protocol.status === "submitted" && studies.find((item) => item.id === governanceStudyId)?.lead_researcher_id !== membership?.user_id && <div className="climate-review-controls"><label>Independent review note<textarea rows={3} minLength={10} maxLength={5000} value={protocolReviewNotes[protocol.id] || ""} onChange={(event) => setProtocolReviewNotes((items) => ({ ...items, [protocol.id]: event.target.value }))} placeholder="Assess methods, participant safeguards and data management" /></label><div className="dataset-review-actions"><button type="button" className="primary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "approved")}>Approve</button><button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "revisions_required")}>Request revisions</button><button type="button" className="secondary-action" disabled={governanceBusy} onClick={() => void reviewProtocolVersion(protocol.id, "rejected")}>Reject</button></div></div>}
                           <h4>Review history</h4>
-                          {(protocolReviews[protocol.id] || []).length === 0 ? <p className="workspace-muted">No independent reviews recorded.</p> : (protocolReviews[protocol.id] || []).map((review) => <p key={review.id} className="workspace-muted">{review.decision.replace(/_/g, " ")} · {new Date(review.reviewed_at).toLocaleString()} · {review.note}</p>)}
+                          {(protocolReviews[protocol.id] || []).length === 0 ? <p className="workspace-muted">No independent reviews recorded.</p> : (protocolReviews[protocol.id] || []).map((review) => <p key={review.id} className="workspace-muted">{review.decision.replace(/_/g, " ")} · reviewer {review.reviewer_user_id} · {new Date(review.reviewed_at).toLocaleString()} · {review.note}</p>)}
                         </article>
                       ))}
                       {isReviewer && protocolVersions.some((protocol) => protocol.status === "approved") && (
@@ -1399,7 +1399,7 @@ export default function ResearchWorkspacePage() {
                         </section>
                       )}
                       <h3>Ethics review history</h3>
-                      {ethicsReviews.length === 0 ? <p className="workspace-muted">No ethics committee decisions recorded.</p> : ethicsReviews.map((review) => <article className="research-record" key={review.id}><div className="research-record-top"><strong>{review.decision.replace(/_/g, " ")}</strong><span>{review.reference || "No committee reference"}</span></div><p>{review.note}</p><p className="workspace-muted">{review.protocol_version_id ? `Protocol ${protocolVersions.find((item) => item.id === review.protocol_version_id)?.version_number ?? "version"}` : "No linked protocol"} · {new Date(review.reviewed_at).toLocaleString()}</p></article>)}
+                      {ethicsReviews.length === 0 ? <p className="workspace-muted">No ethics committee decisions recorded.</p> : ethicsReviews.map((review) => <article className="research-record" key={review.id}><div className="research-record-top"><strong>{review.decision.replace(/_/g, " ")}</strong><span>{review.reference || "No committee reference"}</span></div><p>{review.note}</p><p className="workspace-muted">{review.protocol_version_id ? `Protocol ${protocolVersions.find((item) => item.id === review.protocol_version_id)?.version_number ?? "version"}` : "No linked protocol"} · reviewer {review.reviewer_user_id} · {new Date(review.reviewed_at).toLocaleString()}</p></article>)}
                     </>}
                   </section>
                 )}
