@@ -3,7 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
     api_prefix: str = "/api"
+    public_base_url: AnyHttpUrl = AnyHttpUrl("https://nextgenforearth.org")
     database_url: str = "sqlite+aiosqlite:///./backbone.db"
     database_echo: bool = False
     database_pool_size: int = Field(default=5, ge=1)
@@ -80,6 +81,8 @@ class Settings(BaseSettings):
             if not self.database_url.startswith("postgresql+asyncpg://"):
                 raise ValueError("production requires a PostgreSQL asyncpg DATABASE_URL")
             self.log_json = True
+            if self.public_base_url.scheme != "https":
+                raise ValueError("production PUBLIC_BASE_URL must use HTTPS")
             if self.jwt_secret_key is None or len(self.jwt_secret_key.get_secret_value()) < 32:
                 raise ValueError("production requires JWT_SECRET_KEY with at least 32 characters")
         if self.object_storage_enabled and not self.object_storage_bucket:

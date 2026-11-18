@@ -310,3 +310,13 @@ These foundation checks must continue passing as product code is added.
 - [x] Bound in-process client tracking and avoid trusting spoofable forwarding headers.
 - [x] Add regression coverage for threshold enforcement and authentication no-cache headers.
 - [x] Document the single-process limitation and mandatory shared ingress controls for production replicas.
+
+
+## M82 — Downloadable verifiable learning certificates
+
+- [x] Generate landscape A4 PDF certificates with course, organisation, issue date and credential number.
+- [x] Include a QR code and public verification URL, configurable through `PUBLIC_BASE_URL`.
+- [x] Restrict downloads to the learner who earned the credential or authorised learning managers.
+- [x] Deny downloads for revoked certificates and return private no-store PDF responses.
+- [x] Surface certificate download links in the learner classroom and support QR deep-link verification.
+- [x] Cover PDF generation, ownership, manager access, revoked credentials and progress metadata.

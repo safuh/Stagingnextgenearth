@@ -53,7 +53,9 @@ The API documentation is available at http://127.0.0.1:8000/docs.
 Set `JWT_SECRET_KEY` to a unique secret of at least 32 characters before enabling
 password authentication. Access tokens default to 15 minutes and refresh tokens
 to 14 days; configure `ACCESS_TOKEN_MINUTES` and `REFRESH_TOKEN_DAYS` as needed.
-Do not commit production secrets. Authentication endpoints default to 30 requests
+Set `PUBLIC_BASE_URL` to the canonical HTTPS website origin so certificate QR
+codes open the correct public verification page. Do not commit production secrets.
+Authentication endpoints default to 30 requests
 per client IP and endpoint per 60 seconds; configure `AUTH_RATE_LIMIT_REQUESTS`
 and `AUTH_RATE_LIMIT_WINDOW_SECONDS` as needed. The application-level limiter is
 per process, so production ingress/API-gateway limits with shared state are also
