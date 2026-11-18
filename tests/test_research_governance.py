@@ -777,3 +777,44 @@ def test_adverse_ethics_decision_pauses_active_study(
     ]
     assert len(pause_events) == 1
     assert pause_events[0]["changes"]["ethics_decision"] == adverse_decision
+
+    # Resumption requires a new affirmative committee decision. The activation
+    # audit event must identify the exact protocol and ethics evidence used.
+    clearance = client.post(
+        f"{base}/ethics-reviews",
+        headers=reviewer_headers,
+        json={
+            "protocol_version_id": protocol_id,
+            "decision": "approved",
+            "reference": f"ERB-REAPPROVAL-{adverse_decision.upper()}",
+            "note": "The committee has reviewed the corrective actions and cleared resumption.",
+        },
+    )
+    assert clearance.status_code == 201
+    assert clearance.json()["decision"] == "approved"
+    reactivated = client.patch(
+        f"/api/organizations/{organization_id}/research-studies/{study_id}/status",
+        headers=lead_headers,
+        json={"status": "active"},
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["status"] == "active"
+
+    final_audit = client.get(
+        f"/api/organizations/{organization_id}/research-governance/audit-events?limit=100",
+        headers=lead_headers,
+    )
+    assert final_audit.status_code == 200
+    activation_events = [
+        event
+        for event in final_audit.json()
+        if event["action"] == "research.study.status_changed"
+        and event["changes"].get("from_status") == "protocol"
+        and event["changes"].get("to_status") == "active"
+        and event["changes"].get("ethics_review_event_id") == clearance.json()["id"]
+    ]
+    assert len(activation_events) == 1
+    assert activation_events[0]["changes"]["protocol_version_id"] == protocol_id
+    assert activation_events[0]["changes"]["ethics_reviewer_user_id"]
+    assert activation_events[0]["changes"]["ethics_decision"] == "approved"
+    assert activation_events[0]["changes"]["ethics_reference"] == clearance.json()["reference"]

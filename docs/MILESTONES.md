@@ -234,3 +234,10 @@ These foundation checks must continue passing as product code is added.
 - [x] Exercise both `revisions_required` and `rejected` committee decisions against an active study.
 - [x] Verify each adverse outcome pauses the study and records the matching decision in the governance audit trail.
 - [x] Keep the same lifecycle setup and assertions parameterised to prevent decision-path drift.
+
+
+### M73 — Auditable ethics clearance for study activation
+
+- [x] Record the exact approved protocol version used to authorise study activation or resumption.
+- [x] Include the ethics review event, independent reviewer, decision and committee reference in the lifecycle audit event.
+- [x] Verify that adverse ethics decisions require a subsequent affirmative committee decision before a paused study can resume.

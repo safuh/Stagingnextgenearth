@@ -162,6 +162,8 @@ async def update_research_study_status(
             f"Study cannot transition from {study.status} to {target}",
         )
 
+    activation_ethics_decision: ResearchEthicsReviewEvent | None = None
+    activation_protocol: ResearchProtocolVersion | None = None
     if target in {"protocol", "active"}:
         latest_protocol = await session.scalar(
             select(ResearchProtocolVersion)
@@ -171,6 +173,7 @@ async def update_research_study_status(
             )
             .limit(1)
         )
+        activation_protocol = latest_protocol
         if latest_protocol is None or latest_protocol.status != "approved":
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
@@ -189,6 +192,7 @@ async def update_research_study_status(
                 )
                 .limit(1)
             )
+            activation_ethics_decision = ethics_decision
             if ethics_decision is None or ethics_decision.decision not in {"approved", "exempt"}:
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
@@ -206,12 +210,30 @@ async def update_research_study_status(
 
     previous_status = study.status
     study.status = target
+    changes: dict[str, str | None] = {
+        "study_id": study_id,
+        "from_status": previous_status,
+        "to_status": target,
+    }
+    if target == "active":
+        # Record the exact committee evidence that authorised fieldwork resumption.
+        assert activation_protocol is not None
+        assert activation_ethics_decision is not None
+        changes.update(
+            {
+                "protocol_version_id": activation_protocol.id,
+                "ethics_review_event_id": activation_ethics_decision.id,
+                "ethics_reviewer_user_id": activation_ethics_decision.reviewer_user_id,
+                "ethics_decision": activation_ethics_decision.decision,
+                "ethics_reference": activation_ethics_decision.reference,
+            }
+        )
     session.add(
         OrganizationAuditEvent(
             organization_id=organization_id,
             actor_user_id=principal.user_id,
             action="research.study.status_changed",
-            changes={"study_id": study_id, "from_status": previous_status, "to_status": target},
+            changes=changes,
         )
     )
     await session.commit()

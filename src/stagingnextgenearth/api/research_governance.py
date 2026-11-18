@@ -670,6 +670,10 @@ async def record_ethics_review(
         decision=body.decision,
         reference=body.reference,
         note=body.note.strip(),
+        # Preserve sub-second ordering so a fresh committee decision always
+        # supersedes an earlier decision even on databases with second precision
+        # for server-side CURRENT_TIMESTAMP defaults.
+        reviewed_at=datetime.now(UTC),
     )
     session.add(event)
     session.add(
