@@ -126,8 +126,9 @@ async def get_research_evidence_ledger(
     )
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Research study not found")
-    await study_access_role(session, organization_id, study_id, principal, membership)
-
+    study_role = await study_access_role(session, organization_id, study_id, principal, membership)
+    if study_role is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Research study evidence access required")
     datasets_result = await session.scalars(
         select(ResearchDataset)
         .where(
@@ -140,6 +141,8 @@ async def get_research_evidence_ledger(
     )
     dataset_rows = list(datasets_result.all())
     datasets_truncated = len(dataset_rows) > limit
+    # The required study role is the visibility boundary for study-linked
+    # restricted metadata, matching the dataset registry's collaborator policy.
     datasets = dataset_rows[:limit]
     dataset_ids = [item.id for item in datasets]
     dataset_evidence: list[EvidenceDataset] = []

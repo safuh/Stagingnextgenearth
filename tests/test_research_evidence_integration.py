@@ -178,3 +178,30 @@ def test_evidence_ledger_rejects_invalid_result_limits(client: TestClient) -> No
     assert client.get(f"{url}?limit=501", headers=headers).status_code == 422
     assert client.get(f"{url}/export?limit=0", headers=headers).status_code == 422
     assert client.get(f"{url}/export?limit=501", headers=headers).status_code == 422
+
+
+def test_evidence_ledger_requires_effective_study_access(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = _register(client, "evidence-access@example.org")
+    organization = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "Evidence Access Lab", "slug": "evidence-access-lab"},
+    ).json()
+    study = client.post(
+        f"/api/organizations/{organization['id']}/research-studies",
+        headers=headers,
+        json={"title": "Access-controlled evidence study"},
+    ).json()
+    url = f"/api/organizations/{organization['id']}/research-studies/{study['id']}/evidence-ledger"
+
+    async def deny_study_access(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "stagingnextgenearth.api.research_evidence.study_access_role",
+        deny_study_access,
+    )
+    assert client.get(url, headers=headers).status_code == 403
+    assert client.get(f"{url}/export", headers=headers).status_code == 403
