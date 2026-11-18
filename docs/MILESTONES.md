@@ -292,3 +292,13 @@ These foundation checks must continue passing as product code is added.
 - [x] Permit a fresh application after withdrawal or rejection while enforcing one pending application per candidate and organisation.
 - [x] Add a public careers-page flow for sign-in, application status, withdrawal and history.
 - [x] Cover tenant ownership, duplicate submissions, withdrawal and resubmission in API tests.
+
+
+## M80 — Automated learning quiz execution
+
+- [x] Validate bounded multiple-choice quiz configuration, unique question/option identifiers and answer-key integrity.
+- [x] Expose learner-safe quiz prompts and options without returning correct answers.
+- [x] Enforce approved enrolment, published-course access, exact answer coverage and assessment deadlines.
+- [x] Score weighted responses server-side and persist the immutable learner attempt result.
+- [x] Prevent generic submission and manual staff re-scoring from bypassing automated quiz rules.
+- [x] Cover answer-key secrecy, malformed answers, weighted scoring, pass thresholds and re-scoring denial.

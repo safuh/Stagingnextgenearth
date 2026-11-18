@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,13 +45,21 @@ router = APIRouter(prefix="/organizations/{organization_id}/learning", tags=["le
 public_router = APIRouter(tags=["public-learning"])
 _MANAGE = {"admin", "founder", "executive", "programme_manager"}
 _LEARN = {
-    "admin", "founder", "executive", "programme_manager", "researcher",
-    "youth_volunteer", "employee", "institutional_partner", "learner",
+    "admin",
+    "founder",
+    "executive",
+    "programme_manager",
+    "researcher",
+    "youth_volunteer",
+    "employee",
+    "institutional_partner",
+    "learner",
 }
 
 
 class PublicOrganizationRead(BaseModel):
     """Minimal public organisation identity used by public learning journeys."""
+
     id: str
     name: str
     slug: str
@@ -79,6 +87,7 @@ async def get_public_organization(
 
 class PublicCourseRead(BaseModel):
     """Publicly discoverable course fields; excludes learner and internal records."""
+
     model_config = ConfigDict(from_attributes=True)
     id: str
     organization_id: str
@@ -150,6 +159,7 @@ async def list_public_courses(
     )
     return [PublicCourseRead.model_validate(item) for item in rows.all()]
 
+
 class CourseCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
     slug: str = Field(min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -198,6 +208,49 @@ class AssessmentCreate(BaseModel):
     configuration: dict[str, object] = Field(default_factory=dict)
     pass_mark: int = Field(default=50, ge=0, le=100)
     due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_quiz_configuration(self) -> "AssessmentCreate":
+        if self.assessment_type == "quiz" and "questions" in self.configuration:
+            QuizConfiguration.model_validate(self.configuration)
+        return self
+
+
+class QuizOption(BaseModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+    text: str = Field(min_length=1, max_length=500)
+
+
+class QuizQuestion(BaseModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+    prompt: str = Field(min_length=1, max_length=2000)
+    options: list[QuizOption] = Field(min_length=2, max_length=10)
+    correct_option_id: str = Field(min_length=1, max_length=40)
+    points: int = Field(default=1, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def validate_options(self) -> "QuizQuestion":
+        option_ids = [option.id for option in self.options]
+        if len(option_ids) != len(set(option_ids)):
+            raise ValueError("Quiz option IDs must be unique within a question")
+        if self.correct_option_id not in option_ids:
+            raise ValueError("The correct option must exist in the question options")
+        return self
+
+
+class QuizConfiguration(BaseModel):
+    questions: list[QuizQuestion] = Field(min_length=1, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_question_ids(self) -> "QuizConfiguration":
+        question_ids = [question.id for question in self.questions]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("Quiz question IDs must be unique")
+        return self
+
+
+class QuizSubmission(BaseModel):
+    answers: dict[str, str] = Field(min_length=1, max_length=50)
 
 
 class SubmissionCreate(BaseModel):
@@ -249,21 +302,26 @@ class ResourceCreate(BaseModel):
 
 
 async def _course(session: AsyncSession, org_id: str, course_id: str) -> LearningCourse:
-    item = await session.scalar(select(LearningCourse).where(
-        LearningCourse.id == course_id, LearningCourse.organization_id == org_id
-    ))
+    item = await session.scalar(
+        select(LearningCourse).where(
+            LearningCourse.id == course_id, LearningCourse.organization_id == org_id
+        )
+    )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
     return item
 
 
 async def _enrollment(session: AsyncSession, course_id: str, learner_id: str) -> LearningEnrollment:
-    item = await session.scalar(select(LearningEnrollment).where(
-        LearningEnrollment.course_id == course_id, LearningEnrollment.learner_id == learner_id
-    ))
+    item = await session.scalar(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id == course_id, LearningEnrollment.learner_id == learner_id
+        )
+    )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment not found")
     return item
+
 
 async def _approved_enrollment(
     session: AsyncSession, course_id: str, learner_id: str
@@ -285,7 +343,8 @@ async def _approved_enrollment(
 
 @router.post("/courses", response_model=CourseRead, status_code=201)
 async def create_course(
-    organization_id: str, body: CourseCreate,
+    organization_id: str,
+    body: CourseCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -302,10 +361,15 @@ async def create_course(
         if programme_exists is None:
             raise HTTPException(404, "Programme not found in this organisation")
     course = LearningCourse(
-        organization_id=organization_id, programme_id=body.programme_id,
-        title=body.title.strip(), slug=body.slug,
-        description=body.description, category=body.category, delivery_mode=body.delivery_mode,
-        status="draft", created_by=principal.user_id,
+        organization_id=organization_id,
+        programme_id=body.programme_id,
+        title=body.title.strip(),
+        slug=body.slug,
+        description=body.description,
+        category=body.category,
+        delivery_mode=body.delivery_mode,
+        status="draft",
+        created_by=principal.user_id,
     )
     session.add(course)
     try:
@@ -333,7 +397,8 @@ async def list_courses(
 
 @router.post("/courses/{course_id}/publish", response_model=CourseRead)
 async def publish_course(
-    organization_id: str, course_id: str,
+    organization_id: str,
+    course_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CourseRead:
@@ -358,7 +423,9 @@ async def publish_course(
 
 @router.post("/courses/{course_id}/modules", status_code=201)
 async def create_module(
-    organization_id: str, course_id: str, body: ModuleCreate,
+    organization_id: str,
+    course_id: str,
+    body: ModuleCreate,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
@@ -373,21 +440,29 @@ async def create_module(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(409, "Module position already exists") from exc
-    return {"id": module.id, "course_id": module.course_id, "title": module.title,
-            "position": module.position}
+    return {
+        "id": module.id,
+        "course_id": module.course_id,
+        "title": module.title,
+        "position": module.position,
+    }
 
 
 @router.post("/modules/{module_id}/lessons", status_code=201)
 async def create_lesson(
-    organization_id: str, module_id: str, body: LessonCreate,
+    organization_id: str,
+    module_id: str,
+    body: LessonCreate,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Course management permission required")
-    module = await session.scalar(select(LearningModule).join(LearningCourse).where(
-        LearningModule.id == module_id, LearningCourse.organization_id == organization_id
-    ))
+    module = await session.scalar(
+        select(LearningModule)
+        .join(LearningCourse)
+        .where(LearningModule.id == module_id, LearningCourse.organization_id == organization_id)
+    )
     if module is None:
         raise HTTPException(404, "Module not found")
     lesson = LearningLesson(module_id=module_id, **body.model_dump())
@@ -398,13 +473,19 @@ async def create_lesson(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(409, "Lesson position already exists") from exc
-    return {"id": lesson.id, "module_id": lesson.module_id, "title": lesson.title,
-            "content_type": lesson.content_type, "position": lesson.position}
+    return {
+        "id": lesson.id,
+        "module_id": lesson.module_id,
+        "title": lesson.title,
+        "content_type": lesson.content_type,
+        "position": lesson.position,
+    }
 
 
 @router.post("/courses/{course_id}/enrollments", status_code=201)
 async def apply_for_course(
-    organization_id: str, course_id: str,
+    organization_id: str,
+    course_id: str,
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
@@ -424,8 +505,10 @@ async def apply_for_course(
     ):
         raise HTTPException(403, "This account is not eligible for learner applications")
     enrollment = LearningEnrollment(
-        course_id=course_id, learner_id=principal.user_id,
-        status="applied", progress_percent=0,
+        course_id=course_id,
+        learner_id=principal.user_id,
+        status="applied",
+        progress_percent=0,
     )
     session.add(enrollment)
     try:
@@ -468,7 +551,6 @@ async def my_enrollments(
     ]
 
 
-
 @router.get("/courses/{course_id}/enrollments")
 async def list_course_enrollments(
     organization_id: str,
@@ -501,7 +583,10 @@ async def list_course_enrollments(
 
 @router.post("/courses/{course_id}/enrollments/{learner_id}/decision")
 async def decide_enrollment(
-    organization_id: str, course_id: str, learner_id: str, body: EnrollmentDecision,
+    organization_id: str,
+    course_id: str,
+    learner_id: str,
+    body: EnrollmentDecision,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -528,9 +613,8 @@ async def decide_enrollment(
                     status="active",
                 )
             )
-        elif (
-            existing_membership.status != "active"
-            or not await membership_has_any_role(session, existing_membership, _LEARN)
+        elif existing_membership.status != "active" or not await membership_has_any_role(
+            session, existing_membership, _LEARN
         ):
             raise HTTPException(
                 409,
@@ -571,7 +655,6 @@ async def decide_enrollment(
     return {"id": enrollment.id, "status": enrollment.status}
 
 
-
 @router.get("/courses/{course_id}/assessments")
 async def list_course_assessments(
     organization_id: str,
@@ -604,6 +687,7 @@ async def list_course_assessments(
             "instructions": row.instructions,
             "pass_mark": row.pass_mark,
             "due_at": row.due_at,
+            "automated": row.assessment_type == "quiz" and "questions" in row.configuration,
         }
         for row in rows.all()
     ]
@@ -611,7 +695,9 @@ async def list_course_assessments(
 
 @router.post("/courses/{course_id}/assessments", status_code=201)
 async def create_assessment(
-    organization_id: str, course_id: str, body: AssessmentCreate,
+    organization_id: str,
+    course_id: str,
+    body: AssessmentCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -619,31 +705,165 @@ async def create_assessment(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Assessment management permission required")
     await _course(session, organization_id, course_id)
-    assessment = LearningAssessment(course_id=course_id, created_by=principal.user_id,
-                                    **body.model_dump())
+    assessment = LearningAssessment(
+        course_id=course_id, created_by=principal.user_id, **body.model_dump()
+    )
     session.add(assessment)
     await session.commit()
     await session.refresh(assessment)
-    return {"id": assessment.id, "title": assessment.title,
-            "assessment_type": assessment.assessment_type, "pass_mark": assessment.pass_mark}
+    return {
+        "id": assessment.id,
+        "title": assessment.title,
+        "assessment_type": assessment.assessment_type,
+        "pass_mark": assessment.pass_mark,
+    }
+
+
+@router.get("/assessments/{assessment_id}/quiz")
+async def get_quiz(
+    organization_id: str,
+    assessment_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return quiz prompts and options without ever exposing answer keys."""
+    if not await membership_has_any_role(session, membership, _LEARN):
+        raise HTTPException(403, "Learner access required")
+    assessment = await session.scalar(
+        select(LearningAssessment)
+        .join(LearningCourse)
+        .where(
+            LearningAssessment.id == assessment_id,
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.status == "published",
+        )
+    )
+    if assessment is None or assessment.assessment_type != "quiz":
+        raise HTTPException(404, "Quiz not found")
+    await _approved_enrollment(session, assessment.course_id, principal.user_id)
+    if assessment.due_at is not None:
+        due_at = assessment.due_at
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=UTC)
+        if datetime.now(UTC) > due_at:
+            raise HTTPException(409, "The quiz deadline has passed")
+    try:
+        configuration = QuizConfiguration.model_validate(assessment.configuration)
+    except ValidationError as exc:
+        raise HTTPException(409, "This quiz is not configured for automated execution") from exc
+    return {
+        "id": assessment.id,
+        "title": assessment.title,
+        "instructions": assessment.instructions,
+        "pass_mark": assessment.pass_mark,
+        "questions": [
+            {
+                "id": question.id,
+                "prompt": question.prompt,
+                "points": question.points,
+                "options": [option.model_dump() for option in question.options],
+            }
+            for question in configuration.questions
+        ],
+    }
+
+
+@router.post("/assessments/{assessment_id}/quiz-attempts", status_code=201)
+async def submit_quiz_attempt(
+    organization_id: str,
+    assessment_id: str,
+    body: QuizSubmission,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Score a configured multiple-choice quiz on the server and persist the result."""
+    if not await membership_has_any_role(session, membership, _LEARN):
+        raise HTTPException(403, "Learner access required")
+    assessment = await session.scalar(
+        select(LearningAssessment)
+        .join(LearningCourse)
+        .where(
+            LearningAssessment.id == assessment_id,
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.status == "published",
+        )
+    )
+    if assessment is None or assessment.assessment_type != "quiz":
+        raise HTTPException(404, "Quiz not found")
+    await _approved_enrollment(session, assessment.course_id, principal.user_id)
+    if assessment.due_at is not None:
+        due_at = assessment.due_at
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=UTC)
+        if datetime.now(UTC) > due_at:
+            raise HTTPException(409, "The quiz deadline has passed")
+    try:
+        configuration = QuizConfiguration.model_validate(assessment.configuration)
+    except ValidationError as exc:
+        raise HTTPException(409, "This quiz is not configured for automated execution") from exc
+
+    question_ids = {question.id for question in configuration.questions}
+    if set(body.answers) != question_ids:
+        raise HTTPException(422, "Submit exactly one answer for every quiz question")
+    total_points = sum(question.points for question in configuration.questions)
+    earned_points = 0
+    for question in configuration.questions:
+        selected_option = body.answers[question.id]
+        valid_options = {option.id for option in question.options}
+        if selected_option not in valid_options:
+            raise HTTPException(422, f"Invalid option for question {question.id}")
+        if selected_option == question.correct_option_id:
+            earned_points += question.points
+    score = round(earned_points * 100 / total_points)
+    evaluated_at = datetime.now(UTC)
+    attempt = LearningAssessmentAttempt(
+        assessment_id=assessment.id,
+        learner_id=principal.user_id,
+        submission={"answers": body.answers},
+        score=score,
+        feedback="Automatically scored multiple-choice quiz",
+        evaluated_at=evaluated_at,
+    )
+    session.add(attempt)
+    await session.commit()
+    await session.refresh(attempt)
+    return {
+        "id": attempt.id,
+        "score": score,
+        "passed": score >= assessment.pass_mark,
+        "pass_mark": assessment.pass_mark,
+        "earned_points": earned_points,
+        "total_points": total_points,
+        "submitted_at": attempt.submitted_at,
+    }
 
 
 @router.post("/assessments/{assessment_id}/submissions", status_code=201)
 async def submit_assessment(
-    organization_id: str, assessment_id: str, body: SubmissionCreate,
+    organization_id: str,
+    assessment_id: str,
+    body: SubmissionCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     if not await membership_has_any_role(session, membership, _LEARN):
         raise HTTPException(403, "Learner access required")
-    assessment = await session.scalar(select(LearningAssessment).join(LearningCourse).where(
-        LearningAssessment.id == assessment_id,
-        LearningCourse.organization_id == organization_id,
-        LearningCourse.status == "published",
-    ))
+    assessment = await session.scalar(
+        select(LearningAssessment)
+        .join(LearningCourse)
+        .where(
+            LearningAssessment.id == assessment_id,
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.status == "published",
+        )
+    )
     if assessment is None:
         raise HTTPException(404, "Assessment not found")
+    if assessment.assessment_type == "quiz" and "questions" in assessment.configuration:
+        raise HTTPException(409, "Use the automated quiz attempt endpoint for this assessment")
     enrollment = await _enrollment(session, assessment.course_id, principal.user_id)
     if enrollment.status != "approved":
         raise HTTPException(403, "An approved enrollment is required")
@@ -653,9 +873,9 @@ async def submit_assessment(
             due_at = due_at.replace(tzinfo=UTC)
         if datetime.now(UTC) > due_at:
             raise HTTPException(409, "The assessment submission deadline has passed")
-    attempt = LearningAssessmentAttempt(assessment_id=assessment_id,
-                                        learner_id=principal.user_id,
-                                        submission=body.submission)
+    attempt = LearningAssessmentAttempt(
+        assessment_id=assessment_id, learner_id=principal.user_id, submission=body.submission
+    )
     session.add(attempt)
     await session.commit()
     await session.refresh(attempt)
@@ -664,20 +884,33 @@ async def submit_assessment(
 
 @router.post("/submissions/{attempt_id}/evaluate")
 async def evaluate_submission(
-    organization_id: str, attempt_id: str, body: Evaluation,
+    organization_id: str,
+    attempt_id: str,
+    body: Evaluation,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Evaluation permission required")
-    attempt = await session.scalar(select(LearningAssessmentAttempt).join(
-        LearningAssessment).join(LearningCourse).where(
+    attempt = await session.scalar(
+        select(LearningAssessmentAttempt)
+        .join(LearningAssessment)
+        .join(LearningCourse)
+        .where(
             LearningAssessmentAttempt.id == attempt_id,
             LearningCourse.organization_id == organization_id,
-        ))
+        )
+    )
     if attempt is None:
         raise HTTPException(404, "Submission not found")
+    assessment = await session.get(LearningAssessment, attempt.assessment_id)
+    if (
+        assessment is not None
+        and assessment.assessment_type == "quiz"
+        and "questions" in assessment.configuration
+    ):
+        raise HTTPException(409, "Automated quiz results cannot be manually re-scored")
     evaluated_at = datetime.now(UTC)
     evaluation = LearningAssessmentEvaluation(
         attempt_id=attempt.id,
@@ -747,7 +980,6 @@ async def list_submission_evaluations(
     ]
 
 
-
 @router.get("/courses/{course_id}/submissions")
 async def list_course_submissions(
     organization_id: str,
@@ -768,27 +1000,33 @@ async def list_course_submissions(
     )
     submission_rows = rows.all()
     attempt_ids = [attempt.id for attempt, _ in submission_rows]
-    evaluation_rows = list(
-        await session.scalars(
-            select(LearningAssessmentEvaluation)
-            .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
-            .order_by(
-                LearningAssessmentEvaluation.evaluated_at,
-                LearningAssessmentEvaluation.id,
+    evaluation_rows = (
+        list(
+            await session.scalars(
+                select(LearningAssessmentEvaluation)
+                .where(LearningAssessmentEvaluation.attempt_id.in_(attempt_ids))
+                .order_by(
+                    LearningAssessmentEvaluation.evaluated_at,
+                    LearningAssessmentEvaluation.id,
+                )
             )
         )
-    ) if attempt_ids else []
+        if attempt_ids
+        else []
+    )
     history_by_attempt: dict[str, list[dict[str, object]]] = {}
     for evaluation in evaluation_rows:
-        history_by_attempt.setdefault(evaluation.attempt_id, []).append({
-            "id": evaluation.id,
-            "score": evaluation.score,
-            "feedback": evaluation.feedback,
-            "previous_score": evaluation.previous_score,
-            "previous_feedback": evaluation.previous_feedback,
-            "evaluated_by": evaluation.evaluated_by,
-            "evaluated_at": evaluation.evaluated_at,
-        })
+        history_by_attempt.setdefault(evaluation.attempt_id, []).append(
+            {
+                "id": evaluation.id,
+                "score": evaluation.score,
+                "feedback": evaluation.feedback,
+                "previous_score": evaluation.previous_score,
+                "previous_feedback": evaluation.previous_feedback,
+                "evaluated_by": evaluation.evaluated_by,
+                "evaluated_at": evaluation.evaluated_at,
+            }
+        )
     return [
         {
             "id": attempt.id,
@@ -870,10 +1108,9 @@ async def export_course_attendance(
             row.learner_id,
             row.attendance_status,
         ]
-        writer.writerow([
-            "'" + value if value.startswith(("=", "+", "-", "@")) else value
-            for value in values
-        ])
+        writer.writerow(
+            ["'" + value if value.startswith(("=", "+", "-", "@")) else value for value in values]
+        )
     return Response(
         content="\ufeff" + output.getvalue(),
         media_type="text/csv; charset=utf-8",
@@ -916,7 +1153,9 @@ async def list_course_mentorships(
 
 @router.post("/courses/{course_id}/mentorships", status_code=201)
 async def assign_mentor(
-    organization_id: str, course_id: str, body: MentorAssign,
+    organization_id: str,
+    course_id: str,
+    body: MentorAssign,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -924,18 +1163,22 @@ async def assign_mentor(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Mentorship assignment permission required")
     await _course(session, organization_id, course_id)
-    mentor_membership = await session.scalar(select(Membership).where(
-        Membership.organization_id == organization_id,
-        Membership.user_id == body.mentor_id,
-        Membership.status == "active",
-    ))
-    mentee_membership = await session.scalar(select(Membership.id).where(
-        Membership.organization_id == organization_id, Membership.user_id == body.mentee_id,
-        Membership.status == "active",
-    ))
-    eligible_mentor = (
-        mentor_membership is not None
-        and await membership_has_any_role(session, mentor_membership, _MANAGE | {"researcher"})
+    mentor_membership = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == body.mentor_id,
+            Membership.status == "active",
+        )
+    )
+    mentee_membership = await session.scalar(
+        select(Membership.id).where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == body.mentee_id,
+            Membership.status == "active",
+        )
+    )
+    eligible_mentor = mentor_membership is not None and await membership_has_any_role(
+        session, mentor_membership, _MANAGE | {"researcher"}
     )
     if not eligible_mentor or mentee_membership is None or body.mentor_id == body.mentee_id:
         raise HTTPException(
@@ -943,8 +1186,14 @@ async def assign_mentor(
             "Mentor and mentee must be distinct active members; "
             "the mentor must hold an eligible role",
         )
-    assignment = LearningMentorship(course_id=course_id, mentor_id=body.mentor_id,
-        mentee_id=body.mentee_id, notes=body.notes, assigned_by=principal.user_id, status="active")
+    assignment = LearningMentorship(
+        course_id=course_id,
+        mentor_id=body.mentor_id,
+        mentee_id=body.mentee_id,
+        notes=body.notes,
+        assigned_by=principal.user_id,
+        status="active",
+    )
     session.add(assignment)
     try:
         await session.commit()
@@ -952,13 +1201,20 @@ async def assign_mentor(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(409, "This mentorship assignment already exists") from exc
-    return {"id": assignment.id, "mentor_id": assignment.mentor_id,
-            "mentee_id": assignment.mentee_id, "status": assignment.status}
+    return {
+        "id": assignment.id,
+        "mentor_id": assignment.mentor_id,
+        "mentee_id": assignment.mentee_id,
+        "status": assignment.status,
+    }
 
 
 @router.patch("/courses/{course_id}/mentorships/{mentorship_id}/status")
 async def update_mentorship_status(
-    organization_id: str, course_id: str, mentorship_id: str, body: MentorshipStatusUpdate,
+    organization_id: str,
+    course_id: str,
+    mentorship_id: str,
+    body: MentorshipStatusUpdate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -979,26 +1235,30 @@ async def update_mentorship_status(
         raise HTTPException(409, "Only active mentorships can be closed")
     previous_status = assignment.status
     assignment.status = body.status
-    session.add(OrganizationAuditEvent(
-        organization_id=organization_id,
-        actor_user_id=principal.user_id,
-        subject_user_id=assignment.mentee_id,
-        action="learning.mentorship.status_changed",
-        changes={
-            "mentorship_id": assignment.id,
-            "course_id": course_id,
-            "mentor_id": assignment.mentor_id,
-            "from": previous_status,
-            "to": body.status,
-        },
-    ))
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=assignment.mentee_id,
+            action="learning.mentorship.status_changed",
+            changes={
+                "mentorship_id": assignment.id,
+                "course_id": course_id,
+                "mentor_id": assignment.mentor_id,
+                "from": previous_status,
+                "to": body.status,
+            },
+        )
+    )
     await session.commit()
     return {"id": assignment.id, "status": assignment.status}
 
 
 @router.post("/courses/{course_id}/attendance/bulk", status_code=201)
 async def record_bulk_attendance(
-    organization_id: str, course_id: str, body: AttendanceBulkCreate,
+    organization_id: str,
+    course_id: str,
+    body: AttendanceBulkCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -1053,7 +1313,9 @@ async def record_bulk_attendance(
 
 @router.post("/courses/{course_id}/attendance", status_code=201)
 async def record_attendance(
-    organization_id: str, course_id: str, body: AttendanceCreate,
+    organization_id: str,
+    course_id: str,
+    body: AttendanceCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -1061,14 +1323,18 @@ async def record_attendance(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Attendance recording permission required")
     await _course(session, organization_id, course_id)
-    enrolled = await session.scalar(select(LearningEnrollment.id).where(
-        LearningEnrollment.course_id == course_id, LearningEnrollment.learner_id == body.learner_id,
-        LearningEnrollment.status.in_({"approved", "completed"}),
-    ))
+    enrolled = await session.scalar(
+        select(LearningEnrollment.id).where(
+            LearningEnrollment.course_id == course_id,
+            LearningEnrollment.learner_id == body.learner_id,
+            LearningEnrollment.status.in_({"approved", "completed"}),
+        )
+    )
     if enrolled is None:
         raise HTTPException(422, "Attendance requires an approved learner")
-    record = LearningAttendance(course_id=course_id, recorded_by=principal.user_id,
-                                 **body.model_dump())
+    record = LearningAttendance(
+        course_id=course_id, recorded_by=principal.user_id, **body.model_dump()
+    )
     session.add(record)
     try:
         await session.commit()
@@ -1076,13 +1342,18 @@ async def record_attendance(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(409, "Attendance for this learner and session already exists") from exc
-    return {"id": record.id, "learner_id": record.learner_id,
-            "attendance_status": record.attendance_status}
+    return {
+        "id": record.id,
+        "learner_id": record.learner_id,
+        "attendance_status": record.attendance_status,
+    }
 
 
 @router.post("/courses/{course_id}/resources", status_code=201)
 async def add_resource(
-    organization_id: str, course_id: str, body: ResourceCreate,
+    organization_id: str,
+    course_id: str,
+    body: ResourceCreate,
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -1091,23 +1362,34 @@ async def add_resource(
         raise HTTPException(403, "Learning resource management permission required")
     await _course(session, organization_id, course_id)
     if body.lesson_id is not None:
-        lesson = await session.scalar(select(LearningLesson).join(LearningModule).join(
-            LearningCourse).where(LearningLesson.id == body.lesson_id,
-                                  LearningCourse.id == course_id,
-                                  LearningCourse.organization_id == organization_id))
+        lesson = await session.scalar(
+            select(LearningLesson)
+            .join(LearningModule)
+            .join(LearningCourse)
+            .where(
+                LearningLesson.id == body.lesson_id,
+                LearningCourse.id == course_id,
+                LearningCourse.organization_id == organization_id,
+            )
+        )
         if lesson is None:
             raise HTTPException(404, "Lesson not found in this course")
     if body.resource_type == "link" and not body.resource_url:
         raise HTTPException(422, "Link resources require resource_url")
     if body.resource_type != "link" and not body.resource_url and not body.storage_reference:
         raise HTTPException(422, "Provide a resource URL or private storage reference")
-    resource = LearningResource(course_id=course_id, uploaded_by=principal.user_id,
-                                **body.model_dump())
+    resource = LearningResource(
+        course_id=course_id, uploaded_by=principal.user_id, **body.model_dump()
+    )
     session.add(resource)
     await session.commit()
     await session.refresh(resource)
-    return {"id": resource.id, "title": resource.title,
-            "resource_type": resource.resource_type, "lesson_id": resource.lesson_id}
+    return {
+        "id": resource.id,
+        "title": resource.title,
+        "resource_type": resource.resource_type,
+        "lesson_id": resource.lesson_id,
+    }
 
 
 @router.post("/lessons/{lesson_id}/complete")
@@ -1132,9 +1414,11 @@ async def complete_lesson(
     )
     if lesson is None:
         raise HTTPException(404, "Published lesson not found")
-    course_id = (await session.scalar(
-        select(LearningModule.course_id).where(LearningModule.id == lesson.module_id)
-    )) or ""
+    course_id = (
+        await session.scalar(
+            select(LearningModule.course_id).where(LearningModule.id == lesson.module_id)
+        )
+    ) or ""
     enrollment = await _approved_enrollment(session, course_id, principal.user_id)
 
     completion = await session.scalar(
@@ -1158,13 +1442,13 @@ async def complete_lesson(
     )
     total_lessons = set(lesson_ids.all())
     assessment_rows = await session.scalars(
-        select(LearningAssessment).where(
-            LearningAssessment.course_id == enrollment.course_id
-        )
+        select(LearningAssessment).where(LearningAssessment.course_id == enrollment.course_id)
     )
     assessments = assessment_rows.all()
     attempts = await session.scalars(
-        select(LearningAssessmentAttempt).join(LearningAssessment).where(
+        select(LearningAssessmentAttempt)
+        .join(LearningAssessment)
+        .where(
             LearningAssessment.course_id == enrollment.course_id,
             LearningAssessmentAttempt.learner_id == principal.user_id,
         )
@@ -1173,8 +1457,7 @@ async def complete_lesson(
     passed_assessments = {
         attempt.assessment_id
         for attempt in attempts.all()
-        if attempt.score is not None
-        and attempt.score >= pass_marks.get(attempt.assessment_id, 101)
+        if attempt.score is not None and attempt.score >= pass_marks.get(attempt.assessment_id, 101)
     }
     completion_rows = await session.scalars(
         select(LearningLessonCompletion.lesson_id).where(
@@ -1191,9 +1474,7 @@ async def complete_lesson(
     if total_units > 0 and completed_units == total_units:
         enrollment.status = "completed"
         certificate = await session.scalar(
-            select(LearningCertificate).where(
-                LearningCertificate.enrollment_id == enrollment.id
-            )
+            select(LearningCertificate).where(LearningCertificate.enrollment_id == enrollment.id)
         )
         if certificate is None:
             certificate = LearningCertificate(
@@ -1219,23 +1500,32 @@ async def complete_lesson(
 
 @router.get("/certificates/verify/{verification_code}")
 async def verify_certificate(
-    organization_id: str, verification_code: str,
+    organization_id: str,
+    verification_code: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
-    row = await session.scalar(select(LearningCertificate).join(LearningEnrollment).join(
-        LearningCourse).where(
+    row = await session.scalar(
+        select(LearningCertificate)
+        .join(LearningEnrollment)
+        .join(LearningCourse)
+        .where(
             LearningCertificate.verification_code == verification_code,
             LearningCourse.organization_id == organization_id,
-        ))
+        )
+    )
     if row is None:
         raise HTTPException(404, "Certificate not found")
     enrollment = await session.get(LearningEnrollment, row.enrollment_id)
     if enrollment is None:
         raise HTTPException(404, "Certificate enrollment not found")
     course = await _course(session, organization_id, enrollment.course_id)
-    return {"valid": row.status == "valid", "certificate_number": row.certificate_number,
-            "course_title": course.title, "issued_at": row.issued_at,
-            "status": row.status}
+    return {
+        "valid": row.status == "valid",
+        "certificate_number": row.certificate_number,
+        "course_title": course.title,
+        "issued_at": row.issued_at,
+        "status": row.status,
+    }
 
 
 @router.get("/courses/{course_id}/curriculum")
@@ -1257,31 +1547,38 @@ async def course_curriculum(
             raise HTTPException(403, "Learner access required")
         await _approved_enrollment(session, course_id, principal.user_id)
     modules = await session.scalars(
-        select(LearningModule).where(LearningModule.course_id == course_id)
+        select(LearningModule)
+        .where(LearningModule.course_id == course_id)
         .order_by(LearningModule.position)
     )
     module_rows = modules.all()
     result: list[dict[str, object]] = []
     for module in module_rows:
         lessons = await session.scalars(
-            select(LearningLesson).where(LearningLesson.module_id == module.id)
+            select(LearningLesson)
+            .where(LearningLesson.module_id == module.id)
             .order_by(LearningLesson.position)
         )
-        result.append({
-            "id": module.id,
-            "title": module.title,
-            "description": module.description,
-            "position": module.position,
-            "lessons": [{
-                "id": lesson.id,
-                "title": lesson.title,
-                "content_type": lesson.content_type,
-                "content": lesson.content,
-                "resource_url": lesson.resource_url,
-                "duration_minutes": lesson.duration_minutes,
-                "position": lesson.position,
-            } for lesson in lessons.all()],
-        })
+        result.append(
+            {
+                "id": module.id,
+                "title": module.title,
+                "description": module.description,
+                "position": module.position,
+                "lessons": [
+                    {
+                        "id": lesson.id,
+                        "title": lesson.title,
+                        "content_type": lesson.content_type,
+                        "content": lesson.content,
+                        "resource_url": lesson.resource_url,
+                        "duration_minutes": lesson.duration_minutes,
+                        "position": lesson.position,
+                    }
+                    for lesson in lessons.all()
+                ],
+            }
+        )
     return {"course_id": course.id, "title": course.title, "modules": result}
 
 
@@ -1325,12 +1622,15 @@ async def my_course_progress(
         "enrollment_status": enrollment.status,
         "progress_percent": enrollment.progress_percent,
         "completed_lesson_ids": list(completed.all()),
-        "assessments": [{
-            "assessment_id": row.assessment_id,
-            "score": row.score,
-            "feedback": row.feedback,
-            "evaluated_at": row.evaluated_at,
-        } for row in attempts],
+        "assessments": [
+            {
+                "assessment_id": row.assessment_id,
+                "score": row.score,
+                "feedback": row.feedback,
+                "evaluated_at": row.evaluated_at,
+            }
+            for row in attempts
+        ],
     }
 
 
@@ -1422,17 +1722,22 @@ async def list_learning_resources(
             raise HTTPException(403, "Learner access required")
         await _approved_enrollment(session, course_id, principal.user_id)
     resources = await session.scalars(
-        select(LearningResource).where(LearningResource.course_id == course_id)
-        .order_by(LearningResource.title).limit(200)
+        select(LearningResource)
+        .where(LearningResource.course_id == course_id)
+        .order_by(LearningResource.title)
+        .limit(200)
     )
-    return [{
-        "id": item.id,
-        "lesson_id": item.lesson_id,
-        "title": item.title,
-        "resource_type": item.resource_type,
-        "description": item.description,
-        "resource_url": item.resource_url,
-    } for item in resources.all()]
+    return [
+        {
+            "id": item.id,
+            "lesson_id": item.lesson_id,
+            "title": item.title,
+            "resource_type": item.resource_type,
+            "description": item.description,
+            "resource_url": item.resource_url,
+        }
+        for item in resources.all()
+    ]
 
 
 @router.post("/certificates/{certificate_id}/revoke")
@@ -1507,41 +1812,31 @@ async def programme_outcomes(
     ]
     learner_count = sum(int(report["learners"]) for report in course_reports)
     weighted_progress = sum(
-        float(report["average_progress"]) * int(report["learners"])
-        for report in course_reports
+        float(report["average_progress"]) * int(report["learners"]) for report in course_reports
     )
     totals = {
         "learners": learner_count,
         "approved": sum(int(report["approved"]) for report in course_reports),
         "completed": sum(int(report["completed"]) for report in course_reports),
-        "attendance_records": sum(
-            int(report["attendance_records"]) for report in course_reports
-        ),
-        "attendance_sessions": sum(
-            int(report["attendance_sessions"]) for report in course_reports
-        ),
+        "attendance_records": sum(int(report["attendance_records"]) for report in course_reports),
+        "attendance_sessions": sum(int(report["attendance_sessions"]) for report in course_reports),
         "mentorship_assignments": sum(
             int(report["mentorship_assignments"]) for report in course_reports
         ),
-        "active_mentorships": sum(
-            int(report["active_mentorships"]) for report in course_reports
-        ),
+        "active_mentorships": sum(int(report["active_mentorships"]) for report in course_reports),
         "assessment_submissions": sum(
             int(report["assessment_submissions"]) for report in course_reports
         ),
         "evaluated_submissions": sum(
             int(report["evaluated_submissions"]) for report in course_reports
         ),
-        "pending_evaluations": sum(
-            int(report["pending_evaluations"]) for report in course_reports
-        ),
+        "pending_evaluations": sum(int(report["pending_evaluations"]) for report in course_reports),
     }
     return {
         "programme_id": programme.id,
         "programme_title": programme.title,
         "course_count": len(courses),
-        "average_progress": round(weighted_progress / learner_count, 1)
-        if learner_count else 0.0,
+        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
         "totals": totals,
         "courses": [
             {
@@ -1563,9 +1858,7 @@ async def export_programme_outcomes(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Response:
     """Download a tenant-scoped programme outcomes report as spreadsheet-safe CSV."""
-    report = await programme_outcomes(
-        organization_id, programme_id, membership, session
-    )
+    report = await programme_outcomes(organization_id, programme_id, membership, session)
 
     def safe_cell(value: object) -> str:
         rendered = "" if value is None else str(value)
@@ -1580,37 +1873,59 @@ async def export_programme_outcomes(
     if isinstance(totals, dict):
         for key, value in totals.items():
             writer.writerow([safe_cell("programme_total"), safe_cell(key), safe_cell(value)])
-    writer.writerow([
-        safe_cell("programme"),
-        safe_cell("average_progress"),
-        safe_cell(report["average_progress"]),
-    ])
+    writer.writerow(
+        [
+            safe_cell("programme"),
+            safe_cell("average_progress"),
+            safe_cell(report["average_progress"]),
+        ]
+    )
     writer.writerow([])
-    writer.writerow([
-        "course_id", "course_title", "status", "learners", "approved",
-        "completed", "average_progress", "attendance_records",
-        "attendance_sessions", "mentorship_assignments", "active_mentorships",
-        "assessment_submissions", "evaluated_submissions", "pending_evaluations",
-    ])
+    writer.writerow(
+        [
+            "course_id",
+            "course_title",
+            "status",
+            "learners",
+            "approved",
+            "completed",
+            "average_progress",
+            "attendance_records",
+            "attendance_sessions",
+            "mentorship_assignments",
+            "active_mentorships",
+            "assessment_submissions",
+            "evaluated_submissions",
+            "pending_evaluations",
+        ]
+    )
     courses = report["courses"]
     if isinstance(courses, list):
         for course in courses:
             if isinstance(course, dict):
-                writer.writerow([
-                    safe_cell(course.get("course_id")),
-                    safe_cell(course.get("title")),
-                    safe_cell(course.get("status")),
-                    *[
-                        safe_cell(course.get(key))
-                        for key in (
-                            "learners", "approved", "completed", "average_progress",
-                            "attendance_records", "attendance_sessions",
-                            "mentorship_assignments", "active_mentorships",
-                            "assessment_submissions", "evaluated_submissions",
-                            "pending_evaluations",
-                        )
-                    ],
-                ])
+                writer.writerow(
+                    [
+                        safe_cell(course.get("course_id")),
+                        safe_cell(course.get("title")),
+                        safe_cell(course.get("status")),
+                        *[
+                            safe_cell(course.get(key))
+                            for key in (
+                                "learners",
+                                "approved",
+                                "completed",
+                                "average_progress",
+                                "attendance_records",
+                                "attendance_sessions",
+                                "mentorship_assignments",
+                                "active_mentorships",
+                                "assessment_submissions",
+                                "evaluated_submissions",
+                                "pending_evaluations",
+                            )
+                        ],
+                    ]
+                )
     filename = f"programme-{programme_id}-outcomes.csv"
     return Response(
         content="\\ufeff" + output.getvalue(),
@@ -1621,7 +1936,8 @@ async def export_programme_outcomes(
 
 @router.get("/courses/{course_id}/progress")
 async def course_progress(
-    organization_id: str, course_id: str,
+    organization_id: str,
+    course_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
@@ -1657,7 +1973,9 @@ async def course_progress(
         "completed": sum(x.status == "completed" for x in enrollments),
         "average_progress": round(
             sum(x.progress_percent for x in enrollments) / len(enrollments), 1
-        ) if enrollments else 0.0,
+        )
+        if enrollments
+        else 0.0,
         "attendance_records": len(attendance),
         "attendance_by_status": attendance_by_status,
         "attendance_sessions": len({row.session_key for row in attendance}),
@@ -1687,9 +2005,7 @@ async def organisation_learning_outcomes(
     reports = [
         cast(
             dict[str, Any],
-            await programme_outcomes(
-                organization_id, programme.id, membership, session
-            ),
+            await programme_outcomes(organization_id, programme.id, membership, session),
         )
         for programme in programme_rows.all()
     ]
@@ -1705,21 +2021,16 @@ async def organisation_learning_outcomes(
         "evaluated_submissions",
         "pending_evaluations",
     )
-    totals = {
-        key: sum(int(report["totals"][key]) for report in reports)
-        for key in metric_keys
-    }
+    totals = {key: sum(int(report["totals"][key]) for report in reports) for key in metric_keys}
     learner_count = totals["learners"]
     weighted_progress = sum(
-        float(report["average_progress"]) * int(report["totals"]["learners"])
-        for report in reports
+        float(report["average_progress"]) * int(report["totals"]["learners"]) for report in reports
     )
     return {
         "organization_id": organization_id,
         "programmes_total": len(reports),
         "courses_total": sum(int(report["course_count"]) for report in reports),
-        "average_progress": round(weighted_progress / learner_count, 1)
-        if learner_count else 0.0,
+        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
         "totals": totals,
         "programmes": [
             {
@@ -1732,6 +2043,7 @@ async def organisation_learning_outcomes(
             for report in reports
         ],
     }
+
 
 @router.get("/portfolio-outcomes/export")
 async def export_organisation_learning_outcomes(
@@ -1759,33 +2071,53 @@ async def export_organisation_learning_outcomes(
         for key, value in totals.items():
             writer.writerow(["organisation_total", safe_cell(key), safe_cell(value)])
     writer.writerow([])
-    writer.writerow([
-        "programme_id", "programme_title", "course_count", "average_progress",
-        "learners", "approved", "completed", "attendance_records",
-        "attendance_sessions", "mentorship_assignments", "active_mentorships",
-        "assessment_submissions", "evaluated_submissions", "pending_evaluations",
-    ])
+    writer.writerow(
+        [
+            "programme_id",
+            "programme_title",
+            "course_count",
+            "average_progress",
+            "learners",
+            "approved",
+            "completed",
+            "attendance_records",
+            "attendance_sessions",
+            "mentorship_assignments",
+            "active_mentorships",
+            "assessment_submissions",
+            "evaluated_submissions",
+            "pending_evaluations",
+        ]
+    )
     programmes = report["programmes"]
     if isinstance(programmes, list):
         for programme in programmes:
             if not isinstance(programme, dict):
                 continue
             programme_totals = programme.get("totals", {})
-            writer.writerow([
-                safe_cell(programme.get("programme_id")),
-                safe_cell(programme.get("programme_title")),
-                safe_cell(programme.get("course_count")),
-                safe_cell(programme.get("average_progress")),
-                *[
-                    safe_cell(programme_totals.get(key))
-                    for key in (
-                        "learners", "approved", "completed", "attendance_records",
-                        "attendance_sessions", "mentorship_assignments",
-                        "active_mentorships", "assessment_submissions",
-                        "evaluated_submissions", "pending_evaluations",
-                    )
-                ],
-            ])
+            writer.writerow(
+                [
+                    safe_cell(programme.get("programme_id")),
+                    safe_cell(programme.get("programme_title")),
+                    safe_cell(programme.get("course_count")),
+                    safe_cell(programme.get("average_progress")),
+                    *[
+                        safe_cell(programme_totals.get(key))
+                        for key in (
+                            "learners",
+                            "approved",
+                            "completed",
+                            "attendance_records",
+                            "attendance_sessions",
+                            "mentorship_assignments",
+                            "active_mentorships",
+                            "assessment_submissions",
+                            "evaluated_submissions",
+                            "pending_evaluations",
+                        )
+                    ],
+                ]
+            )
     return Response(
         content=chr(0xFEFF) + output.getvalue(),
         media_type="text/csv; charset=utf-8",
