@@ -241,3 +241,10 @@ These foundation checks must continue passing as product code is added.
 - [x] Record the exact approved protocol version used to authorise study activation or resumption.
 - [x] Include the ethics review event, independent reviewer, decision and committee reference in the lifecycle audit event.
 - [x] Verify that adverse ethics decisions require a subsequent affirmative committee decision before a paused study can resume.
+
+
+### M74 — Reject new ethics decisions for superseded protocols
+
+- [x] Require committee decisions to reference the study's latest protocol version.
+- [x] Reject stale-version ethics submissions with HTTP 409 while retaining historical decisions for audit.
+- [x] Add lifecycle regression coverage proving an earlier approved version cannot receive a new decision after amendment.
