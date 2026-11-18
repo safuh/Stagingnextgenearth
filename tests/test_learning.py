@@ -494,12 +494,37 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert premature.json()["status"] == "completed"
         assert premature.json()["progress_percent"] == 100
         assert premature.json()["certificate_number"].startswith("NGE-")
+        certificate_id = premature.json()["certificate_id"]
+        certificate_pdf = client.get(
+            f"{base}/certificates/{certificate_id}/download",
+            headers=learner_headers,
+        )
+        assert certificate_pdf.status_code == 200
+        assert certificate_pdf.headers["content-type"] == "application/pdf"
+        assert certificate_pdf.headers["cache-control"] == "private, no-store"
+        assert certificate_pdf.headers["content-disposition"].endswith('.pdf"')
+        assert certificate_pdf.content.startswith(b"%PDF-")
+        manager_pdf = client.get(
+            f"{base}/certificates/{certificate_id}/download",
+            headers=admin_headers,
+        )
+        assert manager_pdf.status_code == 200
+        outsider_headers = _register(client, "learning-outsider@example.org")
+        assert (
+            client.get(
+                f"{base}/certificates/{certificate_id}/download",
+                headers=outsider_headers,
+            ).status_code
+            == 404
+        )
         learner_progress = client.get(
             f"{base}/courses/{course_id}/my-progress",
             headers=learner_headers,
         )
         assert learner_progress.status_code == 200
         assert learner_progress.json()["progress_percent"] == 100
+        assert learner_progress.json()["certificate_id"] == certificate_id
+        assert learner_progress.json()["certificate_status"] == "valid"
         assert lesson.json()["id"] in learner_progress.json()["completed_lesson_ids"]
         verified = client.get(
             f"{base}/certificates/verify/{premature.json()['verification_code']}",
@@ -512,6 +537,11 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert revoked.status_code == 200
         assert revoked.json()["status"] == "revoked"
+        revoked_pdf = client.get(
+            f"{base}/certificates/{certificate_id}/download",
+            headers=learner_headers,
+        )
+        assert revoked_pdf.status_code == 410
         revoked_verification = client.get(
             f"{base}/certificates/verify/{premature.json()['verification_code']}"
         )

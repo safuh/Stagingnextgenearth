@@ -6,6 +6,7 @@ services:
     environment:
       APP_NAME: ${APP_NAME:-Stagingnextgenearth}
       APP_VERSION: ${APP_VERSION:-0.1.0}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://nextgenforearth.org}
       ENVIRONMENT: production
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}

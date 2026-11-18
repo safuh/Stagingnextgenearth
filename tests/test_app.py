@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from stagingnextgenearth.app import create_app
@@ -70,10 +71,7 @@ def test_validation_errors_use_safe_serializable_details() -> None:
     body = response.json()
     assert body["error"]["code"] == "validation_error"
     assert body["error"]["details"]
-    assert all(
-        "input" not in item and "ctx" not in item
-        for item in body["error"]["details"]
-    )
+    assert all("input" not in item and "ctx" not in item for item in body["error"]["details"])
 
 
 def test_clamav_scanner_is_wired_only_when_enabled() -> None:
@@ -121,3 +119,13 @@ def test_production_disables_interactive_api_documentation() -> None:
     assert app.docs_url is None
     assert app.redoc_url is None
     assert app.openapi_url is None
+
+
+def test_production_requires_https_public_base_url() -> None:
+    with pytest.raises(ValueError, match="PUBLIC_BASE_URL must use HTTPS"):
+        Settings(
+            environment=Environment.PRODUCTION,
+            database_url="postgresql+asyncpg://app:secret@localhost:5432/app",
+            jwt_secret_key="a" * 48,
+            public_base_url="http://nextgenforearth.org",
+        )

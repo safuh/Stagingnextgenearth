@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
@@ -19,9 +19,7 @@ export default function CertificateVerificationPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function verify(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const verificationCode = code.trim();
+  async function verifyCode(verificationCode: string) {
     if (!verificationCode) return;
     setBusy(true);
     setError("");
@@ -40,6 +38,19 @@ export default function CertificateVerificationPage() {
       setBusy(false);
     }
   }
+
+  async function verify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await verifyCode(code.trim());
+  }
+
+  useEffect(() => {
+    const queryCode = new URLSearchParams(window.location.search).get("code")?.trim();
+    if (queryCode) {
+      setCode(queryCode);
+      void verifyCode(queryCode);
+    }
+  }, []);
 
   return (
     <main className="workspace-shell">

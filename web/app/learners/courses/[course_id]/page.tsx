@@ -29,6 +29,9 @@ interface Curriculum {
 interface Progress {
   enrollment_status: string;
   progress_percent: number;
+  certificate_id: string | null;
+  certificate_number: string | null;
+  certificate_status: string | null;
   completed_lesson_ids: string[];
   assessments: Array<{
     assessment_id: string;
@@ -241,7 +244,18 @@ export default function LearnerClassroomPage() {
               <h2>Your course progress</h2>
               <p className="workspace-muted">{progress.enrollment_status.replaceAll("_", " ")} · {progress.progress_percent}% complete</p>
               <progress value={progress.progress_percent} max={100} aria-label="Course completion" />
-              {certificateCode && <p role="status">Certificate issued. Verification code: <strong>{certificateCode}</strong>. <Link href="/certificates/verify">Open public certificate verification</Link></p>}
+              {progress.certificate_id && progress.certificate_status === "valid" && (
+                <p role="status">
+                  Certificate {progress.certificate_number} is ready. {" "}
+                  <a
+                    className="primary-action"
+                    href={`/api/backend/organizations/${organizationId}/learning/certificates/${progress.certificate_id}/download`}
+                  >Download certificate PDF</a>{" "}
+                  <Link href={certificateCode ? `/certificates/verify?code=${encodeURIComponent(certificateCode)}` : "/certificates/verify"}>
+                    Verify credential
+                  </Link>
+                </p>
+              )}
             </section>
             <section className="staff-card">
               <h2>Course curriculum</h2>

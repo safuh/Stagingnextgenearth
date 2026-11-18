@@ -6,12 +6,14 @@ import secrets
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.certificates.pdf import render_certificate
+from stagingnextgenearth.identity.models import ResearcherProfile, User
 from stagingnextgenearth.platform.models import (
     LearningAssessment,
     LearningAssessmentAttempt,
@@ -1498,6 +1500,65 @@ async def complete_lesson(
     }
 
 
+@router.get("/certificates/{certificate_id}/download")
+async def download_certificate(
+    organization_id: str,
+    certificate_id: str,
+    request: Request,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Response:
+    """Download a valid certificate for its learner or authorised course managers."""
+    roles = await get_membership_roles(session, membership)
+    if not roles & _LEARN:
+        raise HTTPException(403, "Learning access required")
+    row = await session.execute(
+        select(LearningCertificate, LearningEnrollment, LearningCourse, Organization, User)
+        .join(LearningEnrollment, LearningEnrollment.id == LearningCertificate.enrollment_id)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .join(Organization, Organization.id == LearningCourse.organization_id)
+        .join(User, User.id == LearningEnrollment.learner_id)
+        .where(
+            LearningCertificate.id == certificate_id,
+            LearningCourse.organization_id == organization_id,
+        )
+    )
+    result = row.first()
+    if result is None:
+        raise HTTPException(404, "Certificate not found")
+    certificate, enrollment, course, organization, user = result
+    if principal.user_id != enrollment.learner_id and not roles & _MANAGE:
+        raise HTTPException(403, "You cannot download another learner's certificate")
+    if certificate.status != "valid":
+        raise HTTPException(410, "This certificate has been revoked")
+
+    profile = await session.scalar(
+        select(ResearcherProfile).where(ResearcherProfile.user_id == user.id)
+    )
+    recipient = profile.display_name if profile is not None else user.identifier
+    public_base_url = str(request.app.state.settings.public_base_url).rstrip("/")
+    verification_url = f"{public_base_url}/certificates/verify?code={certificate.verification_code}"
+    pdf_bytes = render_certificate(
+        recipient=recipient,
+        course_title=course.title,
+        organization_name=organization.name,
+        certificate_number=certificate.certificate_number,
+        verification_code=certificate.verification_code,
+        issued_at=certificate.issued_at,
+        verification_url=verification_url,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (f'attachment; filename="{certificate.certificate_number}.pdf"'),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @router.get("/certificates/verify/{verification_code}")
 async def verify_certificate(
     organization_id: str,
@@ -1602,6 +1663,9 @@ async def my_course_progress(
             LearningLessonCompletion.enrollment_id == enrollment.id
         )
     )
+    certificate = await session.scalar(
+        select(LearningCertificate).where(LearningCertificate.enrollment_id == enrollment.id)
+    )
     attempts = await session.execute(
         select(
             LearningAssessmentAttempt.assessment_id,
@@ -1621,6 +1685,9 @@ async def my_course_progress(
         "course_id": course_id,
         "enrollment_status": enrollment.status,
         "progress_percent": enrollment.progress_percent,
+        "certificate_id": certificate.id if certificate is not None else None,
+        "certificate_number": certificate.certificate_number if certificate is not None else None,
+        "certificate_status": certificate.status if certificate is not None else None,
         "completed_lesson_ids": list(completed.all()),
         "assessments": [
             {
