@@ -257,3 +257,12 @@ These foundation checks must continue passing as product code is added.
 - [x] Distinguish pending protocol review, required ethics clearance, adverse ethics outcomes and studies paused pending committee clearance.
 - [x] Integrate governance indicators and per-study status into the founder/executive overview.
 - [x] Keep superseded ethics decisions historical; they never count as current clearance.
+
+
+### M76 — Exportable research governance oversight
+
+- [x] Add a leadership-only CSV export of the latest protocol and ethics clearance snapshot.
+- [x] Include study status, attention state, protocol review, ethics decision, reviewer and committee reference.
+- [x] Apply spreadsheet formula-injection protection, UTF-8 BOM, bounded output, no-store caching and truncation metadata.
+- [x] Add an export action to the founder/executive overview.
+- [x] Verify role restrictions and export response metadata in integration tests.

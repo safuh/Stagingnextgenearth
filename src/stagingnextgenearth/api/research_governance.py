@@ -174,6 +174,7 @@ class ResearchGovernanceOversightRead(BaseModel):
     protocol_reviews_pending: int
     ethics_reviews_required: int
     adverse_ethics_outcomes: int
+    inventory_truncated: bool
     studies: list[ResearchGovernanceStudyStatusRead]
 
 
@@ -200,6 +201,14 @@ async def get_research_governance_oversight(
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Organisation leadership role required")
 
+    total_studies = (
+        await session.scalar(
+            select(func.count())
+            .select_from(ResearchStudy)
+            .where(ResearchStudy.organization_id == organization_id)
+        )
+        or 0
+    )
     studies_result = await session.scalars(
         select(ResearchStudy)
         .where(ResearchStudy.organization_id == organization_id)
@@ -211,12 +220,13 @@ async def get_research_governance_oversight(
     if not study_ids:
         return ResearchGovernanceOversightRead(
             organization_id=organization_id,
-            studies_total=0,
+            studies_total=total_studies,
             active_studies=0,
             paused_studies=0,
             protocol_reviews_pending=0,
             ethics_reviews_required=0,
             adverse_ethics_outcomes=0,
+            inventory_truncated=False,
             studies=[],
         )
 
@@ -324,7 +334,7 @@ async def get_research_governance_oversight(
         )
     return ResearchGovernanceOversightRead(
         organization_id=organization_id,
-        studies_total=len(rows),
+        studies_total=total_studies,
         active_studies=sum(row.study_status == "active" for row in rows),
         paused_studies=sum(row.study_status == "protocol" for row in rows),
         protocol_reviews_pending=sum(
@@ -336,7 +346,81 @@ async def get_research_governance_oversight(
         adverse_ethics_outcomes=sum(
             row.attention_state in {"ethics_revisions_required", "ethics_rejected"} for row in rows
         ),
+        inventory_truncated=total_studies > len(rows),
         studies=rows,
+    )
+
+
+@audit_router.get("/oversight/export")
+async def export_research_governance_oversight(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=5000, ge=1, le=5000),
+) -> Response:
+    """Export the leadership oversight snapshot as a bounded, spreadsheet-safe CSV."""
+    snapshot = await get_research_governance_oversight(
+        organization_id=organization_id,
+        membership=membership,
+        session=session,
+    )
+
+    def cell(value: object) -> str:
+        text_value = "" if value is None else str(value)
+        formula_candidate = text_value.lstrip(" \t\r\n")
+        return (
+            f"'{text_value}" if formula_candidate.startswith(("=", "+", "-", "@")) else text_value
+        )
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow(
+        [
+            "study_id",
+            "study_title",
+            "study_status",
+            "attention_state",
+            "protocol_version",
+            "protocol_status",
+            "protocol_decision",
+            "protocol_reviewed_at",
+            "ethics_decision",
+            "ethics_reviewer_user_id",
+            "ethics_reference",
+            "ethics_reviewed_at",
+        ]
+    )
+    rows = snapshot.studies[:limit]
+    for study in rows:
+        writer.writerow(
+            [
+                cell(study.study_id),
+                cell(study.study_title),
+                cell(study.study_status),
+                cell(study.attention_state),
+                cell(study.protocol_version_number),
+                cell(study.protocol_status),
+                cell(study.latest_protocol_decision),
+                cell(
+                    study.latest_protocol_reviewed_at.isoformat()
+                    if study.latest_protocol_reviewed_at
+                    else None
+                ),
+                cell(study.ethics_decision),
+                cell(study.ethics_reviewer_user_id),
+                cell(study.ethics_reference),
+                cell(study.ethics_reviewed_at.isoformat() if study.ethics_reviewed_at else None),
+            ]
+        )
+    truncated = snapshot.studies_total > len(rows) or len(snapshot.studies) > limit
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="research-governance-oversight.csv"',
+            "X-Records-Truncated": "true" if truncated else "false",
+            "Cache-Control": "no-store",
+        },
     )
 
 
