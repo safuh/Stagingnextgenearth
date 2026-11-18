@@ -227,3 +227,10 @@ These foundation checks must continue passing as product code is added.
 - [ ] Automated quiz execution, learner notifications, certificate PDF rendering,
       safeguarding/guardian consent and dedicated role-specific portal dashboards.
 - [x] Learner-owned mentorship and attendance history endpoints and workspace panels (identity is derived from the authenticated principal and records are tenant-scoped).
+
+
+### M72 — Regression coverage for all adverse ethics outcomes
+
+- [x] Exercise both `revisions_required` and `rejected` committee decisions against an active study.
+- [x] Verify each adverse outcome pauses the study and records the matching decision in the governance audit trail.
+- [x] Keep the same lifecycle setup and assertions parameterised to prevent decision-path drift.

@@ -651,9 +651,12 @@ def test_study_lifecycle_requires_protocol_ethics_and_publication_gates(
     assert amendment_pause["changes"]["protocol_version_id"] == amendment_id
 
 
-def test_adverse_ethics_decision_pauses_active_study(client: TestClient) -> None:
-    lead_headers = _register(client, "ethics-pause-lead@example.org")
-    reviewer_headers = _register(client, "ethics-pause-reviewer@example.org")
+@pytest.mark.parametrize("adverse_decision", ["revisions_required", "rejected"])
+def test_adverse_ethics_decision_pauses_active_study(
+    client: TestClient, adverse_decision: str
+) -> None:
+    lead_headers = _register(client, f"ethics-pause-lead-{adverse_decision}@example.org")
+    reviewer_headers = _register(client, f"ethics-pause-reviewer-{adverse_decision}@example.org")
     organization = client.post(
         "/api/organizations",
         headers=lead_headers,
@@ -664,7 +667,10 @@ def test_adverse_ethics_decision_pauses_active_study(client: TestClient) -> None
     invitation = client.post(
         f"/api/organizations/{organization_id}/memberships",
         headers=lead_headers,
-        json={"identifier": "ethics-pause-reviewer@example.org", "role": "programme_manager"},
+        json={
+            "identifier": f"ethics-pause-reviewer-{adverse_decision}@example.org",
+            "role": "programme_manager",
+        },
     )
     assert invitation.status_code == 201
     assert (
@@ -744,13 +750,13 @@ def test_adverse_ethics_decision_pauses_active_study(client: TestClient) -> None
         headers=reviewer_headers,
         json={
             "protocol_version_id": protocol_id,
-            "decision": "revisions_required",
-            "reference": "ERB-REVISION-002",
+            "decision": adverse_decision,
+            "reference": f"ERB-{adverse_decision.upper()}-002",
             "note": "Additional participant safeguards must be documented before resumption.",
         },
     )
     assert adverse.status_code == 201
-    assert adverse.json()["decision"] == "revisions_required"
+    assert adverse.json()["decision"] == adverse_decision
 
     studies = client.get(
         f"/api/organizations/{organization_id}/research-studies", headers=lead_headers
@@ -770,4 +776,4 @@ def test_adverse_ethics_decision_pauses_active_study(client: TestClient) -> None
         and event["changes"].get("reason") == "adverse_ethics_decision_requires_pause"
     ]
     assert len(pause_events) == 1
-    assert pause_events[0]["changes"]["ethics_decision"] == "revisions_required"
+    assert pause_events[0]["changes"]["ethics_decision"] == adverse_decision
