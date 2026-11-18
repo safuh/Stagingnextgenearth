@@ -137,6 +137,46 @@ class EthicsReviewRead(BaseModel):
     reviewed_at: datetime
 
 
+class ResearchGovernanceStudyStatusRead(BaseModel):
+    """Minimal oversight status for one tenant-owned research study."""
+
+    study_id: str
+    study_title: str
+    study_status: str
+    protocol_version_id: str | None
+    protocol_version_number: int | None
+    protocol_status: str | None
+    latest_protocol_decision: str | None
+    latest_protocol_reviewed_at: datetime | None
+    ethics_decision: str | None
+    ethics_reviewer_user_id: str | None
+    ethics_reference: str | None
+    ethics_reviewed_at: datetime | None
+    attention_state: Literal[
+        "no_protocol",
+        "protocol_review_pending",
+        "ethics_review_required",
+        "ethics_revisions_required",
+        "ethics_rejected",
+        "paused_pending_clearance",
+        "active",
+        "other",
+    ]
+
+
+class ResearchGovernanceOversightRead(BaseModel):
+    """Leadership snapshot of research protocol and ethics clearance."""
+
+    organization_id: str
+    studies_total: int
+    active_studies: int
+    paused_studies: int
+    protocol_reviews_pending: int
+    ethics_reviews_required: int
+    adverse_ethics_outcomes: int
+    studies: list[ResearchGovernanceStudyStatusRead]
+
+
 class ResearchGovernanceAuditRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -146,6 +186,158 @@ class ResearchGovernanceAuditRead(BaseModel):
     action: str
     changes: dict[str, object]
     created_at: datetime
+
+
+@audit_router.get("/oversight", response_model=ResearchGovernanceOversightRead)
+async def get_research_governance_oversight(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ResearchGovernanceOversightRead:
+    """Summarise current protocol and ethics gates for organisation leadership."""
+    if not await membership_has_any_role(
+        session, membership, _REVIEW_ROLES - {"programme_manager"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Organisation leadership role required")
+
+    studies_result = await session.scalars(
+        select(ResearchStudy)
+        .where(ResearchStudy.organization_id == organization_id)
+        .order_by(ResearchStudy.created_at.desc(), ResearchStudy.id.desc())
+        .limit(5000)
+    )
+    studies = studies_result.all()
+    study_ids = [study.id for study in studies]
+    if not study_ids:
+        return ResearchGovernanceOversightRead(
+            organization_id=organization_id,
+            studies_total=0,
+            active_studies=0,
+            paused_studies=0,
+            protocol_reviews_pending=0,
+            ethics_reviews_required=0,
+            adverse_ethics_outcomes=0,
+            studies=[],
+        )
+
+    protocol_result = await session.scalars(
+        select(ResearchProtocolVersion)
+        .where(ResearchProtocolVersion.study_id.in_(study_ids))
+        .order_by(
+            ResearchProtocolVersion.study_id,
+            ResearchProtocolVersion.version_number.desc(),
+            ResearchProtocolVersion.id.desc(),
+        )
+    )
+    latest_protocols: dict[str, ResearchProtocolVersion] = {}
+    for protocol in protocol_result.all():
+        latest_protocols.setdefault(protocol.study_id, protocol)
+
+    protocol_ids = [protocol.id for protocol in latest_protocols.values()]
+    protocol_reviews: dict[str, ResearchProtocolReviewEvent] = {}
+    if protocol_ids:
+        review_result = await session.scalars(
+            select(ResearchProtocolReviewEvent)
+            .where(ResearchProtocolReviewEvent.protocol_version_id.in_(protocol_ids))
+            .order_by(
+                ResearchProtocolReviewEvent.protocol_version_id,
+                ResearchProtocolReviewEvent.reviewed_at.desc(),
+                ResearchProtocolReviewEvent.id.desc(),
+            )
+        )
+        for review in review_result.all():
+            protocol_reviews.setdefault(review.protocol_version_id, review)
+
+    ethics_result = await session.scalars(
+        select(ResearchEthicsReviewEvent)
+        .where(ResearchEthicsReviewEvent.study_id.in_(study_ids))
+        .order_by(
+            ResearchEthicsReviewEvent.study_id,
+            ResearchEthicsReviewEvent.reviewed_at.desc(),
+            ResearchEthicsReviewEvent.id.desc(),
+        )
+    )
+    latest_ethics: dict[str, ResearchEthicsReviewEvent] = {}
+    for event in ethics_result.all():
+        latest_ethics.setdefault(event.study_id, event)
+
+    rows: list[ResearchGovernanceStudyStatusRead] = []
+    for study in studies:
+        current_protocol = latest_protocols.get(study.id)
+        current_review = (
+            protocol_reviews.get(current_protocol.id) if current_protocol is not None else None
+        )
+        ethics = latest_ethics.get(study.id)
+        # An ethics decision for an older protocol is historical, not current clearance.
+        if (
+            ethics is not None
+            and current_protocol is not None
+            and ethics.protocol_version_id != current_protocol.id
+        ):
+            ethics = None
+        attention: Literal[
+            "no_protocol",
+            "protocol_review_pending",
+            "ethics_review_required",
+            "ethics_revisions_required",
+            "ethics_rejected",
+            "paused_pending_clearance",
+            "active",
+            "other",
+        ]
+        if current_protocol is None:
+            attention = "no_protocol"
+        elif current_protocol.status == "submitted":
+            attention = "protocol_review_pending"
+        elif ethics is not None and ethics.decision == "revisions_required":
+            attention = "ethics_revisions_required"
+        elif ethics is not None and ethics.decision == "rejected":
+            attention = "ethics_rejected"
+        elif study.status == "protocol" and current_protocol.status == "approved":
+            attention = "paused_pending_clearance"
+        elif current_protocol.status == "approved" and (
+            ethics is None or ethics.decision not in {"approved", "exempt"}
+        ):
+            attention = "ethics_review_required"
+        elif study.status == "active":
+            attention = "active"
+        else:
+            attention = "other"
+        rows.append(
+            ResearchGovernanceStudyStatusRead(
+                study_id=study.id,
+                study_title=study.title,
+                study_status=study.status,
+                protocol_version_id=current_protocol.id if current_protocol else None,
+                protocol_version_number=current_protocol.version_number
+                if current_protocol
+                else None,
+                protocol_status=current_protocol.status if current_protocol else None,
+                latest_protocol_decision=current_review.decision if current_review else None,
+                latest_protocol_reviewed_at=current_review.reviewed_at if current_review else None,
+                ethics_decision=ethics.decision if ethics else None,
+                ethics_reviewer_user_id=ethics.reviewer_user_id if ethics else None,
+                ethics_reference=ethics.reference if ethics else None,
+                ethics_reviewed_at=ethics.reviewed_at if ethics else None,
+                attention_state=attention,
+            )
+        )
+    return ResearchGovernanceOversightRead(
+        organization_id=organization_id,
+        studies_total=len(rows),
+        active_studies=sum(row.study_status == "active" for row in rows),
+        paused_studies=sum(row.study_status == "protocol" for row in rows),
+        protocol_reviews_pending=sum(
+            row.attention_state == "protocol_review_pending" for row in rows
+        ),
+        ethics_reviews_required=sum(
+            row.attention_state == "ethics_review_required" for row in rows
+        ),
+        adverse_ethics_outcomes=sum(
+            row.attention_state in {"ethics_revisions_required", "ethics_rejected"} for row in rows
+        ),
+        studies=rows,
+    )
 
 
 @audit_router.get("/audit-events", response_model=list[ResearchGovernanceAuditRead])

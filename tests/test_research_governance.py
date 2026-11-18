@@ -166,6 +166,33 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert [item["decision"] for item in ethics_history.json()] == ["approved"]
     assert ethics_history.json()[0]["reviewer_user_id"] == ethics.json()["reviewer_user_id"]
 
+    oversight = client.get(
+        f"/api/organizations/{organization_id}/research-governance/oversight",
+        headers=lead_headers,
+    )
+    assert oversight.status_code == 200
+    assert oversight.json()["studies_total"] == 1
+    assert oversight.json()["ethics_reviews_required"] == 0
+    assert oversight.json()["studies"][0]["attention_state"] == "other"
+    assert (
+        oversight.json()["studies"][0]["ethics_reviewer_user_id"]
+        == ethics.json()["reviewer_user_id"]
+    )
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/oversight",
+            headers=outsider_headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/oversight",
+            headers=reviewer_headers,
+        ).status_code
+        == 403
+    )
+
     versions = client.get(f"{base_url}/protocol-versions", headers=lead_headers)
     assert versions.status_code == 200
     assert len(versions.json()) == 1
@@ -185,6 +212,14 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert second_version.status_code == 201
     assert second_version.json()["version_number"] == 2
+    amended_oversight = client.get(
+        f"/api/organizations/{organization_id}/research-governance/oversight",
+        headers=lead_headers,
+    )
+    assert amended_oversight.status_code == 200
+    assert amended_oversight.json()["paused_studies"] == 0
+    assert amended_oversight.json()["studies"][0]["protocol_version_number"] == 2
+    assert amended_oversight.json()["studies"][0]["ethics_decision"] is None
     second_id = second_version.json()["id"]
     second_submission = client.post(
         f"{base_url}/protocol-versions/{second_id}/submit",
