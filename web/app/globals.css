@@ -837,3 +837,14 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
   a { color: #17251e !important; text-decoration: none !important; }
   .workspace-error { border: 1px solid #a33; }
 }
+
+.odk-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+.odk-status-grid article { display: grid; gap: 7px; padding: 18px; background: #f1f4ed; border: 1px solid var(--line); min-width: 0; }
+.odk-status-grid strong { font-size: 15px; overflow-wrap: anywhere; }
+.odk-status-grid span, .odk-form-row small { color: var(--muted); font-size: 11px; }
+.odk-form-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+.odk-form-row > div { display: grid; gap: 6px; min-width: 0; }
+.odk-form-row small { overflow-wrap: anywhere; }
+.odk-form-row > span { color: var(--green); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.odk-connection-card textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+@media (max-width: 640px) { .odk-status-grid { grid-template-columns: 1fr; } .odk-form-row { align-items: flex-start; flex-direction: column; } }

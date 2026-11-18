@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     object_storage_access_key_id: SecretStr | None = None
     object_storage_secret_access_key: SecretStr | None = None
     malware_scanning_enabled: bool = False
+    odk_encryption_key: SecretStr | None = None
     clamav_host: str | None = None
     clamav_port: int = Field(default=3310, ge=1, le=65535)
     clamav_timeout_seconds: float = Field(default=30, gt=0, le=300)

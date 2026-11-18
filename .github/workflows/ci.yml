@@ -56,7 +56,8 @@ jobs:
         run: |
           docker compose -f docker/compose.production.yml config --quiet
           docker compose --profile scanning -f docker/compose.production.yml config --quiet
-          docker compose -f docker/compose.postgis.yml config --quiet
+          docker compose --profile odk -f docker/compose.production.yml config --quiet
+          docker compose --env-file .env.example -f docker/compose.postgis.yml config --quiet
       - name: Ruff lint
         run: uv run ruff check .
       - name: Mypy
@@ -98,7 +99,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install web dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Type-check
         run: npm run typecheck
       - name: Lint

@@ -2005,4 +2005,70 @@ class ProgrammePlanningEvent(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+
+class ODKConnection(Base):
+    """Encrypted organisation-owned connection to an ODK Central project."""
+
+    __tablename__ = "organization_odk_connections"
+    __table_args__ = (
+        UniqueConstraint("organization_id", name="uq_odk_connection_organization"),
+        CheckConstraint("project_id > 0", name="ck_odk_connection_project_positive"),
+        Index("ix_odk_connections_enabled", "enabled", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    base_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    project_id: Mapped[int] = mapped_column(nullable=False)
+    account_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    encrypted_password: Mapped[str] = mapped_column(Text, nullable=False)
+    form_mappings: Mapped[dict[str, dict[str, str]]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    form_cursors: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    last_sync_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ODKSyncRun(Base):
+    """Append-only execution record for one scheduled ODK Central sync."""
+
+    __tablename__ = "organization_odk_sync_runs"
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'succeeded', 'partial', 'failed')", name="ck_odk_sync_run_status"),
+        Index("ix_odk_sync_runs_connection_started", "connection_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    connection_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization_odk_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    forms_checked: Mapped[int] = mapped_column(nullable=False, default=0)
+    submissions_received: Mapped[int] = mapped_column(nullable=False, default=0)
+    observations_imported: Mapped[int] = mapped_column(nullable=False, default=0)
+    duplicates_skipped: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_summary: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 # fmt: on

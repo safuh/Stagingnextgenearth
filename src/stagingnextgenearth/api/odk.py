@@ -25,7 +25,7 @@ from .dependencies import (
 )
 
 router = APIRouter(prefix="/organizations/{organization_id}/odk", tags=["odk-integration"])
-_IMPORT_ROLES = {"admin", "researcher", "programme_manager"}
+_IMPORT_ROLES = {"admin", "founder", "executive", "researcher", "programme_manager"}
 
 
 class ODKFieldMapping(BaseModel):
@@ -201,7 +201,7 @@ async def import_odk_submissions(
             unit=unit,
             latitude=latitude,
             longitude=longitude,
-            source=f"ODK Central form {body.form_id}",
+            source=f"ODK Central form {body.form_id}"[:160],
             provider_id="odk-central",
             provider_record_id=record_id,
             quality_status="pending",

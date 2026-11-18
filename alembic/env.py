@@ -26,6 +26,8 @@ from stagingnextgenearth.platform import (  # noqa: F401
     LearningResource,
     Membership,
     MembershipRole,
+    ODKConnection,
+    ODKSyncRun,
     Organization,
     OrganizationAuditEvent,
     OrganizationPerson,

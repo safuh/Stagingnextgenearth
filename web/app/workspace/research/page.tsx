@@ -1122,7 +1122,7 @@ export default function ResearchWorkspacePage() {
               <>
                 <section className="role-workspace">
                   <div><span className="eyebrow">YOUR ACCESS</span><h2>{membership.role.replace(/_/g, " ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
-                  <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link></div>
+                  <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link><Link href="/workspace/research/odk">Configure ODK Central →</Link></div>
                 </section>
                 <section className="research-section climate-submission-panel">
                   <div className="section-heading"><div><p className="eyebrow">FIELD DATA</p><h2>Submit a climate observation</h2></div><span>Pending independent review</span></div>

@@ -17,6 +17,7 @@ export interface ApiError {
 // The BFF validates protected requests and refreshes expired access tokens after a 401.
 export function setSession(_tokens: TokenResponse): void {
   // Session cookies are set by /api/session/login.
+  void _tokens;
 }
 
 export function clearSession(): void {
@@ -121,4 +122,12 @@ export async function logout(): Promise<void> {
     cache: "no-store",
   });
   if (!response.ok) throw new Error("Unable to complete sign-out.");
+}
+
+export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: "PUT", body: JSON.stringify(body) });
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "DELETE" });
 }
