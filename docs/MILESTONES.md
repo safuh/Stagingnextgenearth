@@ -320,3 +320,14 @@ These foundation checks must continue passing as product code is added.
 - [x] Deny downloads for revoked certificates and return private no-store PDF responses.
 - [x] Surface certificate download links in the learner classroom and support QR deep-link verification.
 - [x] Cover PDF generation, ownership, manager access, revoked credentials and progress metadata.
+
+
+## M83 — ODK Central field-data ingestion bridge
+
+- Added a tenant-authorised ODK Central JSON import endpoint with explicit field mapping and a 100-submission batch bound.
+- Added idempotency on organisation + form + ODK instance ID, with duplicate counts.
+- Validates timezone-aware timestamps, finite measurements, coordinate ranges, and optional same-tenant project/study links.
+- Imported records enter the climate evidence ledger as pending; independent review remains mandatory.
+- Raw survey payloads are not retained; only mapped scientific fields and source identifiers are stored.
+- Added a tenant-scoped ODK integration status endpoint and operational mapping documentation.
+- This is the ingestion bridge, not yet a background ODK Central poller/webhook subscription; credentials and pagination belong in a trusted worker.
