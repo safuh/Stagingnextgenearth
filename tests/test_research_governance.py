@@ -172,6 +172,7 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     )
     assert oversight.status_code == 200
     assert oversight.json()["studies_total"] == 1
+    assert oversight.json()["inventory_truncated"] is False
     assert oversight.json()["ethics_reviews_required"] == 0
     assert oversight.json()["studies"][0]["attention_state"] == "other"
     assert (
@@ -188,6 +189,24 @@ def test_protocol_versions_require_independent_review_and_ethics_decision(
     assert (
         client.get(
             f"/api/organizations/{organization_id}/research-governance/oversight",
+            headers=reviewer_headers,
+        ).status_code
+        == 403
+    )
+    oversight_export = client.get(
+        f"/api/organizations/{organization_id}/research-governance/oversight/export",
+        headers=lead_headers,
+    )
+    assert oversight_export.status_code == 200
+    assert oversight_export.headers["content-type"].startswith("text/csv")
+    assert oversight_export.headers["x-records-truncated"] == "false"
+    assert "research-governance-oversight.csv" in oversight_export.headers["content-disposition"]
+    assert "study_title" in oversight_export.text
+    assert "Community rainfall adaptation study" in oversight_export.text
+    assert "'\t=ERB-2026-041" in oversight_export.text
+    assert (
+        client.get(
+            f"/api/organizations/{organization_id}/research-governance/oversight/export",
             headers=reviewer_headers,
         ).status_code
         == 403
