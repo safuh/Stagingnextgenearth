@@ -155,6 +155,71 @@ async def submit_public_employment_application(
 
 
 @router.get(
+    "/public/organizations/{organization_slug}/my-employment-applications",
+    response_model=list[EmploymentApplicationRead],
+)
+async def list_my_public_employment_applications(
+    organization_slug: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[EmploymentApplicationRead]:
+    """Let an authenticated candidate see only their applications for a public organisation."""
+    organization_id = await session.scalar(
+        select(Organization.id).where(Organization.slug == organization_slug)
+    )
+    if organization_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    rows = await session.scalars(
+        select(OrganizationEmploymentApplication)
+        .where(
+            OrganizationEmploymentApplication.organization_id == organization_id,
+            OrganizationEmploymentApplication.user_id == principal.user_id,
+        )
+        .order_by(OrganizationEmploymentApplication.created_at.desc())
+        .limit(50)
+    )
+    return [EmploymentApplicationRead.model_validate(row) for row in rows.all()]
+
+
+@router.post(
+    "/public/organizations/{organization_slug}/employment-applications/{application_id}/withdraw",
+    response_model=EmploymentApplicationRead,
+)
+async def withdraw_public_employment_application(
+    organization_slug: str,
+    application_id: str,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> EmploymentApplicationRead:
+    """Withdraw the caller's pending application without deleting its review record."""
+    organization_id = await session.scalar(
+        select(Organization.id).where(Organization.slug == organization_slug)
+    )
+    if organization_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
+    application = await session.scalar(
+        select(OrganizationEmploymentApplication)
+        .where(
+            OrganizationEmploymentApplication.id == application_id,
+            OrganizationEmploymentApplication.organization_id == organization_id,
+            OrganizationEmploymentApplication.user_id == principal.user_id,
+        )
+        .with_for_update()
+    )
+    if application is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    if application.status != "pending":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Only pending employment applications can be withdrawn",
+        )
+    application.status = "withdrawn"
+    await session.commit()
+    await session.refresh(application)
+    return EmploymentApplicationRead.model_validate(application)
+
+
+@router.get(
     "/organizations/{organization_id}/my-employment-applications",
     response_model=list[EmploymentApplicationRead],
 )
@@ -164,10 +229,13 @@ async def list_my_employment_applications(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[EmploymentApplicationRead]:
     rows = await session.scalars(
-        select(OrganizationEmploymentApplication).where(
+        select(OrganizationEmploymentApplication)
+        .where(
             OrganizationEmploymentApplication.organization_id == organization_id,
             OrganizationEmploymentApplication.user_id == principal.user_id,
-        ).order_by(OrganizationEmploymentApplication.created_at.desc()).limit(50)
+        )
+        .order_by(OrganizationEmploymentApplication.created_at.desc())
+        .limit(50)
     )
     return [EmploymentApplicationRead.model_validate(row) for row in rows.all()]
 
@@ -187,7 +255,8 @@ async def list_employment_applications(
         select(OrganizationEmploymentApplication, User.identifier)
         .join(User, User.id == OrganizationEmploymentApplication.user_id)
         .where(OrganizationEmploymentApplication.organization_id == organization_id)
-        .order_by(OrganizationEmploymentApplication.created_at.desc()).limit(500)
+        .order_by(OrganizationEmploymentApplication.created_at.desc())
+        .limit(500)
     )
     return [
         EmploymentApplicationRead.model_validate(item).model_copy(
@@ -237,21 +306,27 @@ async def decide_employment_application(
                 status.HTTP_409_CONFLICT,
                 "Applicant already has an organisation membership; resolve roles before approval",
             )
-        session.add(Membership(
-            organization_id=organization_id, user_id=item.user_id,
-            role="employee", status="active",
-        ))
-        session.add(OrganizationPerson(
-            organization_id=organization_id,
-            full_name=item.full_name,
-            positions=[item.desired_position],
-            person_types=["employee"],
-            review_state="pending",
-            visibility="private",
-            status="active",
-            created_by=principal.user_id,
-            updated_by=principal.user_id,
-        ))
+        session.add(
+            Membership(
+                organization_id=organization_id,
+                user_id=item.user_id,
+                role="employee",
+                status="active",
+            )
+        )
+        session.add(
+            OrganizationPerson(
+                organization_id=organization_id,
+                full_name=item.full_name,
+                positions=[item.desired_position],
+                person_types=["employee"],
+                review_state="pending",
+                visibility="private",
+                status="active",
+                created_by=principal.user_id,
+                updated_by=principal.user_id,
+            )
+        )
     item.status = body.decision
     item.reviewed_by = principal.user_id
     item.reviewed_at = datetime.now(UTC)
