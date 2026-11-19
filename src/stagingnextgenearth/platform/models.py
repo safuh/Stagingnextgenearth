@@ -3,6 +3,7 @@
 """Core organisational, programme, research, and climate data models."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -2072,3 +2074,184 @@ class ODKSyncRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 # fmt: on
+
+
+class FundingOpportunity(Base):
+    """Tenant-scoped grant opportunity and prospect register."""
+
+    __tablename__ = "funding_opportunities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('identified','reviewing','submitted','awarded','declined','closed')",
+            name="ck_funding_opportunity_status",
+        ),
+        CheckConstraint(
+            "expected_amount IS NULL OR expected_amount >= 0", name="ck_funding_opportunity_amount"
+        ),
+        CheckConstraint("length(currency) = 3", name="ck_funding_opportunity_currency"),
+        Index("ix_funding_opportunities_org_deadline", "organization_id", "deadline"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    donor_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    reference_url: Mapped[str | None] = mapped_column(String(1000))
+    deadline: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="identified")
+    expected_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FundingAward(Base):
+    """Award or grant agreement and its reporting obligations."""
+
+    __tablename__ = "funding_awards"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','active','completed','suspended','closed')",
+            name="ck_funding_award_status",
+        ),
+        CheckConstraint("award_amount >= 0", name="ck_funding_award_amount"),
+        CheckConstraint("length(currency) = 3", name="ck_funding_award_currency"),
+        CheckConstraint(
+            "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",
+            name="ck_funding_award_date_order",
+        ),
+        Index("ix_funding_awards_org_status", "organization_id", "status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    opportunity_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("funding_opportunities.id", ondelete="SET NULL")
+    )
+    partner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("institutional_partners.id", ondelete="SET NULL")
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    donor_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    award_reference: Mapped[str | None] = mapped_column(String(120))
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
+    award_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    restrictions: Mapped[str | None] = mapped_column(Text)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    reporting_deadline: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FundingBudgetLine(Base):
+    """Approved allocation of an award to a budget category or programme."""
+
+    __tablename__ = "funding_budget_lines"
+    __table_args__ = (
+        CheckConstraint("budget_amount >= 0", name="ck_funding_budget_line_amount"),
+        Index("ix_funding_budget_lines_org_award", "organization_id", "award_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    award_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("funding_awards.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL")
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    budget_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class FundingLedgerEntry(Base):
+    """Non-payment financial record: pledge, commitment, or expenditure."""
+
+    __tablename__ = "funding_ledger_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "entry_type IN ('pledge','commitment','expenditure')",
+            name="ck_funding_ledger_entry_type",
+        ),
+        CheckConstraint("amount > 0", name="ck_funding_ledger_entry_amount"),
+        Index("ix_funding_ledger_org_award_date", "organization_id", "award_id", "occurred_on"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    award_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("funding_awards.id", ondelete="CASCADE"), nullable=False
+    )
+    budget_line_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("funding_budget_lines.id", ondelete="SET NULL")
+    )
+    entry_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
+    entered_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class FundingAuditEvent(Base):
+    """Append-only audit trail for funding register changes."""
+
+    __tablename__ = "funding_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('opportunity','award','budget_line','ledger_entry')",
+            name="ck_funding_audit_entity_type",
+        ),
+        CheckConstraint(
+            "action IN ('record.created','record.updated')", name="ck_funding_audit_action"
+        ),
+        Index("ix_funding_audit_org_time", "organization_id", "created_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

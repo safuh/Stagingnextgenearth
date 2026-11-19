@@ -357,7 +357,7 @@ These foundation checks must continue passing as product code is added.
 - Added regression tests for valid and invalid production environment configurations.
 - Updated the production deployment script to validate the exact environment file, check Compose interpolation, apply migrations once and report service logs on failed readiness.
 - Added founder demo and staging acceptance guidance covering governance, learning, ODK, climate, CMS, funding and security.
-- Verified locally: backend suite 241 passed / 4 skipped; ODK and production-env regression set 9 passed; Ruff and Mypy passed.
+- Verified locally: backend suite 246 passed / 4 skipped; ODK and production-environment regression set 9 passed; Ruff and Mypy passed.
 - Verified locally: frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 25 static pages and completed standalone tracing.
 - Verified local, production, ODK and scanning Compose configurations; the ODK profile activates `odk-sync`.
 - Verified the Docker smoke against PostgreSQL 17/PostGIS: API and database containers started, migrations `0001` through `0060` applied, and liveness/readiness both returned HTTP 200. Containers/network were removed; the named smoke database volume was retained.
@@ -365,9 +365,17 @@ These foundation checks must continue passing as product code is added.
 - Do not declare production launch-ready until the remaining operational prerequisites are evidenced.
 
 
-## M87 — Funding and grant management (planned)
+## M87 — Funding and grant management (implemented; local verification passed)
 
-- Add tenant-scoped funding opportunities, grant/award records and donor registers.
-- Track budgets and budget lines, pledges, commitments, restrictions, expenditure and reporting deadlines.
-- Add approval/audit history, role-based access and safe CSV reporting.
-- Do not add payment processing, checkout, card capture, bank integrations or payment-provider APIs.
+- [x] Add tenant-scoped funding opportunities and grant/award records with donor/funder details.
+- [x] Track budget lines, pledges, commitments, expenditure, restrictions and reporting deadlines.
+- [x] Enforce award/budget ceilings, tenant-safe references, administrator-only access and append-only audit events.
+- [x] Provide per-award funding summaries and formula-safe private CSV export without cross-currency aggregation.
+- [x] Add an administrator funding workspace for opportunity/award creation, budget allocation and ledger entry.
+- [x] Explicitly exclude payment processing, checkout, card capture, bank integrations, transfers and payment-provider APIs.
+- [x] Backend suite: 247 passed, 4 skipped; funding-specific regression rerun after audit-action correction.
+- [x] Ruff and Mypy passed (87 source files); `git diff --check` passed.
+- [x] Frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 26 routes/pages.
+- [x] PostgreSQL 17/PostGIS Docker smoke passed: API liveness/readiness returned HTTP 200 and migration head reached `0061_funding_register`.
+- [x] Migration rollback from `0061_funding_register` to `0060_odk_form_cursors` and re-upgrade to `0061_funding_register` both succeeded.
+- Remaining external acceptance: validate funding workflows with the founder/finance owner, real ODK Central test-project sync, production backup/restore, monitoring/alerting, HTTPS/CORS review and data-protection sign-off.

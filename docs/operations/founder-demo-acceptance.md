@@ -46,14 +46,24 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] Confirm ODK observations remain `pending` until the independent climate-review workflow approves them.
 - [ ] Confirm sync run history, last-run state and errors are visible to authorised research managers; confirm credentials are never returned to the browser.
 
-## 5. CMS and public site
+## 5. Funding management
+
+- [ ] Register a funding opportunity with donor, deadline, expected amount, currency and stage.
+- [ ] Create an award linked to the opportunity and record its restrictions, dates and reporting deadline.
+- [ ] Allocate programme budget lines and confirm total allocations cannot exceed the award.
+- [ ] Record a pledge, commitment and expenditure; confirm expenditure cannot exceed the budget line or award.
+- [ ] Review the funding summary and download the private CSV report.
+- [ ] Confirm only administrators, founders and executives can access the funding register.
+- [ ] Confirm the workflow records financial plans and actuals only and does not process payments or move money.
+
+## 6. CMS and public site
 
 - [ ] Create a CMS draft, submit it for review, approve it and publish it.
 - [ ] Confirm only approved/published content and explicitly public people/partners appear on the public site.
 - [ ] Unpublish a test content item and verify it disappears from public responses.
 - [ ] Review public programme, partner, research and impact descriptions for source attribution and factual accuracy.
 
-## 6. Security and operational acceptance
+## 7. Security and operational acceptance
 
 - [ ] Verify learner accounts cannot access staff dashboards or other learners' records.
 - [ ] Verify employee, researcher, volunteer, partner and administrator permissions match their assigned roles.
@@ -63,7 +73,7 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] Confirm error monitoring, log retention, backup schedule, restore owner and incident contact.
 - [ ] Record unresolved defects with severity, owner and target date; do not label a critical/high security or data-integrity defect as accepted.
 
-## 7. Go/no-go evidence pack
+## 8. Go/no-go evidence pack
 
 The founder demo is accepted when the team can provide:
 
@@ -80,11 +90,11 @@ requires a real ODK Central acceptance run, verified backups/restore, production
 monitoring/alerting, HTTPS and CORS review, and sign-off from the organisation's
 operational and data-protection owners.
 
-## Deferred priority: funding management
+## Funding-management boundary
 
-Funding management is not part of this release candidate and must not be presented
-as an implemented workspace. The next product milestone is a tenant-scoped grants
-and funding register covering opportunities, awards, budgets, donor commitments and
-pledges, expenditure records, and reporting/export. It will record financial plans
-and actuals only: **no payment gateway, checkout, card capture, bank integration,
-fund transfers, or payment-provider API**.
+The funding workspace is an internal register for opportunities, awards, budgets,
+pledges, commitments, expenditure and reporting. It is not an accounting system or
+payment service: **no payment gateway, checkout, card capture, bank integration,
+fund transfers, or payment-provider API** is included. Pledges are not evidence of
+cleared funds, and manually entered expenditure must be reconciled under the
+organisation's separate finance controls.
