@@ -23,6 +23,31 @@ from stagingnextgenearth.platform.models import (
 
 logger = logging.getLogger("stagingnextgenearth.odk_sync")
 _PAGE_SIZE = 100
+
+
+def _safe_central_error(exc: Exception) -> str:
+    """Classify Central failures without logging request data or credentials."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        messages = {
+            401: "Central rejected the integration credentials (HTTP 401)",
+            403: "Central denied access to the configured project or form (HTTP 403)",
+            404: "The configured Central project or form was not found (HTTP 404)",
+            410: "The Central pagination cursor expired and was reset (HTTP 410)",
+            429: "Central rate-limited the integration (HTTP 429)",
+        }
+        return messages.get(code, f"Central request failed (HTTP {code})")
+    if isinstance(exc, httpx.TimeoutException):
+        return "Central request timed out"
+    if isinstance(exc, httpx.RequestError):
+        return "Central could not be reached"
+    if isinstance(exc, InvalidToken):
+        return "Stored credentials could not be decrypted; check the ODK encryption key"
+    if isinstance(exc, ValidationError):
+        return "Configured form mapping is invalid"
+    return f"Sync validation failed ({type(exc).__name__})"
+
+
 _MAX_PAGES_PER_FORM = 10
 
 
@@ -288,7 +313,9 @@ async def sync_odk_connection(
                             updated_cursors.pop(form_id, None)
                             connection.form_cursors = updated_cursors
                         totals["errors"] += 1
-                        errors.append(f"Form {form_id[:80]} sync failed ({type(exc).__name__})")
+                        errors.append(
+                            f"Form {form_id[:80]} sync failed: {_safe_central_error(exc)}"
+                        )
                         logger.warning(
                             "ODK form sync failed: form=%s error_type=%s",
                             form_id,
@@ -304,7 +331,7 @@ async def sync_odk_connection(
         except (InvalidToken, UnicodeDecodeError, httpx.HTTPError, ValueError) as exc:
             run.status = "failed"
             totals["errors"] += 1
-            errors.append(f"Connection sync failed ({type(exc).__name__})")
+            errors.append(f"Connection sync failed: {_safe_central_error(exc)}")
             logger.warning(
                 "ODK connection sync failed: connection=%s error_type=%s",
                 connection_id,
@@ -321,6 +348,13 @@ async def sync_odk_connection(
         connection.last_sync_status = run.status
         connection.last_sync_message = run.error_summary
         await session.commit()
+        if run.status != "succeeded":
+            logger.warning(
+                "ODK sync completed with issues: connection=%s status=%s errors=%s",
+                connection_id,
+                run.status,
+                run.error_count,
+            )
         return {
             "status": run.status,
             "forms": totals["forms"],

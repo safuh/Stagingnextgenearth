@@ -1,6 +1,7 @@
 """ODK Central connection credential handling and tenant authorization."""
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from stagingnextgenearth.api import odk_connections
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
-from stagingnextgenearth.platform.models import Base, ODKConnection
+from stagingnextgenearth.platform.models import Base, ODKConnection, ODKSyncRun
 
 
 def _auth(client: TestClient, identifier: str) -> dict[str, str]:
@@ -225,4 +226,114 @@ def test_odk_connection_management_requires_admin_membership(tmp_path: Path) -> 
         assert client.put(f"{base}/connection", headers=learner, json=payload).status_code == 403
         assert client.post(f"{base}/connection/test", headers=learner, json={}).status_code == 403
         assert client.get(f"{base}/forms", headers=learner).status_code == 403
+        assert client.get(f"{base}/operations", headers=learner).status_code == 403
         assert client.delete(f"{base}/connection", headers=learner).status_code == 403
+
+
+def test_operations_endpoint_reports_stale_cursor_repeated_failures_and_auth_rejection(
+    tmp_path: Path,
+) -> None:
+    url = f"sqlite+aiosqlite:///{tmp_path / 'odk-operations.db'}"
+    key = Fernet.generate_key().decode()
+    engine = create_async_engine(url)
+
+    async def prepare() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(prepare())
+    settings = Settings(
+        environment=Environment.TEST,
+        database_url=url,
+        jwt_secret_key="test-only-signing-secret-that-is-long-enough",
+        odk_encryption_key=key,
+    )
+    with TestClient(create_app(settings)) as client:
+        owner = _auth(client, "odk-operations-owner@example.org")
+        org = client.post(
+            "/api/organizations",
+            headers=owner,
+            json={"name": "ODK Operations Team", "slug": "odk-operations-team"},
+        )
+        organization_id = org.json()["id"]
+        base = f"/api/organizations/{organization_id}/odk"
+        saved = client.put(
+            f"{base}/connection",
+            headers=owner,
+            json={
+                "base_url": "https://central.example.org",
+                "project_id": 55,
+                "account_email": "field@example.org",
+                "password": "test-only-password",
+                "form_mappings": {
+                    "rainfall-v1": {
+                        "observed_at": "date",
+                        "variable": "measure",
+                        "value": "reading",
+                        "unit": "unit",
+                        "latitude": "lat",
+                        "longitude": "lon",
+                    }
+                },
+            },
+        )
+        assert saved.status_code == 200
+
+        async def seed_runs() -> None:
+            db_engine = create_async_engine(url)
+            try:
+                from sqlalchemy.ext.asyncio import async_sessionmaker
+
+                factory = async_sessionmaker(db_engine, expire_on_commit=False)
+                async with factory() as session:
+                    connection = await session.scalar(
+                        select(ODKConnection).where(
+                            ODKConnection.organization_id == organization_id
+                        )
+                    )
+                    assert connection is not None
+                    connection.form_cursors = {
+                        "rainfall-v1": "https://central.example.org/odata?skiptoken=old"
+                    }
+                    connection.last_sync_at = datetime.now(UTC) - timedelta(minutes=30)
+                    connection.last_sync_status = "failed"
+                    connection.last_sync_message = (
+                        "Central rejected the integration credentials (HTTP 401)"
+                    )
+                    now = datetime.now(UTC)
+                    session.add_all(
+                        [
+                            ODKSyncRun(
+                                connection_id=connection.id,
+                                organization_id=organization_id,
+                                status="failed",
+                                error_count=1,
+                                error_summary=(
+                                    "Central rejected the integration credentials (HTTP 401)"
+                                ),
+                                started_at=now - timedelta(minutes=3 - index),
+                                completed_at=now - timedelta(minutes=3 - index),
+                            )
+                            for index in range(3)
+                        ]
+                    )
+                    await session.commit()
+            finally:
+                await db_engine.dispose()
+
+        asyncio.run(seed_runs())
+        response = client.get(f"{base}/operations", headers=owner)
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["configured"] is True
+        assert payload["enabled"] is True
+        assert payload["forms_with_cursors"] == 1
+        assert payload["consecutive_error_runs"] == 3
+        codes = {alert["code"] for alert in payload["alerts"]}
+        assert {
+            "worker_stale",
+            "stale_pagination_cursor",
+            "repeated_sync_failures",
+            "central_credentials_rejected",
+        } <= codes

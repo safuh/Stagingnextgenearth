@@ -24,6 +24,16 @@ interface ODKSyncRun {
   observations_imported: number; duplicates_skipped: number; error_count: number;
   error_summary: string | null; started_at: string; completed_at: string | null;
 }
+interface ODKOperationsAlert { code: string; severity: "info" | "warning" | "critical"; message: string }
+interface ODKOperations {
+  configured: boolean; enabled: boolean; last_sync_at: string | null; last_sync_status: string | null;
+  mapped_forms: number; forms_with_cursors: number; consecutive_error_runs: number;
+  alerts: ODKOperationsAlert[];
+}
+const EMPTY_OPERATIONS: ODKOperations = {
+  configured: false, enabled: false, last_sync_at: null, last_sync_status: null,
+  mapped_forms: 0, forms_with_cursors: 0, consecutive_error_runs: 0, alerts: [],
+};
 
 const EMPTY_CONNECTION: ODKConnection = {
   configured: false, base_url: null, project_id: null, account_email: null,
@@ -50,6 +60,7 @@ export default function ODKIntegrationPage() {
   const [mappings, setMappings] = useState(EXAMPLE_MAPPING);
   const [forms, setForms] = useState<ODKForm[]>([]);
   const [runs, setRuns] = useState<ODKSyncRun[]>([]);
+  const [operations, setOperations] = useState<ODKOperations>(EMPTY_OPERATIONS);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,9 +72,15 @@ export default function ODKIntegrationPage() {
       apiGet<ODKConnection>(`/organizations/${id}/odk/connection`),
       apiGet<ODKSyncRun[]>(`/organizations/${id}/odk/sync-runs`),
     ]);
+    const manager = member.status === "active"
+      && (member.roles ?? [member.role]).some((role) => MANAGER_ROLES.includes(role));
+    const operationalStatus = manager
+      ? await apiGet<ODKOperations>(`/organizations/${id}/odk/operations`)
+      : EMPTY_OPERATIONS;
     setMembership(member);
     setConnection(configured);
     setRuns(history);
+    setOperations(operationalStatus);
     setBaseUrl(configured.base_url ?? "");
     setProjectId(configured.project_id ? String(configured.project_id) : "");
     setEmail(configured.account_email ?? "");
@@ -138,7 +155,7 @@ export default function ODKIntegrationPage() {
     setBusy(true); setError(""); setNotice("");
     try {
       await apiDelete<void>(`/organizations/${organizationId}/odk/connection`);
-      setConnection(EMPTY_CONNECTION); setForms([]); setRuns([]); setPassword("");
+      setConnection(EMPTY_CONNECTION); setForms([]); setRuns([]); setOperations(EMPTY_OPERATIONS); setPassword("");
       setNotice("ODK Central connection removed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to remove connection.");
@@ -148,10 +165,15 @@ export default function ODKIntegrationPage() {
   async function refreshStatus() {
     setBusy(true); setError("");
     try {
-      const discovered = await apiGet<ODKForm[]>(`/organizations/${organizationId}/odk/forms`);
-      setForms(discovered);
       await refresh(organizationId);
-      setNotice("ODK Central forms and sync history refreshed.");
+      try {
+        const discovered = await apiGet<ODKForm[]>(`/organizations/${organizationId}/odk/forms`);
+        setForms(discovered);
+      } catch (cause) {
+        setForms([]);
+        setError(cause instanceof Error ? cause.message : "Unable to refresh the Central form catalogue.");
+      }
+      setNotice("ODK operational status and sync history refreshed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to refresh ODK status.");
     } finally { setBusy(false); }
@@ -193,6 +215,8 @@ export default function ODKIntegrationPage() {
               <section className="research-section">
                 <div className="section-heading"><div><p className="eyebrow">SYNC HEALTH</p><h2>Latest synchronisation</h2></div><button type="button" className="secondary-action" disabled={busy} onClick={() => void refreshStatus()}>Refresh status</button></div>
                 <div className="odk-status-grid"><article><strong>{connection.last_sync_status ?? "Not run"}</strong><span>Last run status</span></article><article><strong>{connection.last_sync_at ? new Date(connection.last_sync_at).toLocaleString() : "—"}</strong><span>Last synchronised</span></article><article><strong>{connection.mapped_forms.length}</strong><span>Mapped forms</span></article></div>
+                {operations.alerts.length ? <div className="odk-operations-alerts" aria-live="polite">{operations.alerts.map((alert) => <p key={alert.code} className={alert.severity === "critical" ? "workspace-error" : "workspace-muted"}><strong>{alert.severity.toUpperCase()} · </strong>{alert.message}</p>)}</div> : <p className="workspace-notice" role="status">No ODK operational alerts detected.</p>}
+                <p className="workspace-muted">{operations.consecutive_error_runs} consecutive runs with errors · {operations.forms_with_cursors} forms with saved continuation cursors · Worker {operations.enabled ? "enabled" : "disabled"}</p>
                 {connection.last_sync_message && <p className="workspace-error">{connection.last_sync_message}</p>}
                 <p className="workspace-muted">The worker runs on the configured polling interval. A connection test does not start a sync; the worker must be running in the deployment.</p>
               </section>
