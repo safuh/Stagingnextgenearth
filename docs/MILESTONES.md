@@ -357,8 +357,12 @@ These foundation checks must continue passing as product code is added.
 - Added regression tests for valid and invalid production environment configurations.
 - Updated the production deployment script to validate the exact environment file, check Compose interpolation, apply migrations once and report service logs on failed readiness.
 - Added founder demo and staging acceptance guidance covering governance, learning, ODK, climate, CMS, funding and security.
-- Remaining release gates: full PostgreSQL/PostGIS migration and test run, complete frontend production build, container smoke test, backup/restore rehearsal, and a real test-project ODK Central sync.
-- Do not declare production launch-ready until the remaining gates and operational prerequisites are evidenced.
+- Verified locally: backend suite 241 passed / 4 skipped; ODK and production-env regression set 9 passed; Ruff and Mypy passed.
+- Verified locally: frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 25 static pages and completed standalone tracing.
+- Verified local, production, ODK and scanning Compose configurations; the ODK profile activates `odk-sync`.
+- Verified the Docker smoke against PostgreSQL 17/PostGIS: API and database containers started, migrations `0001` through `0060` applied, and liveness/readiness both returned HTTP 200. Containers/network were removed; the named smoke database volume was retained.
+- Remaining production acceptance: a real ODK Central test-project sync and credential/key-rotation rehearsal, verified backup/restore, production monitoring/alerting, HTTPS/CORS review and data-protection/operational sign-off.
+- Do not declare production launch-ready until the remaining operational prerequisites are evidenced.
 
 
 ## M87 — Funding and grant management (planned)
