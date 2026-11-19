@@ -13,6 +13,7 @@ from .climate_timeseries import router as climate_timeseries_router
 from .climate_monthly_anomalies import router as climate_monthly_anomalies_router
 from .climate_reporting import router as climate_reporting_router
 from .health import router as health_router
+from .funding import router as funding_router
 from .institutional_partners import router as institutional_partners_router
 from .public_content import router as public_content_router
 from .learning import public_router as public_learning_router
@@ -49,6 +50,7 @@ from .volunteer_applications import router as volunteer_applications_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
+api_router.include_router(funding_router)
 api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
 api_router.include_router(organization_people_router)
