@@ -46,17 +46,22 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked --extra dev
+      - name: Generate ephemeral ODK key for Compose validation
+        id: odk-key
+        run: echo "key=$(python -c 'import base64; print(base64.urlsafe_b64encode(bytes(32)).decode())')" >> "$GITHUB_OUTPUT"
       - name: Validate production Compose profiles
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/backbone
           JWT_SECRET_KEY: ci-only-secret-that-is-long-enough-for-testing
+          ODK_ENCRYPTION_KEY: ${{ steps.odk-key.outputs.key }}
           POSTGRES_DB: backbone
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         run: |
           docker compose -f docker/compose.production.yml config --quiet
           docker compose --profile scanning -f docker/compose.production.yml config --quiet
-          docker compose -f docker/compose.postgis.yml config --quiet
+          docker compose --profile odk -f docker/compose.production.yml config --quiet
+          docker compose --env-file .env.example -f docker/compose.postgis.yml config --quiet
       - name: Ruff lint
         run: uv run ruff check .
       - name: Mypy
@@ -98,7 +103,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install web dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Type-check
         run: npm run typecheck
       - name: Lint

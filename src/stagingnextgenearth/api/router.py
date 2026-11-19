@@ -21,6 +21,7 @@ from .memberships import router as memberships_router
 from .organization_people import router as organization_people_router
 from .organizations import router as organizations_router
 from .odk import router as odk_router
+from .odk_connections import router as odk_connections_router
 from .partner_reporting import router as partner_reporting_router
 from .programme_deliverables import router as programme_deliverables_router
 from .programme_indicators import router as programme_indicators_router
@@ -83,6 +84,7 @@ api_router.include_router(research_exports_router)
 api_router.include_router(research_evidence_router)
 api_router.include_router(climate_router)
 api_router.include_router(odk_router)
+api_router.include_router(odk_connections_router)
 api_router.include_router(climate_ingestion_router)
 api_router.include_router(climate_reporting_router)
 api_router.include_router(climate_analysis_router)

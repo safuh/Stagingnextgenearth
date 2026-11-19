@@ -331,3 +331,26 @@ These foundation checks must continue passing as product code is added.
 - Raw survey payloads are not retained; only mapped scientific fields and source identifiers are stored.
 - Added a tenant-scoped ODK integration status endpoint and operational mapping documentation.
 - This is the ingestion bridge, not yet a background ODK Central poller/webhook subscription; credentials and pagination belong in a trusted worker.
+
+## M84 — Secure ODK Central connection management
+
+- Added an organisation-scoped Central connection record with encrypted-at-rest credentials, project ID, enablement and per-form mappings.
+- Added admin/founder/executive connection configuration, metadata-only retrieval, connection testing, form discovery and revocation endpoints.
+- Added a dedicated Fernet encryption key setting; credentials are never returned to clients.
+- Added migration `0058_odk_connections`, setup guidance and tests for encryption, tenant boundaries and form discovery.
+- Scheduled submission polling, incremental pagination, retries and sync-run audit history remain the next ODK milestone.
+
+## M85 — Automated ODK Central synchronisation
+
+- Added a scheduled worker using ODK Central session authentication and OData submission feeds.
+- Added same-origin pagination validation, bounded page size and per-form polling limits.
+- Added durable sync-run history, last-run status, and persisted per-form OData continuation cursors.
+- Reused the climate evidence validation rules, tenant-bound project/study checks and provider-record idempotency; imported rows remain pending review.
+- Added local and production Compose worker profiles and operating instructions.
+- Operate one worker replica until a distributed lease/queue is implemented; the poller is intentionally bounded and repeat-safe.
+
+## M86 — Staging and release readiness hardening (in progress)
+
+- Add repeatable local database migration and bootstrap verification, staging deployment checks, and production configuration validation.
+- Run the full backend suite, web typecheck/lint/tests/build, migration checks, and container configuration validation before declaring a release candidate.
+- Document environment secrets, backups/restore, deployment sequencing, health checks and rollback gates.

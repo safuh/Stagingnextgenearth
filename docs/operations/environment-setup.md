@@ -22,21 +22,12 @@ be asked to create an organisation during normal onboarding.
 
 ## 1. Clone and update the repository
 
-Use the active integration branch until its pull request is merged:
-
-```bash
-git clone --branch feat/single-tenant-bootstrap-ops https://github.com/safuh/Stagingnextgenearth.git
-cd Stagingnextgenearth
-git pull --ff-only
-```
-
-For an existing checkout:
+Use the reviewed release branch or immutable commit approved for the environment. For an existing checkout, inspect local changes before updating:
 
 ```bash
 git status --short --branch
 git fetch origin
-git switch feat/single-tenant-bootstrap-ops
-git pull --ff-only origin feat/single-tenant-bootstrap-ops
+# Switch to the approved branch/commit, then fast-forward only.
 ```
 
 Do not discard uncommitted work to update the checkout. Resolve or commit it first.
@@ -76,10 +67,10 @@ URL-encoded in `DATABASE_URL`; a generated URL-safe password avoids that issue.
 Start and verify PostGIS:
 
 ```bash
-docker compose --env-file .env -f docker/compose.postgis.yml up -d
+docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml up -d postgres
 docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml ps
 docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml exec postgres pg_isready
-docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml exec postgres psql -U nextgen -d nextgen -c "SELECT PostGIS_Full_Version();"
+docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT PostGIS_Full_Version();"
 ```
 
 The database role is the configured `POSTGRES_USER`. Do not assume a `postgres`

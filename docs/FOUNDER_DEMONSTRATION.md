@@ -33,10 +33,12 @@ Demonstrate one coherent organisational platform: a public website backed by gov
    - Distinguish public people-directory profiles from authenticated membership accounts.
    - Explain the volunteer safeguarding gate and approval process.
 
-5. **Research and climate intelligence (3 min)**
+5. **Research, climate intelligence and ODK (4 min)**
    - Show research studies, proposal/protocol governance, dataset review and provenance.
-   - Demonstrate available NASA POWER, OpenAlex and climate ingestion workflows only when the corresponding providers are configured and live data is available.
-   - Distinguish imported observations from reviewed, safeguarded research evidence.
+   - Open Research → Configure ODK Central; show the encrypted connection summary, project form catalogue, explicit form mappings and recent sync history.
+   - Demonstrate a real ODK Central connection and worker sync only when a test Central project and dedicated read-only account are configured.
+   - Demonstrate NASA POWER, OpenAlex and climate ingestion only when the providers are configured and live data is available.
+   - Distinguish imported observations from independently reviewed, safeguarded research evidence.
 
 6. **Founder / executive overview and CMS (3 min)**
    - Open Administration → Executive overview.
@@ -67,6 +69,7 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 - [ ] Volunteer safeguarding and any required parent/guardian consent have been verified before approval.
 - [ ] Partner records have been verified before public display.
 - [ ] NASA POWER, OpenAlex and climate-provider credentials, quotas, provenance and failure handling are checked in the target environment.
+- [ ] ODK Central connection test succeeds, form mappings are verified against a test form, scheduled sync worker is running, pagination and duplicate handling are confirmed, and imported observations remain pending review.
 - [ ] Public website, accessibility, mobile layout, privacy notices, security headers, logging and recovery procedures are reviewed.
 
 The print action creates a snapshot of the current executive overview. It does not certify the underlying data or replace independent programme, finance, research, safeguarding or partner verification.

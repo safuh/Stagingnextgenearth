@@ -37,6 +37,7 @@ dependencies = [
     "PyJWT>=2.9,<3.0",
     "pwdlib[argon2]>=0.2,<1.0",
     "reportlab>=5.1.0,<6.0",
+    "cryptography>=44.0,<47.0",
 ]
 
 [project.optional-dependencies]

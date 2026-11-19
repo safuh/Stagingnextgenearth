@@ -11,76 +11,73 @@ and institutional partners.
 **Geospatial and analytics:** PostGIS · Pandas · NumPy · Xarray · GeoPandas  
 **Web application:** Next.js · TypeScript · responsive portal experiences
 
-## Current implementation
+## Current platform capabilities
 
-The repository currently contains the reusable backend foundation and the first
-authenticated product workflows:
+The platform now includes the following integrated product areas:
 
-- JWT-authenticated organisation creation and tenant-scoped discovery;
-- organisation membership invitations and invitee-only acceptance;
-- programme and project creation with tenant-safe parent validation;
-- research study creation and discovery;
-- provenance-bearing climate observation submission and filtering;
-- independent climate-observation review with immutable verified/rejected decisions;
-- a tenant-scoped research dataset registry with data dictionaries and collection metadata;
-- dataset access classifications, submission workflow, correction/resubmission and append-only review history;
-- Alembic migrations `0004_platform_domain` through `0009_dataset_file_access_audit`.
+- **Identity and organisation administration:** account registration/sign-in, HttpOnly-cookie web sessions, tenant-scoped memberships, invitations and acceptance, multiple assigned roles, owner/founder/executive controls, audit history and people directory.
+- **Programmes and delivery:** programme/project catalogue, activities, assignments, deliverables, goals, milestones, indicators, participation, volunteer applications/allocations and attendance.
+- **Learning management:** courses, modules, lessons, learner applications/enrolments, approval, assessments/quizzes, progress, attendance, mentorship and downloadable QR-verifiable certificates.
+- **Institutional partnerships:** partner records, verification workflow and partner reporting.
+- **Research governance:** study lifecycle, proposals, protocol versioning/review, ethics decisions, collaborators, publications, dataset registry, file access governance, evidence manifests and reproducibility records.
+- **Climate intelligence:** NASA POWER and CHIRPS ingestion, climate observations, independent quality review, spatial/time-series analysis, monthly anomalies, coverage and reporting. OpenAlex publication metadata workflows are also available.
+- **ODK Central:** encrypted organisation-level Central connection settings, credential test, form discovery, explicit per-form mappings, scheduled OData polling, persistent pagination cursors, idempotent ingestion and durable sync history. Imported field observations remain pending independent review.
+- **Public website/CMS:** public programme and content projections from approved portal records, with editorial review and publication controls.
+- **Web portals:** separate learner, staff, researcher, youth/volunteer, partner and administration experiences, using a same-origin Next.js BFF and HttpOnly session cookies.
 
-Climate observations enter the system as pending and cannot be verified by their
-submitter. Only organisation administrators and programme managers can review
-observations, and a review decision cannot be overwritten through the API. Dataset
-registration stores governed metadata and supports private file upload intents when
-S3-compatible object storage is configured. Completed files remain quarantined unless optional ClamAV scanning returns a clean verdict. Authorised download grants are issued as short-lived signed URLs and recorded in an access audit table. Restricted
-dataset metadata is visible only to its owner and organisation administrators. A public
-classification does not publish data to the internet.
-Do not expose domain tables through unrestricted generic CRUD endpoints.
+The ODK Central connection and sync worker are described in [the ODK operations guide](docs/operations/odk-central-integration.md). The worker is a separate process and must be enabled explicitly. It is designed for one replica until distributed leasing is added.
+
+Funding management is intentionally non-payment-based. Its scope is grant/opportunity records, budgets, pledges, commitments, allocations and expenditure reporting; no payment gateway, checkout, wallet or payment processor is part of this platform.
 
 ## Quick start
 
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and Docker for the
-PostgreSQL workflow.
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js/npm and Docker Compose (Docker or Podman Compose).
 
 ~~~bash
-uv sync --extra dev
+uv sync --locked --extra dev
 cp .env.example .env
-cp web/.env.example web/.env.local
-make check
+chmod 600 .env
+# Review .env and replace the local database password and JWT secret.
+docker compose --env-file .env -p nextgen-local -f docker/compose.postgis.yml up -d postgres
+uv run alembic upgrade head
+~~~
+
+Start the API from the repository root:
+
+~~~bash
 make run
 ~~~
 
-The API documentation is available at http://127.0.0.1:8000/docs.
-
-Set `JWT_SECRET_KEY` to a unique secret of at least 32 characters before enabling
-password authentication. Access tokens default to 15 minutes and refresh tokens
-to 14 days; configure `ACCESS_TOKEN_MINUTES` and `REFRESH_TOKEN_DAYS` as needed.
-Set `PUBLIC_BASE_URL` to the canonical HTTPS website origin so certificate QR
-codes open the correct public verification page. Do not commit production secrets.
-Authentication endpoints default to 30 requests
-per client IP and endpoint per 60 seconds; configure `AUTH_RATE_LIMIT_REQUESTS`
-and `AUTH_RATE_LIMIT_WINDOW_SECONDS` as needed. The application-level limiter is
-per process, so production ingress/API-gateway limits with shared state are also
-required when running multiple workers or replicas.
-
-## Database
-
-SQLite is available for lightweight local development. PostgreSQL is the target
-for shared development and production. Apply migrations explicitly:
+In another terminal, install and start the web application:
 
 ~~~bash
-make migrate-up
+cd web
+npm ci
+cp .env.example .env.local
+npm run dev
 ~~~
 
-Do not run migrations automatically in API workers.
+Local URLs: frontend http://localhost:3000, API health http://127.0.0.1:8000/api/health/ready, and API documentation http://127.0.0.1:8000/docs.
 
-## Environment setup and organisation bootstrap
+The local `.env.example` uses PostgreSQL/PostGIS because the production schema relies on spatial capabilities. SQLite remains useful for isolated unit tests, but the supported local integration workflow uses PostGIS. Apply migrations explicitly; do not run migrations automatically in API or worker startup.
 
-Next Gen For Earth is provisioned as the canonical organisation while tenant isolation remains enabled. Follow the [environment setup and operations guide](docs/operations/environment-setup.md) for local, staging, production, and planned Render workflows. The idempotent API-based bootstrap utility creates/reuses the initial owner account and organisation, then can load verified people, staff memberships, partners, programmes, research studies, and moderated CMS entries from a private manifest:
+## First organisation bootstrap
+
+The idempotent API-based bootstrap utility creates/reuses the initial owner account and canonical organisation, then loads curated public people, staff memberships, partners, programmes, research studies and CMS records from the seed manifest. It does not write directly to database tables, reset existing passwords, or publish content automatically.
+
+Follow [the environment setup and operations guide](docs/operations/environment-setup.md) for secure bootstrap prompts, local/staging/production separation and demo data rules. A typical owner bootstrap is:
 
 ~~~bash
-uv run python scripts/bootstrap_nextgen.py --manifest path/to/private-manifest.json
+export BOOTSTRAP_ADMIN_IDENTIFIER='owner@example.org'
+read -r -s -p 'Initial owner password: ' BOOTSTRAP_ADMIN_PASSWORD; export BOOTSTRAP_ADMIN_PASSWORD; printf '\n'
+export BOOTSTRAP_ORGANIZATION_NAME='Next Gen For Earth'
+export BOOTSTRAP_ORGANIZATION_SLUG='next-gen-for-earth'
+export BOOTSTRAP_ORGANIZATION_COUNTRY_CODE='KE'
+export BOOTSTRAP_API_URL='http://127.0.0.1:8000/api'
+uv run python scripts/bootstrap_nextgen.py
 ~~~
 
-Passwords are read from environment variables named by the manifest; never store passwords in the manifest or commit real organisation data. The utility does not overwrite existing records or publish content automatically.
+Never place passwords in manifests or commit real organisation data. Review imported people, partners, programmes, research and CMS records before making any of them public. Seed records are source-attributed candidates, not proof of staff employment, signed partnerships, completed activity or verified impact.
 
 ## Project documentation
 
@@ -198,24 +195,19 @@ Copernicus adapters, unit harmonisation, quality assessment and
 spatial/temporal query APIs remain planned work.
 
 
-## Web application (M6)
+## Web application
 
-The initial Next.js application lives in `web/`. It includes a responsive public
-landing page, entry points for the researcher, youth/volunteer, administrator and
-institutional-partner experiences, and a sign-in form wired to the FastAPI
-`/auth/login` endpoint.
+The Next.js application lives in `web/` and includes the public landing page and role-oriented workspaces. Browser code calls the same-origin BFF at `/api/backend/*`; the BFF keeps access and rotating refresh tokens in HttpOnly cookies and forwards authorised requests to FastAPI. Browser JavaScript does not receive bearer tokens.
 
-Run the web application separately from the API:
+Configure `BACKEND_API_URL=http://127.0.0.1:8000/api` in `web/.env.local` for local development. Do not use a `NEXT_PUBLIC_*` variable for backend credentials or private service URLs. See [web deployment and session security](docs/operations/web-deployment.md).
 
-```bash
-cd web
-npm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev
-```
+## Verification
 
-The initial authentication client deliberately keeps access and refresh tokens
-in module memory only; a browser reload ends the client session rather than
-persisting bearer credentials in local or session storage. This is a transitional
-MVP client, not a substitute for a production BFF/HttpOnly-cookie session design.
-The current portal cards are entry points, not completed role-specific workspaces.
-The frontend CI job runs TypeScript, ESLint and a production Next.js build.
+~~~bash
+uv run ruff check .
+uv run mypy src
+uv run pytest
+cd web && npm run typecheck && npm run lint && npm test && npm run build
+~~~
+
+For the founder demonstration, use [the run of show and acceptance checklist](docs/FOUNDER_DEMONSTRATION.md). A successful local build is not a production deployment: production still requires verified organisation content, configured secrets/storage, database backups and restore rehearsal, TLS/ingress, monitoring, security review and stakeholder acceptance.
