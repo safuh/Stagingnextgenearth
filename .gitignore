@@ -17,3 +17,9 @@ build/
 .DS_Store
 .vscode/
 .idea/
+
+# Next.js build outputs and installed frontend dependencies
+/web/node_modules/
+/web/.next/
+/web/tsconfig.tsbuildinfo
+/web/next-env.d.ts

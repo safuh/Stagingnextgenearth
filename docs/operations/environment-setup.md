@@ -210,7 +210,32 @@ For a VM/container staging deployment:
 
 ## 6. Production environment
 
-Production follows the same release procedure as staging, with stricter controls:
+Production follows the same release procedure as staging, with stricter controls.
+For the supplied Docker Compose deployment, prepare a protected environment file and
+run the built-in preflight before any image build or database migration:
+
+```bash
+cp .env.production.example .env
+chmod 600 .env
+# Edit .env: use managed PostgreSQL/PostGIS, a unique JWT secret, HTTPS public URL,
+# and real object-storage settings where those features are enabled.
+make validate-production-env ENV_FILE=.env
+```
+
+When enabling the ODK worker, configure a unique valid Fernet key and enable the
+Compose profile in the same file:
+
+```bash
+# Add COMPOSE_PROFILES=odk and ODK_ENCRYPTION_KEY=<generated Fernet key> to .env
+make validate-production-env ENV_FILE=.env
+make docker-prod
+```
+
+The deployment script validates the exact environment file Compose uses, checks
+production settings and ODK key format when the ODK profile is enabled, validates
+Compose interpolation, builds images, applies migrations once, and waits for API and
+web readiness. Take and verify a database backup before deployment; schema rollback
+is not an automatic recovery strategy.
 
 - Use a managed PostgreSQL 17/PostGIS database with automated backups and tested restore.
 - Store credentials in the hosting provider's secret/environment settings.
@@ -267,3 +292,9 @@ backup/restore. A passing health endpoint alone is not a complete release test.
 - Do not downgrade migrations as an ad-hoc production repair.
 - Restore backups into an isolated database for recovery rehearsals.
 - Redact credentials, tokens, personal data, and database URLs from diagnostic output.
+
+
+The local `make docker-test` smoke test uses an isolated Compose project and a
+dedicated host port; it removes its containers/network but deliberately retains its
+named database volume. Never run `docker compose down -v` against an environment
+containing data.

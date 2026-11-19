@@ -87,6 +87,8 @@ Never place passwords in manifests or commit real organisation data. Review impo
 - [Security](docs/SECURITY.md)
 - [PostgreSQL/PostGIS deployment](docs/operations/postgis.md)
 - [Web BFF/session deployment](docs/operations/web-deployment.md)
+- [Founder demo and staging acceptance](docs/operations/founder-demo-acceptance.md)
+- [ODK Central integration](docs/operations/odk-central-integration.md)
 
 ## Development checks
 

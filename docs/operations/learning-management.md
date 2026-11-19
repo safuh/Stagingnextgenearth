@@ -46,8 +46,10 @@ Course listing uses `GET /courses`. Managers may request
 
 Assessment configuration is never returned by the learner catalogue endpoint.
 Submissions and learner identifiers are visible only to authorised programme
-staff. Assessment payloads are application data; quiz execution and automated
-grading are not part of this MVP.
+staff. Configured multiple-choice quizzes are delivered through the learner quiz
+endpoint and scored server-side; answer keys are never returned to the browser.
+Assignments and evaluation-type assessments remain staff-reviewed. Automated quiz
+results cannot be manually re-scored.
 
 ## Mentorship and attendance
 
@@ -90,12 +92,14 @@ interface only; all permissions remain enforced by the API.
 
 ## MVP limitations and operational safeguards
 
-- The current browser session stores access and refresh tokens in memory. A
-  reload ends the session; production deployment should use a backend-for-
-  frontend with secure HttpOnly cookies and CSRF protection.
-- Quiz delivery, automatic grading, notifications, certificate PDF rendering,
-  dedicated role dashboards
-  remain future work.
+- The Next.js BFF keeps access and rotating refresh tokens in HttpOnly,
+  SameSite=Strict cookies; browser JavaScript cannot read them. Mutating BFF
+  requests require an exact same-origin Origin header. Refresh coordination is
+  process-local, so run one web replica until a shared coordinator is deployed.
+  See [web deployment and session security](web-deployment.md).
+- Adaptive question banks, notifications, and dedicated role dashboards remain
+  future work. Configured multiple-choice quiz delivery and server-side scoring are
+  available; assignments and evaluation-type assessments remain staff-reviewed.
 - Course resources backed by private object storage must be delivered through
   the existing authorised storage-grant flow; never expose storage references
   or permanent object credentials in public lesson content.

@@ -332,25 +332,38 @@ These foundation checks must continue passing as product code is added.
 - Added a tenant-scoped ODK integration status endpoint and operational mapping documentation.
 - This is the ingestion bridge, not yet a background ODK Central poller/webhook subscription; credentials and pagination belong in a trusted worker.
 
-## M84 — Secure ODK Central connection management
+## M84 — Secure ODK Central connections and automated synchronisation
 
 - Added an organisation-scoped Central connection record with encrypted-at-rest credentials, project ID, enablement and per-form mappings.
 - Added admin/founder/executive connection configuration, metadata-only retrieval, connection testing, form discovery and revocation endpoints.
 - Added a dedicated Fernet encryption key setting; credentials are never returned to clients.
-- Added migration `0058_odk_connections`, setup guidance and tests for encryption, tenant boundaries and form discovery.
-- Scheduled submission polling, incremental pagination, retries and sync-run audit history remain the next ODK milestone.
-
-## M85 — Automated ODK Central synchronisation
-
-- Added a scheduled worker using ODK Central session authentication and OData submission feeds.
+- Added the scheduled ODK Central worker using Central session authentication and OData submission feeds.
 - Added same-origin pagination validation, bounded page size and per-form polling limits.
-- Added durable sync-run history, last-run status, and persisted per-form OData continuation cursors.
-- Reused the climate evidence validation rules, tenant-bound project/study checks and provider-record idempotency; imported rows remain pending review.
-- Added local and production Compose worker profiles and operating instructions.
-- Operate one worker replica until a distributed lease/queue is implemented; the poller is intentionally bounded and repeat-safe.
+- Added durable sync-run history, last-run status, persisted per-form continuation cursors and duplicate-safe climate-evidence imports.
+- Added local and production Compose worker profiles and operating instructions. Imported records remain pending independent climate review.
+- Operate one worker replica until distributed scheduling and operational alerting are established.
+
+## M85 — ODK field-operations acceptance and reliability (in progress)
+
+- Validate against a dedicated ODK Central test project with representative forms, submissions, pagination and credential rotation.
+- Add operational alerts for repeated sync failures, stale cursors and disabled/expired Central accounts.
+- Add a documented key-rotation procedure that preserves or re-encrypts existing connection credentials.
+- Keep imported observations pending until the independent climate-review workflow approves them.
 
 ## M86 — Staging and release readiness hardening (in progress)
 
-- Add repeatable local database migration and bootstrap verification, staging deployment checks, and production configuration validation.
-- Run the full backend suite, web typecheck/lint/tests/build, migration checks, and container configuration validation before declaring a release candidate.
-- Document environment secrets, backups/restore, deployment sequencing, health checks and rollback gates.
+- Added a non-destructive Docker smoke test using an isolated Compose project, PostgreSQL 17/PostGIS, and a configurable host port; it never removes database volumes.
+- Added production environment validation for HTTPS, PostgreSQL, non-placeholder JWT/database secrets, and valid ODK Fernet keys when the ODK profile is enabled.
+- Added regression tests for valid and invalid production environment configurations.
+- Updated the production deployment script to validate the exact environment file, check Compose interpolation, apply migrations once and report service logs on failed readiness.
+- Added founder demo and staging acceptance guidance covering governance, learning, ODK, climate, CMS, funding and security.
+- Remaining release gates: full PostgreSQL/PostGIS migration and test run, complete frontend production build, container smoke test, backup/restore rehearsal, and a real test-project ODK Central sync.
+- Do not declare production launch-ready until the remaining gates and operational prerequisites are evidenced.
+
+
+## M87 — Funding and grant management (planned)
+
+- Add tenant-scoped funding opportunities, grant/award records and donor registers.
+- Track budgets and budget lines, pledges, commitments, restrictions, expenditure and reporting deadlines.
+- Add approval/audit history, role-based access and safe CSV reporting.
+- Do not add payment processing, checkout, card capture, bank integrations or payment-provider APIs.

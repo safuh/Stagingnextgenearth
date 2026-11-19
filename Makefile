@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env
 
 install:
 	uv sync --extra dev
@@ -46,6 +46,9 @@ docker-test:
 docker-prod:
 	bash scripts/docker-production.sh
 
+validate-production-env:
+	uv run python scripts/validate-production-env.py $(if $(ENV_FILE),$(ENV_FILE),.env)
+
 # Bootstrap depends on the schema being current. This is additive and never resets volumes.
 bootstrap: migrate-up
 	uv run python scripts/bootstrap_nextgen.py $(if $(MANIFEST),--manifest $(MANIFEST),)
@@ -56,6 +59,7 @@ run-odk-sync:
 web-check:
 	cd web && npm ci --no-audit --no-fund && npm run typecheck && npm run lint && npm test && npm run build
 
-release-check: check web-check
+release-check: check web-check docker-test
 	docker compose --env-file .env.production.example -f docker/compose.production.yml config --quiet
 	docker compose --env-file .env.production.example --profile odk -f docker/compose.production.yml config --quiet
+	docker compose --env-file .env.production.example --profile scanning -f docker/compose.production.yml config --quiet
