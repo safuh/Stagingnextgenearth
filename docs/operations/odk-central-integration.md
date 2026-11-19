@@ -80,3 +80,45 @@ docker compose --profile odk -f docker/compose.production.yml up -d odk-sync
 ```
 
 Run a single ODK sync worker replica for now. The database uniqueness constraint protects against duplicate observation records; a distributed lease/queue is required before horizontally scaling the poller. Central pagination is bounded to 1,000 submissions per configured form per poll; continuation cursors are persisted so the next poll resumes where the previous bounded run stopped. Once a form feed is exhausted, the next run starts at the beginning to discover newly submitted records and safely skips prior imports. Configure ODK Central account permissions to read only the required project and forms.
+
+## Operational alerts and worker health
+
+Organisation administrators, founders and executives can inspect the manager-only operational summary at:
+
+`GET /api/organizations/{organization_id}/odk/operations`
+
+The research workspace displays the returned alerts alongside the durable run history. The current checks are:
+
+- `sync_not_started`: an enabled connection has not completed its first run.
+- `worker_stale`: an enabled connection has not completed a run in five minutes.
+- `stale_pagination_cursor`: a saved continuation cursor has remained without a completed sync for more than 15 minutes.
+- `repeated_sync_failures`: the last three runs all reported errors.
+- `central_credentials_rejected`: Central returned HTTP 401; verify or rotate the service account password.
+- `central_project_access_denied`: Central returned HTTP 403; review project/form permissions.
+- `connection_disabled`: the organisation has deliberately disabled the connection.
+
+The worker also emits a warning for partial or failed runs. Error summaries classify HTTP 401, 403, 404, 410 and 429 responses without storing response bodies, request URLs, credentials or submission contents. These are dashboard/log alerts, not email or SMS notifications. Keep one worker replica until a distributed scheduler/lease and external alert delivery are implemented.
+
+## Safe ODK encryption-key rotation
+
+The rotation utility re-encrypts every saved connection password in one database transaction. It locks the connection rows, verifies that each credential decrypts with the old key, verifies the new ciphertext, and aborts without partial updates if any row cannot be decrypted. `--dry-run` performs the same verification without changing records.
+
+**Do not rotate while API instances or the ODK worker are running.** Stop all API replicas and the `odk-sync` worker first so no process can write a credential using the old key during rotation. Take and verify a database backup, then supply the new key as `ODK_ENCRYPTION_KEY` and the existing key as `ODK_ENCRYPTION_KEY_OLD`:
+
+```bash
+export ODK_ENCRYPTION_KEY_OLD='<current-fernet-key>'
+export ODK_ENCRYPTION_KEY='<new-fernet-key>'
+uv run python -m stagingnextgenearth.workers.rotate_odk_key --dry-run
+uv run python -m stagingnextgenearth.workers.rotate_odk_key
+unset ODK_ENCRYPTION_KEY_OLD
+```
+
+For production Compose, run the same module as a one-off API container, passing the old key only to that process:
+
+```bash
+docker compose --env-file .env.production -f docker/compose.production.yml run --rm \
+  -e ODK_ENCRYPTION_KEY_OLD="$ODK_ENCRYPTION_KEY_OLD" api \
+  python -m stagingnextgenearth.workers.rotate_odk_key --dry-run
+```
+
+After the dry run succeeds, repeat without `--dry-run`. Update the deployment secret `ODK_ENCRYPTION_KEY` to the new key, remove the old key from the operator environment/secret store, restart the API and one ODK worker replica, test the Central connection, and confirm one successful sync. Retain the database backup and old key in the approved recovery vault until post-rotation verification and the organisation's retention policy allow disposal. Never put either key in source control, command history, application logs or support tickets. If the old key has already been lost, re-enter each Central password through the connection settings; encrypted credentials cannot be recovered without their original key.

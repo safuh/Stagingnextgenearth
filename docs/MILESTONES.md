@@ -346,8 +346,8 @@ These foundation checks must continue passing as product code is added.
 ## M85 — ODK field-operations acceptance and reliability (in progress)
 
 - Validate against a dedicated ODK Central test project with representative forms, submissions, pagination and credential rotation.
-- Add operational alerts for repeated sync failures, stale cursors and disabled/expired Central accounts.
-- Add a documented key-rotation procedure that preserves or re-encrypts existing connection credentials.
+- [x] Add operational alerts for repeated sync failures, stale cursors and disabled/expired Central accounts.
+- [x] Add a transactional key-rotation procedure that preserves/re-encrypts existing connection credentials.
 - Keep imported observations pending until the independent climate-review workflow approves them.
 
 ## M86 — Staging and release readiness hardening (in progress)
@@ -379,3 +379,17 @@ These foundation checks must continue passing as product code is added.
 - [x] PostgreSQL 17/PostGIS Docker smoke passed: API liveness/readiness returned HTTP 200 and migration head reached `0061_funding_register`.
 - [x] Migration rollback from `0061_funding_register` to `0060_odk_form_cursors` and re-upgrade to `0061_funding_register` both succeeded.
 - Remaining external acceptance: validate funding workflows with the founder/finance owner, real ODK Central test-project sync, production backup/restore, monitoring/alerting, HTTPS/CORS review and data-protection sign-off.
+
+
+## M88 — ODK operational reliability and credential rotation (implemented; external acceptance pending)
+
+- [x] Add a manager-only ODK operations endpoint for stale workers/cursors, repeated failures, disabled connections and Central 401/403 access failures.
+- [x] Classify Central HTTP failures without persisting response bodies, credentials, request URLs or submission contents.
+- [x] Surface actionable operational alerts in the ODK research workspace.
+- [x] Add transactional Fernet key rotation with dry-run verification and all-or-nothing rollback on undecryptable credentials.
+- [x] Document local and production key-rotation sequencing, worker shutdown, backup and post-rotation verification.
+- [x] ODK regression set: 12 passed; the strengthened all-or-nothing key-rotation tests re-ran separately (3 passed).
+- [x] Ruff and Mypy passed (88 source files); `git diff --check` passed.
+- [x] Frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 26 routes/pages.
+- [ ] Validate form discovery, a real submission sync, pagination recovery, duplicate handling and credential rotation against the organisation's dedicated ODK Central test project.
+- [ ] Confirm staging alert visibility and agree an external notification/incident owner.

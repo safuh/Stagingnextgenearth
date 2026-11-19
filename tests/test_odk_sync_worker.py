@@ -3,6 +3,8 @@
 import asyncio
 from pathlib import Path
 
+import httpx
+import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -171,7 +173,25 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         }
         assert len(observations) == 11
         assert all(item.quality_status == "pending" for item in observations)
-        assert {item.value for item in observations} == {
-            number + 0.25 for number in range(11)
-        }
+        assert {item.value for item in observations} == {number + 0.25 for number in range(11)}
         assert len(runs) == 2
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [
+        (401, "rejected the integration credentials"),
+        (403, "denied access to the configured project or form"),
+        (410, "pagination cursor expired"),
+        (429, "rate-limited the integration"),
+    ],
+)
+def test_central_http_errors_are_classified_without_exposing_response_text(
+    status_code: int, expected: str
+) -> None:
+    request = httpx.Request("GET", "https://central.example.org/submissions")
+    response = httpx.Response(status_code, request=request, text="private response payload")
+    error = httpx.HTTPStatusError("private request detail", request=request, response=response)
+    message = odk_sync._safe_central_error(error)
+    assert expected in message
+    assert "private" not in message
