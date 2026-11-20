@@ -4,11 +4,13 @@ import asyncio
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.app import create_app
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
+from stagingnextgenearth.platform.models import ClimateObservation
 
 
 def _auth(client: TestClient, identifier: str) -> dict[str, str]:
@@ -97,6 +99,67 @@ def test_odk_import_maps_deduplicates_and_keeps_observations_pending(tmp_path: P
         assert row["value"] == 14.75
         assert row["quality_status"] == "pending"
         assert "respondent_name" not in str(row["metadata_json"])
+
+        async def mark_source_changes() -> None:
+            db_engine = create_async_engine(url)
+            try:
+                factory = async_sessionmaker(db_engine, expire_on_commit=False)
+                async with factory() as session:
+                    observation = await session.scalar(
+                        select(ClimateObservation).where(
+                            ClimateObservation.organization_id == organization_id
+                        )
+                    )
+                    assert observation is not None
+                    observation.metadata_json = {
+                        **(observation.metadata_json or {}),
+                        "odk_source_revision_detected": True,
+                        "odk_source_deletion_review_required": True,
+                        "odk_source_updated_at": "2026-11-19T09:45:00Z",
+                        "odk_source_deleted_at": "2026-11-19T10:00:00Z",
+                    }
+                    await session.commit()
+            finally:
+                await db_engine.dispose()
+
+        asyncio.run(mark_source_changes())
+        reconciliation = client.get(f"{base}/reconciliation", headers=owner)
+        assert reconciliation.status_code == 200, reconciliation.text
+        assert reconciliation.json()["total"] == 1
+        item = reconciliation.json()["items"][0]
+        assert item["revision_detected"] is True
+        assert item["deletion_review_required"] is True
+        assert item["source_updated_at"] == "2026-11-19T09:45:00Z"
+        assert item["source_deleted_at"] == "2026-11-19T10:00:00Z"
+        observation_id = item["observation_id"]
+        decision = client.post(
+            f"{base}/{observation_id}/reconciliation",
+            headers=owner,
+            json={"decision": "acknowledge_revision", "note": "Reviewed source revision."},
+        )
+        assert decision.status_code == 200, decision.text
+        assert decision.json()["revision_pending"] is False
+        assert decision.json()["deletion_review_pending"] is True
+        decision = client.post(
+            f"{base}/{observation_id}/reconciliation",
+            headers=owner,
+            json={
+                "decision": "acknowledge_deletion",
+                "note": "Retain evidence; source deletion noted.",
+            },
+        )
+        assert decision.status_code == 200, decision.text
+        assert decision.json()["deletion_review_pending"] is False
+        assert (
+            client.post(
+                f"{base}/{observation_id}/reconciliation",
+                headers=owner,
+                json={"decision": "retain_observation"},
+            ).status_code
+            == 409
+        )
+        assert client.get(f"{base}/reconciliation?limit=0", headers=owner).status_code == 422
+        assert client.get(f"{base}/reconciliation", headers=other).status_code == 404
 
         integration_status = client.get(f"{base}/status", headers=owner)
         assert integration_status.status_code == 200

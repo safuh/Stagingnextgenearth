@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from math import isfinite
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import (
     ClimateObservation,
     Membership,
+    OrganizationAuditEvent,
     Project,
     ResearchStudy,
 )
@@ -51,6 +52,15 @@ class ODKImportRequest(BaseModel):
     form_id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_.-]+$")
     submissions: list[dict[str, object]] = Field(min_length=1, max_length=100)
     mapping: ODKFieldMapping
+
+
+class ODKReconciliationDecision(BaseModel):
+    """Explicit human decision for an upstream revision or deletion notice."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["acknowledge_revision", "acknowledge_deletion", "retain_observation"]
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class ODKImportResult(BaseModel):
@@ -224,6 +234,139 @@ async def import_odk_submissions(
         skipped_duplicates=skipped,
         observation_ids=imported_ids,
     )
+
+
+@router.get("/reconciliation")
+async def odk_source_reconciliation_queue(
+    membership: Annotated[Membership, Depends(require_membership)],
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = 100,
+) -> dict[str, object]:
+    """List changed/deleted Central records needing human reconciliation.
+
+    The endpoint intentionally exposes identifiers and provenance only; it never
+    returns raw submissions or silently replaces scientific measurements.
+    """
+    if not 1 <= limit <= 250:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "limit must be between 1 and 250")
+    if not await membership_has_any_role(session, membership, _IMPORT_ROLES):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "ODK reconciliation permission required")
+
+    from sqlalchemy import func, or_
+
+    revision_flag = ClimateObservation.metadata_json["odk_source_revision_detected"].as_boolean()
+    deletion_flag = ClimateObservation.metadata_json[
+        "odk_source_deletion_review_required"
+    ].as_boolean()
+    scope = (
+        ClimateObservation.organization_id == membership.organization_id,
+        ClimateObservation.provider_id == "odk-central",
+        or_(revision_flag.is_(True), deletion_flag.is_(True)),
+    )
+    total = await session.scalar(select(func.count(ClimateObservation.id)).where(*scope))
+    records = list(
+        (
+            await session.scalars(
+                select(ClimateObservation)
+                .where(*scope)
+                .order_by(ClimateObservation.created_at.desc(), ClimateObservation.id)
+                .limit(limit)
+            )
+        ).all()
+    )
+    return {
+        "total": int(total or 0),
+        "returned": len(records),
+        "items": [
+            {
+                "observation_id": item.id,
+                "form_id": (item.metadata_json or {}).get("form_id"),
+                "instance_id": (item.metadata_json or {}).get("instance_id"),
+                "source_updated_at": (item.metadata_json or {}).get("odk_source_updated_at"),
+                "source_deleted_at": (item.metadata_json or {}).get("odk_source_deleted_at"),
+                "revision_detected": bool(
+                    (item.metadata_json or {}).get("odk_source_revision_detected")
+                ),
+                "deletion_review_required": bool(
+                    (item.metadata_json or {}).get("odk_source_deletion_review_required")
+                ),
+                "quality_status": item.quality_status,
+                "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
+            }
+            for item in records
+        ],
+    }
+
+
+@router.post("/{observation_id}/reconciliation")
+async def decide_odk_source_reconciliation(
+    organization_id: str,
+    observation_id: str,
+    body: ODKReconciliationDecision,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Record a human decision without deleting or rewriting scientific evidence."""
+    if not await membership_has_any_role(session, membership, _IMPORT_ROLES):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "ODK reconciliation permission required")
+    observation = await session.scalar(
+        select(ClimateObservation).where(
+            ClimateObservation.id == observation_id,
+            ClimateObservation.organization_id == organization_id,
+            ClimateObservation.provider_id == "odk-central",
+        )
+    )
+    if observation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "ODK observation not found")
+
+    metadata = dict(observation.metadata_json or {})
+    revision_pending = bool(metadata.get("odk_source_revision_detected"))
+    deletion_pending = bool(metadata.get("odk_source_deletion_review_required"))
+    if not revision_pending and not deletion_pending:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No source reconciliation is pending")
+    if body.decision == "acknowledge_revision" and not revision_pending:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No source revision is pending")
+    if body.decision == "acknowledge_deletion" and not deletion_pending:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No source deletion is pending")
+
+    if body.decision in {"acknowledge_revision", "retain_observation"}:
+        metadata["odk_source_revision_detected"] = False
+    if body.decision in {"acknowledge_deletion", "retain_observation"}:
+        metadata["odk_source_deletion_review_required"] = False
+    reviewed_at = datetime.now(UTC)
+    metadata["odk_reconciliation_decision"] = body.decision
+    metadata["odk_reconciliation_reviewed_at"] = reviewed_at.isoformat()
+    metadata["odk_reconciliation_reviewed_by"] = principal.user_id
+    observation.metadata_json = metadata
+    observation.reviewed_by = principal.user_id
+    observation.reviewed_at = reviewed_at
+    observation.review_note = body.note.strip() if body.note else None
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=observation.created_by,
+            action="climate.observation.reviewed",
+            changes={
+                "workflow": "odk.source_reconciliation",
+                "observation_id": observation.id,
+                "decision": body.decision,
+                "source_revision_detected": revision_pending,
+                "source_deletion_review_required": deletion_pending,
+                "note": observation.review_note,
+            },
+        )
+    )
+    await session.commit()
+    return {
+        "observation_id": observation.id,
+        "decision": body.decision,
+        "revision_pending": bool(metadata.get("odk_source_revision_detected")),
+        "deletion_review_pending": bool(metadata.get("odk_source_deletion_review_required")),
+        "reviewed_at": reviewed_at.isoformat(),
+    }
 
 
 @router.get("/status")
