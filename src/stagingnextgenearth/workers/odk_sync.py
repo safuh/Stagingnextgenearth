@@ -13,6 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stagingnextgenearth.api.odk import ODKFieldMapping, _field, _required_text
+from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.core.odk_tls import odk_tls_verify
 from stagingnextgenearth.platform.models import (
     ClimateObservation,
     ODKConnection,
@@ -54,12 +56,17 @@ _MAX_PAGES_PER_FORM = 10
 class ODKCentralClient:
     """Small Central API client using documented session auth and OData feeds."""
 
-    def __init__(self, base_url: str, email: str, password: str) -> None:
+    def __init__(
+        self, base_url: str, email: str, password: str, *, verify_tls: bool | None = None
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self._email = email
         self._password = password
+        tls_verify = True if verify_tls is None else verify_tls
         self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(30, connect=8), follow_redirects=False
+            timeout=httpx.Timeout(30, connect=8),
+            follow_redirects=False,
+            verify=tls_verify,
         )
         self._token: str | None = None
 
@@ -257,9 +264,20 @@ async def sync_odk_connection(
         errors: list[str] = []
         try:
             password = cipher.decrypt(connection.encrypted_password.encode()).decode()
-            async with ODKCentralClient(
-                connection.base_url, connection.account_email, password
-            ) as central:
+            verify_tls = odk_tls_verify(connection.base_url, get_settings())
+            central_client = (
+                ODKCentralClient(
+                    connection.base_url,
+                    connection.account_email,
+                    password,
+                    verify_tls=False,
+                )
+                if not verify_tls
+                else ODKCentralClient(
+                    connection.base_url, connection.account_email, password
+                )
+            )
+            async with central_client as central:
                 forms = await central.list_forms(connection.project_id)
                 available = {
                     str(form.get("xmlFormId")): form

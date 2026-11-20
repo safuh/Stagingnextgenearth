@@ -123,6 +123,39 @@ docker compose --env-file .env.production -f docker/compose.production.yml run -
 
 After the dry run succeeds, repeat without `--dry-run`. Update the deployment secret `ODK_ENCRYPTION_KEY` to the new key, remove the old key from the operator environment/secret store, restart the API and one ODK worker replica, test the Central connection, and confirm one successful sync. Retain the database backup and old key in the approved recovery vault until post-rotation verification and the organisation's retention policy allow disposal. Never put either key in source control, command history, application logs or support tickets. If the old key has already been lost, re-enter each Central password through the connection settings; encrypted credentials cannot be recovered without their original key.
 
+## Local Central test environment without a work email
+
+A work mailbox is **not required** to create a local Central administrator. Central's documented command-line account creation flow accepts an email-shaped login and sets the password interactively; it does not need to send an invitation or password-reset email. Use the reserved, non-deliverable address `odk-admin@example.test` for this local-only account. Do not use it for a hosted or production Central deployment.
+
+The repository includes two helpers that clone the official ODK Central stable branch into an ignored local directory, configure a self-signed local instance bound only to loopback on ports 8088/8443, and create/promote the local administrator:
+
+```bash
+./scripts/setup_odk_central_local.sh
+# Add this entry to /etc/hosts if the name does not resolve:
+# 127.0.0.1 local
+./scripts/bootstrap_odk_central_local_admin.sh
+```
+
+The first command uses Docker Compose and can take several minutes to build and start Central. Wait for its `nginx` service to become healthy. Then open `https://local:8443`, accept the self-signed certificate warning for this local development instance, and sign in using `odk-admin@example.test` plus the password entered during bootstrap. The local Central checkout, configuration, and database files live under `.local/odk-central/` and are excluded from Git.
+
+For the NextGen API/worker to call this self-signed local instance, set `ODK_TLS_VERIFY=false` in the **development-only** NextGen environment and use `https://local:8443` as the Central base URL. The application only permits this override for loopback/local hostnames, and production configuration rejects it. Keep `ODK_TLS_VERIFY=true` in staging and production. Generate `ODK_ENCRYPTION_KEY` separately for the NextGen environment; it is unrelated to Central's administrator password.
+
+Create a separate Central user for the NextGen integration after signing in, grant it only the project/form permissions needed to read the test submissions, and use that account in the NextGen ODK connection form. The initial administrator is for local setup only. Use synthetic submissions and a dedicated non-production project. No messages are sent to `example.test`, and no real work email is needed for this local acceptance path.
+
+To stop the local Central stack without deleting its database:
+
+```bash
+cd .local/odk-central && docker compose stop
+```
+
+To start it again:
+
+```bash
+cd .local/odk-central && docker compose up -d
+```
+
+This self-signed local setup is not a production deployment pattern. Public Central requires a real domain, trusted TLS, and an operational email service for account verification and recovery.
+
 ## Offline acceptance when no Central test project is available
 
 A live Central account is not required for local development or CI. The protocol-level ODK client tests use HTTPX `MockTransport` and exercise the actual HTTP client implementation without network access or real credentials. They verify session creation, bearer-token use, form discovery, OData pagination, session revocation, and rejection of cross-origin pagination links. The worker tests separately verify mapped import, idempotency, bounded pagination, error classification, operational status and encryption-key rotation.

@@ -394,3 +394,13 @@ These foundation checks must continue passing as product code is added.
 - [x] Frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 26 routes/pages.
 - [ ] Validate form discovery, a real submission sync, pagination recovery, duplicate handling and credential rotation against the organisation's dedicated ODK Central test project.
 - [ ] Confirm staging alert visibility and agree an external notification/incident owner.
+
+
+## M93 — Local ODK Central without a work mailbox (implemented; live execution pending)
+
+- [x] Add a reproducible helper to clone and configure the official ODK Central stable stack locally with self-signed TLS and non-conflicting host ports.
+- [x] Add CLI-based local administrator bootstrap using the reserved `@example.test` login; the documented Central CLI flow sets the password directly and does not require an invitation or password-reset mailbox.
+- [x] Add an explicit local-only TLS verification override for self-signed Central; reject insecure TLS configuration in production and reject the override for non-local Central hostnames.
+- [x] Add CI shell syntax checks and regression tests for local-only TLS policy.
+- [ ] Run the Central stack on the development workstation, create the local project and synthetic form, and validate login, project discovery, OData pagination and one full NextGen sync.
+- [ ] Keep hosted/staging Central acceptance separate; it still requires a real domain, trusted TLS and a real operational mailbox for account verification and recovery.

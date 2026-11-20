@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, SecretStr, field_val
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.core.odk_tls import odk_tls_verify
 from stagingnextgenearth.platform.models import Membership, ODKConnection, ODKSyncRun
 
 from .dependencies import (
@@ -135,7 +137,16 @@ async def _authenticate_and_list_forms(
     *, base_url: str, project_id: int, email: str, password: str
 ) -> list[dict[str, object]]:
     timeout = httpx.Timeout(15.0, connect=5.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+    try:
+        verify_tls = odk_tls_verify(base_url, get_settings())
+    except ValueError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Disabling ODK TLS verification is allowed only for local Central hosts",
+        ) from exc
+    async with httpx.AsyncClient(
+        timeout=timeout, follow_redirects=False, verify=verify_tls
+    ) as client:
         token: str | None = None
         try:
             login = await client.post(
