@@ -109,3 +109,13 @@ npm run build
 
 The Node test suite covers strict Origin validation and API path-segment
 encoding/traversal rejection. CI also builds the production web container.
+
+## Trusted edge and authentication abuse controls
+
+For a public deployment, place the Nginx reference edge at
+`docker/nginx/nginx.conf` between the TLS-terminating ingress and the Next.js
+`web` service. It applies per-client request limits to login, registration,
+and logout before requests reach the BFF. Follow
+[Edge authentication rate limiting](edge-rate-limiting.md) for client-IP
+trust, multi-replica limitations, validation, and acceptance checks. The edge
+listener must remain private; the TLS ingress must be the only route to it.

@@ -123,5 +123,7 @@ jobs:
       - name: Validate PostgreSQL backup scripts
         shell: bash
         run: |
-          bash -n scripts/backup_postgres.sh tests/test_backup_postgres.sh
+          bash -n scripts/backup_postgres.sh tests/test_backup_postgres.sh scripts/validate_nginx_edge.sh
           bash tests/test_backup_postgres.sh
+      - name: Validate Nginx edge configuration
+        run: ./scripts/validate_nginx_edge.sh
