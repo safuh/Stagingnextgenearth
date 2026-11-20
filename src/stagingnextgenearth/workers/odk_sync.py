@@ -143,6 +143,25 @@ class ODKCentralClient:
         raise ValueError("ODK Central form exceeded the per-run pagination limit")
 
 
+def _source_provenance(data: dict[str, object]) -> dict[str, object]:
+    """Extract non-sensitive ODK system revision and lifecycle metadata."""
+    system = data.get("__system")
+    if not isinstance(system, dict):
+        return {}
+    provenance: dict[str, object] = {}
+    updated_at = system.get("updatedAt")
+    review_state = system.get("reviewState")
+    deleted_at = system.get("deletedAt")
+    if isinstance(updated_at, str) and updated_at.strip():
+        provenance["odk_source_updated_at"] = updated_at.strip()[:64]
+    if isinstance(review_state, str) and review_state.strip():
+        provenance["odk_source_review_state"] = review_state.strip()[:40]
+    if isinstance(deleted_at, str) and deleted_at.strip():
+        provenance["odk_source_deleted_at"] = deleted_at.strip()[:64]
+        provenance["odk_source_deleted"] = True
+    return provenance
+
+
 async def _persist_submission(
     session: AsyncSession,
     *,
@@ -160,13 +179,32 @@ async def _persist_submission(
         raise ValueError("form and instance identifier exceed the supported length")
 
     existing = await session.scalar(
-        select(ClimateObservation.id).where(
+        select(ClimateObservation).where(
             ClimateObservation.organization_id == connection.organization_id,
             ClimateObservation.provider_id == "odk-central",
             ClimateObservation.provider_record_id == record_id,
         )
     )
+    provenance = _source_provenance(data)
     if existing is not None:
+        metadata = dict(existing.metadata_json or {})
+        previous_updated_at = metadata.get("odk_source_updated_at")
+        incoming_updated_at = provenance.get("odk_source_updated_at")
+        if (
+            incoming_updated_at
+            and previous_updated_at
+            and incoming_updated_at != previous_updated_at
+        ):
+            metadata["odk_source_revision_detected"] = True
+        if provenance.get("odk_source_deleted"):
+            metadata["odk_source_deleted"] = True
+            metadata["odk_source_deleted_at"] = provenance["odk_source_deleted_at"]
+            metadata["odk_source_deletion_review_required"] = True
+        if provenance:
+            metadata.update(provenance)
+            existing.metadata_json = metadata
+        # Never overwrite the imported measurements or a human review decision
+        # from a changed source submission. A reviewer must reconcile revisions.
         return "duplicate"
 
     try:
@@ -236,6 +274,7 @@ async def _persist_submission(
                 "provider": "odk-central",
                 "form_id": form_id,
                 "instance_id": instance_id,
+                **provenance,
             },
             created_by=connection.created_by,
         )

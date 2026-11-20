@@ -51,6 +51,8 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         odk_encryption_key=key,
     )
 
+    source_revision = {"updated_at": "2026-11-18T08:30:00Z"}
+
     class FakeCentral:
         def __init__(self, base_url: str, email: str, password: str) -> None:
             assert base_url == "https://central.example.org"
@@ -74,7 +76,11 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             def row(number: int) -> dict[str, object]:
                 record = {
                     "__id": f"uuid:rainfall-{number:04d}",
-                    "__system": {"submissionDate": "2026-11-18T08:30:00Z"},
+                    "__system": {
+                        "submissionDate": "2026-11-18T08:30:00Z",
+                        "updatedAt": source_revision["updated_at"],
+                        "reviewState": "approved",
+                    },
                     "measurement": "rainfall",
                     "value": number + 0.25,
                     "unit": "mm",
@@ -152,6 +158,14 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
                 second = await odk_sync.sync_odk_connection(
                     factory, connection_id, encryption_key=key
                 )
+                async with factory() as session:
+                    reviewed = await session.scalar(
+                        select(ClimateObservation).where(ClimateObservation.value == 1.25)
+                    )
+                    assert reviewed is not None
+                    reviewed.quality_status = "verified"
+                    await session.commit()
+                source_revision["updated_at"] = "2026-11-19T09:45:00Z"
                 third = await odk_sync.sync_odk_connection(
                     factory, connection_id, encryption_key=key
                 )
@@ -191,8 +205,16 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             "errors": 2,
         }
         assert len(observations) == 10
-        assert all(item.quality_status == "pending" for item in observations)
         assert {item.value for item in observations} == {number + 0.25 for number in range(1, 11)}
+        verified = next(item for item in observations if item.value == 1.25)
+        assert verified.quality_status == "verified"
+        assert verified.metadata_json is not None
+        assert verified.metadata_json["odk_source_revision_detected"] is True
+        assert verified.metadata_json["odk_source_updated_at"] == "2026-11-19T09:45:00Z"
+        assert verified.metadata_json["odk_source_review_state"] == "approved"
+        assert all(
+            item.quality_status == "pending" for item in observations if item.id != verified.id
+        )
         assert len(runs) == 3
         assert [run.rejected_count for run in runs] == [1, 0, 1]
 
@@ -215,3 +237,18 @@ def test_central_http_errors_are_classified_without_exposing_response_text(
     message = odk_sync._safe_central_error(error)
     assert expected in message
     assert "private" not in message
+
+
+def test_source_provenance_marks_deleted_submission_for_reviewer_reconciliation() -> None:
+    provenance = odk_sync._source_provenance(
+        {
+            "__system": {
+                "updatedAt": "2026-11-19T09:45:00Z",
+                "deletedAt": "2026-11-19T10:00:00Z",
+                "reviewState": "hasIssues",
+            }
+        }
+    )
+    assert provenance["odk_source_deleted"] is True
+    assert provenance["odk_source_deleted_at"] == "2026-11-19T10:00:00Z"
+    assert provenance["odk_source_review_state"] == "hasIssues"
