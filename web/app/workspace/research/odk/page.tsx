@@ -21,7 +21,8 @@ interface ODKConnection {
 interface ODKForm { xml_form_id: string; name: string; version: string | null; state: string | null }
 interface ODKSyncRun {
   id: string; status: string; forms_checked: number; submissions_received: number;
-  observations_imported: number; duplicates_skipped: number; error_count: number;
+  observations_imported: number; duplicates_skipped: number; rejected_count: number;
+  error_count: number;
   error_summary: string | null; started_at: string; completed_at: string | null;
 }
 interface ODKOperationsAlert { code: string; severity: "info" | "warning" | "critical"; message: string }
@@ -226,7 +227,7 @@ export default function ODKIntegrationPage() {
               </section>
               <section className="research-section">
                 <div className="section-heading"><div><p className="eyebrow">AUDIT TRAIL</p><h2>Synchronisation history</h2></div><span>{runs.length} recent runs</span></div>
-                {runs.length ? runs.map((run) => <article className="odk-form-row" key={run.id}><div><strong>{run.status} · {new Date(run.started_at).toLocaleString()}</strong><small>{run.forms_checked} forms · {run.submissions_received} submissions · {run.observations_imported} imported · {run.duplicates_skipped} duplicates · {run.error_count} errors</small>{run.error_summary && <small>{run.error_summary}</small>}</div></article>) : <p className="workspace-muted">No synchronisation runs recorded yet.</p>}
+                {runs.length ? runs.map((run) => <article className="odk-form-row" key={run.id}><div><strong>{run.status} · {new Date(run.started_at).toLocaleString()}</strong><small>{run.forms_checked} forms · {run.submissions_received} submissions · {run.observations_imported} imported · {run.duplicates_skipped} duplicates · {run.rejected_count} rejected · {run.error_count} errors</small>{run.error_summary && <small>{run.error_summary}</small>}</div></article>) : <p className="workspace-muted">No synchronisation runs recorded yet.</p>}
               </section>
             </>}
           </>

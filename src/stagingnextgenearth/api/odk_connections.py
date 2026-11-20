@@ -497,6 +497,7 @@ async def list_odk_sync_runs(
             "submissions_received": run.submissions_received,
             "observations_imported": run.observations_imported,
             "duplicates_skipped": run.duplicates_skipped,
+            "rejected_count": run.rejected_count,
             "error_count": run.error_count,
             "error_summary": run.error_summary,
             "started_at": run.started_at.isoformat(),

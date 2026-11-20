@@ -2066,6 +2066,7 @@ class ODKSyncRun(Base):
     submissions_received: Mapped[int] = mapped_column(nullable=False, default=0)
     observations_imported: Mapped[int] = mapped_column(nullable=False, default=0)
     duplicates_skipped: Mapped[int] = mapped_column(nullable=False, default=0)
+    rejected_count: Mapped[int] = mapped_column(nullable=False, default=0)
     error_count: Mapped[int] = mapped_column(nullable=False, default=0)
     error_summary: Mapped[str | None] = mapped_column(String(500), nullable=True)
     started_at: Mapped[datetime] = mapped_column(

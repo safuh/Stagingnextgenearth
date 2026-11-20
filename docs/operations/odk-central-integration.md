@@ -181,3 +181,10 @@ Validate the checked-in assets with:
     python scripts/validate_odk_climate_demo.py
 
 Follow the README for draft preview/publication, least-privilege integration identity, field mapping, sync, duplicate suppression, pending review and credential-revocation checks. The fixture is not a substitute for a live Central submission.
+
+
+## Row-level import validation and diagnostics
+
+The scheduled sync validates each submission inside its own database savepoint. A malformed row is rejected without rolling back valid rows from the same OData page; the sync still advances the page cursor after successfully processing the page. The run history records imported, duplicate and rejected counts separately, and stores a bounded summary of validation reasons without recording submission bodies or credential material.
+
+A rejected submission is not marked as imported. If it is corrected in Central and later returned by the feed with the same ODK instance ID, it can be imported on a later sync. Replaying already imported instance IDs remains idempotent.
