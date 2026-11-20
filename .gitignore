@@ -23,3 +23,6 @@ build/
 /web/.next/
 /web/tsconfig.tsbuildinfo
 /web/next-env.d.ts
+
+# Local-only ODK Central checkout, data volumes and generated configuration
+.local/odk-central/

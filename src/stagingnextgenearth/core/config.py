@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     object_storage_secret_access_key: SecretStr | None = None
     malware_scanning_enabled: bool = False
     odk_encryption_key: SecretStr | None = None
+    odk_tls_verify: bool = True
     clamav_host: str | None = None
     clamav_port: int = Field(default=3310, ge=1, le=65535)
     clamav_timeout_seconds: float = Field(default=30, gt=0, le=300)
@@ -77,6 +78,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_profile(self) -> "Settings":
         if self.environment is Environment.PRODUCTION:
+            if not self.odk_tls_verify:
+                raise ValueError("ODK_TLS_VERIFY must remain true in production")
             if self.debug:
                 raise ValueError("debug must be false in production")
             if not self.database_url.startswith("postgresql+asyncpg://"):
