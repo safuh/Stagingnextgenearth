@@ -214,3 +214,44 @@ The XLSForm/fixture validator uses only the Python standard library, so it runs 
 uv run python scripts/validate_odk_climate_demo.py
 uv run pytest -q tests/test_odk_demo_assets.py
 ```
+
+## One-command local ODK protocol simulator (no Central account required)
+
+When installing the full ODK Central stack is impractical, use the loopback-only protocol simulator to exercise the real NextGen connection and sync worker against the checked-in synthetic records. It is not ODK Central and does not replace final acceptance against an official Central instance, but it removes the dependency on a test project, service account, mailbox or external network during local development.
+
+Start it in a terminal:
+
+```bash
+uv run python scripts/run_odk_mock_central.py --host 127.0.0.1 --port 8765 --page-size 1
+```
+
+It exposes a synthetic project `22`, form `nextgen_climate_observation`, session authentication, form discovery, OData submissions, pagination and session revocation. It binds only to loopback and suppresses HTTP request logging so session tokens are not written to terminal output. Default credentials are `odk-demo@example.test` / `local-demo-only`; they are public demo values and must never be used outside this local simulator.
+
+In the NextGen Research → ODK Central settings, use:
+
+- Server URL: `http://127.0.0.1:8765`
+- Project ID: `22`
+- Account email: `odk-demo@example.test`
+- Password: `local-demo-only`
+- Form mapping:
+
+```json
+{
+  "nextgen_climate_observation": {
+    "observed_at": "observed_at",
+    "variable": "measurement",
+    "value": "value",
+    "unit": "unit",
+    "latitude": "latitude",
+    "longitude": "longitude"
+  }
+}
+```
+
+Save the connection, run **Test & discover forms**, then start the normal `odk-sync` worker. The simulator returns two synthetic observations over two OData pages. Confirm both appear as pending evidence, then confirm a second poll skips both instance IDs. Stop the simulator with Ctrl+C. The simulator is intentionally limited to one fixed form and synthetic fixture data; do not expose it on a LAN/public interface, and do not treat its successful run as live Central acceptance.
+
+The simulator and the actual HTTP client are tested together without external network access:
+
+```bash
+uv run pytest -q tests/test_odk_mock_central.py
+```
