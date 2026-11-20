@@ -404,3 +404,12 @@ These foundation checks must continue passing as product code is added.
 - [x] Add CI shell syntax checks and regression tests for local-only TLS policy.
 - [ ] Run the Central stack on the development workstation, create the local project and synthetic form, and validate login, project discovery, OData pagination and one full NextGen sync.
 - [ ] Keep hosted/staging Central acceptance separate; it still requires a real domain, trusted TLS and a real operational mailbox for account verification and recovery.
+
+## M94 — Reproducible ODK climate-observation demo (assets implemented; live Central acceptance pending)
+
+- [x] Add a Central-uploadable XLSForm with climate variable, numeric value/unit, timestamp, decimal WGS84 coordinates and non-personal site code.
+- [x] Add synthetic OData submission fixtures aligned to the worker field contract and ODK __id identifier.
+- [x] Document local project creation, draft preview/publication, least-privilege integration identity, field mapping, sync, duplicate suppression, pending review and credential revocation.
+- [x] Add an asset validator and execute it in the operations-scripts CI job.
+- [ ] Run local Central, upload and publish the form, submit synthetic records, and verify full NextGen sync and second-run idempotency.
+- [ ] Keep hosted/staging acceptance separate until trusted TLS, operational email and a dedicated non-production Central project are available.

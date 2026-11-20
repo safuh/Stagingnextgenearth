@@ -171,3 +171,13 @@ uv run pytest -q \
 ```
 
 These tests establish local protocol and application behaviour; they do **not** prove that a particular Central deployment, account, project, form or permission set is configured correctly. Keep live Central acceptance marked pending until the organisation has access to a dedicated non-production project. When that becomes available, use a least-privilege account, a synthetic form and non-sensitive sample submissions, then verify connection test, form discovery, one bounded sync, duplicate suppression and credential revocation. Never use production field submissions as test fixtures.
+
+## Synthetic climate-observation form and local acceptance
+
+A ready-to-upload synthetic XLSForm, two OData-shaped fixture records, field mapping and end-to-end local acceptance procedure are maintained in examples/odk/climate-observation/README.md. The form uses the field names expected by the sync mapping and avoids respondent identity fields.
+
+Validate the checked-in assets with:
+
+    python scripts/validate_odk_climate_demo.py
+
+Follow the README for draft preview/publication, least-privilege integration identity, field mapping, sync, duplicate suppression, pending review and credential-revocation checks. The fixture is not a substitute for a live Central submission.
