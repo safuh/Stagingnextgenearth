@@ -122,3 +122,19 @@ docker compose --env-file .env.production -f docker/compose.production.yml run -
 ```
 
 After the dry run succeeds, repeat without `--dry-run`. Update the deployment secret `ODK_ENCRYPTION_KEY` to the new key, remove the old key from the operator environment/secret store, restart the API and one ODK worker replica, test the Central connection, and confirm one successful sync. Retain the database backup and old key in the approved recovery vault until post-rotation verification and the organisation's retention policy allow disposal. Never put either key in source control, command history, application logs or support tickets. If the old key has already been lost, re-enter each Central password through the connection settings; encrypted credentials cannot be recovered without their original key.
+
+## Offline acceptance when no Central test project is available
+
+A live Central account is not required for local development or CI. The protocol-level ODK client tests use HTTPX `MockTransport` and exercise the actual HTTP client implementation without network access or real credentials. They verify session creation, bearer-token use, form discovery, OData pagination, session revocation, and rejection of cross-origin pagination links. The worker tests separately verify mapped import, idempotency, bounded pagination, error classification, operational status and encryption-key rotation.
+
+Run the offline acceptance suite:
+
+```bash
+uv run pytest -q \
+  tests/test_odk_central_client.py \
+  tests/test_odk_sync_worker.py \
+  tests/test_odk_connections_api.py \
+  tests/test_odk_key_rotation.py
+```
+
+These tests establish local protocol and application behaviour; they do **not** prove that a particular Central deployment, account, project, form or permission set is configured correctly. Keep live Central acceptance marked pending until the organisation has access to a dedicated non-production project. When that becomes available, use a least-privilege account, a synthetic form and non-sensitive sample submissions, then verify connection test, form discovery, one bounded sync, duplicate suppression and credential revocation. Never use production field submissions as test fixtures.
