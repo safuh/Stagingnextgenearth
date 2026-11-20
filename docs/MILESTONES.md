@@ -141,6 +141,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Public learner course applications without pre-existing membership, with approval-created learner membership and caller-scoped application status.
 - [x] Public organisation identity endpoint so learner application history loads even when no course is currently published.
 - [x] Staff and partner invitation acceptance bound to the invited account; staff membership alone does not grant access to learner curriculum without an approved enrollment.
+- [x] Authenticated self-service password change with current-password verification, Argon2 rehashing, and revocation of all outstanding refresh sessions; immediate access-JWT revocation and verified email recovery remain explicit launch follow-ups.
 
 ## M7 — Organisation directory, integrations and organisational intelligence
 
