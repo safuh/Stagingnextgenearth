@@ -413,3 +413,14 @@ These foundation checks must continue passing as product code is added.
 - [x] Add an asset validator and execute it in the operations-scripts CI job.
 - [ ] Run local Central, upload and publish the form, submit synthetic records, and verify full NextGen sync and second-run idempotency.
 - [ ] Keep hosted/staging acceptance separate until trusted TLS, operational email and a dedicated non-production Central project are available.
+
+
+## M95 — ODK row-level validation and durable import diagnostics
+
+- [x] Validate each ODK submission in an isolated database savepoint so malformed rows do not roll back valid neighbours.
+- [x] Validate timezone-aware ISO timestamps, finite numeric readings, WGS84 coordinate bounds, and organisation-scoped project/study mappings.
+- [x] Keep raw submission content and credential material out of diagnostic summaries.
+- [x] Persist rejected-row counts in ODK sync history and expose them in the research ODK workspace.
+- [x] Test mixed valid/invalid pages, cursor continuation, and replay deduplication.
+- [ ] Complete the full ODK integration regression suite and GitHub CI matrix.
+- [ ] Verify the same behaviour against a running local ODK Central project; Docker image availability and live Central acceptance remain external prerequisites.

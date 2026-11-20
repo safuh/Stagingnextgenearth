@@ -72,7 +72,7 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             assert form_id == "rainfall-v2"
 
             def row(number: int) -> dict[str, object]:
-                return {
+                record = {
                     "__id": f"uuid:rainfall-{number:04d}",
                     "__system": {"submissionDate": "2026-11-18T08:30:00Z"},
                     "measurement": "rainfall",
@@ -81,6 +81,9 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
                     "latitude": -0.681,
                     "longitude": 34.767,
                 }
+                if number == 0:
+                    record.pop("latitude")
+                return record
 
             if cursor is not None:
                 assert cursor.endswith("$skiptoken=page-11")
@@ -129,7 +132,9 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         )
         assert saved.status_code == 200, saved.text
 
-        async def run_twice() -> tuple[dict, dict, list[ClimateObservation], list[ODKSyncRun]]:
+        async def run_three_times() -> tuple[
+            dict, dict, dict, list[ClimateObservation], list[ODKSyncRun]
+        ]:
             db_engine = create_async_engine(url)
             factory = async_sessionmaker(db_engine, expire_on_commit=False)
             try:
@@ -147,21 +152,25 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
                 second = await odk_sync.sync_odk_connection(
                     factory, connection_id, encryption_key=key
                 )
+                third = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
                 async with factory() as session:
                     observations = list((await session.scalars(select(ClimateObservation))).all())
                     runs = list((await session.scalars(select(ODKSyncRun))).all())
-                return first, second, observations, runs
+                return first, second, third, observations, runs
             finally:
                 await db_engine.dispose()
 
-        first, second, observations, runs = asyncio.run(run_twice())
+        first, second, third, observations, runs = asyncio.run(run_three_times())
         assert first == {
             "status": "partial",
             "forms": 1,
             "received": 10,
-            "imported": 10,
+            "imported": 9,
             "duplicates": 0,
-            "errors": 1,
+            "rejected": 1,
+            "errors": 2,
         }
         assert second == {
             "status": "succeeded",
@@ -169,12 +178,23 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             "received": 1,
             "imported": 1,
             "duplicates": 0,
+            "rejected": 0,
             "errors": 0,
         }
-        assert len(observations) == 11
+        assert third == {
+            "status": "partial",
+            "forms": 1,
+            "received": 10,
+            "imported": 0,
+            "duplicates": 9,
+            "rejected": 1,
+            "errors": 2,
+        }
+        assert len(observations) == 10
         assert all(item.quality_status == "pending" for item in observations)
-        assert {item.value for item in observations} == {number + 0.25 for number in range(11)}
-        assert len(runs) == 2
+        assert {item.value for item in observations} == {number + 0.25 for number in range(1, 11)}
+        assert len(runs) == 3
+        assert [run.rejected_count for run in runs] == [1, 0, 1]
 
 
 @pytest.mark.parametrize(
