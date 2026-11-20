@@ -1,6 +1,7 @@
 """HTTP transport for the password authentication lifecycle."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
 import structlog
@@ -147,10 +148,9 @@ async def change_password(
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PasswordChangeResponse:
-    """Change the caller's password and revoke every outstanding refresh session.
+    """Change the password and invalidate every older access/refresh session.
 
-    Existing access JWTs remain valid only until their short configured expiry.
-    The caller should replace its local tokens by signing in again.
+    Access JWTs issued before the change timestamp are rejected immediately.
     """
     user = await session.get(User, principal.user_id, with_for_update=True)
     if user is None:
@@ -168,6 +168,7 @@ async def change_password(
         raise BackboneError("password_unchanged", "Choose a different password", 422)
 
     user.password_hash = hasher.hash(body.new_password)
+    user.password_changed_at = datetime.now(UTC)
     result = cast(
         CursorResult[Any],
         await session.execute(
