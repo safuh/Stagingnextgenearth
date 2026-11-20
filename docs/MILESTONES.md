@@ -424,3 +424,11 @@ These foundation checks must continue passing as product code is added.
 - [x] Test mixed valid/invalid pages, cursor continuation, and replay deduplication.
 - [ ] Complete the full ODK integration regression suite and GitHub CI matrix.
 - [ ] Verify the same behaviour against a running local ODK Central project; Docker image availability and live Central acceptance remain external prerequisites.
+
+## M96 — ODK source revision and deletion provenance
+
+- [x] Capture ODK Central `__system.updatedAt`, `reviewState` and `deletedAt` metadata on imported climate observations without storing raw submission payloads.
+- [x] Detect changed source revisions on replay and flag them for reviewer reconciliation instead of overwriting scientific measurements or existing human verification decisions.
+- [x] Preserve source-deletion evidence and mark it as requiring reviewer reconciliation; never silently delete the NextGen observation.
+- [x] Add regression coverage for revised source records, verified-record preservation and deletion metadata extraction.
+- [ ] Complete full CI and validate lifecycle metadata against the locally running ODK Central stack; Central version and actual form behaviour remain external acceptance checks.
