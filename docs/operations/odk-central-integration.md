@@ -207,3 +207,10 @@ The ODK client retries idempotent Central reads (form discovery and OData page r
 ### Expired continuation cursors
 
 If Central rejects a saved OData continuation URL with HTTP 410, the worker clears only that form's saved cursor and records the run as failed/partial with a classified cursor-expiry diagnostic. It does not advance or discard any unprocessed page. The next scheduled run restarts that form from its first page; already imported instances are skipped by the organisation/form/instance idempotency key, and any new/corrected valid rows can be accepted. This recovery is deliberately performed on the next poll rather than looping indefinitely against an invalid continuation URL. The worker regression test verifies that a 410 clears the persisted cursor and that the following run restarts from the first page without duplicating evidence.
+
+The XLSForm/fixture validator uses only the Python standard library, so it runs in a clean project environment without installing spreadsheet libraries:
+
+```bash
+uv run python scripts/validate_odk_climate_demo.py
+uv run pytest -q tests/test_odk_demo_assets.py
+```
