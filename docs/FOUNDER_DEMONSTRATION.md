@@ -36,7 +36,8 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 5. **Research, climate intelligence and ODK (4 min)**
    - Show research studies, proposal/protocol governance, dataset review and provenance.
    - Open Research → Configure ODK Central; show the encrypted connection summary, project form catalogue, explicit form mappings and recent sync history.
-   - Demonstrate a real ODK Central connection and worker sync only when a test Central project and dedicated read-only account are configured.
+   - If no Central test project/account is available, demonstrate the loopback synthetic protocol simulator (`uv run python scripts/run_odk_mock_central.py --host 127.0.0.1 --port 8765 --page-size 1`) and explicitly label its two records as synthetic.
+   - Demonstrate a real ODK Central connection and worker sync only when a non-production Central project and dedicated read-only account are configured; the simulator is not evidence of live Central acceptance.
    - Demonstrate NASA POWER, OpenAlex and climate ingestion only when the providers are configured and live data is available.
    - Distinguish imported observations from independently reviewed, safeguarded research evidence.
 
@@ -69,7 +70,8 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 - [ ] Volunteer safeguarding and any required parent/guardian consent have been verified before approval.
 - [ ] Partner records have been verified before public display.
 - [ ] NASA POWER, OpenAlex and climate-provider credentials, quotas, provenance and failure handling are checked in the target environment.
-- [ ] ODK Central connection test succeeds, form mappings are verified against a test form, scheduled sync worker is running, pagination and duplicate handling are confirmed, and imported observations remain pending review.
+- [ ] Local demo: simulator connection test succeeds, two synthetic fixture records sync across OData pages, duplicate handling is confirmed, and imported observations remain pending review.
+- [ ] Production go-live: a separate real ODK Central connection test succeeds, mappings are verified against a non-production Central form, scheduled worker is running, pagination and duplicate handling are confirmed, and imported observations remain pending review.
 - [ ] Public website, accessibility, mobile layout, privacy notices, security headers, logging and recovery procedures are reviewed.
 
 The print action creates a snapshot of the current executive overview. It does not certify the underlying data or replace independent programme, finance, research, safeguarding or partner verification.
