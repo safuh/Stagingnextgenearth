@@ -1,5 +1,7 @@
 # Security operations baseline
 
+For self-service password changes, refresh-session revocation, and account-recovery launch requirements, see [Account security operations](operations/account-security.md).
+
 ## Authentication request limits
 
 The API applies a fixed-window, per-client-IP request limit to password login,
