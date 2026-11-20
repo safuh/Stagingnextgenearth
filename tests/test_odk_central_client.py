@@ -21,7 +21,13 @@ def test_session_auth_forms_and_revocation_use_expected_protocol() -> None:
     seen: list[tuple[str, str, str | None]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen.append((request.method, request.url.path, request.headers.get("Authorization")))
+        seen.append(
+            (
+                request.method,
+                request.url.raw_path.decode("ascii"),
+                request.headers.get("Authorization"),
+            )
+        )
         if request.method == "POST":
             assert request.read() == b'{"email":"sync@example.org","password":"secret"}'
             return httpx.Response(200, json={"token": "token/with-special+chars"})
@@ -45,7 +51,7 @@ def test_session_auth_forms_and_revocation_use_expected_protocol() -> None:
     ]
 
 
-def test_odata_pagination_follows_same_origin_next_link(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_odata_pagination_follows_same_origin_next_link() -> None:
     requests: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -82,10 +88,11 @@ def test_odata_pagination_follows_same_origin_next_link(monkeypatch: pytest.Monk
         "Submissions?$skiptoken=page-2"
     )
     assert pages[1][1] is None
-    assert len(requests) == 3
+    assert len(requests) == 4  # session creation + two pages + session revocation
+    assert requests[-1].endswith("/v1/sessions/test-token")
 
 
-def test_odata_pagination_rejects_cross_origin_next_link(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_odata_pagination_rejects_cross_origin_next_link() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/sessions":
             return httpx.Response(200, json={"token": "test-token"})
