@@ -115,3 +115,13 @@ jobs:
       - name: Build production web container
         working-directory: .
         run: docker build -f web/Dockerfile -t nextgen-for-earth-web:${{ github.sha }} .
+
+  operations-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PostgreSQL backup scripts
+        shell: bash
+        run: |
+          bash -n scripts/backup_postgres.sh tests/test_backup_postgres.sh
+          bash tests/test_backup_postgres.sh
