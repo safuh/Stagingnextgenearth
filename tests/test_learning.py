@@ -66,6 +66,10 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"identifier": "learning-learner@example.org", "role": "youth_volunteer"},
         )
         assert invitation.status_code == 201
+        invited_context = client.get("/api/auth/context", headers=learner_headers)
+        assert invited_context.status_code == 200
+        assert invited_context.json()["memberships"][0]["status"] == "invited"
+        assert invited_context.json()["memberships"][0]["roles"] == ["youth_volunteer"]
         accepted = client.post(
             f"/api/organizations/{org_id}/memberships/{invitation.json()['id']}/accept",
             headers=learner_headers,
@@ -187,6 +191,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert own_applications.status_code == 200
         assert own_applications.json()[0]["course_id"] == course_id
         assert own_applications.json()[0]["status"] == "applied"
+        pending_context = client.get("/api/auth/context", headers=public_learner_headers)
+        assert pending_context.status_code == 200
+        assert pending_context.json()["memberships"] == []
         pending_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
             headers=public_learner_headers,
@@ -222,6 +229,20 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert public_membership.status_code == 200
         assert public_membership.json()["role"] == "learner"
         assert public_membership.json()["roles"] == ["learner"]
+        learner_context = client.get("/api/auth/context", headers=public_learner_headers)
+        assert learner_context.status_code == 200
+        assert learner_context.json()["identifier"] == "public-learner@example.org"
+        assert learner_context.json()["memberships"] == [
+            {
+                "membership_id": public_membership.json()["id"],
+                "organization_id": org_id,
+                "organization_name": "Learning Lab",
+                "organization_slug": "learning-lab",
+                "role": "learner",
+                "roles": ["learner"],
+                "status": "active",
+            }
+        ]
 
         public_courses = client.get(
             "/api/public/organizations/learning-lab/courses",
