@@ -40,10 +40,11 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] Create a research project/study and verify protocol and ethics decisions are attributable and audited.
 - [ ] Preview an OpenAlex record, explicitly select fields and import it; confirm provider provenance is retained.
 - [ ] Request a bounded NASA POWER climate series and confirm the source, units and date range are visible.
-- [ ] Configure a dedicated ODK Central test connection and test authentication/form discovery.
-- [ ] Map only the intended climate fields; sync a small test form with known observations.
-- [ ] Run the same sync again and confirm duplicates are not imported.
-- [ ] Confirm ODK observations remain `pending` until the independent climate-review workflow approves them.
+- [ ] For local development/pitching without a Central account, start `uv run python scripts/run_odk_mock_central.py --host 127.0.0.1 --port 8765 --page-size 1`; label this clearly as a synthetic protocol demonstration.
+- [ ] Configure the local simulator at `http://127.0.0.1:8765` with project `22`, login `odk-demo@example.test`, password `local-demo-only`, and the documented climate field mapping.
+- [ ] Test authentication/form discovery, sync the two synthetic observations, and run the same sync again to confirm duplicate suppression.
+- [ ] Confirm simulated ODK observations remain `pending` until the independent climate-review workflow approves them.
+- [ ] For staging/production acceptance, separately configure a real non-production ODK Central project and least-privilege account; do not mark live Central acceptance complete based on the simulator.
 - [ ] Confirm sync run history, last-run state and errors are visible to authorised research managers; confirm credentials are never returned to the browser.
 
 ## 5. Funding management
@@ -80,13 +81,13 @@ The founder demo is accepted when the team can provide:
 1. Reviewed commit SHA and deployment record.
 2. Migration head, health-check and automated test evidence.
 3. Screenshots or a short recording of the founder, programme, learner, research/ODK and public CMS journeys.
-4. A successful test ODK sync plus duplicate/idempotency evidence and climate-review state.
+4. A successful ODK sync plus duplicate/idempotency evidence and climate-review state, explicitly identified as simulator or live Central evidence.
 5. A funding report showing budgets and expenditure without payment processing.
 6. Role-boundary checks and backup/restore evidence.
 7. A defect register and named operational owners.
 
 A successful demo is not production approval by itself. Production launch additionally
-requires a real ODK Central acceptance run, verified backups/restore, production secrets,
+requires a real ODK Central acceptance run (the local simulator is not sufficient), verified backups/restore, production secrets,
 monitoring/alerting, HTTPS and CORS review, and sign-off from the organisation's
 operational and data-protection owners.
 
