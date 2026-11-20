@@ -11,7 +11,7 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] Apply migrations explicitly and confirm `alembic current` reports the expected head.
 - [ ] Verify API liveness/readiness and the public web homepage.
 - [ ] Confirm HTTPS, CORS origins, JWT secret, object-storage settings and malware-scanning profile where enabled.
-- [ ] Confirm a recent database backup and a tested restore procedure.
+- [ ] Confirm a recent database backup and a tested restore procedure (see `docs/operations/database-backup-restore.md`).
 - [ ] Enable the ODK profile only after a valid Fernet key and dedicated test Central account are configured.
 
 ## 2. Founder and organisation operations

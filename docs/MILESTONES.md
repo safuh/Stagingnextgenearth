@@ -178,7 +178,7 @@ These foundation checks must continue passing as product code is added.
 - [x] PostgreSQL/PostGIS integration and migration CI (PostgreSQL 17/PostGIS 3.5 service; migration upgrade, schema assertions, downgrade and re-upgrade are exercised).
 - [ ] API integration suite and frontend BFF policy unit tests run in CI; browser end-to-end coverage and broader interaction tests remain.
 - [ ] Security review, privacy impact assessment and safeguarding review.
-- [ ] Backups, restore drills, retention and deletion policies.
+- [x] Documented PostgreSQL logical backup procedure, archive validation, checksum and isolated restore-drill procedure; scheduled/off-site execution, object-storage recovery, retention approval and a successful production-like restore drill remain pending.
 - [ ] Observability, alerting and operational runbooks.
 - [ ] Deployment environments, secrets management and disaster recovery.
 - [ ] Stakeholder acceptance testing with representative portal users.
