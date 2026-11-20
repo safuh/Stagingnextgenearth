@@ -1,5 +1,6 @@
 """Scheduled ODK Central OData poller and climate-evidence importer."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -26,6 +27,8 @@ from stagingnextgenearth.platform.models import (
 
 logger = logging.getLogger("stagingnextgenearth.odk_sync")
 _PAGE_SIZE = 100
+_MAX_REQUEST_ATTEMPTS = 4
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 def _safe_central_error(exc: Exception) -> str:
@@ -97,6 +100,36 @@ class ODKCentralClient:
                 logger.warning("ODK Central session revocation failed")
         await self._client.aclose()
 
+    async def _get_with_retry(
+        self,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        """Retry idempotent Central reads on transient transport/server failures."""
+        for attempt in range(_MAX_REQUEST_ATTEMPTS):
+            try:
+                response = await self._client.get(url, headers=self.headers, params=params)
+            except httpx.RequestError:
+                if attempt == _MAX_REQUEST_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(min(0.25 * (2**attempt), 2.0))
+                continue
+            if response.status_code not in _RETRYABLE_STATUS_CODES:
+                response.raise_for_status()
+                return response
+            if attempt == _MAX_REQUEST_ATTEMPTS - 1:
+                response.raise_for_status()
+            retry_after = response.headers.get("Retry-After", "")
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                delay = 0.25 * (2**attempt)
+            if not isfinite(delay) or delay < 0:
+                delay = 0.25 * (2**attempt)
+            await asyncio.sleep(min(delay, 10.0))
+        raise RuntimeError("ODK Central request retry loop exited unexpectedly")
+
     @property
     def headers(self) -> dict[str, str]:
         if not self._token:
@@ -104,10 +137,7 @@ class ODKCentralClient:
         return {"Authorization": f"Bearer {self._token}"}
 
     async def list_forms(self, project_id: int) -> list[dict[str, object]]:
-        response = await self._client.get(
-            f"{self.base_url}/v1/projects/{project_id}/forms", headers=self.headers
-        )
-        response.raise_for_status()
+        response = await self._get_with_retry(f"{self.base_url}/v1/projects/{project_id}/forms")
         payload = response.json()
         if not isinstance(payload, list):
             raise ValueError("ODK Central returned an invalid forms document")
@@ -121,8 +151,7 @@ class ODKCentralClient:
         params: dict[str, str] | None = {"$top": str(_PAGE_SIZE)} if cursor is None else None
         base_origin = urlsplit(self.base_url)
         for _ in range(_MAX_PAGES_PER_FORM):
-            response = await self._client.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
+            response = await self._get_with_retry(url, params=params)
             payload = response.json()
             if not isinstance(payload, dict) or not isinstance(payload.get("value"), list):
                 raise ValueError("ODK Central returned an invalid OData submissions page")
