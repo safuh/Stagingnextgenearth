@@ -41,9 +41,13 @@ make bootstrap MANIFEST=/absolute/path/to/private-nextgen-seed.json
 
 The bootstrap process registers or reuses the identity, authenticates as the
 organisation owner to create the invitation, then authenticates as the intended
-employee to accept it. The employee receives only the role declared in the
-manifest. Founder, executive and administrator grants remain subject to the
-organisation owner's elevated-role authority.
+employee to accept it. The invitee receives only the role declared in the
+manifest. Supported staff roles include `admin`, `founder`, `executive`,
+`employee`, `programme_manager`, `researcher`, `youth_volunteer` and
+`institutional_partner`. Founder, executive and administrator grants remain
+subject to the organisation owner's elevated-role authority. An existing
+invitation with a different role is not accepted automatically; cancel/reissue it
+through the audited administration workflow first.
 
 ## Repeatability and safety
 
@@ -67,3 +71,9 @@ Do not put public learners in the staff bootstrap array. Learners use
 `/learners` to register, sign in, discover published courses and apply. A course
 manager must approve an application before the learner membership and protected
 curriculum access are activated.
+
+The bootstrap regression suite verifies owner-authorised administrator invitations, invitee-only acceptance, and refusal to accept an existing invitation whose role differs from the manifest:
+
+```bash
+uv run pytest -q tests/test_bootstrap.py
+```
