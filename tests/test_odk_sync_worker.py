@@ -7,6 +7,7 @@ import httpx
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -47,11 +48,12 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
     settings = Settings(
         environment=Environment.TEST,
         database_url=url,
-        jwt_secret_key="test-only-signing-secret-that-is-long-enough",
-        odk_encryption_key=key,
+        jwt_secret_key=SecretStr("test-only-signing-secret-that-is-long-enough"),
+        odk_encryption_key=SecretStr(key),
     )
 
-    source_revision = {"updated_at": "2026-11-18T08:30:00Z"}
+    source_revision: dict[str, str | bool] = {"updated_at": "2026-11-18T08:30:00Z"}
+    cursor_history: list[str | None] = []
 
     class FakeCentral:
         def __init__(self, base_url: str, email: str, password: str) -> None:
@@ -72,6 +74,11 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         async def submission_pages(self, project_id: int, form_id: str, cursor: str | None = None):
             assert project_id == 22
             assert form_id == "rainfall-v2"
+            cursor_history.append(cursor)
+            if cursor is not None and source_revision.get("expire_cursor"):
+                request = httpx.Request("GET", cursor)
+                response = httpx.Response(410, request=request)
+                raise httpx.HTTPStatusError("cursor expired", request=request, response=response)
 
             def row(number: int) -> dict[str, object]:
                 record = {
@@ -138,8 +145,8 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         )
         assert saved.status_code == 200, saved.text
 
-        async def run_three_times() -> tuple[
-            dict, dict, dict, list[ClimateObservation], list[ODKSyncRun]
+        async def run_with_cursor_recovery() -> tuple[
+            dict, dict, dict, dict, dict, list[ClimateObservation], list[ODKSyncRun]
         ]:
             db_engine = create_async_engine(url)
             factory = async_sessionmaker(db_engine, expire_on_commit=False)
@@ -169,14 +176,30 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
                 third = await odk_sync.sync_odk_connection(
                     factory, connection_id, encryption_key=key
                 )
+                source_revision["expire_cursor"] = True
+                fourth = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
+                async with factory() as session:
+                    connection = await session.scalar(
+                        select(ODKConnection).where(ODKConnection.id == connection_id)
+                    )
+                    assert connection is not None
+                    assert "rainfall-v2" not in connection.form_cursors
+                source_revision["expire_cursor"] = False
+                fifth = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
                 async with factory() as session:
                     observations = list((await session.scalars(select(ClimateObservation))).all())
                     runs = list((await session.scalars(select(ODKSyncRun))).all())
-                return first, second, third, observations, runs
+                return first, second, third, fourth, fifth, observations, runs
             finally:
                 await db_engine.dispose()
 
-        first, second, third, observations, runs = asyncio.run(run_three_times())
+        first, second, third, fourth, fifth, observations, runs = asyncio.run(
+            run_with_cursor_recovery()
+        )
         assert first == {
             "status": "partial",
             "forms": 1,
@@ -204,6 +227,26 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             "rejected": 1,
             "errors": 2,
         }
+        assert fourth == {
+            "status": "failed",
+            "forms": 1,
+            "received": 0,
+            "imported": 0,
+            "duplicates": 0,
+            "rejected": 0,
+            "errors": 1,
+        }
+        assert fifth == {
+            "status": "partial",
+            "forms": 1,
+            "received": 10,
+            "imported": 0,
+            "duplicates": 9,
+            "rejected": 1,
+            "errors": 2,
+        }
+        assert cursor_history[3] is not None
+        assert cursor_history[4] is None
         assert len(observations) == 10
         assert {item.value for item in observations} == {number + 0.25 for number in range(1, 11)}
         verified = next(item for item in observations if item.value == 1.25)
@@ -215,8 +258,8 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         assert all(
             item.quality_status == "pending" for item in observations if item.id != verified.id
         )
-        assert len(runs) == 3
-        assert [run.rejected_count for run in runs] == [1, 0, 1]
+        assert len(runs) == 5
+        assert [run.rejected_count for run in runs] == [1, 0, 1, 0, 1]
 
 
 @pytest.mark.parametrize(
