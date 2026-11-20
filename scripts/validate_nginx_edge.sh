@@ -9,6 +9,6 @@ command -v docker >/dev/null 2>&1 || {
   exit 127
 }
 
-docker run --rm \
+docker run --rm --add-host web:127.0.0.1 \
   --mount "type=bind,src=${ROOT}/docker/nginx/nginx.conf,dst=/etc/nginx/nginx.conf,readonly" \
   "${IMAGE}" nginx -t
