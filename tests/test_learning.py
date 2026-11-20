@@ -221,6 +221,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert public_membership.status_code == 200
         assert public_membership.json()["role"] == "learner"
+        assert public_membership.json()["roles"] == ["learner"]
 
         public_courses = client.get(
             "/api/public/organizations/learning-lab/courses",
