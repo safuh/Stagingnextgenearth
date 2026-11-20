@@ -145,18 +145,18 @@ def provision_staff(
     for item in staff:
         identifier = str(item["identifier"]).strip()
         role = str(item["role"]).strip()
-        password = env_required(str(item["password_env"]).strip())
         if role not in {
-            "founder", "executive", "employee", "programme_manager",
+            "admin", "founder", "executive", "employee", "programme_manager",
             "researcher", "youth_volunteer", "institutional_partner",
         }:
             raise ApiError(f"Unsupported staff role for {identifier}: {role}")
+        password = env_required(str(item["password_env"]).strip())
 
         # Register-or-reuse and capture the account subject from its login response.
         api.register_or_reuse(identifier, password)
         staff_user_id = api.request_subject
 
-        # Only the canonical organisation owner can invite founder/executive roles.
+        # Only the canonical organisation owner can invite admin, founder or executive roles.
         api.authenticate(owner_identifier, owner_password)
         memberships = api.request(
             "GET", f"/organizations/{organization_id}/memberships", expected=(200,)
@@ -172,6 +172,12 @@ def provision_staff(
                 )
             continue
         if current and current["status"] == "invited":
+            if current["role"] != role:
+                raise ApiError(
+                    f"An invitation already exists for {identifier} with role "
+                    f"{current['role']}; cancel it through the audited administration "
+                    "workflow before provisioning a different role."
+                )
             invitation = current
         elif current is None:
             invitation = api.request(
