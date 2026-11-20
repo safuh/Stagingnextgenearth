@@ -20,7 +20,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     subprocess.run([*command, "upgrade", "head"], check=True, env=env)
 
     expected_columns = {
-        "users": {"id", "identifier", "password_hash", "created_at"},
+        "users": {"id", "identifier", "password_hash", "password_changed_at", "created_at"},
         "refresh_tokens": {"token_id", "subject", "expires_at", "revoked"},
         "organizations": {"id", "name", "slug", "owner_user_id"},
         "organization_memberships": {"id", "organization_id", "user_id", "role", "status"},

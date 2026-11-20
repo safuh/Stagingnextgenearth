@@ -20,15 +20,18 @@ The API requires a valid access token, verifies the current password against the
 A successful password change:
 
 1. Stores a newly salted Argon2 password hash.
-2. Revokes every outstanding refresh-token record for that account, across all devices.
-3. Returns the count of refresh sessions revoked.
-4. Requires the user to sign in again.
+2. Records the password-change timestamp and immediately rejects every older access JWT.
+3. Revokes every outstanding refresh-token record for that account, across all devices.
+4. Returns the count of refresh sessions revoked.
+5. Requires the user to sign in again.
 
 The portal exposes this workflow at `/workspace/security`. It signs the current browser out after the API confirms the change.
 
-## Access-token expiry boundary
+## Immediate access-token revocation
 
-Refresh tokens are revoked immediately. Already-issued access JWTs are stateless and remain valid until their configured short expiry (15 minutes by default). The user interface clears its own session after the change. If immediate revocation of every access token is required by an organisation's threat model, deploy a shared token-version or access-token denylist mechanism before launch; do not represent refresh-token revocation as immediate revocation of all access JWTs.
+A successful password change records `users.password_changed_at` and revokes every outstanding refresh-token record in the same database transaction. Every access JWT carries a server-generated `iat_us` claim (UTC Unix epoch microseconds); the authenticated-request dependency compares that issuance instant with the persisted password-change timestamp. Access JWTs issued before the change are rejected on the next API request, rather than remaining usable until their nominal expiry. Tokens without the required high-resolution issuance claim are rejected after a password change, which safely invalidates legacy sessions. Newly issued access tokens remain valid.
+
+The timestamp comparison uses integer microseconds instead of JWT's standard second-resolution `iat` claim, preventing a token issued in the same second as the password change from slipping through. User records created before this migration have a null change timestamp and retain normal access until the account changes its password.
 
 ## Account recovery and administrator support
 

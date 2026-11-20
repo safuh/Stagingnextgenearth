@@ -66,6 +66,12 @@ async def test_password_change_revokes_all_refresh_sessions(tmp_path: Path) -> N
             revoked = client.post("/api/auth/refresh", json={"refresh_token": token})
             assert revoked.status_code == 401
 
+        stale_access = client.get(
+            "/api/organizations",
+            headers={"Authorization": f"Bearer {second_tokens['access_token']}"},
+        )
+        assert stale_access.status_code == 401
+
         old_password = client.post("/api/auth/login", json=credentials)
         assert old_password.status_code == 401
 
@@ -77,6 +83,11 @@ async def test_password_change_revokes_all_refresh_sessions(tmp_path: Path) -> N
             },
         )
         assert new_login.status_code == 200
+        new_access = client.get(
+            "/api/organizations",
+            headers={"Authorization": f"Bearer {new_login.json()['access_token']}"},
+        )
+        assert new_access.status_code == 200
 
 
 @pytest.mark.asyncio
