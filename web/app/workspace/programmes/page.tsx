@@ -291,14 +291,16 @@ export default function ProgrammeAdminPage() {
     } finally { setBusy(false); }
   }
 
-  async function run(label: string, work: () => Promise<unknown>) {
+  async function run(label: string, work: () => Promise<unknown>): Promise<boolean> {
     setBusy(true); setError(""); setNotice("");
     try {
       await work();
       await load(organizationId);
       setNotice(label);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The programme operation failed.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -308,11 +310,11 @@ export default function ProgrammeAdminPage() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    await run("Programme draft created.", () => apiPost(`/organizations/${organizationId}/programmes`, {
+    const created = await run("Programme draft created.", () => apiPost(`/organizations/${organizationId}/programmes`, {
       title: data.get("title"), slug: data.get("slug"), summary: data.get("summary") || null,
       start_date: data.get("start_date") || null, end_date: data.get("end_date") || null,
     }));
-    form.reset();
+    if (created) form.reset();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
