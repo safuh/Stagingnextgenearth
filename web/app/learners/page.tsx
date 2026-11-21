@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPost, login, register, restoreSession } from "@/lib/api";
+import { apiGet, apiPost, getAuthenticationContext, login, register, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
+import { resolvePortalDestination } from "@/lib/portal-routing";
 
 type Course = {
   id: string;
@@ -70,6 +71,16 @@ export default function LearnerPortalPage() {
     try {
       if (creating) await register(identifier.trim(), password);
       await login(identifier.trim(), password);
+      const context = await getAuthenticationContext();
+      const destination = resolvePortalDestination(context.memberships);
+      if (destination === "/workspace") {
+        window.location.assign(destination);
+        return;
+      }
+      if (destination === "/workspace/accept-invitation") {
+        window.location.assign(destination);
+        return;
+      }
       setAuthenticated(true);
       setPassword("");
       if (creating) setNotice("Your learner account is ready. You can now apply to a published course.");

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
+import { getAuthenticationContext, login } from "@/lib/api";
+import { resolvePortalDestination } from "@/lib/portal-routing";
 
 export default function StaffSignInPage() {
   const router = useRouter();
@@ -18,8 +19,11 @@ export default function StaffSignInPage() {
     setError("");
     try {
       await login(identifier.trim(), password);
+      const context = await getAuthenticationContext();
       setPassword("");
-      router.replace("/workspace");
+      const destination = resolvePortalDestination(context.memberships);
+      if (destination) router.replace(destination);
+      else setError("Your identity is authenticated, but no organisation invitation or active membership is attached to this account. If you are joining as staff or an institutional partner, ask an organisation administrator to invite this email address. Learners should use the learner portal.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
     } finally {
