@@ -1397,3 +1397,47 @@ def test_owner_can_manage_secondary_membership_roles_without_primary_role_drift(
     assert final_demotion.status_code == 200
     assert final_demotion.json()["roles"] == ["researcher"]
 
+
+def test_membership_invitation_and_acceptance_are_audited(client: TestClient) -> None:
+    owner_token = register_and_login(client, "audit-invite-owner@example.org")
+    invited_token = register_and_login(client, "audit-invite-member@example.org")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    invited_headers = {"Authorization": f"Bearer {invited_token}"}
+
+    organisation = client.post(
+        "/api/organizations",
+        headers=owner_headers,
+        json={"name": "Audited Onboarding", "slug": "audited-onboarding"},
+    )
+    assert organisation.status_code == 201
+    organization_id = organisation.json()["id"]
+
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/memberships",
+        headers=owner_headers,
+        json={"identifier": "audit-invite-member@example.org", "role": "employee"},
+    )
+    assert invitation.status_code == 201
+    assert invitation.json()["status"] == "invited"
+
+    accepted = client.post(
+        f"/api/organizations/{organization_id}/memberships/{invitation.json()['id']}/accept",
+        headers=invited_headers,
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "active"
+
+    audit = client.get(
+        f"/api/organizations/{organization_id}/audit-events",
+        headers=owner_headers,
+    )
+    assert audit.status_code == 200
+    events = {event["action"]: event for event in audit.json()}
+    assert events["membership.invited"]["changes"] == {
+        "status": {"before": None, "after": "invited"},
+        "role": {"before": None, "after": "employee"},
+    }
+    assert events["membership.invitation_accepted"]["changes"]["status"] == {
+        "before": "invited",
+        "after": "active",
+    }

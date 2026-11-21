@@ -101,6 +101,18 @@ async def invite_member(
     session.add(invitation)
     await session.flush()
     session.add(MembershipRole(membership_id=invitation.id, role=body.role))
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=membership.user_id,
+            subject_user_id=user.id,
+            action="membership.invited",
+            changes={
+                "status": {"before": None, "after": "invited"},
+                "role": {"before": None, "after": body.role},
+            },
+        )
+    )
     try:
         await session.commit()
         await session.refresh(invitation)
@@ -207,16 +219,29 @@ async def accept_invitation(
             Membership.user_id == principal.user_id,
             Membership.status == "invited",
         )
+        .with_for_update()
     )
     if invitation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invitation not found")
     invitation.status = "active"
+    roles = sorted(await get_membership_roles(session, invitation))
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=principal.user_id,
+            action="membership.invitation_accepted",
+            changes={
+                "status": {"before": "invited", "after": "active"},
+                "roles": roles,
+            },
+        )
+    )
     await session.commit()
     await session.refresh(invitation)
     identifier = await session.scalar(
         select(User.identifier).where(User.id == invitation.user_id)
     )
-    roles = sorted(await get_membership_roles(session, invitation))
     return MembershipRead.model_validate(invitation).model_copy(
         update={"identifier": identifier, "roles": roles}
     )

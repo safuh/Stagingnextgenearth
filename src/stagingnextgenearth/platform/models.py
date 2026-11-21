@@ -1224,8 +1224,9 @@ class OrganizationAuditEvent(Base):
     __tablename__ = "organization_audit_events"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('membership.role_changed', 'membership.roles_changed', "
-            "'membership.status_changed', 'organization.ownership_transferred', "
+            "action IN ('membership.invited', 'membership.invitation_accepted', "
+            "'membership.role_changed', 'membership.roles_changed', 'membership.status_changed', "
+            "'organization.ownership_transferred', "
             "'volunteer_application.decided', 'employment_application.decided', "
             "'learning.mentorship.status_changed', 'climate.observation.reviewed', "
             "'research.study.status_changed', 'research.protocol.version_created', "
