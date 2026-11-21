@@ -26,3 +26,5 @@ build/
 
 # Local-only ODK Central checkout, data volumes and generated configuration
 .local/odk-central/
+
+!.env.staging.example

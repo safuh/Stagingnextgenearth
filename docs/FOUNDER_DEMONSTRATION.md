@@ -75,3 +75,98 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 - [ ] Public website, accessibility, mobile layout, privacy notices, security headers, logging and recovery procedures are reviewed.
 
 The print action creates a snapshot of the current executive overview. It does not certify the underlying data or replace independent programme, finance, research, safeguarding or partner verification.
+
+## Reproducible demo environment (operator runbook)
+
+Use one dedicated local database or the dedicated staging database. Never seed
+production. The canonical API bootstrap is idempotent and creates the owner,
+organisation, source-attributed people/partners/programmes/content and any
+manifest-declared demo users. It deliberately keeps people private, partners
+unverified, CMS records in draft/review, and learner applications unapproved.
+
+### Local Docker-backed API
+
+```bash
+# From the repository root; start only the local Postgres/PostGIS service.
+docker compose -f docker/compose.yml up -d db
+uv sync --locked --extra dev
+# Match the local Compose database credentials; port is bound to loopback only.
+export DATABASE_URL=postgresql+asyncpg://backbone:backbone@127.0.0.1:5432/backbone
+uv run alembic upgrade head
+make run
+```
+
+In another terminal, start the web app:
+
+```bash
+cd web
+npm ci --no-audit --no-fund
+npm run dev
+```
+
+Open `http://localhost:3000`. The web BFF uses its local development fallback
+to reach `http://127.0.0.1:8000/api`.
+
+### Create a dedicated demo owner and seed the catalogue
+
+Use a unique test mailbox controlled by the demo operator and a strong,
+throwaway password. Do not use a real employee password:
+
+```bash
+read -rp "Demo owner email: " BOOTSTRAP_ADMIN_IDENTIFIER
+read -rsp "Demo owner password: " BOOTSTRAP_ADMIN_PASSWORD
+printf '\n'
+export BOOTSTRAP_ADMIN_IDENTIFIER BOOTSTRAP_ADMIN_PASSWORD
+export BOOTSTRAP_API_URL=http://127.0.0.1:8000/api
+export BOOTSTRAP_ORGANIZATION_NAME="Next Gen For Earth — Founder Demo"
+export BOOTSTRAP_ORGANIZATION_SLUG=next-gen-for-earth-demo
+export BOOTSTRAP_ORGANIZATION_COUNTRY_CODE=KE
+uv run python scripts/bootstrap_nextgen.py
+```
+
+Run the richer idempotent catalogue seed against the same demo database after
+the organisation exists:
+
+```bash
+uv run python scripts/seed_nextgen_demo.py \
+  --organization-slug next-gen-for-earth-demo
+```
+
+The second command inserts website-sourced people, partner prospects, CMS
+records and draft programmes directly into the selected organisation. It uses
+the owner as the audit actor and must only be run against the dedicated demo
+DB. It does not create user accounts, verify partners, approve content or
+publish impact claims. Re-running it does not duplicate matching records.
+
+To add demo employees, volunteers or learners, use a private copy of the
+manifest and the `staff` / `learners` arrays documented in
+[`STAFF_BOOTSTRAP.md`](../STAFF_BOOTSTRAP.md). Passwords belong in environment
+variables named by each manifest entry, never in JSON or Git. Learner bootstrap
+submits applications only; staff approval is a separate demonstration step.
+
+### ODK synthetic protocol demonstration
+
+In another terminal, start the loopback-only mock Central:
+
+```bash
+uv run python scripts/run_odk_mock_central.py \
+  --host 127.0.0.1 --port 8765 --page-size 1
+```
+
+Configure the ODK integration in the portal using the local simulator details
+in [`odk-central-integration.md`](operations/odk-central-integration.md).
+The two fixture submissions are synthetic. Show the sync and duplicate
+suppression, then show that observations remain pending independent review.
+Do not describe this as live ODK Central acceptance.
+
+### Reset policy
+
+For repeatable demonstrations, prefer a fresh named demo database and rerun
+migrations/bootstrap rather than deleting a developer's shared Docker volume.
+Never run `docker compose down -v` on a database that contains work you need.
+Keep a short record of the demo organisation slug, commit SHA, seed timestamp,
+synthetic account aliases and acceptance results. Delete demo data only through
+an explicit, reviewed database lifecycle procedure.
+
+For the separate staging deployment procedure, use
+[`staging-deployment.md`](operations/staging-deployment.md).
