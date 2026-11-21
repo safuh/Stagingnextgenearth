@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env staging
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env staging founder-preflight
 
 install:
 	uv sync --extra dev
@@ -67,3 +67,7 @@ release-check: check web-check docker-test
 # Dedicated staging project; uses .env.staging and never removes database volumes.
 staging:
 	bash scripts/docker-staging.sh
+
+# Read-only API/web/owner/public-feed checks; requires FOUNDER_* and ORGANIZATION_SLUG.
+founder-preflight:
+	uv run python scripts/verify_founder_demo.py

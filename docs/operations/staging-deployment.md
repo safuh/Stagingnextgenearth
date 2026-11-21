@@ -131,6 +131,25 @@ reachable deployment.
 - [ ] Browser session cookies are HttpOnly/Secure and cross-origin mutations fail.
 - [ ] No staging secrets, real safeguarding records or production learner data
       are present in the demo dataset.
+- [ ] Run the read-only founder preflight from the deployment host or an
+      authorised operator workstation:
+
+      ```bash
+      export API_BASE_URL=https://staging.nextgenforearth.org/api
+      export WEB_BASE_URL=https://staging.nextgenforearth.org
+      export ORGANIZATION_SLUG=your-staging-organisation-slug
+      read -rp "Staging owner email: " FOUNDER_IDENTIFIER
+      read -rsp "Staging owner password: " FOUNDER_PASSWORD
+      printf '\n'
+      export FOUNDER_IDENTIFIER FOUNDER_PASSWORD
+      uv run python scripts/verify_founder_demo.py
+      ```
+
+      Prefer exporting the secrets from a secret manager rather than placing
+      literal credentials in shell history. The preflight verifies the signed-in
+      user is the recorded organisation owner and checks public-feed field
+      allowlists; it does not exercise invitation, learner, CMS publication or
+      ODK workflows, which remain manual acceptance items.
 - [ ] ODK is explicitly labelled simulator-only or separately accepted against
       a real staging Central project.
 - [ ] Open defects, operational owners and rollback contact are documented.

@@ -107,6 +107,23 @@ npm run dev
 Open `http://localhost:3000`. The web BFF uses its local development fallback
 to reach `http://127.0.0.1:8000/api`.
 
+After bootstrapping and seeding, run the read-only acceptance preflight. It checks API/database readiness, the founder's active administrator membership and actual ownership, organisation administration access, and the public CMS/programme response schemas. It does not change records.
+
+```bash
+export API_BASE_URL=http://127.0.0.1:8000/api
+export WEB_BASE_URL=http://127.0.0.1:3000
+export ORGANIZATION_SLUG=next-gen-for-earth-demo
+read -rp "Founder email: " FOUNDER_IDENTIFIER
+read -rsp "Founder password: " FOUNDER_PASSWORD
+printf '\n'
+export FOUNDER_IDENTIFIER FOUNDER_PASSWORD
+uv run python scripts/verify_founder_demo.py
+```
+
+The preflight intentionally requires the authenticated account to be the
+recorded organisation owner, not merely an administrator. Keep credentials in
+environment variables and never paste them into tickets or logs.
+
 ### Create a dedicated demo owner and seed the catalogue
 
 Use a unique test mailbox controlled by the demo operator and a strong,
