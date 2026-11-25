@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { expectedRequestOrigin, expectedRequestOrigin, isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
+import { expectedRequestOrigin, isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
