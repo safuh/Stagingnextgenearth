@@ -174,7 +174,7 @@ export default function HomePage() {
 
       <section className="impact-ribbon" aria-label="Organisation-reported impact figures">
         <div className="impact-ribbon-intro"><span>THE WORK SO FAR</span><strong>Progress, grounded in people.</strong></div>
-        {catalogue.filter((item) => item.content_type === "impact_metric").slice(0, 4).map((item) => (
+        {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
           <div className="impact-ribbon-stat" key={item.id}><strong>{item.metadata_json?.display_value || "—"}</strong><span>{item.title}</span></div>
         ))}
       </section>
@@ -201,7 +201,7 @@ export default function HomePage() {
       <section className="portals section-wrap editorial-about" id="about">
         <div className="section-heading"><div><p className="eyebrow">THE NEXTGEN STORY</p><h2><LetterHeading text="Science, community" /> <em><LetterHeading text="& action." /></em></h2></div><p>Mission, vision and approach captured from the organisation’s public website and connected to the platform CMS.</p></div>
         <ContentCarousel label="Organisation story" singleRow><div className="carousel-track">
-          {catalogue.filter((item) => ["website-we-are-on-a-mission", "website-our-mission", "website-we-have-a-vision", "website-our-approach", "website-our-logic"].includes(item.slug)).slice(0, 4).map((item) => <article className="story-card" key={item.id}><p className="portal-tag">{item.title}</p><p>{item.summary || item.body}</p></article>)}
+          {catalogue.filter((item) => ["website-we-are-on-a-mission", "website-our-mission", "website-we-have-a-vision", "website-our-approach", "website-our-logic"].includes(item.slug)).map((item) => <article className="story-card" key={item.id}><p className="portal-tag">{item.title}</p><p>{item.summary || item.body}</p></article>)}
         </div></ContentCarousel>
       </section>
       <section className="portals section-wrap" id="programmes">
@@ -233,10 +233,10 @@ export default function HomePage() {
       <section className="portals section-wrap" id="activities">
         <div className="section-heading"><div><p className="eyebrow">ONGOING DELIVERY</p><h2><LetterHeading text="Work in" /> <em><LetterHeading text="motion." /></em></h2></div><p>Current activities connected to programme delivery, learning and community engagement.</p></div>
         <ContentCarousel label="Activities and training"><div className="carousel-track">
-          {catalogue.filter((item) => item.content_type === "initiative").slice(0, 8).map((item) => (
+          {catalogue.filter((item) => item.content_type === "initiative").map((item) => (
             <article className="portal-card" key={item.id}><p className="portal-tag">Ongoing activity</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
           ))}
-          {catalogue.filter((item) => item.content_type === "training_track").slice(0, 4).map((item) => (
+          {catalogue.filter((item) => item.content_type === "training_track").map((item) => (
             <article className="portal-card" key={item.id}><p className="portal-tag">Training track</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
           ))}
         </div></ContentCarousel>
@@ -245,7 +245,7 @@ export default function HomePage() {
       <section className="portals section-wrap" id="research">
         <div className="section-heading"><div><p className="eyebrow">EVIDENCE & KNOWLEDGE</p><h2><LetterHeading text="Research &" /> <em><LetterHeading text="publications." /></em></h2></div><p>Research outputs and knowledge products attributed to the organisation&apos;s published catalogue.</p></div>
         <ContentCarousel label="Research and publications"><div className="carousel-track">
-          {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").slice(0, 12).map((item) => (
+          {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").map((item) => (
             <article className="portal-card" key={item.id}><p className="portal-tag">{item.content_type === "publication" ? "Publication" : "Research area"}</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p>{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">View publication <span>↗</span></a>}</article>
           ))}
         </div></ContentCarousel>
@@ -263,8 +263,8 @@ export default function HomePage() {
       <section className="portals section-wrap" id="people">
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2><LetterHeading text="People &" /> <em><LetterHeading text="partners." /></em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
         <ContentCarousel label="People and institutions"><div className="carousel-track">
-          {publicPeople.slice(0, 16).map((person) => <article className="portal-card people-card" key={person.id}>{person.profile_image_url ? <Image className="people-avatar" src={person.profile_image_url} alt={person.full_name} width={112} height={112} quality={92} /> : <div className="people-avatar people-avatar-fallback" aria-hidden="true">{person.full_name.slice(0, 1)}</div>}<p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p>{person.biography && <p className="portal-description">{person.biography}</p>}</article>)}
-          {publicPartners.slice(0, 12).map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Listed organisation · source website</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
+          {publicPeople.map((person) => <article className="portal-card people-card" key={person.id}>{person.profile_image_url ? <Image className="people-avatar" src={person.profile_image_url} alt={person.full_name} width={112} height={112} quality={92} /> : <div className="people-avatar people-avatar-fallback" aria-hidden="true">{person.full_name.slice(0, 1)}</div>}<p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p>{person.biography && <p className="portal-description">{person.biography}</p>}</article>)}
+          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Listed organisation · source website</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
         </div></ContentCarousel>
         {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Public people and website-listed organisations will appear here.</p>}
       </section>
@@ -272,7 +272,7 @@ export default function HomePage() {
       <section className="portals section-wrap field-gallery" id="gallery">
         <div className="section-heading"><div><p className="eyebrow">IN THE FIELD</p><h2><LetterHeading text="People, places" /> <em><LetterHeading text="& progress." /></em></h2></div><p>Photographs and profiles are published with organisational authorisation. Images and records remain editable through the administration workspace.</p></div>
         <ContentCarousel label="Field photographs"><div className="carousel-track">
-          {(catalogue.find((item) => item.slug === "website-gallery")?.metadata_json?.gallery ?? []).slice(0, 8).map((item) => <figure className="gallery-item" key={item.image_url}><Image src={item.image_url} alt={item.alt} width={720} height={480} quality={92} /><figcaption>{item.alt}</figcaption></figure>)}
+          {(catalogue.find((item) => item.slug === "website-gallery")?.metadata_json?.gallery ?? []).map((item) => <figure className="gallery-item" key={item.image_url}><Image src={item.image_url} alt={item.alt} width={720} height={480} quality={92} /><figcaption>{item.alt}</figcaption></figure>)}
         </div></ContentCarousel>
       </section>
       <section className="access-section" id="access">
