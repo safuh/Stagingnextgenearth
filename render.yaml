@@ -27,7 +27,7 @@ services:
       - key: PUBLIC_BASE_URL
         value: https://nextgen-web-upag.onrender.com
       - key: CORS_ORIGINS
-        value: "[]"
+        value: '["https://nextgen-web-upag.onrender.com"]'
       - key: CORS_ALLOW_CREDENTIALS
         value: "false"
       - key: ODK_TLS_VERIFY
