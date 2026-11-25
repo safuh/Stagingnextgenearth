@@ -5,8 +5,9 @@ export const dynamic = "force-dynamic";
 
 const API_BASE = (
   process.env.BACKEND_API_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://127.0.0.1:8000/api"
+  (process.env.BACKEND_API_HOSTPORT
+    ? `http://${process.env.BACKEND_API_HOSTPORT}/api`
+    : process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api")
 ).replace(/\/$/, "");
 
 export async function POST(request: NextRequest) {
