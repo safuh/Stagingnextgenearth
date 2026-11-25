@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation } from "@/lib/session-policy";
+import { expectedRequestOrigin, isSameOriginMutation } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ const API_BASE = (
 ).replace(/\/$/, "");
 
 export async function POST(request: NextRequest) {
-  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), expectedRequestOrigin(request.headers, request.nextUrl.origin))) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 
