@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     UV_NO_DEV=1 \
     UV_LINK_MODE=copy \
+    UV_CACHE_DIR=/tmp/uv-cache \
     VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src"
