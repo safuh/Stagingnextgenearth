@@ -82,6 +82,36 @@ CONTENT = [
 ]
 
 
+# Stable CMS story cards used by the public homepage. These records are reconciled
+# on every demo seed so the homepage never depends on scraped heading slugs.
+STORY = [
+    (
+        "website-we-are-on-a-mission",
+        "Our Mission",
+        "We empower young people to lead climate research, policy and community action. We connect youth with communities, educators, civil society and decision-makers so that local knowledge and youth voices help shape practical, equitable climate solutions.",
+        "Build youth capacity in climate research, climate literacy and community action through training, peer mentorship, collaborative research and the communication of evidence.",
+    ),
+    (
+        "website-we-have-a-vision",
+        "Our Vision",
+        "A future in which young people lead bold, inclusive climate action—from local initiatives to global platforms—and communities generate evidence, transform behaviours and co-create sustainable solutions rooted in their lived realities.",
+        "A regenerative and climate-resilient world shaped by youth leadership, community knowledge and intergenerational collaboration.",
+    ),
+    (
+        "website-our-approach",
+        "Our Approach",
+        "We combine research capacity building, climate and health learning, peer mentorship, community engagement and nature-based action. We work alongside educators, researchers and local communities, connecting scientific evidence with lived experience and practical action.",
+        "Train and mentor emerging researchers and youth; strengthen climate literacy; support community-led environmental action; and share research and learning so that evidence can inform decisions.",
+    ),
+    (
+        "website-our-logic",
+        "How We Create Change",
+        "Our model links knowledge to action: build skills and confidence, connect people through mentorship and partnerships, generate and share evidence, then support communities to apply that knowledge through locally relevant climate and health initiatives.",
+        "Research and learning strengthen people; empowered people work with communities; community action generates experience and evidence; shared evidence informs better practice and policy.",
+    ),
+]
+
+
 PUBLICATIONS = [
 ("aware-but-unprepared-healthcare-workers-africa","Aware but unprepared: climate change impacts on healthcare workers in Africa — a scoping review","Lusambili A et al. · Frontiers in Public Health · 13, 1693703","https://doi.org/10.3389/fpubh.2025.1693703"),
 ("youth-inclusive-climate-health-research","Towards youth-inclusive strategies for climate change and health research in sub-Saharan Africa","Lusambili AM et al. · Journal of Climate Change and Health · 22, 100418","https://doi.org/10.1016/j.joclim.2025.100418"),
@@ -177,6 +207,41 @@ async def seed(slug: str) -> None:
                     source_label="NextGen For Earth public website", created_by=actor, updated_by=actor,
                 ))
 
+        for item_slug, title, summary, body in STORY:
+            entry = await session.scalar(select(PublicContentEntry).where(
+                PublicContentEntry.organization_id == org.id,
+                PublicContentEntry.content_type == "page",
+                PublicContentEntry.slug == item_slug,
+            ))
+            now = datetime.now(UTC)
+            if entry is None:
+                entry = PublicContentEntry(
+                    organization_id=org.id, content_type="page", slug=item_slug,
+                    title=title, summary=summary, body=body,
+                    metadata_json={
+                        "source_status": "organisation_public_website_and_mission_summary",
+                        "source_capture": SOURCE,
+                        "homepage_section": "nextgen_story",
+                    },
+                    publication_state="published", source_url=SOURCE,
+                    source_label="NextGen For Earth public website",
+                    created_by=actor, updated_by=actor,
+                    approved_by=actor, approved_at=now, published_at=now,
+                )
+                session.add(entry)
+            else:
+                entry.title, entry.summary, entry.body = title, summary, body
+                entry.metadata_json = {
+                    **(entry.metadata_json or {}),
+                    "source_status": "organisation_public_website_and_mission_summary",
+                    "source_capture": SOURCE,
+                    "homepage_section": "nextgen_story",
+                }
+                entry.publication_state = "published"
+                entry.source_url, entry.source_label = SOURCE, "NextGen For Earth public website"
+                entry.approved_by, entry.approved_at, entry.published_at = actor, now, now
+                entry.updated_by = actor
+
         for item_slug, title, summary, doi in PUBLICATIONS:
             exists = await session.scalar(select(PublicContentEntry.id).where(
                 PublicContentEntry.organization_id == org.id,
@@ -208,7 +273,7 @@ async def seed(slug: str) -> None:
                     status="draft", created_by=actor,
                 ))
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS)} CMS entries including {len(PUBLICATIONS)} publications, and four programme records.")
+        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, and four programme records.")
     await engine.dispose()
 
 if __name__ == "__main__":
