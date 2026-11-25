@@ -849,3 +849,169 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .odk-form-row > span { color: var(--green); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .odk-connection-card textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 @media (max-width: 640px) { .odk-status-grid { grid-template-columns: 1fr; } .odk-form-row { align-items: flex-start; flex-direction: column; } }
+
+
+/* Administration workspace navigation and responsive layout (M116). */
+.admin-workspace-content {
+  width: min(100%, 1320px);
+  max-width: 1320px;
+  padding-top: 52px;
+}
+.admin-page-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 2.6rem;
+}
+.admin-page-heading > div { min-width: 0; }
+.admin-page-heading .workspace-title {
+  margin: .8rem 0 .85rem;
+  font-size: clamp(2.8rem, 5vw, 4.6rem);
+  letter-spacing: -.055em;
+}
+.admin-page-heading .workspace-muted {
+  max-width: 650px;
+  margin: 0;
+  font-size: .96rem;
+  line-height: 1.7;
+}
+.admin-back-link {
+  flex: 0 0 auto;
+  margin-bottom: .25rem;
+  padding: .7rem .95rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.8);
+  color: var(--green);
+  font-size: .82rem;
+  font-weight: 650;
+}
+.admin-back-link:hover { border-color: #9bb59e; background: #fff; }
+.admin-navigation-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.admin-navigation-heading .eyebrow { margin: 0 0 .35rem; }
+.admin-navigation-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: "DM Sans", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -.035em;
+}
+.admin-navigation-heading > span { color: var(--muted); font-size: .78rem; }
+.admin-section-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .8rem;
+  margin: 0 0 2.2rem;
+}
+.admin-section-link {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: .85rem;
+  min-width: 0;
+  min-height: 104px;
+  padding: 1.05rem 1.1rem;
+  border: 1px solid #e0e8df;
+  border-radius: 13px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 5px 18px rgba(32,58,41,.035);
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.admin-section-link:hover {
+  transform: translateY(-2px);
+  border-color: #a9c0a7;
+  box-shadow: 0 10px 25px rgba(32,58,41,.075);
+}
+.admin-section-link:focus-visible, .admin-back-link:focus-visible {
+  outline: 3px solid rgba(118,152,77,.38);
+  outline-offset: 3px;
+}
+.admin-section-number {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 9px;
+  background: #edf3e9;
+  color: #527449;
+  font-size: .72rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.admin-section-copy { display: grid; gap: .35rem; min-width: 0; }
+.admin-section-copy strong {
+  color: #203b2c;
+  font-size: .9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.admin-section-copy small {
+  color: #718077;
+  font-size: .74rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.admin-section-arrow { color: #78945f; font-size: 1rem; line-height: 1.3; }
+.admin-workspace-content .admin-stats { margin-top: 0; }
+.admin-workspace-content .staff-card {
+  border-color: #e1e8e0;
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(32,58,41,.045);
+}
+.admin-workspace-content .staff-card h2 { letter-spacing: -.025em; }
+.admin-workspace-content .admin-member-section,
+.admin-workspace-content .admin-audit-section { padding: 1.5rem; }
+.admin-workspace-content .admin-member-row { align-items: start; }
+.admin-workspace-content .admin-member-actions { max-width: 100%; }
+.admin-workspace-content .membership-role-assignments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .85rem;
+  max-width: 100%;
+  margin: .35rem 0;
+  padding: .75rem;
+  border: 1px solid #e7ede6;
+  border-radius: 10px;
+  background: #fafcf9;
+}
+.admin-workspace-content .membership-role-assignments > span {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+.admin-workspace-content .membership-role-assignments label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  color: #52645a;
+  font-size: .73rem;
+  white-space: nowrap;
+}
+.admin-workspace-content .membership-role-assignments input { width: auto; }
+.admin-workspace-content .admin-member-actions > label { min-width: 180px; }
+.admin-workspace-content .admin-member-actions select { width: 100%; }
+.admin-workspace-content .admin-audit-row pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 980px) {
+  .admin-section-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .admin-workspace-content { padding-top: 2.4rem; }
+  .admin-page-heading { align-items: start; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+  .admin-page-heading .workspace-title { font-size: clamp(2.5rem, 12vw, 3.5rem); }
+  .admin-navigation-heading { align-items: start; flex-direction: column; }
+  .admin-section-nav { grid-template-columns: minmax(0, 1fr); gap: .65rem; }
+  .admin-section-link { min-height: 82px; }
+  .admin-workspace-content .admin-member-section,
+  .admin-workspace-content .admin-audit-section { padding: 1rem; }
+  .admin-workspace-content .membership-role-assignments { align-items: start; flex-direction: column; }
+}
