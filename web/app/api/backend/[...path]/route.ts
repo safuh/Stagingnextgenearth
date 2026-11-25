@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
+import { expectedRequestOrigin, expectedRequestOrigin, isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +101,7 @@ function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), expectedRequestOrigin(request.headers, request.nextUrl.origin))) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 
