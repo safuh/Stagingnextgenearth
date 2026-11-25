@@ -107,27 +107,37 @@ async def seed(slug: str) -> None:
             raise SystemExit(f"Organisation {slug!r} not found. Create it in the portal first.")
         actor = org.owner_user_id
         for name, position, kinds in PEOPLE:
-            exists = await session.scalar(select(OrganizationPerson.id).where(
+            person = await session.scalar(select(OrganizationPerson).where(
                 OrganizationPerson.organization_id == org.id, OrganizationPerson.full_name == name
             ))
-            if exists is None:
-                session.add(OrganizationPerson(
+            if person is None:
+                person = OrganizationPerson(
                     organization_id=org.id, full_name=name, positions=[x.strip() for x in position.split(";")],
                     person_types=kinds.split(","), country_code="KE", source_url=SOURCE,
-                    source_label="NextGen For Earth public website", review_state="pending",
-                    visibility="private", status="active", created_by=actor, updated_by=actor,
-                ))
+                    source_label="NextGen For Earth public website", review_state="verified",
+                    visibility="public", status="active", created_by=actor, updated_by=actor,
+                )
+                session.add(person)
+            else:
+                person.positions = [x.strip() for x in position.split(";")]
+                person.person_types = kinds.split(",")
+                person.review_state, person.visibility, person.status = "verified", "public", "active"
+                person.source_url, person.source_label, person.updated_by = SOURCE, "NextGen For Earth public website", actor
         for name, kind in PARTNERS:
-            exists = await session.scalar(select(InstitutionalPartner.id).where(
+            partner = await session.scalar(select(InstitutionalPartner).where(
                 InstitutionalPartner.organization_id == org.id, InstitutionalPartner.name == name
             ))
-            if exists is None:
-                session.add(InstitutionalPartner(
+            if partner is None:
+                partner = InstitutionalPartner(
                     organization_id=org.id, name=name, partner_type=kind, country_code="KE",
                     source_url=SOURCE, source_label="NextGen For Earth public website",
-                    relationship_status="prospect", verification_state="pending", visibility="private",
+                    relationship_status="prospect", verification_state="pending", visibility="public",
                     created_by=actor, updated_by=actor,
-                ))
+                )
+                session.add(partner)
+            else:
+                partner.visibility = "public"
+                partner.source_url, partner.source_label, partner.updated_by = SOURCE, "NextGen For Earth public website", actor
 
         legacy_tracks = {
             "research-methods": ("early-career-researchers", "Early Career Researchers", "Weekly research methods, systematic review, data synthesis, grant writing and ethics workshops."),

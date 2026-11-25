@@ -282,7 +282,9 @@ async def public_partners(organization_slug: str, session: Annotated[AsyncSessio
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
-    rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == org.id, InstitutionalPartner.relationship_status == "active", InstitutionalPartner.verification_state == "verified", InstitutionalPartner.visibility == "public").order_by(InstitutionalPartner.name))
+    # Public website-listed institutions are shown as directory entries, not
+    # assertions that a current contractual relationship has been verified.
+    rows = await session.scalars(select(InstitutionalPartner).where(InstitutionalPartner.organization_id == org.id, InstitutionalPartner.visibility == "public").order_by(InstitutionalPartner.name))
     return [PublicPartnerRead.model_validate(x) for x in rows.all()]
 
 # fmt: on

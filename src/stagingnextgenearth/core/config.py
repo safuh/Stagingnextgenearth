@@ -3,7 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field, SecretStr, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,6 +74,17 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = Field(
         default_factory=lambda: ["Authorization", "Content-Type", "X-Request-ID"]
     )
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_postgres_url(cls, value: object) -> object:
+        """Accept Render's standard Postgres URL and adapt it to asyncpg."""
+        if isinstance(value, str):
+            if value.startswith("postgres://"):
+                return "postgresql+asyncpg://" + value.removeprefix("postgres://")
+            if value.startswith("postgresql://"):
+                return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+        return value
 
     @model_validator(mode="after")
     def validate_profile(self) -> "Settings":

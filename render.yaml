@@ -1,0 +1,68 @@
+# NextGen for Earth — Render deployment blueprint.
+# The web app proxies all API calls server-side; only the frontend is public-facing
+# for normal browsing. Keep both services in the same Render region as Postgres.
+services:
+  - type: web
+    name: nextgen-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    dockerCommand: uvicorn stagingnextgenearth.app:create_app --factory --host 0.0.0.0 --port 10000
+    preDeployCommand: uv run alembic upgrade head
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: APP_NAME
+        value: NextGenForEarth
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nextgen-postgres
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: "[]"
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
+      - key: ODK_TLS_VERIFY
+        value: "true"
+      - key: DEBUG
+        value: "false"
+
+  - type: web
+    name: nextgen-web
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: BACKEND_API_URL
+        value: http://nextgen-api:10000/api
+      - key: NEXT_PUBLIC_ORGANIZATION_SLUG
+        value: next-gen-for-earth
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+databases:
+  - name: nextgen-postgres
+    databaseName: nextgen
+    user: nextgen
+    region: frankfurt
+    plan: 0.1c-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []
