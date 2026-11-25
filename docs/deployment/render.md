@@ -1,6 +1,6 @@
 # Deploy NextGen for Earth to Render
 
-This repository includes `render.yaml` for a two-service deployment (Next.js web and FastAPI API) with a managed private Render PostgreSQL database. The web app calls the API through its same-origin Next.js proxy; do not expose database credentials or JWT secrets to the browser.
+This repository includes `render.yaml` for a two-service deployment (Next.js web and FastAPI API) with a managed private Render PostgreSQL database. The web app calls the API through its same-origin Next.js proxy. The API is a separate Render web service with its own public hostname for health checks and controlled bootstrap; its protected routes still require authentication. Never expose database credentials or JWT secrets to the browser.
 
 ## Before deploying
 
@@ -8,7 +8,7 @@ This repository includes `render.yaml` for a two-service deployment (Next.js web
 2. Open the Render Dashboard and create a new Blueprint from the GitHub repository. Select `render.yaml` and review the resources before approving.
 3. Keep all three services in the same region. The blueprint uses Frankfurt; change the region consistently if your workspace offers a closer supported region.
 4. The API service uses a paid Starter plan because Render's pre-deploy migration command is not available on Free web services. The web service and database also use paid entry-level plans in this Blueprint. Review the current monthly estimate in Render before approving.
-5. Set `PUBLIC_BASE_URL` on `nextgen-api` to the final HTTPS web URL (or the custom domain once attached). The initial Blueprint value assumes `https://nextgen-web.onrender.com`; correct it if Render assigns a different hostname. Set the frontend's `BACKEND_API_URL` to the API's private hostname and port if you rename the service.
+5. Set `PUBLIC_BASE_URL` on `nextgen-api` to the final HTTPS web URL (or the custom domain once attached). The initial Blueprint value assumes `https://nextgen-web.onrender.com`; correct it if Render assigns a different hostname. The Blueprint wires the frontend's `BACKEND_API_HOSTPORT` from the API service's internal hostname and port. Keep both services in the same region; Render resolves this reference automatically.
 
 ## First deployment
 
@@ -52,7 +52,7 @@ uv run python -m scripts.import_nextgen_website \
   --publish-website-content
 ```
 
-For a staging-only tenant, the same option accepts the UUID shown in the admin UI. The importer stores source attribution and image manifest details. It does not create staff accounts or mark institutional partners as verified. Run both data scripts against the Render database—not the local staging database—using the database's external connection URL from a trusted local terminal (include Render's required TLS setting). The API itself continues to use the internal database URL configured by the Blueprint. The organisation has confirmed permission and individual consent for the source website images and content used in this deployment. Preserve source attribution. Treat impact figures as organisation-reported, not independently audited.
+For a staging-only tenant, the same option accepts the UUID shown in the admin UI. The importer stores source attribution and image manifest details. It does not create staff accounts or mark institutional partners as verified. Run the seed and import scripts against the Render database—not the local staging database—using the database's external connection URL from a trusted local terminal (include Render's required TLS setting). The API itself continues to use the internal database URL configured by the Blueprint. The organisation has confirmed permission and individual consent for the source website images and content used in this deployment. Preserve source attribution. Treat impact figures as organisation-reported, not independently audited.
 
 ## Production checks
 
@@ -62,10 +62,10 @@ For a staging-only tenant, the same option accepts the UUID shown in the admin U
 - Configure backups and test a restore before importing operational data.
 - Configure object storage before accepting user uploads; container filesystems are ephemeral.
 - Add monitoring, error reporting, uptime checks, and a documented incident contact.
-- Never run the source-site content import against a live production organisation until all imported records and media permissions are reviewed.
+- Review the imported public catalogue and people listings after provisioning. Partner entries are source-listed organisations, not automatically verified active relationships.
 
 ## Notes
 
 - `preDeployCommand` requires a paid Render web-service plan. Do not silently remove migrations to fit a free tier; use a paid plan or run the migration as a controlled one-off job before deploying.
-- The included managed Postgres database starts on Render’s smallest database plan. Upgrade capacity and configure retention/backups to meet the organisation's recovery requirements.
+- The included managed Postgres database starts on Render’s smallest paid database plan. Upgrade capacity and configure retention/backups to meet the organisation's recovery requirements.
 - A staging environment should use a separate database, domain, JWT secret, and bootstrap owner identity from production.
