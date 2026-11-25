@@ -1237,3 +1237,94 @@ body {
   .section-wrap:nth-of-type(odd) { animation: none !important; }
   .letter-heading-char { opacity: 1; animation: none !important; }
 }
+
+
+/* M119: balanced carousel tracks, a calm single-row story, and richer photographic atmosphere. */
+.content-carousel {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+}
+.content-carousel > .carousel-track {
+  grid-template-rows: repeat(2, minmax(225px, auto));
+  grid-auto-columns: clamp(280px, 29vw, 360px);
+  justify-content: start;
+  padding: 2px 2px 8px;
+}
+.content-carousel-single > .carousel-track {
+  grid-template-rows: minmax(220px, auto);
+  grid-auto-columns: minmax(280px, 390px);
+}
+.content-carousel-single .story-card {
+  min-height: 220px;
+}
+.carousel-controls > span {
+  text-transform: none;
+  letter-spacing: .035em;
+  font-size: .78rem;
+  color: #536b59;
+}
+.carousel-controls > div { margin-left: auto; }
+@media (max-width: 760px) {
+  .content-carousel > .carousel-track {
+    grid-template-rows: repeat(2, minmax(200px, auto));
+    grid-auto-columns: minmax(260px, 78vw);
+  }
+  .content-carousel-single > .carousel-track {
+    grid-template-rows: minmax(210px, auto);
+    grid-auto-columns: minmax(270px, 84vw);
+  }
+}
+
+/* Subtle documentary imagery behind the editorial sections. */
+body { position: relative; isolation: isolate; }
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .105;
+  background-image:
+    linear-gradient(115deg, rgba(247,246,239,.55), rgba(247,246,239,.82)),
+    url('/media/nextgen-source/gallery-tree-planting.jpg'),
+    url('/media/nextgen-source/gallery-youth-climate.jpg');
+  background-size: cover, 48vw auto, 42vw auto;
+  background-position: center, -8vw 18vh, 108% 72vh;
+  background-repeat: no-repeat;
+  filter: saturate(.72);
+  animation: nfe-photo-drift 42s ease-in-out infinite alternate;
+}
+@keyframes nfe-photo-drift {
+  from { background-position: center, -8vw 18vh, 108% 72vh; }
+  to { background-position: center, 0vw 24vh, 100% 66vh; }
+}
+.hero-art {
+  box-shadow: 0 30px 80px rgba(23,59,43,.2), 0 0 0 1px rgba(255,255,255,.45) inset;
+}
+.section-wrap:nth-of-type(even) {
+  background-image:
+    radial-gradient(ellipse at 8% 15%, rgba(169,190,145,.14), transparent 34rem),
+    linear-gradient(125deg, rgba(250,249,242,.72), rgba(235,241,229,.64));
+}
+.editorial-about {
+  position: relative;
+  overflow: hidden;
+}
+.editorial-about::after {
+  content: "";
+  position: absolute;
+  width: min(42vw, 520px);
+  aspect-ratio: 1;
+  right: -12vw;
+  top: 4%;
+  border-radius: 50%;
+  border: 1px solid rgba(120,151,105,.16);
+  box-shadow: 0 0 0 28px rgba(120,151,105,.035), 0 0 0 58px rgba(120,151,105,.025);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+}
