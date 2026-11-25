@@ -27,6 +27,8 @@ RUN uv sync --locked --no-dev --no-editable \
     && chown -R app:app /app
 
 USER app
-EXPOSE 8000
+EXPOSE 10000
 
-CMD ["uvicorn", "stagingnextgenearth.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations in the actual release container, using the exact installed
+# environment and DATABASE_URL that the application will use.
+CMD ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn stagingnextgenearth.app:create_app --factory --host 0.0.0.0 --port ${PORT:-10000}"]
