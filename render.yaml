@@ -27,7 +27,7 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: PUBLIC_BASE_URL
-        sync: false
+        value: https://nextgen-web.onrender.com
       - key: CORS_ORIGINS
         value: "[]"
       - key: CORS_ALLOW_CREDENTIALS
@@ -51,8 +51,11 @@ services:
         value: production
       - key: PORT
         value: "10000"
-      - key: BACKEND_API_URL
-        value: http://nextgen-api:10000/api
+      - key: BACKEND_API_HOSTPORT
+        fromService:
+          type: web
+          name: nextgen-api
+          property: hostport
       - key: NEXT_PUBLIC_ORGANIZATION_SLUG
         value: next-gen-for-earth-demo
       - key: NEXT_TELEMETRY_DISABLED
