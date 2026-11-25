@@ -28,7 +28,7 @@ function LetterHeading({ text, className = "" }: { text: string; className?: str
   return <span ref={headingRef} className={"letter-heading " + (visible ? "is-visible " : "") + className} aria-label={text}>{Array.from(text).map((letter, index) => <span aria-hidden="true" className="letter-heading-char" key={letter + "-" + index} style={{ animationDelay: Math.min(index * 24, 900) + "ms" }}>{letter === " " ? "\u00a0" : letter}</span>)}</span>;
 }
 
-function ContentCarousel({ children, label }: { children: ReactNode; label: string }) {
+function ContentCarousel({ children, label, singleRow = false }: { children: ReactNode; label: string; singleRow?: boolean }) {
   const track = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const move = (direction: -1 | 1) => {
@@ -44,7 +44,7 @@ function ContentCarousel({ children, label }: { children: ReactNode; label: stri
     const timer = window.setInterval(() => move(1), 5200);
     return () => window.clearInterval(timer);
   }, [paused]);
-  return <div className="carousel-shell" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}><div className="carousel-controls"><span>{label} · auto slideshow</span><div><button type="button" aria-label={"Previous " + label} onClick={() => move(-1)}>←</button><button type="button" aria-label={"Next " + label} onClick={() => move(1)}>→</button></div></div><div className="content-carousel" ref={track} tabIndex={0} aria-label={label} aria-live="off">{children}</div></div>;
+  return <div className="carousel-shell" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}><div className="carousel-controls"><span>{label}</span><div><button type="button" aria-label={"Previous " + label} onClick={() => move(-1)}>←</button><button type="button" aria-label={"Next " + label} onClick={() => move(1)}>→</button></div></div><div className={"content-carousel" + (singleRow ? " content-carousel-single" : "")} ref={track} tabIndex={0} aria-label={label} aria-live="off">{children}</div></div>;
 }
 
 const portals = [
@@ -200,7 +200,7 @@ export default function HomePage() {
 
       <section className="portals section-wrap editorial-about" id="about">
         <div className="section-heading"><div><p className="eyebrow">THE NEXTGEN STORY</p><h2><LetterHeading text="Science, community" /> <em><LetterHeading text="& action." /></em></h2></div><p>Mission, vision and approach captured from the organisation’s public website and connected to the platform CMS.</p></div>
-        <ContentCarousel label="Organisation story"><div className="carousel-track">
+        <ContentCarousel label="Organisation story" singleRow><div className="carousel-track">
           {catalogue.filter((item) => ["website-we-are-on-a-mission", "website-our-mission", "website-we-have-a-vision", "website-our-approach", "website-our-logic"].includes(item.slug)).slice(0, 4).map((item) => <article className="story-card" key={item.id}><p className="portal-tag">{item.title}</p><p>{item.summary || item.body}</p></article>)}
         </div></ContentCarousel>
       </section>
