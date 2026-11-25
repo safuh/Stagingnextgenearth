@@ -25,7 +25,7 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: PUBLIC_BASE_URL
-        value: https://nextgen-web.onrender.com
+        value: https://nextgen-web-upag.onrender.com
       - key: CORS_ORIGINS
         value: "[]"
       - key: CORS_ALLOW_CREDENTIALS
