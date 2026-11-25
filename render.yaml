@@ -54,7 +54,7 @@ services:
       - key: BACKEND_API_URL
         value: http://nextgen-api:10000/api
       - key: NEXT_PUBLIC_ORGANIZATION_SLUG
-        value: next-gen-for-earth
+        value: next-gen-for-earth-demo
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
 
