@@ -3,6 +3,7 @@
 """Idempotently seed a reviewable NextGen for Earth demo catalogue."""
 import argparse
 import asyncio
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
