@@ -1,6 +1,6 @@
 # NextGen for Earth — Render deployment blueprint.
-# The web app proxies all API calls server-side; only the frontend is public-facing
-# for normal browsing. Keep both services in the same Render region as Postgres.
+# The API image runs Alembic migrations before starting the application.
+# The web app proxies API calls server-side; both services share a region with Postgres.
 services:
   - type: web
     name: nextgen-api
@@ -9,8 +9,6 @@ services:
     region: frankfurt
     dockerfilePath: ./docker/Dockerfile
     dockerContext: .
-    dockerCommand: uvicorn stagingnextgenearth.app:create_app --factory --host 0.0.0.0 --port 10000
-    preDeployCommand: UV_CACHE_DIR=/tmp/uv-cache uv run --no-sync alembic upgrade head
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
