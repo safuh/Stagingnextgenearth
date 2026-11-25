@@ -7,8 +7,8 @@ This repository includes `render.yaml` for a two-service deployment (Next.js web
 1. Push the reviewed branch to GitHub. Confirm the repository includes `render.yaml`, both Dockerfiles, migrations, and the captured media assets.
 2. Open the Render Dashboard and create a new Blueprint from the GitHub repository. Select `render.yaml` and review the resources before approving.
 3. Keep all three services in the same region. The blueprint uses Frankfurt; change the region consistently if your workspace offers a closer supported region.
-4. The API service uses a paid Starter plan because Render's pre-deploy migration command is not available on Free web services. Choose an appropriate plan for the database and web service after reviewing current pricing.
-5. Set `PUBLIC_BASE_URL` on `nextgen-api` to the final HTTPS web URL (or the custom domain once attached). Set the frontend's `BACKEND_API_URL` to the API's private hostname and port if you rename the service.
+4. The API service uses a paid Starter plan because Render's pre-deploy migration command is not available on Free web services. The web service and database also use paid entry-level plans in this Blueprint. Review the current monthly estimate in Render before approving.
+5. Set `PUBLIC_BASE_URL` on `nextgen-api` to the final HTTPS web URL (or the custom domain once attached). The initial Blueprint value assumes `https://nextgen-web.onrender.com`; correct it if Render assigns a different hostname. Set the frontend's `BACKEND_API_URL` to the API's private hostname and port if you rename the service.
 
 ## First deployment
 
@@ -34,7 +34,7 @@ printf '\n'
 export BOOTSTRAP_ADMIN_IDENTIFIER BOOTSTRAP_ADMIN_PASSWORD
 export BOOTSTRAP_API_URL='https://<api-host>/api'
 export BOOTSTRAP_ORGANIZATION_NAME='Next Gen For Earth'
-export BOOTSTRAP_ORGANIZATION_SLUG='next-gen-for-earth'
+export BOOTSTRAP_ORGANIZATION_SLUG='next-gen-for-earth-demo'
 export BOOTSTRAP_ORGANIZATION_COUNTRY_CODE='KE'
 uv run python scripts/bootstrap_nextgen.py
 unset BOOTSTRAP_ADMIN_IDENTIFIER BOOTSTRAP_ADMIN_PASSWORD
@@ -48,11 +48,11 @@ The importer accepts either the organisation slug or UUID:
 
 ```bash
 uv run python -m scripts.import_nextgen_website \
-  --organization-slug next-gen-for-earth \
+  --organization-slug next-gen-for-earth-demo \
   --publish-website-content
 ```
 
-For a staging-only tenant, the same option accepts the UUID shown in the admin UI. The importer stores source attribution and image manifest details. It does not create staff accounts or mark institutional partners as verified. Confirm image rights, photo consent, partner-logo permissions, all impact figures, and programme details with the organisation before production republication.
+For a staging-only tenant, the same option accepts the UUID shown in the admin UI. The importer stores source attribution and image manifest details. It does not create staff accounts or mark institutional partners as verified. Run both data scripts against the Render database—not the local staging database—using the database's external connection URL from a trusted local terminal (include Render's required TLS setting). The API itself continues to use the internal database URL configured by the Blueprint. The organisation has confirmed permission and individual consent for the source website images and content used in this deployment. Preserve source attribution. Treat impact figures as organisation-reported, not independently audited.
 
 ## Production checks
 
