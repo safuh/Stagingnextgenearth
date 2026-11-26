@@ -34,7 +34,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/climate-ingestion",
     tags=["climate-ingestion"],
 )
-_INGEST_ROLES = {"admin", "researcher"}
+_INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
 
 
 class ClimateIngestionCreate(BaseModel):
