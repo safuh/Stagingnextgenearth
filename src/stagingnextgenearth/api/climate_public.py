@@ -219,6 +219,27 @@ async def create_release(
             422,
             "Public releases require a bounded-area ingestion; point requests are not publishable",
         )
+    if source_run.provider_id != "chirps-v3":
+        raise HTTPException(
+            422,
+            "This public release workflow currently supports CHIRPS v3 area products only",
+        )
+    area_label = source_run.requested_area.get("label")
+    product_variant = source_run.requested_area.get("product_variant")
+    if not isinstance(area_label, str) or body.geography_label != area_label:
+        raise HTTPException(
+            422,
+            "The public geography label must match the label recorded with the provider request",
+        )
+    expected_data_class = {
+        "sat": "satellite_estimate",
+        "rnl": "reanalysis",
+    }.get(str(product_variant))
+    if expected_data_class is None or body.data_class != expected_data_class:
+        raise HTTPException(
+            422,
+            "The release data class must match the CHIRPS product variant recorded at ingestion",
+        )
     observation_filter = (
         ClimateObservation.organization_id == organization_id,
         ClimateObservation.ingestion_run_id == source_run.id,
@@ -307,11 +328,11 @@ async def create_release(
         indicator=variable,
         unit=unit,
         provider_id=body.provider_id,
-        provider_product=source_run.source_name,
-        provider_version=None,
-        data_class=body.data_class,
-        geography_label=body.geography_label,
-        geography_resolution=body.geography_resolution,
+        provider_product=f"{source_run.source_name} {str(product_variant).upper()}",
+        provider_version="3.0",
+        data_class=expected_data_class,
+        geography_label=area_label,
+        geography_resolution="0.05° CHIRPS grid; arithmetic mean per day",
         period_start=body.period_start.astimezone(UTC),
         period_end=body.period_end.astimezone(UTC),
         baseline=body.baseline,
@@ -321,9 +342,9 @@ async def create_release(
         uncertainty_summary=body.uncertainty_summary,
         limitations=body.limitations,
         license_name=source_run.licence,
-        attribution=f"{source_run.source_name} ({source_run.provider_id})",
-        terms_url=str(body.terms_url) if body.terms_url else None,
-        citation_url=str(body.citation_url) if body.citation_url else None,
+        attribution=f"Climate Hazards Center (CHC), {source_run.source_name} {str(product_variant).upper()}.",
+        terms_url="https://www.chc.ucsb.edu/data/chirps",
+        citation_url="https://doi.org/10.15780/G2JQ0P",
         source_ingestion_run_id=body.source_ingestion_run_id,
         series_json=series_json,
         regions_json=[],
