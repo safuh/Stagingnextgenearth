@@ -87,6 +87,10 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "SELECT id FROM users WHERE identifier = ?",
             ("climate-author@example.org",),
         ).fetchone()[0]
+        reviewer_id = connection.execute(
+            "SELECT id FROM users WHERE identifier = ?",
+            ("climate-reviewer@example.org",),
+        ).fetchone()[0]
         connection.execute(
             """INSERT INTO climate_ingestion_runs (
                 id, organization_id, provider_id, source_name, licence,
@@ -116,7 +120,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
                 (
                     str(uuid4()), org_id, None, None, observed_at,
                     "precipitation", value, "mm/month", -3.5, 39.9, None, "CHIRPS v3",
-                    run_id, "chirps-v3", record_id, "verified", author_id,
+                    run_id, "chirps-v3", record_id, "verified", reviewer_id,
                     "2026-01-01T00:02:00+00:00", 0, "Provider QA reviewed", None, author_id,
                 ),
             )
