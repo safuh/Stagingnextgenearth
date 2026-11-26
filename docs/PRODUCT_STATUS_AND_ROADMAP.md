@@ -237,3 +237,12 @@ This is a code milestone, not evidence that any editorial insight has been autho
 - Seed script updates existing lesson records and quiz definitions idempotently.
 
 The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The Render API container startup runs the idempotent seed for the default demo organisation `next-gen-for-earth-demo`; other organisation slugs require an explicit seed command.
+
+
+## Public climate freshness and conditional caching — implementation increment
+
+- Anonymous public climate GET endpoints return representation-specific ETags.
+- Matching `If-None-Match` requests return bodyless HTTP 304 responses with cache headers.
+- Public overview distinguishes release publication time, source retrieval completion time and the data-period end.
+- Public Climate Intelligence shows these timestamps in a responsive provenance strip.
+- No arbitrary stale threshold is used; historical coverage is explicit and never described as live conditions.
