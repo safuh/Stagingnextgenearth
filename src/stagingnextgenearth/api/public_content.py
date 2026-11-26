@@ -193,7 +193,7 @@ async def content_audit_events(
     return [ContentAuditRead.model_validate(x) for x in rows.all()]
 
 class PublicContentRead(BaseModel):
-    """Public content fields without internal source or moderation metadata."""
+    """Public content plus explicitly allow-listed presentation metadata."""
     model_config = ConfigDict(from_attributes=True)
     id: str
     content_type: str
@@ -201,7 +201,45 @@ class PublicContentRead(BaseModel):
     title: str
     summary: str | None
     body: str | None
+    source_url: str | None
+    metadata_json: dict[str, object]
     published_at: datetime | None
+
+
+_PUBLIC_METADATA_KEYS = {
+    "display_value",
+    "gallery",
+    "authors",
+    "publication_date",
+    "year",
+    "publisher",
+    "doi",
+    "topic",
+}
+
+
+def _public_metadata(value: object) -> dict[str, object]:
+    """Exclude internal capture notes, moderation state and filesystem paths."""
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, object] = {}
+    for key in _PUBLIC_METADATA_KEYS:
+        item = value.get(key)
+        if key == "gallery" and isinstance(item, list):
+            gallery = []
+            for image in item:
+                if not isinstance(image, dict):
+                    continue
+                alt, image_url = image.get("alt"), image.get("image_url")
+                if isinstance(alt, str) and isinstance(image_url, str) and (
+                    image_url.startswith("/") or image_url.startswith("https://")
+                ):
+                    gallery.append({"alt": alt[:300], "image_url": image_url[:1000]})
+            result[key] = gallery
+        elif isinstance(item, (str, int, float, list)):
+            result[key] = item
+    return result
+
 
 @router.get("/public/organizations/{organization_slug}/content", response_model=list[PublicContentRead])
 async def public_content(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PublicContentRead]:
@@ -209,6 +247,16 @@ async def public_content(organization_slug: str, session: Annotated[AsyncSession
     if org is None:
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(PublicContentEntry).where(PublicContentEntry.organization_id == org.id, PublicContentEntry.publication_state == "published").order_by(PublicContentEntry.content_type, PublicContentEntry.title).limit(500))
-    return [PublicContentRead.model_validate(x) for x in rows.all()]
+    result = []
+    for row in rows.all():
+        item = PublicContentRead.model_validate(row)
+        source_url = row.source_url
+        if source_url and not source_url.startswith(("https://", "http://")):
+            source_url = None
+        result.append(item.model_copy(update={
+            "source_url": source_url,
+            "metadata_json": _public_metadata(row.metadata_json),
+        }))
+    return result
 
 # fmt: on
