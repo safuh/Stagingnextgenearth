@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
@@ -81,7 +80,7 @@ export default function CommunityPage() {
                   {people.map((person) => (
                     <article className="portal-card people-card" key={person.id}>
                       {person.profile_image_url ? (
-                        <Image className="people-avatar" src={person.profile_image_url} alt={person.full_name} width={112} height={112} quality={90} />
+                        <img className="people-avatar" src={person.profile_image_url} alt={person.full_name} width={112} height={112} loading="lazy" />
                       ) : (
                         <div className="people-avatar people-avatar-fallback" aria-hidden="true">{person.full_name.slice(0, 1)}</div>
                       )}
