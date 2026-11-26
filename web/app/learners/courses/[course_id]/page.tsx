@@ -296,7 +296,7 @@ export default function LearnerClassroomPage() {
                           <p className="portal-tag">LESSON {String(lessonIndex + 1).padStart(2, "0")} · {lesson.content_type.replaceAll("_", " ")}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</p>
                           <h4>{lesson.title}</h4>
                           {lesson.content && <p className="learner-lesson-content">{lesson.content}</p>}
-                          {lesson.resource_url && <p><a href={lesson.resource_url} target="_blank" rel="noreferrer">Open lesson resource</a></p>}
+                          {lesson.resource_url && <p><a href={lesson.resource_url} target="_blank" rel="noreferrer">Further reading / source</a></p>}
                           <button className="primary-action" disabled={busy || completed} onClick={() => void completeLesson(lesson)}>
                             {completed ? "Completed" : busy ? "Saving…" : "Mark lesson complete"}
                           </button>
