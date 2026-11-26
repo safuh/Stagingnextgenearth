@@ -231,7 +231,7 @@ This is a code milestone, not evidence that any editorial insight has been autho
 
 - Four published pilot tracks now have 24 substantive lessons across eight modules.
 - Lesson content includes learning outcomes, explanatory material, applied practice and self-checks.
-- Four automated formative quizzes are seeded (three questions per course; 70% pass mark).
+- Four automated formative quizzes are seeded (four questions per course; 70% pass mark).
 - Lesson source links point to official WHO, IPCC, UNICEF, FAO, UNESCO and UN materials.
 - Learner classroom includes course overview, module completion and improved lesson-reading layout.
 - Seed script updates existing lesson records and quiz definitions idempotently.
