@@ -209,6 +209,7 @@ class PublicContentRead(BaseModel):
 _PUBLIC_METADATA_KEYS = {
     "display_value",
     "gallery",
+    "image_url",
     "authors",
     "publication_date",
     "year",
@@ -236,6 +237,10 @@ def _public_metadata(value: object) -> dict[str, object]:
                 ):
                     gallery.append({"alt": alt[:300], "image_url": image_url[:1000]})
             result[key] = gallery
+        elif key == "image_url" and isinstance(item, str) and (
+            item.startswith("/") or item.startswith("https://")
+        ):
+            result[key] = item[:1000]
         elif isinstance(item, (str, int, float, list)):
             result[key] = item
     return result
