@@ -34,6 +34,16 @@ type Overview = {
   indicators: string[];
   latest_published_at: string | null;
 };
+type Source = {
+  provider_id: string;
+  provider_product: string;
+  data_class: string;
+  license_name: string;
+  attribution: string;
+  terms_url: string | null;
+  citation_url: string | null;
+  release_count: number;
+};
 
 const dataClassLabels: Record<string, string> = {
   station_observation: "Station observation",
@@ -46,6 +56,7 @@ const dataClassLabels: Record<string, string> = {
 export default function ClimateIntelligencePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [releases, setReleases] = useState<Release[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -54,10 +65,12 @@ export default function ClimateIntelligencePage() {
     Promise.all([
       apiGet<Overview>(`/public/organizations/${ORGANIZATION_SLUG}/climate/overview`),
       apiGet<Release[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases?limit=100`),
-    ]).then(([summary, items]) => {
+      apiGet<Source[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/sources`),
+    ]).then(([summary, items, sourceItems]) => {
       if (!active) return;
       setOverview(summary);
       setReleases(items);
+      setSources(sourceItems);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Climate intelligence is temporarily unavailable.");
     }).finally(() => {
@@ -132,6 +145,22 @@ export default function ClimateIntelligencePage() {
                 ? ` · Updated ${new Date(overview.latest_published_at).toLocaleDateString()}`
                 : ""}
             </p>
+          )}
+        </div>
+        <div className="staff-card">
+          <h2>Published data sources</h2>
+          {sources.length === 0 ? (
+            <p className="workspace-muted">Source records will appear when provider-backed climate releases are published.</p>
+          ) : (
+            <ul>
+              {sources.map((source) => (
+                <li key={source.provider_id + source.provider_product}>
+                  <strong>{source.provider_product}</strong> · {source.data_class} · {source.license_name}
+                  {source.citation_url && <> · <a href={source.citation_url} target="_blank" rel="noreferrer">Citation</a></>}
+                  {source.terms_url && <> · <a href={source.terms_url} target="_blank" rel="noreferrer">Terms</a></>}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
         <div className="staff-card">
