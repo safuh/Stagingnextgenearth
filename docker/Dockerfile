@@ -25,6 +25,9 @@ COPY alembic ./alembic
 COPY scripts ./scripts
 
 RUN uv sync --locked --no-dev --no-editable \
+    # CHIRPS area extraction decodes provider GeoTIFF rasters at runtime. Keep the
+    # geospatial binary pinned separately from the base application lock set.
+    && uv pip install --python /app/.venv/bin/python "rasterio==1.4.3" \
     && chown -R app:app /app
 
 USER app
