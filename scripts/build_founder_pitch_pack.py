@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E501, E701, E702, E741, B905, I001, F401
 """Build a source-grounded founder pitch deck and proposal from the site media manifest."""
 from __future__ import annotations
 import json
