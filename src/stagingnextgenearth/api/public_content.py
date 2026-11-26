@@ -2,9 +2,10 @@
 # fmt: off
 """Moderated CMS API consumed by the public website."""
 from datetime import UTC, datetime
+import re
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry, OrganizationRecordAuditEvent
@@ -19,6 +20,21 @@ class ContentCreate(BaseModel):
     body: str | None = Field(default=None, max_length=30000)
     metadata_json: dict[str, object] = Field(default_factory=dict)
     source_url: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_climate_insight_links(self) -> "ContentCreate":
+        if self.content_type == "climate_insight":
+            for key in ("release_slug", "publication_slug"):
+                value = self.metadata_json.get(key)
+                if not isinstance(value, str) or not re.fullmatch(
+                    r"[a-z0-9]+(?:-[a-z0-9]+)*", value
+                ):
+                    raise ValueError(
+                        f"climate_insight metadata_json requires a valid {key}"
+                    )
+        return self
+
+
 class ContentUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=240)
     summary: str | None = Field(default=None, max_length=5000)
