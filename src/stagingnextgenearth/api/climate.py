@@ -147,6 +147,7 @@ async def list_climate_observations(
     session: Annotated[AsyncSession, Depends(get_session)],
     variable: str | None = Query(default=None, min_length=2, max_length=80),
     quality_status: Literal["pending", "verified", "rejected"] | None = None,
+    ingestion_run_id: str | None = Query(default=None, max_length=36),
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = Query(default=100, ge=1, le=500),
@@ -161,6 +162,8 @@ async def list_climate_observations(
         statement = statement.where(ClimateObservation.variable == variable)
     if quality_status is not None:
         statement = statement.where(ClimateObservation.quality_status == quality_status)
+    if ingestion_run_id is not None:
+        statement = statement.where(ClimateObservation.ingestion_run_id == ingestion_run_id)
     if start is not None:
         statement = statement.where(ClimateObservation.observed_at >= start)
     if end is not None:
