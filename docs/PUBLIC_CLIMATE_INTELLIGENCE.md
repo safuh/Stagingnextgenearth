@@ -269,12 +269,18 @@ Implemented in the current feature branch:
 - Anonymous endpoints currently cover overview, release list, release detail, series and source catalogue. Public reads are bounded and cacheable.
 - The website currently has the catalogue, release detail and methodology routes, plus homepage navigation and an honest no-release state.
 
+The authenticated browser workflow is now implemented at `/workspace/research/climate`:
+- Bounded CHIRPS v3 SAT ingestion with a 31-day UI limit and explicit WGS84 bounding box.
+- Organisation-scoped provider-run history with per-run pending/verified/rejected counts.
+- Sample observation inspection and an audited batch quality decision.
+- Versioned release drafting, submission, independent approval, publication, supersession and retraction.
+- Public climate catalogue, source register, release detail and methodology pages; release detail includes a chart derived from published series values and an accessible table.
+
 Still outstanding:
-- A researcher-facing authoring interface and provider-ingestion UI. The current lifecycle is API-backed; users do not yet have a complete browser workflow to create and publish a release.
+- A successful live provider-backed run, independent review and publication in the target staging environment.
 - Explicit public regional aggregation and a dedicated regions endpoint.
 - Curated climate insight/editorial records and the insights endpoint.
-- Spatial maps and richer chart components; current time series is presented in an accessible table.
-- A provider-backed release populated from an actual live provider ingestion in staging.
+- Spatial maps and geographic comparison visualisations.
 - Stale-data indicators, ETags/cache invalidation and operational monitoring for public release freshness.
-
+- Durable asynchronous jobs for larger provider backfills; the current endpoint is synchronous and should remain bounded.
 Do not claim the public climate hub is populated or live until a real provider-backed run has been quality-reviewed, published and verified through the staging public API.
