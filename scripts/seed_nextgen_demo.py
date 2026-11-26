@@ -507,7 +507,7 @@ async def seed(slug: str) -> None:
                 assessment.configuration = configuration
                 assessment.pass_mark = assessment_spec["pass_mark"]
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, four programmes and {len(course_specs)} published learning courses with reviewed pilot lesson content.")
+        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, four programmes and {len(course_specs)} published learning courses with substantive pilot lesson content pending subject-matter review.")
     await engine.dispose()
 
 if __name__ == "__main__":
