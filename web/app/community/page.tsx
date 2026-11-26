@@ -22,6 +22,16 @@ type PublicPartner = {
   region: string | null;
 };
 
+const partnerLogos: Record<string, string> = {
+  "University of Nairobi": "/media/nextgen-source/partner-university-of-nairobi.png",
+  "Medical College of Wisconsin": "/media/nextgen-source/partner-medical-college-wisconsin.png",
+  "Men In Health": "/media/nextgen-source/men-in-health-7b0b71fb0d.png",
+  "Eternal Flame Worldwide": "/media/nextgen-source/eternal-flame-worldwide-bf4a67139d.png",
+  "Kilifi County Health Department": "/media/nextgen-source/kilifi-county-health-department-acec4dce86.png",
+  "Masinde Muliro University (MMUST)": "/media/nextgen-source/partner-mmust.png",
+  "CHANCE Network": "/media/nextgen-source/partner-chance-network.png",
+};
+
 export default function CommunityPage() {
   const [people, setPeople] = useState<PublicPerson[]>([]);
   const [partners, setPartners] = useState<PublicPartner[]>([]);
@@ -100,7 +110,16 @@ export default function CommunityPage() {
               ) : (
                 <div className="portal-grid">
                   {partners.map((partner) => (
-                    <article className="portal-card" key={partner.id}>
+                    <article className="portal-card partner-card" key={partner.id}>
+                      {partnerLogos[partner.name] ? (
+                        <div className="partner-logo-frame">
+                          <img className="partner-logo" src={partnerLogos[partner.name]} alt={partner.name + " logo"} loading="lazy" />
+                        </div>
+                      ) : (
+                        <div className="partner-logo-frame partner-logo-fallback" aria-hidden="true">
+                          {partner.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
                       <p className="portal-tag">Institutional collaborator</p>
                       <h3>{partner.name}</h3>
                       <p className="portal-description">
