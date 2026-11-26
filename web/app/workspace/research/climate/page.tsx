@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { apiGet, apiPost, hasSession } from "@/lib/api";
 
 type Organisation = { id: string; name: string; country_code: string };
-type Membership = { role: string; roles?: string[]; status: string };
+type Membership = { user_id: string; role: string; roles?: string[]; status: string };
 type IngestionRun = {
   id: string; provider_id: string; source_name: string; licence: string | null;
   requested_start: string; requested_end: string; requested_area: Record<string, number> | null;
@@ -308,7 +308,7 @@ export default function ClimateResearchStudioPage() {
                     {!canAuthor ? <p className="climate-lock">Your membership does not include provider-ingestion permissions.</p> : (
                       <form className="climate-form" onSubmit={runIngestion}>
                         <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="chirps-v3">CHIRPS v3 / daily rainfall</option></select></label>
-                        <label>Product variant<select value={variant} onChange={(event) => setVariant(event.target.value)}><option value="sat">Satellite estimate / SAT</option><option value="rnl">Reanalysis-disaggregated / RNL</option></select></label>
+                        <label>Product variant<select value={variant} onChange={(event) => setVariant(event.target.value)}><option value="sat">Satellite estimate / SAT</option></select></label>
                         <div className="climate-form-pair">
                           <label>Start date<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
                           <label>End date<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} required /></label>
@@ -410,7 +410,7 @@ export default function ClimateResearchStudioPage() {
                         <p>{release.indicator} · {release.unit} · {release.geography_label}</p>
                         <div className="climate-release-actions">
                           {release.state === "draft" && <button disabled={busy} onClick={() => transitionRelease(release, "submit")}>Submit for review</button>}
-                          {release.state === "review" && canReleaseReview && <button disabled={busy || release.created_by === membership?.role} onClick={() => transitionRelease(release, "approve")}>Approve</button>}
+                          {release.state === "review" && canReleaseReview && <button disabled={busy || release.created_by === membership?.user_id} onClick={() => transitionRelease(release, "approve")}>Approve</button>}
                           {release.state === "approved" && canReleaseReview && <button disabled={busy} onClick={() => transitionRelease(release, "publish")}>Publish public</button>}
                           {release.state === "published" && canReleaseReview && <button className="danger-text" disabled={busy} onClick={() => transitionRelease(release, "retract")}>Retract</button>}
                         </div>
