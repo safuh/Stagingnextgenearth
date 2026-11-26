@@ -9,7 +9,7 @@
 | 00:40–01:30 | Founder/admin | Show organisation overview, roles, people directory, partner verification and governance/audit controls. |
 | 01:30–02:40 | Research library | Open a website-imported publication, show source provenance, preview external scholarly metadata and create a new study saved as concept. |
 | 02:40–03:30 | Research governance | Show proposal/protocol/ethics gates, dataset registration, submission/review and analysis provenance. Do not imply a concept is approved. |
-| 03:30–04:40 | Climate intelligence | Show provider catalogue and a successful NASA POWER/CHIRPS ingestion if available. Display source, units, period, coverage and quality state. Otherwise show provider status and last successful run. |
+| 03:30–04:40 | Climate intelligence | Open the public editorial climate hub and methodology. If a real release is published, inspect its time series and provenance. Then open the authenticated Climate Studio: inspect provider-run history, sample observations, independent quality review and release governance. Never use fixture values as public climate evidence. |
 | 04:40–05:20 | Field data | If live Central is unavailable, demonstrate the synthetic ODK simulator. Label every fixture Synthetic demo; show mapping, pagination, duplicate suppression and pending review. |
 | 05:20–06:20 | Learning | Show the four proposed curriculum tracks and course authoring/enrolment/assessment path. Explicitly distinguish draft blueprint and placeholder lessons from approved content. |
 | 06:20–07:00 | Leadership / close | Show available organisational indicators, distinguish operational counts from verified outcomes, and close on one connected operating platform. |
@@ -22,7 +22,10 @@
 - [ ] Use synthetic learner/staff accounts; never expose real credentials or private invitations.
 - [ ] Verify the research publication being shown and its source URL.
 - [ ] Confirm OpenAlex preview/import availability before promising a live lookup.
-- [ ] Confirm a recent successful climate-provider ingestion and an independently approved, published public release before showing public climate values.
+- [ ] Confirm a recent successful CHIRPS/other area-provider ingestion and an independently reviewed, approved and published release before showing public climate values.
+- [ ] Confirm Climate Studio is accessible to the demo account at `/workspace/research/climate`; verify role permissions for ingestion, quality review and release publication.
+- [ ] Verify the requested bounding box, dates, source licence, observation counts and sample values before approving a provider run.
+- [ ] Verify the public release time series and full provenance page; confirm it contains no internal run IDs, raw coordinates or review notes.
 - [ ] Verify that public climate endpoints return published releases only and that pending/restricted/synthetic records are excluded.
 - [ ] If ERA5 is not configured, show it as planned/configuration-required.
 - [ ] If ODK Central is not connected, use only the local simulator and label all records synthetic.
@@ -32,7 +35,7 @@
 
 ## Fallback language
 
-- **No public climate release:** “The public climate intelligence experience is being built on the provider and research infrastructure. We only publish values after provenance, quality and disclosure review; this environment does not yet have an approved public release.”
+- **No public climate release:** “The public Climate Intelligence hub and authenticated Climate Studio are available, but this environment does not yet have an approved provider-backed release. We keep the public catalogue empty until a real source has passed independent quality and publication review.”
 - **Provider unavailable:** “The adapter is part of the platform design; this environment is not currently returning a live provider result. We are showing the recorded provider status rather than simulated climate values.”
 - **No ODK Central endpoint:** “This is a deterministic synthetic protocol demonstration of the sync workflow, not a live ODK Central connection.”
 - **Curriculum not approved:** “These are proposed curriculum structures for subject-matter review. The existing seeded lesson text is not final instructional content.”
