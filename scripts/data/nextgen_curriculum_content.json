@@ -51,7 +51,74 @@
             }
           ]
         }
-      ]
+      ],
+      "assessment": {
+        "title": "Research foundations knowledge check",
+        "instructions": "Answer all questions. This short formative quiz checks research-question alignment, design limits and evidence quality. A 70% score is required to pass; you may review the lessons and retry.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "What should guide the choice of a research design?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Which method is most fashionable"
+              },
+              {
+                "id": "b",
+                "text": "The research question, feasibility, ethics and evidence required"
+              },
+              {
+                "id": "c",
+                "text": "The largest possible sample regardless of purpose"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "A cross-sectional survey usually provides what kind of evidence?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A description or association at a point or short period"
+              },
+              {
+                "id": "b",
+                "text": "Definitive proof of causation"
+              },
+              {
+                "id": "c",
+                "text": "A guaranteed forecast"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "Why is a sampling frame important?",
+            "options": [
+              {
+                "id": "a",
+                "text": "It guarantees that nobody declines"
+              },
+              {
+                "id": "b",
+                "text": "It defines the practical population or list from which selection occurs"
+              },
+              {
+                "id": "c",
+                "text": "It removes all possible bias"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
     },
     {
       "slug": "healthcare-workers",
@@ -102,7 +169,74 @@
             }
           ]
         }
-      ]
+      ],
+      "assessment": {
+        "title": "Climate-health resilience knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks climate-health pathways, source awareness and safe interpretation. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "Which statement best describes climate-health risk?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A hazard alone determines every person's risk"
+              },
+              {
+                "id": "b",
+                "text": "Risk depends on hazard, exposure, vulnerability and adaptive capacity"
+              },
+              {
+                "id": "c",
+                "text": "A county average is an individual diagnosis"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "What is reanalysis?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A retrospective reconstruction combining observations and models"
+              },
+              {
+                "id": "b",
+                "text": "A direct measurement from every household"
+              },
+              {
+                "id": "c",
+                "text": "A guaranteed prediction of tomorrow's weather"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "How should a climate chart be used in a clinical setting?",
+            "options": [
+              {
+                "id": "a",
+                "text": "As a replacement for clinical protocols"
+              },
+              {
+                "id": "b",
+                "text": "As context alongside approved clinical guidance and local service information"
+              },
+              {
+                "id": "c",
+                "text": "As proof that a specific patient has a climate-related illness"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
     },
     {
       "slug": "youth-climate-stewards",
@@ -153,7 +287,74 @@
             }
           ]
         }
-      ]
+      ],
+      "assessment": {
+        "title": "Youth stewardship knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks climate literacy, safe participation and honest impact reporting. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "What is the difference between weather and climate?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Weather is short-term conditions; climate describes longer-term patterns"
+              },
+              {
+                "id": "b",
+                "text": "They mean exactly the same thing"
+              },
+              {
+                "id": "c",
+                "text": "One rainy day proves a climate trend"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "A count of seedlings planted is best described as:",
+            "options": [
+              {
+                "id": "a",
+                "text": "Proof of long-term ecosystem recovery"
+              },
+              {
+                "id": "b",
+                "text": "An activity output that needs follow-up to assess survival"
+              },
+              {
+                "id": "c",
+                "text": "A direct measure of carbon sequestration"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "What is required before youth field activities?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Only a social media announcement"
+              },
+              {
+                "id": "b",
+                "text": "Age-appropriate consent, adult supervision and approved safeguarding arrangements"
+              },
+              {
+                "id": "c",
+                "text": "Participants must share personal stories"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
     },
     {
       "slug": "indigenous-community-knowledge",
@@ -204,7 +405,74 @@
             }
           ]
         }
-      ]
+      ],
+      "assessment": {
+        "title": "Community knowledge governance knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks consent, community authority and responsible knowledge protection. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "When should permission to document community knowledge be sought?",
+            "options": [
+              {
+                "id": "a",
+                "text": "After publication"
+              },
+              {
+                "id": "b",
+                "text": "Before the activity, through an understandable and voluntary process"
+              },
+              {
+                "id": "c",
+                "text": "Only if the material is already online"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "Who determines whether restricted knowledge may be shared?",
+            "options": [
+              {
+                "id": "a",
+                "text": "The software developer alone"
+              },
+              {
+                "id": "b",
+                "text": "Relevant rights holders and community authorities under their protocols"
+              },
+              {
+                "id": "c",
+                "text": "Any visitor to the area"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "What should happen when a map may expose a sensitive community site?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Publish the precise coordinates for transparency"
+              },
+              {
+                "id": "b",
+                "text": "Assess risk and generalise, restrict or withhold the information as authorised"
+              },
+              {
+                "id": "c",
+                "text": "Remove only the map title"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
     }
   ]
 }
