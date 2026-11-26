@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, Literal, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
@@ -78,6 +78,9 @@ class ClimateIngestionRead(BaseModel):
     requested_end: datetime
     requested_area: dict[str, object] | None = None
     licence: str | None = None
+    pending_observations: int = 0
+    verified_observations: int = 0
+    rejected_observations: int = 0
 
 
 @router.get("", response_model=list[ClimateIngestionRead])
@@ -96,7 +99,42 @@ async def list_climate_ingestion_runs(
         .order_by(ClimateIngestionRun.started_at.desc())
         .limit(limit)
     )
-    return [ClimateIngestionRead.model_validate(row) for row in rows.all()]
+    runs = rows.all()
+    if not runs:
+        return []
+    counts = (
+        await session.execute(
+            select(
+                ClimateObservation.ingestion_run_id,
+                ClimateObservation.quality_status,
+                func.count(ClimateObservation.id),
+            )
+            .where(
+                ClimateObservation.organization_id == organization_id,
+                ClimateObservation.ingestion_run_id.in_([run.id for run in runs]),
+            )
+            .group_by(
+                ClimateObservation.ingestion_run_id,
+                ClimateObservation.quality_status,
+            )
+        )
+    ).all()
+    quality_by_run: dict[str, dict[str, int]] = {}
+    for run_id, quality_status, count in counts:
+        quality_by_run.setdefault(str(run_id), {})[str(quality_status)] = int(count)
+    result: list[ClimateIngestionRead] = []
+    for run in runs:
+        quality = quality_by_run.get(run.id, {})
+        result.append(
+            ClimateIngestionRead.model_validate(run).model_copy(
+                update={
+                    "pending_observations": quality.get("pending", 0),
+                    "verified_observations": quality.get("verified", 0),
+                    "rejected_observations": quality.get("rejected", 0),
+                }
+            )
+        )
+    return result
 
 
 class ClimateIngestionReview(BaseModel):
