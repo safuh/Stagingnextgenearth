@@ -2188,3 +2188,12 @@ footer > span { line-height: 1.7; }
   .learner-module-card { padding: 16px; }
   .learner-lesson-card { padding: 15px; }
 }
+
+
+/* Public climate evidence freshness strip */
+.climate-public-freshness { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px; margin: 0 7.2% 54px; border: 1px solid rgba(20,53,38,.15); background: rgba(20,53,38,.14); }
+.climate-public-freshness > div { display: grid; gap: 8px; min-height: 78px; padding: 16px 20px; background: #f8faf5; }
+.climate-public-freshness > div span { color: #718074; font-size: 8px; font-weight: 800; letter-spacing: .13em; }
+.climate-public-freshness > div strong { color: #214634; font: 500 14px "DM Sans",Arial,sans-serif; }
+.climate-public-freshness > p { grid-column: 1 / -1; margin: 0; padding: 12px 20px; color: #718074; background: #edf2e8; font-size: 9px; line-height: 1.65; }
+@media (max-width: 760px) { .climate-public-freshness { grid-template-columns: 1fr; margin: 0 5% 40px; } .climate-public-freshness > p { grid-column: auto; } }
