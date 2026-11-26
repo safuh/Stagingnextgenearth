@@ -126,3 +126,79 @@ class AuthenticationRateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(self.requests)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
+
+
+class PublicClimateRateLimitMiddleware(BaseHTTPMiddleware):
+    """Apply a bounded per-client fixed-window limit to anonymous climate reads.
+
+    The process-local counter is defense in depth. Multi-worker or multi-replica
+    deployments must also enforce a shared limit at their trusted ingress.
+    """
+
+    _MAX_TRACKED_CLIENTS = 20_000
+
+    def __init__(
+        self,
+        app: object,
+        *,
+        requests: int = 60,
+        window_seconds: int = 60,
+        api_prefix: str = "/api",
+    ) -> None:
+        super().__init__(app)  # type: ignore[arg-type]
+        self.requests = requests
+        self.window_seconds = window_seconds
+        self.public_prefix = f"{api_prefix.rstrip('/')}/public/organizations/"
+        self._buckets: OrderedDict[str, tuple[float, int]] = OrderedDict()
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        path = request.url.path
+        if (
+            request.method != "GET"
+            or not path.startswith(self.public_prefix)
+            or "/climate/" not in path
+        ):
+            return await call_next(request)
+
+        client_host = request.client.host if request.client is not None else "unknown"
+        organization_slug = path[len(self.public_prefix) :].split("/", 1)[0]
+        key = f"{client_host}:{organization_slug}:public-climate"
+        now = monotonic()
+        bucket = self._buckets.get(key)
+        if bucket is None or now - bucket[0] >= self.window_seconds:
+            count = 1
+            started = now
+        else:
+            started, previous_count = bucket
+            count = previous_count + 1
+
+        self._buckets[key] = (started, count)
+        self._buckets.move_to_end(key)
+        while len(self._buckets) > self._MAX_TRACKED_CLIENTS:
+            self._buckets.popitem(last=False)
+
+        remaining = max(0, self.requests - count)
+        if count > self.requests:
+            retry_after = max(1, int(self.window_seconds - (now - started)))
+            response: Response = JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": "public_climate_rate_limited",
+                        "message": "Too many public climate requests. Try again later.",
+                    }
+                },
+                headers={
+                    "Retry-After": str(retry_after),
+                    "Cache-Control": "no-store",
+                },
+            )
+        else:
+            response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.requests)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
