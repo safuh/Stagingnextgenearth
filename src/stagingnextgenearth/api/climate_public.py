@@ -31,7 +31,7 @@ from .dependencies import (
 
 router = APIRouter(tags=["public-climate"])
 _RELEASE_ROLES = {"admin", "founder", "executive", "researcher"}
-_REVIEW_ROLES = {"admin", "founder", "executive"}
+_REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _DATA_CLASSES = {
     "station_observation", "satellite_estimate", "reanalysis", "forecast", "projection"
 }
