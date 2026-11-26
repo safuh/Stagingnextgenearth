@@ -8,7 +8,10 @@ Use this index to keep implementation, acceptance and external presentation alig
 - [Initial four-track curriculum blueprint](learning/NEXTGEN_CURRICULUM_BLUEPRINT.md)
 - [LLM and coding-agent instructions](LLM_DEVELOPMENT_GUIDE.md)
 
-- [Public climate intelligence product/API specification](PUBLIC_CLIMATE_INTELLIGENCE.md)\n- Authenticated Climate Studio: `web/app/workspace/research/climate/page.tsx`\n- Public climate experience: `web/app/climate-intelligence/`
+- [Public climate intelligence product/API specification](PUBLIC_CLIMATE_INTELLIGENCE.md)
+- Authenticated Climate Studio: `web/app/workspace/research/climate/page.tsx`
+- Public climate experience: `web/app/climate-intelligence/`
+- Research-linked climate insights: moderated CMS records linked to a published release and publication.
 
 ## Founder and partner presentation
 - [Updated founder presentation](FOUNDER_PRESENTATION.md)
