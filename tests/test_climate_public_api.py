@@ -33,31 +33,17 @@ def _release_payload() -> dict[str, object]:
         "slug": "kilifi-monthly-rainfall",
         "title": "Monthly rainfall in Kilifi",
         "summary": "Provider-derived monthly rainfall series for the Kilifi study area.",
-        "indicator": "precipitation",
-        "unit": "mm/month",
         "provider_id": "chirps-v3",
-        "provider_product": "CHIRPS v3 satellite precipitation",
-        "provider_version": "v3",
         "data_class": "satellite_estimate",
         "geography_label": "Kilifi County, Kenya",
         "geography_resolution": "0.05 degree grid, county aggregate",
         "period_start": "2025-01-01T00:00:00+00:00",
         "period_end": "2025-12-01T00:00:00+00:00",
         "baseline": "Not applicable; descriptive annual series",
-        "aggregation_method": "Area-weighted mean of valid monthly grid cells.",
-        "coverage_pct": 96.5,
-        "missingness_pct": 3.5,
         "uncertainty_summary": "Satellite-derived estimates; not station measurements.",
         "limitations": "County aggregate does not represent every local microclimate.",
-        "license_name": "CHIRPS terms of use",
-        "attribution": "Climate Hazards Center, CHIRPS v3.",
         "terms_url": "https://www.chc.ucsb.edu/data/chirps",
         "citation_url": "https://www.chc.ucsb.edu/data/chirps",
-        "series": [
-            {"observed_at": "2025-01-01T00:00:00+00:00", "value": 44.2},
-            {"observed_at": "2025-02-01T00:00:00+00:00", "value": 28.1},
-        ],
-        "regions": [{"region": "Kilifi", "value": 36.15, "coverage_pct": 96.5}],
     }
 
 
@@ -114,6 +100,25 @@ def test_public_climate_release_requires_independent_approval_and_publication(
                 "2026-01-01T00:00:00+00:00", "2026-01-01T00:01:00+00:00",
             ),
         )
+        for observed_at, value, record_id in (
+            ("2025-01-01T00:00:00+00:00", 44.2, "chirps-record-1"),
+            ("2025-02-01T00:00:00+00:00", 28.1, "chirps-record-2"),
+        ):
+            connection.execute(
+                """INSERT INTO climate_observations (
+                    id, organization_id, study_id, project_id, observed_at,
+                    variable, value, unit, latitude, longitude, location, source,
+                    ingestion_run_id, provider_id, provider_record_id, quality_status,
+                    reviewed_by, reviewed_at, safeguarding_confirmed, review_note,
+                    metadata_json, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(uuid4()), org_id, None, None, observed_at,
+                    "precipitation", value, "mm/month", -3.5, 39.9, None, "CHIRPS v3",
+                    run_id, "chirps-v3", record_id, "verified", author_id,
+                    "2026-01-01T00:02:00+00:00", 0, "Provider QA reviewed", None, author_id,
+                ),
+            )
         connection.commit()
         connection.close()
 
@@ -179,6 +184,8 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert public_detail.status_code == 200
         assert public_detail.json()["provider_id"] == "chirps-v3"
         assert public_detail.json()["data_class"] == "satellite_estimate"
+        assert public_detail.json()["provider_product"] == "CHIRPS v3"
+        assert public_detail.json()["license_name"] == "CHIRPS terms of use"
         assert "created_by" not in public_detail.json()
         assert "source_ingestion_run_id" not in public_detail.json()
 
@@ -188,7 +195,8 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert public_series.status_code == 200
         assert len(public_series.json()["series"]) == 2
-        assert public_series.json()["regions"][0]["region"] == "Kilifi"
+        assert public_series.json()["regions"] == []
+        assert [point["value"] for point in public_series.json()["series"]] == [44.2, 28.1]
 
         retracted = client.post(
             f"{org_base}/climate-public-releases/{release_id}/retract",
