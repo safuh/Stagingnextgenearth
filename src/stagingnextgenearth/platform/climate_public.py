@@ -35,7 +35,7 @@ class ClimatePublicRelease(Base):
             name="uq_climate_public_release_org_slug_version",
         ),
         CheckConstraint(
-            "state IN ('draft', 'review', 'approved', 'published', 'retracted')",
+            "state IN ('draft', 'review', 'approved', 'published', 'superseded', 'retracted')",
             name="ck_climate_public_release_state",
         ),
         CheckConstraint(
