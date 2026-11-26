@@ -1,11 +1,11 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, Literal, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,12 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
-from stagingnextgenearth.platform.models import ClimateIngestionRun, Membership
+from stagingnextgenearth.platform.models import (
+    ClimateIngestionRun,
+    ClimateObservation,
+    Membership,
+    OrganizationAuditEvent,
+)
 
 from .dependencies import (
     Principal,
@@ -92,6 +97,87 @@ async def list_climate_ingestion_runs(
         .limit(limit)
     )
     return [ClimateIngestionRead.model_validate(row) for row in rows.all()]
+
+
+class ClimateIngestionReview(BaseModel):
+    decision: Literal["verified", "rejected"]
+    note: str = Field(min_length=5, max_length=2000)
+
+
+class ClimateIngestionReviewResult(BaseModel):
+    ingestion_run_id: str
+    reviewed_count: int
+    decision: Literal["verified", "rejected"]
+
+
+@router.post("/{run_id}/review", response_model=ClimateIngestionReviewResult)
+async def review_climate_ingestion_run(
+    organization_id: str,
+    run_id: str,
+    body: ClimateIngestionReview,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ClimateIngestionReviewResult:
+    """Apply one independent quality decision to all pending records in a provider run."""
+    if not await membership_has_any_role(session, membership, {"admin", "programme_manager"}):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Climate quality reviewer role required",
+        )
+    run = await session.scalar(
+        select(ClimateIngestionRun).where(
+            ClimateIngestionRun.id == run_id,
+            ClimateIngestionRun.organization_id == organization_id,
+            ClimateIngestionRun.status == "completed",
+        )
+    )
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Completed provider run not found")
+    observations = await session.scalars(
+        select(ClimateObservation).where(
+            ClimateObservation.organization_id == organization_id,
+            ClimateObservation.ingestion_run_id == run_id,
+            ClimateObservation.quality_status == "pending",
+        )
+    )
+    pending = observations.all()
+    if not pending:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This provider run has no pending observations")
+    if any(item.created_by == principal.user_id for item in pending):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "A submitter cannot quality-review their own provider observations",
+        )
+    now = datetime.now(UTC)
+    for item in pending:
+        item.quality_status = body.decision
+        item.reviewed_by = principal.user_id
+        item.reviewed_at = now
+        item.review_note = body.note.strip()
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=item.created_by,
+                action="climate.observation.reviewed",
+                changes={
+                    "observation_id": item.id,
+                    "ingestion_run_id": run_id,
+                    "decision": body.decision,
+                    "variable": item.variable,
+                    "source": item.source,
+                    "observed_at": item.observed_at.isoformat(),
+                    "note": item.review_note,
+                },
+            )
+        )
+    await session.commit()
+    return ClimateIngestionReviewResult(
+        ingestion_run_id=run_id,
+        reviewed_count=len(pending),
+        decision=body.decision,
+    )
 
 
 @router.post("", response_model=ClimateIngestionRead, status_code=status.HTTP_200_OK)
