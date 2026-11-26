@@ -54,7 +54,11 @@ def test_chirps_orchestration_selects_requested_variant(
 ) -> None:
     import stagingnextgenearth.api.climate_ingestion as api_module
 
-    monkeypatch.setattr(api_module, "find_spec", lambda name: object() if name == "rasterio" else None)
+    monkeypatch.setattr(
+        api_module,
+        "find_spec",
+        lambda name: object() if name == "rasterio" else None,
+    )
     body = ClimateIngestionCreate(
         provider="chirps-v3",
         chirps_variant="sat",
