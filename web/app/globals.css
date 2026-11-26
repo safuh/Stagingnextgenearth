@@ -1613,3 +1613,136 @@ footer > span { line-height: 1.7; }
   background: #e8eee3;
   font: 700 22px Georgia, serif;
 }
+
+
+/* Impact ticker directly beneath the organisation's headline figures. */
+.proof-ticker {
+  overflow: hidden;
+  padding: 15px 0;
+  color: #214a36;
+  background: #e8efdf;
+  border-bottom: 1px solid rgba(23,55,45,.09);
+  border-top: 1px solid rgba(23,55,45,.09);
+}
+.proof-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: proof-ticker-scroll 48s linear infinite;
+}
+.proof-ticker:hover .proof-ticker-track { animation-play-state: paused; }
+.proof-ticker-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: clamp(18px,2.8vw,42px);
+  padding-right: clamp(18px,2.8vw,42px);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .045em;
+}
+.proof-ticker-group strong { color: #174d38; font-size: 12px; }
+.proof-ticker-group i { color: #8ba45f; font-size: 13px; font-style: normal; }
+@keyframes proof-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Five-stage organisational theory of change. */
+.theory-section {
+  background:
+    radial-gradient(ellipse at 90% 10%,rgba(156,180,128,.16),transparent 35%),
+    linear-gradient(130deg,#f3f6ef,#e9f0e5);
+}
+.theory-flow {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+.theory-step {
+  position: relative;
+  min-width: 0;
+  padding: 25px 20px 24px;
+  border: 1px solid rgba(23,55,45,.13);
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 12px 30px rgba(24,52,38,.045);
+}
+.theory-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 24px;
+  border-radius: 50%;
+  color: #fff;
+  background: #174d38;
+  font: 600 15px Georgia,serif;
+}
+.theory-step .portal-tag { min-height: 12px; margin-bottom: 8px; }
+.theory-step h3 {
+  margin: 0 0 17px;
+  color: #17372d;
+  font: 500 clamp(19px,1.7vw,25px) Georgia,serif;
+}
+.theory-step ul {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.theory-step li {
+  position: relative;
+  padding-left: 13px;
+  color: #637469;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.theory-step li::before {
+  content: "";
+  position: absolute;
+  top: .55em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8ba45f;
+}
+.theory-impact {
+  color: #fff;
+  border-color: #174d38;
+  background: #174d38;
+}
+.theory-impact .theory-number { color: #174d38; background: #d5e99c; }
+.theory-impact h3, .theory-impact li { color: #fff; }
+.theory-impact .portal-tag { color: #d5e99c; }
+.theory-impact li::before { background: #d5e99c; }
+.theory-arrow {
+  align-self: center;
+  color: #8ba45f;
+  font-size: 23px;
+  font-weight: 300;
+}
+@media (max-width: 1100px) {
+  .theory-flow {
+    grid-template-columns: repeat(5,minmax(0,1fr));
+    gap: 10px;
+  }
+  .theory-arrow { display: none; }
+  .theory-step { padding: 22px 14px; }
+}
+@media (max-width: 760px) {
+  .proof-ticker { padding: 13px 0; }
+  .proof-ticker-group { font-size: 10px; }
+  .theory-flow { grid-template-columns: 1fr; gap: 12px; }
+  .theory-step { padding: 22px; }
+  .theory-number { margin-bottom: 15px; }
+  .theory-step h3 { font-size: 23px; }
+  .theory-step ul { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proof-ticker-track { animation: none; }
+  .proof-ticker { overflow-x: auto; }
+  .proof-ticker-group[aria-hidden="true"] { display: none; }
+}
