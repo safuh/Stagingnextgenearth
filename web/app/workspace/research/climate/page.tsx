@@ -10,6 +10,7 @@ type IngestionRun = {
   id: string; provider_id: string; source_name: string; licence: string | null;
   requested_start: string; requested_end: string; requested_area: Record<string, number> | null;
   status: string; records_received: number; records_inserted: number; records_skipped: number;
+  pending_observations: number; verified_observations: number; rejected_observations: number;
   error_summary: string | null; started_at: string; finished_at: string | null;
 };
 type Observation = {
