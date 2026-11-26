@@ -54,7 +54,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("organization_id", "slug", "version", name="uq_climate_public_release_org_slug_version"),
-        sa.CheckConstraint("state IN ('draft', 'review', 'approved', 'published', 'retracted')", name="ck_climate_public_release_state"),
+        sa.CheckConstraint("state IN ('draft', 'review', 'approved', 'published', 'superseded', 'retracted')", name="ck_climate_public_release_state"),
         sa.CheckConstraint("coverage_pct IS NULL OR (coverage_pct >= 0 AND coverage_pct <= 100)", name="ck_climate_public_release_coverage"),
         sa.CheckConstraint("missingness_pct IS NULL OR (missingness_pct >= 0 AND missingness_pct <= 100)", name="ck_climate_public_release_missingness"),
         sa.CheckConstraint("version >= 1", name="ck_climate_public_release_version"),
