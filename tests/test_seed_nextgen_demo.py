@@ -13,6 +13,9 @@ from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     InstitutionalPartner,
+    LearningCourse,
+    LearningLesson,
+    LearningModule,
     Organization,
     OrganizationPerson,
     Programme,
@@ -20,7 +23,7 @@ from stagingnextgenearth.platform.models import (
 )
 
 
-def test_demo_seed_is_idempotent_and_keeps_unverified_records_private(
+def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     monkeypatch, tmp_path: Path
 ) -> None:
     url = f"sqlite+aiosqlite:///{tmp_path / 'founder-demo-seed.db'}"
@@ -56,12 +59,19 @@ def test_demo_seed_is_idempotent_and_keeps_unverified_records_private(
             partners = list((await session.scalars(select(InstitutionalPartner))).all())
             content = list((await session.scalars(select(PublicContentEntry))).all())
             programmes = list((await session.scalars(select(Programme))).all())
+            courses = list((await session.scalars(select(LearningCourse))).all())
+            modules = list((await session.scalars(select(LearningModule))).all())
+            lessons = list((await session.scalars(select(LearningLesson))).all())
             user_count = int(await session.scalar(select(func.count(User.id))) or 0)
             return {
                 "people": len(people),
                 "partners": len(partners),
                 "content": len(content),
                 "programmes": len(programmes),
+                "courses": len(courses),
+                "modules": len(modules),
+                "lessons": len(lessons),
+                "courses_published": all(item.status == "published" for item in courses),
                 "users": user_count,
                 "people_public_verified": all(
                     item.visibility == "public" and item.review_state == "verified"
@@ -91,6 +101,10 @@ def test_demo_seed_is_idempotent_and_keeps_unverified_records_private(
     assert first["partners"] == len(seed_nextgen_demo.PARTNERS)
     assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS) + len(seed_nextgen_demo.STORY)
     assert first["programmes"] == 4
+    assert first["courses"] == 3
+    assert first["modules"] == 6
+    assert first["lessons"] == 16
+    assert first["courses_published"] is True
     assert first["users"] == 1
     assert first["people_public_verified"] is True
     assert first["partners_public_unverified"] is True
