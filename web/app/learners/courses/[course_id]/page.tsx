@@ -24,6 +24,7 @@ interface Module {
 interface Curriculum {
   course_id: string;
   title: string;
+  description: string;
   modules: Module[];
 }
 interface Progress {
@@ -233,6 +234,19 @@ export default function LearnerClassroomPage() {
       <section className="workspace-content">
         <p className="eyebrow">LEARNER CLASSROOM</p>
         <h1 className="workspace-title">{curriculum?.title ?? "Course classroom"}</h1>
+        {curriculum && (
+          <section className="learner-course-intro">
+            <div>
+              <p className="eyebrow">NEXTGEN LEARNING / PILOT TRACK</p>
+              <p>{curriculum.description}</p>
+            </div>
+            <div className="learner-course-intro-stats">
+              <span><strong>{curriculum.modules.length}</strong> modules</span>
+              <span><strong>{curriculum.modules.reduce((sum, module) => sum + module.lessons.length, 0)}</strong> lessons</span>
+              <span><strong>{curriculum.modules.reduce((sum, module) => sum + module.lessons.reduce((minutes, lesson) => minutes + (lesson.duration_minutes ?? 0), 0), 0)}</strong> guided minutes</span>
+            </div>
+          </section>
+        )}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {!curriculum || !progress ? (
@@ -260,28 +274,38 @@ export default function LearnerClassroomPage() {
                 </p>
               )}
             </section>
-            <section className="staff-card">
-              <h2>Course curriculum</h2>
-              {curriculum.modules.length === 0 ? <p className="workspace-muted">Course materials are being prepared.</p> : curriculum.modules.map((module) => (
-                <article className="portal-card" key={module.id}>
-                  <h3>{module.title}</h3>
-                  {module.description && <p className="portal-description">{module.description}</p>}
-                  {module.lessons.map((lesson) => {
-                    const completed = progress.completed_lesson_ids.includes(lesson.id);
-                    return (
-                      <div className="portal-card" key={lesson.id}>
-                        <p className="portal-tag">Lesson · {lesson.content_type.replaceAll("_", " ")}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</p>
-                        <h4>{lesson.title}</h4>
-                        {lesson.content && <p className="portal-description" style={{ whiteSpace: "pre-wrap" }}>{lesson.content}</p>}
-                        {lesson.resource_url && <p><a href={lesson.resource_url} target="_blank" rel="noreferrer">Open lesson resource</a></p>}
-                        <button className="primary-action" disabled={busy || completed} onClick={() => void completeLesson(lesson)}>
-                          {completed ? "Completed" : busy ? "Saving…" : "Mark lesson complete"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </article>
-              ))}
+            <section className="staff-card learner-curriculum-section">
+              <div className="section-heading"><h2>Course curriculum</h2><span>{curriculum.modules.length} modules · {curriculum.modules.reduce((sum, module) => sum + module.lessons.length, 0)} lessons</span></div>
+              {curriculum.modules.length === 0 ? <p className="workspace-muted">Course materials are being prepared.</p> : curriculum.modules.map((module, moduleIndex) => {
+                const completedInModule = module.lessons.filter((lesson) =>
+                  progress.completed_lesson_ids.includes(lesson.id)
+                ).length;
+                return (
+                  <article className="learner-module-card" key={module.id}>
+                    <div className="learner-module-heading">
+                      <p className="eyebrow">MODULE {String(moduleIndex + 1).padStart(2, "0")} / {module.lessons.length} LESSONS</p>
+                      <span>{completedInModule}/{module.lessons.length} complete</span>
+                    </div>
+                    <h3>{module.title}</h3>
+                    {module.description && <p className="portal-description">{module.description}</p>}
+                    <progress value={completedInModule} max={Math.max(1, module.lessons.length)} aria-label={`${module.title} progress`} />
+                    {module.lessons.map((lesson, lessonIndex) => {
+                      const completed = progress.completed_lesson_ids.includes(lesson.id);
+                      return (
+                        <div className="learner-lesson-card" key={lesson.id}>
+                          <p className="portal-tag">LESSON {String(lessonIndex + 1).padStart(2, "0")} · {lesson.content_type.replaceAll("_", " ")}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</p>
+                          <h4>{lesson.title}</h4>
+                          {lesson.content && <p className="learner-lesson-content">{lesson.content}</p>}
+                          {lesson.resource_url && <p><a href={lesson.resource_url} target="_blank" rel="noreferrer">Open lesson resource</a></p>}
+                          <button className="primary-action" disabled={busy || completed} onClick={() => void completeLesson(lesson)}>
+                            {completed ? "Completed" : busy ? "Saving…" : "Mark lesson complete"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </article>
+                );
+              })}
             </section>
             <section className="staff-card">
               <h2>Assessments</h2>
