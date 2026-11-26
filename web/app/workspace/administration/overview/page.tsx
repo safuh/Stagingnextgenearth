@@ -211,6 +211,14 @@ export default function ExecutiveOverviewPage() {
       <h1 className="workspace-title">Executive <em>overview.</em></h1><button className="primary-action print-briefing" type="button" onClick={() => window.print()}>Print / save founder briefing</button>
       <p className="workspace-muted">A consolidated view of programme delivery, research, institutional relationships, people and public communications. Counts reflect records currently held in the portal; they are not independent impact verification.</p>
       <p><Link className="secondary-action" href="/workspace">← Workspace</Link> · <Link className="secondary-action" href="/workspace/administration">Administration</Link> · <Link className="secondary-action" href="/workspace/administration/content">CMS review queue</Link></p>
+      <nav className="admin-quick-nav" aria-label="Executive workspace shortcuts">
+        <Link className="secondary-action" href="/workspace/programmes">Programme delivery</Link>
+        <Link className="secondary-action" href="/workspace/administration/people">People directory</Link>
+        <Link className="secondary-action" href="/workspace/administration/partners">Institutional partners</Link>
+        <Link className="secondary-action" href="/workspace/research">Research workspace</Link>
+        <Link className="secondary-action" href="/workspace/learning-admin">Learning administration</Link>
+        <Link className="secondary-action" href="/workspace/security">Security & access</Link>
+      </nav>
       {orgs.length > 1 && <label className="admin-org-picker">Organisation<select value={orgId} onChange={e => setOrgId(e.target.value)}>{orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
       {error && <p className="workspace-error" role="alert">{error}</p>}
       {summary && <>
