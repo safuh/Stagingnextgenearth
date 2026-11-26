@@ -97,7 +97,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             (
                 run_id, org_id, "chirps-v3", "CHIRPS v3", "CHIRPS terms of use",
                 "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
-                None, "completed", 2, 2, 0, None, author_id,
+                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2}', "completed", 2, 2, 0, None, author_id,
                 "2026-01-01T00:00:00+00:00", "2026-01-01T00:01:00+00:00",
             ),
         )
@@ -271,7 +271,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             (
                 pending_run_id, org_id, "chirps-v3", "CHIRPS v3", "CC-BY-4.0",
                 "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
-                None, "completed", 1, 1, 0, None, author_id,
+                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2}', "completed", 1, 1, 0, None, author_id,
                 "2026-01-02T00:00:00+00:00", "2026-01-02T00:01:00+00:00",
             ),
         )
