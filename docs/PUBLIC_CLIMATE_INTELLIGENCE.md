@@ -270,7 +270,8 @@ Implemented in the current feature branch:
 - The website currently has the catalogue, release detail and methodology routes, plus homepage navigation and an honest no-release state.
 
 The authenticated browser workflow is now implemented at `/workspace/research/climate`:
-- Bounded CHIRPS v3 SAT ingestion with a 7-day UI limit, explicit WGS84 bounding box and pinned Rasterio runtime in the API image.
+- Bounded CHIRPS v3 SAT ingestion with a 7-day UI limit, explicit WGS84 bounding box, researcher-supplied area label and pinned Rasterio runtime in the API image.
+- The ingestion record retains the area label and CHIRPS product variant. Release creation verifies that the declared geography and data class match that original provider request; product version, resolution, citation, licence and attribution are derived from the trusted provider run.
 - Organisation-scoped provider-run history with per-run pending/verified/rejected counts.
 - Sample observation inspection and an audited batch quality decision.
 - Versioned release drafting, submission, independent approval, publication, supersession and retraction.
