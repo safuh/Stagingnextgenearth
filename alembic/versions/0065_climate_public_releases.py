@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Add governed public climate release records and lifecycle events."""
 
 from alembic import op
