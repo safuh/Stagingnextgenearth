@@ -116,6 +116,12 @@ The public website must include a dedicated climate intelligence hub at `/climat
 - Retraction must remove the release from public responses while preserving audit/version history.
 - If no approved release exists or a provider is unavailable, show an honest no-data/stale state. Never fabricate a public value.
 
+### Climate Studio UX and workflow
+
+The authenticated Climate Studio is the browser workflow for bounded provider ingestion, ingestion history, sample inspection, independent batch quality review and versioned public release governance. Keep the public hub and authenticated studio on one provenance model but separate their permissions and presentation. The public experience is editorial and evidence-led; the research studio is an operational dark interface. Both require responsive layouts, keyboard-visible focus, semantic labels, accessible tables, loading/error/empty states and reduced-motion support.
+
+A batch review is an explicit reviewer decision over every pending observation in one provider run. Explain the batch scope before confirmation and preserve per-observation audit events. A provider run is eligible for a release only when every inserted observation is verified by a reviewer other than its submitter and a provider licence is recorded.
+
 ## 8. Curriculum and learning rules
 
 The current demo seed contains three published course shells with generic placeholder lesson bodies. Do not present those as complete curricula.
