@@ -3,7 +3,10 @@
 """Idempotently seed a reviewable NextGen for Earth demo catalogue."""
 import argparse
 import asyncio
+import json
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -15,6 +18,53 @@ from stagingnextgenearth.platform.models import (
 )
 
 SOURCE = "https://nextgenforearth.org/"
+ROOT = Path(__file__).resolve().parents[1]
+MEDIA_MANIFEST = ROOT / "scripts" / "data" / "nextgen_website_assets.json"
+GALLERY_TERMS = (
+    "early career",
+    "restoration",
+    "stewardship",
+    "conference",
+    "tree planting",
+    "team",
+)
+
+
+def _normalise_name(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+
+
+def _public_media() -> tuple[dict[str, str], list[dict[str, str]]]:
+    """Read committed website media metadata for repeatable DB-to-web image links."""
+    if not MEDIA_MANIFEST.is_file():
+        raise RuntimeError(f"Required website media manifest is missing: {MEDIA_MANIFEST}")
+    manifest = json.loads(MEDIA_MANIFEST.read_text(encoding="utf-8"))
+    images = manifest.get("images", [])
+    if not isinstance(images, list):
+        raise RuntimeError("Website media manifest 'images' must be a list")
+
+    people_images: dict[str, str] = {}
+    gallery: list[dict[str, str]] = []
+    for item in images:
+        if not isinstance(item, dict):
+            continue
+        alt = item.get("alt")
+        image_path = item.get("alias") or item.get("path")
+        if (
+            not isinstance(alt, str)
+            or not alt.strip()
+            or not isinstance(image_path, str)
+            or not image_path.startswith("/media/nextgen-source/")
+            or ".." in Path(image_path).parts
+        ):
+            continue
+        if _normalise_name(alt) in {_normalise_name(name) for name, _, _ in PEOPLE}:
+            people_images[_normalise_name(alt)] = image_path
+        if any(term in alt.casefold() for term in GALLERY_TERMS):
+            gallery.append({"alt": alt.strip(), "image_url": image_path})
+    return people_images, gallery
+
+
 PEOPLE = [
 ("Esperant Fumyunga","Acting CEO","executive"),
 ("Prof Adelaide Lusambili","Senior Scientist & Founder","founder,researcher"),
@@ -138,6 +188,7 @@ async def seed(slug: str) -> None:
         if org is None:
             raise SystemExit(f"Organisation {slug!r} not found. Create it in the portal first.")
         actor = org.owner_user_id
+        people_images, gallery_images = _public_media()
         for name, position, kinds in PEOPLE:
             person = await session.scalar(select(OrganizationPerson).where(
                 OrganizationPerson.organization_id == org.id, OrganizationPerson.full_name == name
@@ -145,7 +196,9 @@ async def seed(slug: str) -> None:
             if person is None:
                 person = OrganizationPerson(
                     organization_id=org.id, full_name=name, positions=[x.strip() for x in position.split(";")],
-                    person_types=kinds.split(","), country_code="KE", source_url=SOURCE,
+                    person_types=kinds.split(","), country_code="KE",
+                    profile_image_url=people_images.get(_normalise_name(name)),
+                    source_url=SOURCE,
                     source_label="NextGen For Earth public website", review_state="verified",
                     visibility="public", status="active", created_by=actor, updated_by=actor,
                 )
@@ -153,6 +206,7 @@ async def seed(slug: str) -> None:
             else:
                 person.positions = [x.strip() for x in position.split(";")]
                 person.person_types = kinds.split(",")
+                person.profile_image_url = people_images.get(_normalise_name(name))
                 person.review_state, person.visibility, person.status = "verified", "public", "active"
                 person.source_url, person.source_label, person.updated_by = SOURCE, "NextGen For Earth public website", actor
         for name, kind in PARTNERS:
@@ -197,6 +251,41 @@ async def seed(slug: str) -> None:
                 legacy.updated_by = actor
 
         now = datetime.now(UTC)
+        # Keep media references in the public CMS feed in sync with files shipped
+        # in web/public. Without this record, the static images exist but the
+        # homepage gallery has no published image list to render.
+        gallery_entry = await session.scalar(select(PublicContentEntry).where(
+            PublicContentEntry.organization_id == org.id,
+            PublicContentEntry.content_type == "page",
+            PublicContentEntry.slug == "website-gallery",
+        ))
+        gallery_metadata = {
+            "gallery": gallery_images,
+            "source_status": "source-attributed public website media; confirm reuse rights",
+            "source_capture": SOURCE,
+        }
+        if gallery_entry is None:
+            session.add(PublicContentEntry(
+                organization_id=org.id, content_type="page", slug="website-gallery",
+                title="In the field — gallery",
+                summary="Photographs from NextGen for Earth research, training and community activities.",
+                body="Images are maintained as organisation website assets and displayed from the public media catalogue.",
+                metadata_json=gallery_metadata, publication_state="published",
+                source_url=SOURCE, source_label="NextGen For Earth public website",
+                created_by=actor, updated_by=actor,
+                approved_by=actor, approved_at=now, published_at=now,
+            ))
+        else:
+            gallery_entry.title = "In the field — gallery"
+            gallery_entry.summary = "Photographs from NextGen for Earth research, training and community activities."
+            gallery_entry.body = "Images are maintained as organisation website assets and displayed from the public media catalogue."
+            gallery_entry.metadata_json = {**(gallery_entry.metadata_json or {}), **gallery_metadata}
+            gallery_entry.publication_state = "published"
+            gallery_entry.source_url = SOURCE
+            gallery_entry.source_label = "NextGen For Earth public website"
+            gallery_entry.approved_by, gallery_entry.approved_at, gallery_entry.published_at = actor, now, now
+            gallery_entry.updated_by = actor
+
         for kind, item_slug, title, summary in CONTENT:
             entry = await session.scalar(select(PublicContentEntry).where(
                 PublicContentEntry.organization_id == org.id,
