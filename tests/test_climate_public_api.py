@@ -213,6 +213,52 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "kilifi-monthly-rainfall"
         ).status_code == 404
 
+        # A completed provider run is not sufficient: every inserted record
+        # must have passed independent quality review before release creation.
+        pending_run_id = str(uuid4())
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        connection.execute(
+            """INSERT INTO climate_ingestion_runs (
+                id, organization_id, provider_id, source_name, licence,
+                requested_start, requested_end, requested_area, status,
+                records_received, records_inserted, records_skipped,
+                error_summary, started_by, started_at, finished_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                pending_run_id, org_id, "chirps-v3", "CHIRPS v3", "CC-BY-4.0",
+                "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
+                None, "completed", 1, 1, 0, None, author_id,
+                "2026-01-02T00:00:00+00:00", "2026-01-02T00:01:00+00:00",
+            ),
+        )
+        connection.execute(
+            """INSERT INTO climate_observations (
+                id, organization_id, study_id, project_id, observed_at,
+                variable, value, unit, latitude, longitude, location, source,
+                ingestion_run_id, provider_id, provider_record_id, quality_status,
+                reviewed_by, reviewed_at, safeguarding_confirmed, review_note,
+                metadata_json, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid4()), org_id, None, None, "2025-03-01T00:00:00+00:00",
+                "precipitation", 31.0, "mm/month", -3.5, 39.9, None, "CHIRPS v3",
+                pending_run_id, "chirps-v3", "chirps-pending-1", "pending", None,
+                None, 0, None, None, author_id,
+            ),
+        )
+        connection.commit()
+        connection.close()
+        blocked = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={
+                **_release_payload(),
+                "slug": "pending-run-must-not-publish",
+                "source_ingestion_run_id": pending_run_id,
+            },
+        )
+        assert blocked.status_code == 409
+
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
     from pydantic import ValidationError
