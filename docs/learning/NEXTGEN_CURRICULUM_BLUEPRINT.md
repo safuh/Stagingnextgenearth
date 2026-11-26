@@ -308,3 +308,21 @@ Before publishing any course:
 - [ ] Complete safeguarding, privacy, accessibility and cultural review.
 - [ ] Pilot with a small cohort and revise using feedback.
 - [ ] Approve course version and record publication decision.
+
+
+## Implemented curriculum pilot content (M121)
+
+The seed catalogue now contains four pilot tracks aligned to the organisation's programme areas:
+
+1. Research Methods and Evidence Practice
+2. Climate and Health Resilience
+3. Youth Climate Stewardship and Community Action
+4. Indigenous and Community Knowledge for Climate Resilience
+
+Each track currently contains two modules and three substantive lessons per module (24 lessons total). Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide three questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
+
+The learner classroom now presents the course overview, module/lesson counts, estimated guided minutes, module-level completion and readable lesson-content panels.
+
+**Release boundary:** these are substantive pilot learning materials prepared for organisational subject-matter review. They are not accredited qualifications, clinical protocols, ethics approval or substitutes for locally approved safeguarding procedures. Community knowledge modules explicitly require community authority and permission; restricted knowledge must not be collected or published by default. The pilot content must be reviewed by the appropriate research, clinical, safeguarding and community leads before formal cohort delivery.
+
+The updated seed file is `scripts/data/nextgen_curriculum_content.json`. After deployment, an authorised operator must run `python scripts/seed_nextgen_demo.py --organization-slug nextgen-for-earth` in the deployed application environment to apply the revised demo catalogue; code deployment alone does not execute the seed script.
