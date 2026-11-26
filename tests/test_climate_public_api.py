@@ -215,7 +215,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert public_detail.json()["provider_id"] == "chirps-v3"
         assert public_detail.json()["data_class"] == "satellite_estimate"
         assert public_detail.json()["provider_product"] == "CHIRPS v3 SAT"
-        assert public_detail.json()["license_name"] == "CHIRPS terms of use"
+        assert public_detail.json()["license_name"] == "CC-BY-4.0"
         assert "created_by" not in public_detail.json()
         assert "source_ingestion_run_id" not in public_detail.json()
 
