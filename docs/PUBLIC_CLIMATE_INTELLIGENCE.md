@@ -251,3 +251,30 @@ For anomaly charts, publish the reference baseline and calculation. For projecti
 Use: "NextGen For Earth is building a public climate intelligence resource that brings together trusted climate datasets, regional research and community evidence, with sources and limitations visible."
 
 Do not say "real-time climate monitoring" unless a specific operational feed has demonstrated and documented that latency.
+
+
+## 15. Implementation boundary — first runtime increment (PR #116)
+
+The first runtime increment implements the publication lifecycle and public catalogue, but does not complete every proposed surface above.
+
+Implemented in the current feature branch:
+- `ClimatePublicRelease` and append-only lifecycle events, with a migration.
+- Authenticated draft creation, submission, independent approval, publication and retraction.
+- Draft creation requires a completed same-organisation provider ingestion run with a recorded licence.
+- Every observation inserted by that run must be independently quality-verified before release creation.
+- The API derives the public series server-side from those verified observations. The client cannot submit chart values.
+- The implemented temporal aggregation is the arithmetic mean of verified observations sharing a timestamp. It performs no imputation.
+- Coverage and missingness are returned as unreported until a defensible denominator/coverage calculation is implemented; do not invent percentages.
+- Publishing a replacement version supersedes the prior published version. Retraction removes the current version from public reads.
+- Anonymous endpoints currently cover overview, release list, release detail, series and source catalogue. Public reads are bounded and cacheable.
+- The website currently has the catalogue, release detail and methodology routes, plus homepage navigation and an honest no-release state.
+
+Still outstanding:
+- A researcher-facing authoring interface and provider-ingestion UI. The current lifecycle is API-backed; users do not yet have a complete browser workflow to create and publish a release.
+- Explicit public regional aggregation and a dedicated regions endpoint.
+- Curated climate insight/editorial records and the insights endpoint.
+- Spatial maps and richer chart components; current time series is presented in an accessible table.
+- A provider-backed release populated from an actual live provider ingestion in staging.
+- Stale-data indicators, ETags/cache invalidation and operational monitoring for public release freshness.
+
+Do not claim the public climate hub is populated or live until a real provider-backed run has been quality-reviewed, published and verified through the staging public API.
