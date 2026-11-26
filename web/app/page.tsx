@@ -351,7 +351,7 @@ export default function HomePage() {
           <span className="theory-arrow" aria-hidden="true">→</span>
           <article className="theory-step"><span className="theory-number">2</span><p className="portal-tag">What we do</p><h3>Activities</h3><ul><li>Weekly workshops</li><li>Peer mentorship</li><li>Field research</li><li>Tree planting drives</li></ul></article>
           <span className="theory-arrow" aria-hidden="true">→</span>
-          <article className="theory-step"><span className="theory-number">3</span><p className="portal-tag">What we deliver</p><h3>Outputs</h3><ul><li>100+ youth trained</li><li>35 researchers mentored</li><li>4,000+ children reached</li><li>12 publications</li></ul></article>
+          <article className="theory-step"><span className="theory-number">3</span><p className="portal-tag">What we deliver</p><h3>Outputs</h3><ul><li><AnimatedMetric value="100+" /> youth trained</li><li><AnimatedMetric value="35" /> researchers mentored</li><li><AnimatedMetric value="4,000+" /> children reached</li><li><AnimatedMetric value="12" /> publications</li></ul></article>
           <span className="theory-arrow" aria-hidden="true">→</span>
           <article className="theory-step"><span className="theory-number">4</span><p className="portal-tag">What changes</p><h3>Outcomes</h3><ul><li>Youth lead research</li><li>Schools adopt stewardship</li><li>Communities more resilient</li><li>Policies informed</li></ul></article>
           <span className="theory-arrow" aria-hidden="true">→</span>
