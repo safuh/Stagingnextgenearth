@@ -236,4 +236,4 @@ This is a code milestone, not evidence that any editorial insight has been autho
 - Learner classroom includes course overview, module completion and improved lesson-reading layout.
 - Seed script updates existing lesson records and quiz definitions idempotently.
 
-The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The updated catalogue is applied by running the seed script explicitly in the target environment; deploying code does not run seed data automatically.
+The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The Render API container startup runs the idempotent seed for the default demo organisation `next-gen-for-earth-demo`; other organisation slugs require an explicit seed command.
