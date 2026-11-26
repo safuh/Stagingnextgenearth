@@ -24,6 +24,7 @@ interface ContentEntry {
 
 const states = ["all", "review", "approved", "draft", "published", "archived"] as const;
 type StateFilter = (typeof states)[number];
+type SourceFilter = "all" | "imported" | "authored";
 
 export default function ContentReviewPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -31,6 +32,7 @@ export default function ContentReviewPage() {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [entries, setEntries] = useState<ContentEntry[]>([]);
   const [filter, setFilter] = useState<StateFilter>("review");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -100,7 +102,13 @@ export default function ContentReviewPage() {
     }
   }
 
-  const visible = entries.filter((entry) => filter === "all" || entry.publication_state === filter);
+  const visible = entries.filter((entry) =>
+    (filter === "all" || entry.publication_state === filter) &&
+    (sourceFilter === "all" || (sourceFilter === "imported" ? Boolean(entry.source_url) : !entry.source_url))
+  );
+  const importedCount = entries.filter((entry) => Boolean(entry.source_url)).length;
+  const importedPublishedCount = entries.filter((entry) => Boolean(entry.source_url) && entry.publication_state === "published").length;
+  const authoredCount = entries.length - importedCount;
   const assignedRoles = membership?.roles ?? [membership?.role ?? ""];
   const canReview = assignedRoles.some((role) => ["admin", "founder", "executive"].includes(role));
   const canContribute = assignedRoles.some((role) => ["admin", "founder", "executive", "employee", "researcher"].includes(role));
@@ -186,10 +194,15 @@ export default function ContentReviewPage() {
               <article><span>AWAITING REVIEW</span><strong>{entries.filter((item) => item.publication_state === "review").length}</strong><p>Requires an authorised reviewer</p></article>
               <article><span>APPROVED</span><strong>{entries.filter((item) => item.publication_state === "approved").length}</strong><p>Ready for publication</p></article>
               <article><span>PUBLISHED</span><strong>{entries.filter((item) => item.publication_state === "published").length}</strong><p>Visible on the public site</p></article>
+              <article><span>IMPORTED FROM WEBSITE</span><strong>{importedCount}</strong><p>{importedPublishedCount} currently public · source-attributed</p></article>
+              <article><span>ORGANISATION-AUTHORED</span><strong>{authoredCount}</strong><p>Created in this CMS</p></article>
             </div>
             <section className="staff-card admin-member-section">
               <div className="section-heading"><div><p className="eyebrow">MODERATION WORKFLOW</p><h2>Content records</h2></div><span>{visible.length} records</span></div>
-              <label>Filter by status<select value={filter} onChange={(event) => setFilter(event.target.value as StateFilter)}>{states.map((state) => <option key={state} value={state}>{state === "all" ? "All statuses" : state}</option>)}</select></label>
+              <div className="content-filter-row">
+                <label>Publication status<select value={filter} onChange={(event) => setFilter(event.target.value as StateFilter)}>{states.map((state) => <option key={state} value={state}>{state === "all" ? "All statuses" : state}</option>)}</select></label>
+                <label>Content origin<select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}><option value="all">All content</option><option value="imported">Imported from existing website</option><option value="authored">Created in this CMS</option></select></label>
+              </div>
               {visible.length === 0 ? <p className="workspace-muted">No content records match this status.</p> : visible.map((entry) => {
                 const ownEntry = entry.created_by === membership?.user_id;
                 const busy = busyId === entry.id;
@@ -198,6 +211,7 @@ export default function ContentReviewPage() {
                     <div className="admin-member-meta">
                       <strong>{entry.title}</strong>
                       <span>{entry.content_type.replaceAll("_", " ")} · {entry.publication_state} · {entry.slug}</span>
+                      <span className="status-pill">{entry.source_url ? "Imported · source-attributed" : "CMS-authored"}</span>
                       <span>{ownEntry ? "Created by your account" : "Created by another account"}{entry.approved_at ? ` · Approved ${new Date(entry.approved_at).toLocaleString()}` : ""}</span>
                       {entry.source_url && <a href={entry.source_url} target="_blank" rel="noreferrer">Open source record ↗</a>}
                       {entry.summary && <p>{entry.summary}</p>}
@@ -229,7 +243,7 @@ export default function ContentReviewPage() {
                 );
               })}
             </section>
-            <p className="workspace-muted">Public website feed includes published records only. Seeded website content remains in review until a different authorised reviewer approves it and an authorised administrator publishes it.</p>
+            <p className="workspace-muted">The public website feed includes published records only. Imported records are identified by their source URL; CMS-authored records have no source URL unless an editor supplies one. Publication state is authoritative: a published record is public, while draft, review, approved and archived records are not.</p>
           </>
         )}
       </section>
