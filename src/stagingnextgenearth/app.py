@@ -23,7 +23,11 @@ from .core.errors import (
 )
 from .core.lifespan import lifespan
 from .core.logging import configure_logging
-from .core.middleware import AuthenticationRateLimitMiddleware, RequestContextMiddleware
+from .core.middleware import (
+    AuthenticationRateLimitMiddleware,
+    PublicClimateRateLimitMiddleware,
+    RequestContextMiddleware,
+)
 from .core.security_headers import SecurityHeadersMiddleware
 from .identity import create_sqlalchemy_auth_application
 from .scanning import ClamAVScanner
@@ -93,6 +97,12 @@ def create_app(
         AuthenticationRateLimitMiddleware,
         requests=resolved.auth_rate_limit_requests,
         window_seconds=resolved.auth_rate_limit_window_seconds,
+        api_prefix=resolved.api_prefix,
+    )
+    app.add_middleware(
+        PublicClimateRateLimitMiddleware,
+        requests=resolved.public_climate_rate_limit_requests,
+        window_seconds=resolved.public_climate_rate_limit_window_seconds,
         api_prefix=resolved.api_prefix,
     )
     app.add_middleware(
