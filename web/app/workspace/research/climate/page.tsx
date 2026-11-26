@@ -8,7 +8,7 @@ type Organisation = { id: string; name: string; country_code: string };
 type Membership = { user_id: string; role: string; roles?: string[]; status: string };
 type IngestionRun = {
   id: string; provider_id: string; source_name: string; licence: string | null;
-  requested_start: string; requested_end: string; requested_area: Record<string, number> | null;
+  requested_start: string; requested_end: string; requested_area: Record<string, number | string> | null;
   status: string; records_received: number; records_inserted: number; records_skipped: number;
   pending_observations: number; verified_observations: number; rejected_observations: number;
   error_summary: string | null; started_at: string; finished_at: string | null;
@@ -78,7 +78,7 @@ export default function ClimateResearchStudioPage() {
   const publishableRuns = runs.filter((run) =>
     run.status === "completed"
     && run.provider_id === "chirps-v3"
-    && Boolean(run.requested_area)
+    && run.requested_area?.product_variant === "sat"
     && run.records_inserted > 0
     && run.verified_observations === run.records_inserted
     && Boolean(run.licence)
@@ -169,7 +169,7 @@ export default function ClimateResearchStudioPage() {
       if (!(area.west < area.east && area.south < area.north)) throw new Error("The bounding box must have west < east and south < north.");
       const result = await apiPost<IngestionRun>(
         `/organizations/${organisationId}/climate-ingestion`,
-        { provider, start: start.toISOString(), end: end.toISOString(), area, chirps_variant: variant },
+        { provider, start: start.toISOString(), end: end.toISOString(), area, area_label: areaLabel, chirps_variant: variant },
       );
       setNotice(`Provider run completed: ${result.records_inserted.toLocaleString()} observations inserted. They remain pending quality review.`);
       await refresh();
@@ -210,7 +210,8 @@ export default function ClimateResearchStudioPage() {
         {
           slug: releaseSlug, title: releaseTitle, summary: releaseSummary,
           provider_id: selectedReleaseRun.provider_id, data_class: "satellite_estimate",
-          geography_label: areaLabel, geography_resolution: "0.05° CHIRPS grid; area mean per day",
+          geography_label: String(selectedReleaseRun.requested_area?.label ?? "Bounded study area"),
+          geography_resolution: "0.05° CHIRPS grid; arithmetic mean per day",
           period_start: selectedReleaseRun.requested_start, period_end: selectedReleaseRun.requested_end,
           baseline: null, uncertainty_summary: uncertainty, limitations,
           citation_url: "https://doi.org/10.15780/G2JQ0P",
@@ -351,6 +352,7 @@ export default function ClimateResearchStudioPage() {
                       <>
                         <div className="climate-run-facts">
                           <div><small>Provider</small><strong>{selectedRun.source_name}</strong></div>
+                          <div><small>Area label</small><strong>{String(selectedRun.requested_area?.label ?? "Not recorded")}</strong></div>
                           <div><small>Licence</small><strong>{selectedRun.licence ?? "Not recorded"}</strong></div>
                           <div><small>Inserted</small><strong>{selectedRun.records_inserted.toLocaleString()}</strong></div>
                           <div><small>Verified / pending</small><strong>{selectedRun.verified_observations.toLocaleString()} / {selectedRun.pending_observations.toLocaleString()}</strong></div>
