@@ -132,6 +132,13 @@ export default function ContentReviewPage() {
         title: String(data.get("title") ?? "").trim(),
         summary: String(data.get("summary") ?? "").trim() || null,
         body: String(data.get("body") ?? "").trim() || null,
+        metadata_json: String(data.get("content_type") ?? "") === "climate_insight" ? {
+          release_slug: String(data.get("release_slug") ?? "").trim(),
+          publication_slug: String(data.get("publication_slug") ?? "").trim(),
+          region: String(data.get("region") ?? "").trim(),
+          indicator: String(data.get("indicator") ?? "").trim(),
+          evidence_note: String(data.get("evidence_note") ?? "").trim(),
+        } : {},
       });
       await load(organizationId);
       form.reset();
