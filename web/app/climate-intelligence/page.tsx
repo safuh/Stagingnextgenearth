@@ -43,6 +43,7 @@ export default function ClimateIntelligencePage() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [insights, setInsights] = useState<ClimateInsight[]>([]);
+  const [insightError, setInsightError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -52,13 +53,17 @@ export default function ClimateIntelligencePage() {
       apiGet<Overview>(`/public/organizations/${ORGANIZATION_SLUG}/climate/overview`),
       apiGet<Release[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases?limit=100`),
       apiGet<Source[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/sources`),
-      apiGet<ClimateInsight[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/insights`),
-    ]).then(([summary, items, sourceItems, insightItems]) => {
+    ]).then(([summary, items, sourceItems]) => {
       if (!active) return;
-      setOverview(summary); setReleases(items); setSources(sourceItems); setInsights(insightItems);
+      setOverview(summary); setReleases(items); setSources(sourceItems);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Climate intelligence is temporarily unavailable.");
     }).finally(() => { if (active) setLoading(false); });
+    apiGet<ClimateInsight[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/insights`)
+      .then((items) => { if (active) setInsights(items); })
+      .catch((cause: unknown) => {
+        if (active) setInsightError(cause instanceof Error ? cause.message : "Research-linked insights are temporarily unavailable.");
+      });
     return () => { active = false; };
   }, []);
 
@@ -142,7 +147,9 @@ export default function ClimateIntelligencePage() {
             <div><p className="climate-public-kicker">RESEARCH MEETS CLIMATE EVIDENCE / 02</p><h2>Context is a<br /><em>research question.</em></h2></div>
             <p>Editorial interpretation is published only when it is connected to a public climate release and a separately published research output. The links make the evidence trail inspectable.</p>
           </div>
-          {insights.length === 0 ? (
+          {insightError ? (
+            <div className="climate-public-state climate-public-error" role="status">Research-linked insights are temporarily unavailable. The climate evidence catalogue remains available.</div>
+          ) : insights.length === 0 ? (
             <div className="climate-public-insight-empty">
               <span>↗</span>
               <div><strong>No research-linked climate insights published yet.</strong><p>When a climate release and its related research publication are public, an independently reviewed editorial insight can connect them here. Research context is not a claim of causation.</p></div>
