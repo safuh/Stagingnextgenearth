@@ -58,24 +58,15 @@ class ClimateReleaseCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     title: str = Field(min_length=3, max_length=240)
     summary: str = Field(min_length=10, max_length=4000)
-    indicator: str = Field(min_length=2, max_length=100)
-    unit: str = Field(min_length=1, max_length=40)
     provider_id: Literal["nasa-power", "chirps-v3", "copernicus-era5"]
-    provider_product: str = Field(min_length=2, max_length=160)
-    provider_version: str | None = Field(default=None, max_length=100)
     data_class: Literal["station_observation", "satellite_estimate", "reanalysis", "forecast", "projection"]
     geography_label: str = Field(min_length=2, max_length=200)
     geography_resolution: str = Field(min_length=2, max_length=120)
     period_start: datetime
     period_end: datetime
     baseline: str | None = Field(default=None, max_length=200)
-    aggregation_method: str = Field(min_length=5, max_length=4000)
-    coverage_pct: float | None = Field(default=None, ge=0, le=100)
-    missingness_pct: float | None = Field(default=None, ge=0, le=100)
     uncertainty_summary: str | None = Field(default=None, max_length=4000)
     limitations: str = Field(min_length=5, max_length=4000)
-    license_name: str = Field(min_length=2, max_length=160)
-    attribution: str = Field(min_length=5, max_length=2000)
     terms_url: HttpUrl | None = None
     citation_url: HttpUrl | None = None
     source_ingestion_run_id: str
@@ -219,6 +210,17 @@ async def create_release(
             409,
             "Every inserted observation in the provider run must pass independent quality review",
         )
+    period_count = await session.scalar(
+        select(func.count(ClimateObservation.id)).where(
+            *observation_filter,
+            ClimateObservation.observed_at >= body.period_start,
+            ClimateObservation.observed_at <= body.period_end,
+        )
+    )
+    if period_count != observation_count:
+        raise HTTPException(422, "The declared release period must include every observation in the source run")
+    if not source_run.licence:
+        raise HTTPException(422, "The source ingestion run has no recorded provider licence")
     dimensions = (
         await session.execute(
             select(ClimateObservation.variable, ClimateObservation.unit)
@@ -276,21 +278,21 @@ async def create_release(
         indicator=variable,
         unit=unit,
         provider_id=body.provider_id,
-        provider_product=body.provider_product,
-        provider_version=body.provider_version,
+        provider_product=source_run.source_name,
+        provider_version=None,
         data_class=body.data_class,
         geography_label=body.geography_label,
         geography_resolution=body.geography_resolution,
         period_start=body.period_start.astimezone(UTC),
         period_end=body.period_end.astimezone(UTC),
         baseline=body.baseline,
-        aggregation_method=body.aggregation_method,
-        coverage_pct=body.coverage_pct,
-        missingness_pct=body.missingness_pct,
+        aggregation_method="Arithmetic mean of independently verified provider observations at each timestamp; no imputation.",
+        coverage_pct=None,
+        missingness_pct=None,
         uncertainty_summary=body.uncertainty_summary,
         limitations=body.limitations,
-        license_name=body.license_name,
-        attribution=body.attribution,
+        license_name=source_run.licence,
+        attribution=f"{source_run.source_name} ({source_run.provider_id})",
         terms_url=str(body.terms_url) if body.terms_url else None,
         citation_url=str(body.citation_url) if body.citation_url else None,
         source_ingestion_run_id=body.source_ingestion_run_id,
