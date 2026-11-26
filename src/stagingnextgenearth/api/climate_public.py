@@ -584,7 +584,7 @@ async def list_public_releases(
     indicator: str | None = Query(default=None, min_length=2, max_length=100),
     data_class: str | None = Query(default=None, max_length=32),
     limit: int = Query(default=50, ge=1, le=100),
-) -> list[ClimateReleaseSummary]:
+) -> list[ClimateReleaseSummary] | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
@@ -618,7 +618,7 @@ async def get_public_release(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseDetail | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Climate release not found")
@@ -646,7 +646,7 @@ async def get_public_release_series(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseSeries:
+) -> ClimateReleaseSeries | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Climate release not found")
@@ -677,7 +677,7 @@ async def public_climate_overview(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> dict[str, object]:
+) -> dict[str, object] | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
@@ -723,7 +723,7 @@ async def public_climate_insights(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[ClimateInsightRead]:
+) -> list[ClimateInsightRead] | Response:
     """Return editorial insights only when both linked evidence and publication are public."""
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
@@ -805,7 +805,7 @@ async def public_climate_sources(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[ClimateSourceRead]:
+) -> list[ClimateSourceRead] | Response:
     """Return a public-safe catalogue of sources used by published releases."""
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
