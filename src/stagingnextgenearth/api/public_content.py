@@ -202,7 +202,7 @@ class PublicContentRead(BaseModel):
     summary: str | None
     body: str | None
     source_url: str | None
-    metadata_json: dict[str, object]
+    metadata_json: dict[str, object] | None
     published_at: datetime | None
 
 
@@ -241,7 +241,7 @@ def _public_metadata(value: object) -> dict[str, object]:
     return result
 
 
-@router.get("/public/organizations/{organization_slug}/content", response_model=list[PublicContentRead])
+@router.get("/public/organizations/{organization_slug}/content", response_model=list[PublicContentRead], response_model_exclude_none=True)
 async def public_content(organization_slug: str, session: Annotated[AsyncSession, Depends(get_session)]) -> list[PublicContentRead]:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
@@ -261,7 +261,7 @@ async def public_content(organization_slug: str, session: Annotated[AsyncSession
         )
         result.append(item.model_copy(update={
             "source_url": source_url,
-            "metadata_json": _public_metadata(row.metadata_json),
+            "metadata_json": _public_metadata(row.metadata_json) or None,
         }))
     return result
 
