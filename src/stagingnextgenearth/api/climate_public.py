@@ -2,6 +2,7 @@
 """Governed public climate release lifecycle and anonymous read API."""
 
 from datetime import UTC, datetime
+import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -70,6 +71,13 @@ class ClimateReleaseCreate(BaseModel):
     terms_url: HttpUrl | None = None
     citation_url: HttpUrl | None = None
     source_ingestion_run_id: str
+
+    @field_validator("geography_label")
+    @classmethod
+    def reject_precise_coordinate_labels(cls, value: str) -> str:
+        if re.search(r"-?\\d{1,3}\\.\\d+\\s*[,/]\\s*-?\\d{1,3}\\.\\d+", value):
+            raise ValueError("public geography labels must not contain precise coordinate pairs")
+        return value
 
     @field_validator("period_start", "period_end")
     @classmethod
@@ -191,6 +199,15 @@ async def create_release(
         raise HTTPException(
             422,
             "A completed, same-organisation provider ingestion with inserted records is required",
+        )
+    if (
+        not source_run.requested_area
+        or "point" in source_run.requested_area
+        or not {"west", "south", "east", "north"}.issubset(source_run.requested_area)
+    ):
+        raise HTTPException(
+            422,
+            "Public releases require a bounded-area ingestion; point requests are not publishable",
         )
     observation_filter = (
         ClimateObservation.organization_id == organization_id,
