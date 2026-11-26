@@ -182,6 +182,10 @@ export default function ClimateResearchStudioPage() {
       );
       setNotice(`${result.reviewed_count.toLocaleString()} observations ${decision} by your account.`);
       await refresh();
+      const updatedSample = await apiGet<Observation[]>(
+        `/organizations/${organisationId}/climate-observations?ingestion_run_id=${encodeURIComponent(selectedRunId)}&limit=12`,
+      );
+      setObservations(updatedSample);
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Quality review failed.");
     } finally { setBusy(false); }
