@@ -70,3 +70,6 @@ sample. Keep the API process limiter enabled as defense in depth.
   cookies, bearer tokens, or request bodies.
 - If running more than one edge replica, verify shared counters at the ingress
   layer rather than relying on this Nginx instance-local configuration.
+
+
+Public climate GET responses use ETags and the API honours `If-None-Match` with bodyless HTTP 304 responses. Preserve `ETag` and `Cache-Control` headers through any reverse proxy or CDN. Do not strip validators or convert a 304 into a cached 200 with an outdated body.
