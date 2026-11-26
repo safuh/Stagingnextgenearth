@@ -91,7 +91,7 @@ async def list_climate_ingestion_runs(
     limit: int = Query(default=50, ge=1, le=100),
 ) -> list[ClimateIngestionRead]:
     """List recent provider runs within the caller's organisation."""
-    if not await membership_has_any_role(session, membership, _INGEST_ROLES | {"executive", "founder"}):
+    if not await membership_has_any_role(session, membership, _INGEST_ROLES | {"executive", "founder", "programme_manager"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate ingestion access is not permitted")
     rows = await session.scalars(
         select(ClimateIngestionRun)
