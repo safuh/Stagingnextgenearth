@@ -322,6 +322,17 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={"publication_state": "published"},
         ).status_code == 200
 
+        invalid_insight = client.post(
+            f"{org_base}/content",
+            headers=author,
+            json={
+                "content_type": "climate_insight",
+                "slug": "missing-evidence-links",
+                "title": "Insight without evidence links",
+            },
+        )
+        assert invalid_insight.status_code == 422
+
         insight = client.post(
             f"{org_base}/content",
             headers=author,
