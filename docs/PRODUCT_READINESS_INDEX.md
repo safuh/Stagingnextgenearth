@@ -1,0 +1,32 @@
+# Product readiness and presentation index
+
+Use this index to keep implementation, acceptance and external presentation aligned.
+
+## Product planning and status
+- [Product status and priority roadmap](PRODUCT_STATUS_AND_ROADMAP.md)
+- [Research and climate intelligence workflow blueprint](RESEARCH_AND_CLIMATE_INTELLIGENCE_BLUEPRINT.md)
+- [Initial four-track curriculum blueprint](learning/NEXTGEN_CURRICULUM_BLUEPRINT.md)
+- [LLM and coding-agent instructions](LLM_DEVELOPMENT_GUIDE.md)
+
+## Founder and partner presentation
+- [Updated founder presentation](FOUNDER_PRESENTATION.md)
+- [Seven-minute founder demo runbook](pitch/DEMO_RUNBOOK_7_MIN.md)
+- [Short demo pitch](pitch/DEMO_PITCH.md)
+- [Extended founder demonstration and handover](FOUNDER_DEMONSTRATION.md)
+- [Staging and founder acceptance checklist](operations/founder-demo-acceptance.md)
+
+## Operational references
+- [Research workspace operations](operations/research-workspace.md)
+- [Research governance](operations/research-governance.md)
+- [Climate provider ingestion](operations/climate-provider-ingestion.md)
+- [Learning management](operations/learning-management.md)
+- [Database backup and restore](operations/database-backup-restore.md)
+
+## Status language
+
+- **Implemented:** code is present in the active branch.
+- **Tested:** relevant tests/checks were executed and passed.
+- **Deployed:** a deployment for the identified commit completed successfully.
+- **Accepted:** the complete user journey passed in the target environment.
+- **Seeded:** demonstration or imported records exist; this does not imply verification.
+- **Synthetic demo:** generated fixture data, not live provider or field data.

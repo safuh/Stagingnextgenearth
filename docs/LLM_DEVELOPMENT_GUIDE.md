@@ -1,0 +1,149 @@
+# LLM and Coding-Agent Instructions — NextGen For Earth
+
+These instructions apply to AI coding assistants, automated agents and human contributors working in this repository.
+
+## 1. Mission and product priorities
+
+Build NextGen For Earth as an organisational operating platform, not merely a public website. Connect people, roles, programmes, learning, research, climate intelligence, partners and impact evidence.
+
+Current order of product priority:
+1. Research intelligence workflows and presentation.
+2. Complete, substantive curricula and learning-content workflows.
+3. Founder/admin workspace.
+4. Programme operations.
+5. Assessments and learner progress.
+6. Certificates.
+7. Leadership impact dashboard.
+8. Partner/funder reporting.
+9. Production hardening continuously.
+
+Do not let presentation polish displace workflow correctness, data provenance, security or operational reliability.
+
+## 2. Source-of-truth hierarchy
+
+When information conflicts, use this order:
+1. Current code, migrations, tests and API contracts on the active branch.
+2. Current operational documentation and acceptance evidence.
+3. Product status and workflow specifications under `docs/`.
+4. Source-attributed public website content and approved organisational records.
+5. External provider documentation for provider-specific behaviour.
+6. Inference, which must be labelled as a proposal rather than a fact.
+
+Never treat a previous conversation summary, pitch slide, seeded record or website claim as proof that a feature is implemented or an impact figure is audited.
+
+## 3. Required working method
+
+Before changing a feature:
+- Inspect the active branch and recent commit history.
+- Read the relevant API route, model, migration, schemas, tests, frontend page and operational runbook.
+- Identify existing patterns and reuse them; avoid parallel implementations.
+- Confirm whether the feature is already present but missing UI, wiring, tests, configuration or acceptance.
+- Define a narrow user journey and acceptance criteria.
+- Preserve tenant isolation and role policy at the API boundary.
+- Add/adjust tests before declaring completion.
+- Update docs and demo materials in the same change set.
+- Run relevant lint, typecheck, tests and frontend production build when the environment permits.
+- Report commands not run and reasons; do not claim tests passed without actual output.
+
+## 4. Architecture constraints
+
+- Keep the modular monolith unless independent scaling/deployment is justified.
+- FastAPI owns business rules and authorization.
+- PostgreSQL/PostGIS owns durable relational and spatial state.
+- Next.js provides public and authenticated experiences through the same-origin BFF.
+- Do not put access/refresh tokens, provider secrets, storage credentials or private download URLs in browser storage or client code.
+- Run migrations as explicit release operations, not automatically in each API worker.
+- Keep long-running provider ingestion and scanning in dedicated durable workers.
+- Use typed request/response schemas and bounded pagination.
+- Use idempotency for external ingestion and repeatable seed operations.
+
+## 5. Security, privacy and governance
+
+- Every tenant-owned read and mutation must enforce organisation membership and role permissions server-side.
+- UI role checks are for presentation only, never authorization.
+- Preserve owner, last-admin, separation-of-duty and independent-review safeguards.
+- Never let a dataset owner approve their own restricted submission.
+- Keep private dataset metadata and object storage keys out of general lists.
+- Files remain quarantined until the configured scanner returns a clean verdict.
+- Use short-lived, authorised download grants and audit each grant.
+- Do not expose participant-level health information or child PII in public reporting.
+- Before enrolling minors, require safeguarding review, age-appropriate assent and guardian consent where required.
+- Do not publish community/Indigenous knowledge without the relevant community permissions and agreed attribution/use terms.
+- Never commit credentials, real secrets, production personal data or private demo invitation URLs.
+
+## 6. Research workflow rules
+
+Treat research as a governed lifecycle:
+`concept → protocol → active → completed → published → archived`.
+
+- Study creation starts at concept; it does not activate a study.
+- Protocol approval and required ethics/safeguarding decisions are prerequisites to activation.
+- Preserve proposal/protocol versions and append-only review history.
+- External literature metadata is a discovery/enrichment source, not evidence of organisational ownership or authorship.
+- Use DOI/ORCID/provider identifiers for reconciliation where available; ambiguous matches require human review.
+- Preserve raw provider metadata, source URL, retrieval time and selected-field import decisions.
+- Dataset ingestion is not dataset approval.
+- Analysis outputs must identify exact dataset versions, parameters, software and checksums.
+- Distinguish descriptive analysis from inference and causal attribution.
+- Cite external research and climate providers in exported outputs.
+
+## 7. Climate intelligence rules
+
+The product must combine provider-backed data and organisation field observations. Initial adapters include NASA POWER and CHIRPS; Copernicus ERA5 has optional adapter code and requires deployment configuration and dataset terms acceptance. World Bank CCKP, ICPAC and NASA GPM are candidates for future adapters, not implemented features.
+
+- Provider names, variables, units, coverage, cadence, licence and operational status must be explicit.
+- Record request geometry, time range, provider product/version, source, retrieval time and transformations.
+- Keep station observations, satellite estimates, reanalysis and model projections distinct.
+- Preserve native values and units; conversions must be documented.
+- Missing data stays missing unless a documented method explicitly handles it.
+- Pending field observations are provisional; require independent quality review.
+- Never infer a continuous spatial surface from point observations without an explicit validated method.
+- Never claim causal attribution from descriptive summaries.
+- Large provider jobs must be durable background tasks with retry, cancellation, quotas and idempotency.
+- If a provider is unavailable, display its status and last successful run; do not fabricate values.
+
+## 8. Curriculum and learning rules
+
+The current demo seed contains three published course shells with generic placeholder lesson bodies. Do not present those as complete curricula.
+
+Use `docs/learning/NEXTGEN_CURRICULUM_BLUEPRINT.md` as the proposed initial content design:
+- Research Methods and Evidence Practice.
+- Climate and Health Resilience.
+- Youth Climate Stewardship and Community Action.
+- Indigenous and Community Knowledge for Climate Resilience.
+
+Before publication, obtain subject-matter review, replace placeholders with substantive content, cite resources, align lessons to measurable outcomes, configure assessment rubrics and verify safeguarding/accessibility. Course completion requires explicit criteria; certificates must not imply accreditation or professional licensure unless formally approved.
+
+## 9. Demo and presentation integrity
+
+Use the following labels consistently:
+- Website import.
+- External provider.
+- Organisation record.
+- Synthetic demo.
+- Pending review.
+- Verified.
+
+Never:
+- present synthetic ODK data as live ODK Central data;
+- present a configured provider as returning live data without a successful run;
+- present a public website metric as audited impact;
+- present website-listed partners as verified agreements;
+- present public directory entries as active portal accounts;
+- present a draft course as an approved curriculum;
+- present a code path as production-accepted without test evidence.
+
+Keep `docs/PRODUCT_STATUS_AND_ROADMAP.md`, `docs/RESEARCH_AND_CLIMATE_INTELLIGENCE_BLUEPRINT.md`, `docs/FOUNDER_DEMONSTRATION.md`, `docs/FOUNDER_PRESENTATION.md` and `docs/pitch/DEMO_PITCH.md` aligned with the current build.
+
+## 10. Completion report format
+
+For each work item report:
+1. User-visible change.
+2. API/data changes and migrations.
+3. Security/authorization impact.
+4. Tests run and exact outcome.
+5. Deployment/configuration requirements.
+6. Documentation updated.
+7. Known limitations and follow-up acceptance work.
+
+Use “implemented” only for code present, “tested” only for checks actually run, “deployed” only after deployment confirmation, and “accepted” only after the relevant user journey passes.
