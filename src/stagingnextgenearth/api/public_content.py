@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.platform.models import Membership, Organization, PublicContentEntry, OrganizationRecordAuditEvent
 from .dependencies import Principal, get_current_principal, get_session, membership_has_any_role, require_membership
 router = APIRouter(tags=["public-content"])
-ContentType = Literal["page","programme","training_track","initiative","research_area","impact_metric","publication"]
+ContentType = Literal["page","programme","training_track","initiative","research_area","impact_metric","publication","climate_insight"]
 class ContentCreate(BaseModel):
     content_type: ContentType
     slug: str = Field(min_length=2, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -216,6 +216,11 @@ _PUBLIC_METADATA_KEYS = {
     "publisher",
     "doi",
     "topic",
+    "release_slug",
+    "publication_slug",
+    "region",
+    "indicator",
+    "evidence_note",
 }
 
 
