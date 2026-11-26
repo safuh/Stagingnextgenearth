@@ -51,7 +51,9 @@ Climate intelligence will be available on the public website as a dedicated hub,
 
 The public site will not query private observation records directly. Researchers prepare a versioned public release from eligible provider or reviewed organisation data; an independent reviewer approves it; an authorised publisher makes it public. Every chart and map identifies provider/product, data class, unit, geography, period, baseline, method, coverage, missingness, uncertainty, licence and limitations.
 
-NASA POWER and CHIRPS adapters are present in the repository; this does not mean a public release pipeline or public climate dashboard is already deployed. ERA5 requires additional runtime configuration. The public climate hub is an implementation priority, not a claim of current live public climate coverage.
+The first public climate runtime increment now includes a governed release API, versioning and audit events, a public evidence catalogue, release detail pages and methodology notes. The authenticated Climate Studio at `/workspace/research/climate` connects bounded CHIRPS v3 ingestion, provider-run history, sample inspection, batch quality review, release drafting and independent approval/publication. The public interface uses a high-contrast editorial data design; the research studio uses a dark, technical operations interface.
+
+This is a deployable workflow increment, not evidence of live climate coverage. A real provider run must complete, receive independent quality review and be explicitly published before the public hub can show climate values. The hub must remain in its honest no-release state until then. NASA POWER remains point-based in the current adapter; the public area-release path uses bounded-area providers such as CHIRPS.
 
 ## 6. Learning and curriculum — second product priority
 
