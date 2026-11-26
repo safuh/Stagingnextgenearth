@@ -189,3 +189,11 @@ Use “implemented” only for code present, “tested” only for checks actual
 - Indigenous/community knowledge content must prioritise community authority, prior informed consent, knowledge sovereignty, minimisation and benefit-sharing. Never seed or publish restricted community knowledge as example data.
 - Keep the pilot label visible until subject-matter, clinical, research, safeguarding and community leads approve the relevant material.
 - The demo seed script is an explicit operator action; do not run it automatically during application startup or deployment.
+
+
+## Public climate freshness and cache validators
+
+- Preserve the distinction between release publication time, provider retrieval completion and the represented data-period end.
+- Do not infer "live" or "stale" from a universal age threshold; show source and period timestamps instead.
+- Anonymous climate GET responses must retain ETag and Cache-Control headers. Conditional requests with matching `If-None-Match` return bodyless 304 responses.
+- Do not cache private workflow routes or expose internal provider errors through public cache responses.
