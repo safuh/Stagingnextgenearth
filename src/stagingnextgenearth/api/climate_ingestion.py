@@ -4,8 +4,9 @@ from datetime import datetime
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, model_validator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
@@ -14,7 +15,7 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
-from stagingnextgenearth.platform.models import Membership
+from stagingnextgenearth.platform.models import ClimateIngestionRun, Membership
 
 from .dependencies import (
     Principal,
@@ -68,6 +69,29 @@ class ClimateIngestionRead(BaseModel):
     error_summary: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+    requested_start: datetime
+    requested_end: datetime
+    requested_area: dict[str, object] | None = None
+    licence: str | None = None
+
+
+@router.get("", response_model=list[ClimateIngestionRead])
+async def list_climate_ingestion_runs(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=50, ge=1, le=100),
+) -> list[ClimateIngestionRead]:
+    """List recent provider runs within the caller's organisation."""
+    if not await membership_has_any_role(session, membership, _INGEST_ROLES | {"executive", "founder"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate ingestion access is not permitted")
+    rows = await session.scalars(
+        select(ClimateIngestionRun)
+        .where(ClimateIngestionRun.organization_id == organization_id)
+        .order_by(ClimateIngestionRun.started_at.desc())
+        .limit(limit)
+    )
+    return [ClimateIngestionRead.model_validate(row) for row in rows.all()]
 
 
 @router.post("", response_model=ClimateIngestionRead, status_code=status.HTTP_200_OK)
