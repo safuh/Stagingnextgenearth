@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.core.config import get_settings
 from stagingnextgenearth.platform.models import (
-    InstitutionalPartner, LearningCourse, LearningLesson, LearningModule,
+    InstitutionalPartner, LearningAssessment, LearningCourse, LearningLesson, LearningModule,
     Organization, OrganizationPerson, Programme, PublicContentEntry,
 )
 
@@ -483,6 +483,28 @@ async def seed(slug: str) -> None:
                         lesson.content = lesson_spec["content"]
                         lesson.resource_url = None
                         lesson.duration_minutes = lesson_spec["duration_minutes"]
+
+            assessment_spec = course_spec["assessment"]
+            assessment = await session.scalar(select(LearningAssessment).where(
+                LearningAssessment.course_id == course.id,
+                LearningAssessment.title == assessment_spec["title"],
+            ))
+            configuration = {"questions": assessment_spec["questions"]}
+            if assessment is None:
+                assessment = LearningAssessment(
+                    course_id=course.id,
+                    title=assessment_spec["title"],
+                    assessment_type="quiz",
+                    instructions=assessment_spec["instructions"],
+                    configuration=configuration,
+                    pass_mark=assessment_spec["pass_mark"],
+                    created_by=actor,
+                )
+                session.add(assessment)
+            else:
+                assessment.instructions = assessment_spec["instructions"]
+                assessment.configuration = configuration
+                assessment.pass_mark = assessment_spec["pass_mark"]
         await session.commit()
         print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, four programmes and {len(course_specs)} published learning courses with reviewed pilot lesson content.")
     await engine.dispose()
