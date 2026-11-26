@@ -25,6 +25,22 @@ load balancer, ingress controller, or API gateway with shared state. Monitor
 HTTP 429 rates and authentication failures without logging credentials, tokens,
 or raw password values.
 
+## Anonymous climate read limits
+
+Anonymous `GET /api/public/organizations/{slug}/climate/*` routes have a separate
+fixed-window limit of 60 requests per client and organisation per 60 seconds.
+Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; blocked
+requests receive HTTP 429, `Retry-After`, and `Cache-Control: no-store`.
+Configure `PUBLIC_CLIMATE_RATE_LIMIT_REQUESTS` and
+`PUBLIC_CLIMATE_RATE_LIMIT_WINDOW_SECONDS` through the environment.
+
+The API limiter uses the socket peer address and does not trust forwarded client
+headers. Its bounded in-process counters are defense in depth only; they are not
+shared across workers or replicas. Public deployments must also apply a shared
+client-IP limit at the trusted ingress, load balancer or API gateway. Keep
+anonymous responses bounded and cacheable, and monitor 429s without logging
+sensitive request content.
+
 ## Operational requirements before public launch
 
 - Terminate TLS at a trusted ingress and enable HSTS only when HTTPS is enforced.

@@ -1,11 +1,12 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, model_validator
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
@@ -14,7 +15,12 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateProviderRequest,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
-from stagingnextgenearth.platform.models import Membership
+from stagingnextgenearth.platform.models import (
+    ClimateIngestionRun,
+    ClimateObservation,
+    Membership,
+    OrganizationAuditEvent,
+)
 
 from .dependencies import (
     Principal,
@@ -28,7 +34,7 @@ router = APIRouter(
     prefix="/organizations/{organization_id}/climate-ingestion",
     tags=["climate-ingestion"],
 )
-_INGEST_ROLES = {"admin", "researcher"}
+_INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
 
 
 class ClimateIngestionCreate(BaseModel):
@@ -41,6 +47,7 @@ class ClimateIngestionCreate(BaseModel):
     end: datetime
     point: ClimatePoint | None = None
     area: ClimateBoundingBox | None = None
+    area_label: str | None = Field(default=None, min_length=2, max_length=200)
     chirps_variant: Literal["rnl", "sat"] = "rnl"
 
     @model_validator(mode="after")
@@ -68,6 +75,152 @@ class ClimateIngestionRead(BaseModel):
     error_summary: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+    requested_start: datetime
+    requested_end: datetime
+    requested_area: dict[str, object] | None = None
+    licence: str | None = None
+    pending_observations: int = 0
+    verified_observations: int = 0
+    rejected_observations: int = 0
+
+
+@router.get("", response_model=list[ClimateIngestionRead])
+async def list_climate_ingestion_runs(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=50, ge=1, le=100),
+) -> list[ClimateIngestionRead]:
+    """List recent provider runs within the caller's organisation."""
+    if not await membership_has_any_role(
+        session, membership, _INGEST_ROLES | {"executive", "founder", "programme_manager"}
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate ingestion access is not permitted")
+    rows = await session.scalars(
+        select(ClimateIngestionRun)
+        .where(ClimateIngestionRun.organization_id == organization_id)
+        .order_by(ClimateIngestionRun.started_at.desc())
+        .limit(limit)
+    )
+    runs = rows.all()
+    if not runs:
+        return []
+    counts = (
+        await session.execute(
+            select(
+                ClimateObservation.ingestion_run_id,
+                ClimateObservation.quality_status,
+                func.count(ClimateObservation.id),
+            )
+            .where(
+                ClimateObservation.organization_id == organization_id,
+                ClimateObservation.ingestion_run_id.in_([run.id for run in runs]),
+            )
+            .group_by(
+                ClimateObservation.ingestion_run_id,
+                ClimateObservation.quality_status,
+            )
+        )
+    ).all()
+    quality_by_run: dict[str, dict[str, int]] = {}
+    for run_id, quality_status, count in counts:
+        quality_by_run.setdefault(str(run_id), {})[str(quality_status)] = int(count)
+    result: list[ClimateIngestionRead] = []
+    for run in runs:
+        quality = quality_by_run.get(run.id, {})
+        result.append(
+            ClimateIngestionRead.model_validate(run).model_copy(
+                update={
+                    "pending_observations": quality.get("pending", 0),
+                    "verified_observations": quality.get("verified", 0),
+                    "rejected_observations": quality.get("rejected", 0),
+                }
+            )
+        )
+    return result
+
+
+class ClimateIngestionReview(BaseModel):
+    decision: Literal["verified", "rejected"]
+    note: str = Field(min_length=5, max_length=2000)
+
+
+class ClimateIngestionReviewResult(BaseModel):
+    ingestion_run_id: str
+    reviewed_count: int
+    decision: Literal["verified", "rejected"]
+
+
+@router.post("/{run_id}/review", response_model=ClimateIngestionReviewResult)
+async def review_climate_ingestion_run(
+    organization_id: str,
+    run_id: str,
+    body: ClimateIngestionReview,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ClimateIngestionReviewResult:
+    """Apply one independent quality decision to all pending records in a provider run."""
+    if not await membership_has_any_role(session, membership, {"admin", "programme_manager"}):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Climate quality reviewer role required",
+        )
+    run = await session.scalar(
+        select(ClimateIngestionRun).where(
+            ClimateIngestionRun.id == run_id,
+            ClimateIngestionRun.organization_id == organization_id,
+            ClimateIngestionRun.status == "completed",
+        )
+    )
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Completed provider run not found")
+    observations = await session.scalars(
+        select(ClimateObservation).where(
+            ClimateObservation.organization_id == organization_id,
+            ClimateObservation.ingestion_run_id == run_id,
+            ClimateObservation.quality_status == "pending",
+        )
+    )
+    pending = observations.all()
+    if not pending:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This provider run has no pending observations"
+        )
+    if any(item.created_by == principal.user_id for item in pending):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "A submitter cannot quality-review their own provider observations",
+        )
+    now = datetime.now(UTC)
+    for item in pending:
+        item.quality_status = body.decision
+        item.reviewed_by = principal.user_id
+        item.reviewed_at = now
+        item.review_note = body.note.strip()
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=item.created_by,
+                action="climate.observation.reviewed",
+                changes={
+                    "observation_id": item.id,
+                    "ingestion_run_id": run_id,
+                    "decision": body.decision,
+                    "variable": item.variable,
+                    "source": item.source,
+                    "observed_at": item.observed_at.isoformat(),
+                    "note": item.review_note,
+                },
+            )
+        )
+    await session.commit()
+    return ClimateIngestionReviewResult(
+        ingestion_run_id=run_id,
+        reviewed_count=len(pending),
+        decision=body.decision,
+    )
 
 
 @router.post("", response_model=ClimateIngestionRead, status_code=status.HTTP_200_OK)
@@ -116,6 +269,8 @@ async def run_climate_ingestion(
             licence=provider.licence,
             request=request,
             measurements=provider.fetch(request),
+            area_label=body.area_label,
+            product_variant=body.chirps_variant if body.provider == "chirps-v3" else None,
         )
     except Exception as exc:
         # Persistence records a failed run and rolls back partial observations.
@@ -145,6 +300,11 @@ def _provider_for(body: ClimateIngestionCreate):
 
         return NASAPowerProvider()
     if body.provider == "chirps-v3":
+        if find_spec("rasterio") is None:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "CHIRPS area ingestion requires the rasterio runtime dependency",
+            )
         from stagingnextgenearth.providers.chirps import CHIRPSProvider
 
         return CHIRPSProvider(variant=body.chirps_variant)

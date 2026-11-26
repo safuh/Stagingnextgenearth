@@ -81,6 +81,19 @@ A researcher or administrator can move a research record from discovery or creat
 - All lists, charts and maps are tenant-scoped and state their time window, unit, quality filter and missing-data policy.
 - A complete demo can use imported public research plus clearly labelled synthetic records without claiming live ODK data.
 
+## Public climate intelligence — required public product surface
+
+Climate intelligence must be available from the public website, not only the authenticated researcher portal. This is a product requirement and a separate publication surface over the same provider/evidence infrastructure.
+
+- Public route: `/climate-intelligence`, with insight detail and methodology pages.
+- Public API: anonymous, read-only, bounded endpoints for overview, published releases, time series, regional summaries, insights and public provider/source metadata.
+- Public data is served only through an explicit `ClimatePublicRelease` publication workflow. Existing `ClimateObservation.quality_status='verified'` means quality reviewed; it does not grant permission for public disclosure.
+- A different authorised reviewer must approve a candidate release before publication. Public API must never return pending, rejected, synthetic, restricted, participant-level or unapproved data.
+- Release records preserve provider/product/version, data class, unit, geography, period, baseline, method, coverage, missing-data policy, uncertainty, licence, citation, retrieval time and source lineage.
+- Homepage navigation and feature card link to the public climate hub. No "live" wording unless provider latency has been measured and disclosed.
+
+The detailed public data model, API contract, release workflow, security requirements, implementation sequence and definition of done are in [PUBLIC_CLIMATE_INTELLIGENCE.md](PUBLIC_CLIMATE_INTELLIGENCE.md). This is a specification only until the model, routes, frontend and tests are implemented.
+
 ## Priority 2 — Curriculum and learning content
 
 ### Product outcome
@@ -169,6 +182,25 @@ The platform must not rely only on user-submitted observations. Build a provider
 Provider ingestion should run asynchronously for large jobs. The current climate ingestion endpoint is a bounded synchronous MVP; do not use it for large backfills. Add durable jobs with retries, cancellation, per-tenant quotas, idempotency, run status and alerting.
 
 Climate dashboard outputs must expose provider, dataset/version, units, spatial resolution, temporal resolution, requested and actual coverage, transformations, missingness, quality status, licence/citation and limitations. Never interpolate or impute silently. Keep pending field observations visibly provisional and require independent review before treating them as verified.
+
+## Public climate intelligence implementation status
+
+The current climate implementation branch adds:
+- Public climate catalogue, source register, release detail and methodology pages with an editorial high-contrast visual system.
+- Authenticated Climate Studio at `/workspace/research/climate`, linked from the research workspace.
+- Bounded CHIRPS v3 area ingestion form and organisation-scoped ingestion ledger.
+- Per-run pending/verified/rejected counts and sample inspection.
+- Audited batch quality review, with submitter self-review blocked.
+- Release authoring from completed runs only when every inserted observation has an independent reviewer identity, a verified quality state and a recorded licence.
+- Versioned release workflow with independent approval, publication, supersession and retraction.
+
+The CHIRPS UI currently uses the SAT product variant and limits each request to 31 days. The release aggregation is an arithmetic mean of independently verified grid-cell observations at each timestamp; it does not impute missing values. Coverage and missingness remain unreported. NASA POWER is point-based and is not eligible for this area-aggregated public release flow.
+
+Still required before a climate public-data demo:
+- A successful live provider run in the target staging deployment.
+- Independent quality review by an eligible second user.
+- A published release verified through the anonymous public API and browser.
+- Operational review of synchronous ingestion limits, timeouts, provider freshness and retry behaviour.
 
 ## Presentation and demo policy
 

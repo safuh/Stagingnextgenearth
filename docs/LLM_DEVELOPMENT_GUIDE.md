@@ -102,6 +102,26 @@ The product must combine provider-backed data and organisation field observation
 - Large provider jobs must be durable background tasks with retry, cancellation, quotas and idempotency.
 - If a provider is unavailable, display its status and last successful run; do not fabricate values.
 
+## Public climate intelligence publication boundary
+
+The public website must include a dedicated climate intelligence hub at `/climate-intelligence`. Follow [PUBLIC_CLIMATE_INTELLIGENCE.md](PUBLIC_CLIMATE_INTELLIGENCE.md) for the public API, publication workflow and acceptance criteria.
+
+- Do not expose `ClimateObservation` rows directly through anonymous endpoints.
+- A verified observation is not automatically public. Explicit release approval and publication are separate governance states.
+- Public climate responses must be sourced from published, versioned release records with immutable lineage and public-safe schemas.
+- Public endpoints are anonymous GET-only, organisation-scoped, bounded, rate-limited and cacheable. Never expose credentials, private provider errors, raw metadata, participant data, restricted dataset paths or sensitive coordinates.
+- Keep in-situ observations, satellite estimates, reanalysis, forecasts, projections and synthetic demo data distinct.
+- Every public chart/map must disclose source/product, data class, unit, geography/resolution, time period, baseline, missingness, method, uncertainty/limitations, licence and retrieval/update time.
+- Require a different authorised reviewer for release approval; author self-approval is prohibited.
+- Retraction must remove the release from public responses while preserving audit/version history.
+- If no approved release exists or a provider is unavailable, show an honest no-data/stale state. Never fabricate a public value.
+
+### Climate Studio UX and workflow
+
+The authenticated Climate Studio is the browser workflow for bounded provider ingestion, ingestion history, sample inspection, independent batch quality review and versioned public release governance. Keep the public hub and authenticated studio on one provenance model but separate their permissions and presentation. The public experience is editorial and evidence-led; the research studio is an operational dark interface. Both require responsive layouts, keyboard-visible focus, semantic labels, accessible tables, loading/error/empty states and reduced-motion support.
+
+A batch review is an explicit reviewer decision over every pending observation in one provider run. Explain the batch scope before confirmation and preserve per-observation audit events. A provider run is eligible for a release only when every inserted observation is verified by a reviewer other than its submitter and a provider licence is recorded.
+
 ## 8. Curriculum and learning rules
 
 The current demo seed contains three published course shells with generic placeholder lesson bodies. Do not present those as complete curricula.

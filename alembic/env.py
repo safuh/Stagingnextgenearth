@@ -13,6 +13,8 @@ from stagingnextgenearth.identity import RefreshToken, ResearcherProfile, User  
 from stagingnextgenearth.platform import (  # noqa: F401
     ClimateIngestionRun,
     ClimateObservation,
+    ClimatePublicRelease,
+    ClimatePublicReleaseEvent,
     LearningAssessment,
     LearningAssessmentAttempt,
     LearningAttendance,

@@ -191,6 +191,7 @@ export default function HomePage() {
           <a href="#platform">Platform</a>
           <a href="#programmes">Programmes</a>
           <a href="#research">Research</a>
+          <Link href="/climate-intelligence">Climate intelligence</Link>
           <a href="#activities">Activities</a>
           <a href="/volunteer/apply">Volunteer</a>
           <a href="/employment/apply">Careers</a>

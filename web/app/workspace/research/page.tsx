@@ -1109,7 +1109,10 @@ export default function ResearchWorkspacePage() {
     <main className="workspace-shell">
       <header className="workspace-topbar">
         <Link className="brand" href="/"><span className="brand-mark">N</span><span>nextgen<span className="brand-light">for</span>earth</span></Link>
-        <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
+        <div className="workspace-topbar-actions">
+          <Link className="secondary-action" href="/workspace/research/climate">Climate studio</Link>
+          <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
+        </div>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">RESEARCH & CLIMATE INTELLIGENCE</p>

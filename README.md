@@ -20,7 +20,7 @@ The platform now includes the following integrated product areas:
 - **Learning management:** courses, modules, lessons, learner applications/enrolments, approval, assessments/quizzes, progress, attendance, mentorship and downloadable QR-verifiable certificates.
 - **Institutional partnerships:** partner records, verification workflow and partner reporting.
 - **Research governance:** study lifecycle, proposals, protocol versioning/review, ethics decisions, collaborators, publications, dataset registry, file access governance, evidence manifests and reproducibility records.
-- **Climate intelligence:** NASA POWER and CHIRPS ingestion, climate observations, independent quality review, spatial/time-series analysis, monthly anomalies, coverage and reporting. OpenAlex publication metadata workflows are also available.
+- **Climate intelligence:** NASA POWER and CHIRPS ingestion, climate observations, independent quality review, spatial/time-series analysis, monthly anomalies, coverage and reporting. A dedicated public climate intelligence hub and governed public-release API are specified in [the public climate blueprint](docs/PUBLIC_CLIMATE_INTELLIGENCE.md); the public release workflow is not yet implemented. OpenAlex publication metadata workflows are also available.
 - **ODK Central:** encrypted organisation-level Central connection settings, credential test, form discovery, explicit per-form mappings, scheduled OData polling, persistent pagination cursors, idempotent ingestion and durable sync history. Imported field observations remain pending independent review.
 - **Public website/CMS:** public programme and content projections from approved portal records, with editorial review and publication controls.
 - **Web portals:** separate learner, staff, researcher, youth/volunteer, partner and administration experiences, using a same-origin Next.js BFF and HttpOnly session cookies.
@@ -89,6 +89,7 @@ Never place passwords in manifests or commit real organisation data. Review impo
 - [Web BFF/session deployment](docs/operations/web-deployment.md)
 - [Founder demo and staging acceptance](docs/operations/founder-demo-acceptance.md)
 - [ODK Central integration](docs/operations/odk-central-integration.md)
+- [Public climate intelligence product and API specification](docs/PUBLIC_CLIMATE_INTELLIGENCE.md)
 
 ## Development checks
 
@@ -196,6 +197,10 @@ to a single mean or total: it emits one observation per selected raster cell.
 Copernicus adapters, unit harmonisation, quality assessment and
 spatial/temporal query APIs remain planned work.
 
+
+## Climate intelligence
+
+The public evidence hub is available at `/climate-intelligence`. The authenticated researcher-facing Climate Studio is available at `/workspace/research/climate` and connects bounded CHIRPS v3 ingestion, provider-run inspection, independent batch quality review and versioned public release governance. The public hub displays published releases only; it remains empty until real provider data have passed review and explicit publication.
 
 ## Web application
 

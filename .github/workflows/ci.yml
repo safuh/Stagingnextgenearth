@@ -7,7 +7,7 @@ on:
     branches: [main, "feat/**", "fix/**", "test/**"]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -129,3 +129,5 @@ jobs:
           python scripts/validate_odk_climate_demo.py
       - name: Validate Nginx edge configuration
         run: ./scripts/validate_nginx_edge.sh
+      - name: Build production API container
+        run: docker build -f docker/Dockerfile -t nextgen-for-earth-api:${{ github.sha }} .

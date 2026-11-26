@@ -61,7 +61,11 @@ from .models import (
     ResearchStudyProposal,
 )
 
+from .climate_public import ClimatePublicRelease, ClimatePublicReleaseEvent
+
 __all__ = [
+    "ClimatePublicRelease",
+    "ClimatePublicReleaseEvent",
     "ClimateIngestionRun",
     "FundingAuditEvent",
     "FundingAward",
