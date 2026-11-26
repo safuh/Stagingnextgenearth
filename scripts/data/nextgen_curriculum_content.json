@@ -1,0 +1,594 @@
+{
+  "version": "1.0",
+  "publication_note": "Pilot instructional content for subject-matter review. It is not an accredited qualification, clinical protocol, ethics approval, or substitute for locally approved safeguarding procedures.",
+  "courses": [
+    {
+      "slug": "early-career-researchers",
+      "title": "Research Methods and Evidence Practice",
+      "description": "PILOT CURRICULUM · 8-week pathway for early-career researchers and supervised research assistants. Build a research question, choose a defensible design, protect participants, manage data and communicate evidence. Completion requires the course assessments and a reviewed proposal pack. This learning track is proposed for organisational subject-matter review; it does not grant research ethics approval or professional accreditation.",
+      "category": "Research methods",
+      "programme_slug": "research-capacity-building",
+      "modules": [
+        {
+          "title": "01 / From curiosity to a researchable question",
+          "description": "Outcome: translate a broad topic into a focused question, aligned objectives and a feasible scope. Practice separating description, association and causal claims.",
+          "lessons": [
+            {
+              "title": "Research is a disciplined way of asking",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nExplain what research can establish, what it cannot establish, and why a method must fit the question.\n\nCORE IDEAS\nResearch is a transparent process for reducing uncertainty. A finding may describe a pattern, estimate a difference, identify an association or—under demanding design assumptions—support a causal inference. These are not interchangeable claims. A cross-sectional survey can describe reported experience; it usually cannot establish which event caused another. A qualitative interview can explain meaning and context; it does not estimate population prevalence by itself.\n\nTHE RESEARCH LOOP\n1. Define the problem and who is affected.\n2. Review what is already known and where evidence is weak.\n3. State an answerable question and objectives.\n4. Choose methods that can answer that question.\n5. collect and analyse data with an auditable process.\n6. Report findings, uncertainty, limitations and implications.\n\nPRACTICE\nChoose a local climate, health or youth-development topic. Write one sentence describing the problem without assuming its cause. Then list two alternative explanations that a study would need to consider.\n\nCHECK YOURSELF\nCan you distinguish a descriptive finding from an association? Can you name one conclusion your proposed study would not be able to support?",
+              "resource_url": "https://www.unesco.org/en/legal-affairs/recommendation-science-and-scientific-researchers"
+            },
+            {
+              "title": "Turn a broad topic into an answerable question",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nCreate a focused research question with a defined population or setting, concept or exposure, and time frame.\n\nQUESTION DESIGN\nA broad topic such as “climate change and health” is not yet a research question. Specify whose experience matters, which exposure or phenomenon is being examined, where, and during what period. Quantitative questions may use PICO (Population, Intervention or Exposure, Comparator, Outcome) where appropriate. Qualitative questions often use PEO (Population, Exposure or experience, Outcome or phenomenon of interest), but should preserve room for participants' own accounts.\n\nFEASIBILITY TEST\nA useful question is relevant, answerable with an ethical design, specific enough to guide data collection, and realistic for the available time, skills and resources. Avoid collecting sensitive information simply because it is available.\n\nPRACTICE\nRewrite “Does climate affect mothers?” as a bounded question about a defined group, geography, climate measure and outcome. Mark which parts require clinical or ethics expertise before data collection.\n\nCHECK YOURSELF\nWould two researchers interpret your question in roughly the same way? What is outside its scope?",
+              "resource_url": "https://www.unesco.org/en/legal-affairs/recommendation-science-and-scientific-researchers"
+            },
+            {
+              "title": "Align objectives, concepts and indicators",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nWrite objectives that logically follow from a research question and identify observable indicators.\n\nALIGNMENT\nThe research question is the centre of the design. Each objective should contribute to answering it. A conceptual framework describes the relationships you expect to examine; it is a guide to inquiry, not proof that the relationships exist. Define each key term so that a reader knows what is being measured or explored.\n\nINDICATORS\nAn indicator is an operational signal for a concept. For example, “access to safe water” might involve source type, collection time, reliability and reported barriers. One indicator rarely captures the whole concept. Record the unit, source, collection method, reference period and known limitations.\n\nPRACTICE\nDraft one primary objective and two specific objectives for your question. For each, name the evidence required and one risk of measuring it poorly.\n\nCHECK YOURSELF\nCan every objective be traced to the main question? Are any indicators being treated as if they fully represent a complex experience?",
+              "resource_url": "https://www.who.int/publications/i/item/9789241502948"
+            }
+          ]
+        },
+        {
+          "title": "02 / Design, sampling and field practice",
+          "description": "Outcome: select an appropriate qualitative, quantitative or mixed-methods design; describe recruitment and sampling; and identify field-quality risks before collection begins.",
+          "lessons": [
+            {
+              "title": "Choose a study design that fits the question",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nCompare common study designs and justify a design choice against the research question.\n\nDESIGN FAMILIES\nQuantitative designs use structured measurements to describe distributions, compare groups or examine associations. Qualitative designs explore meaning, experience, process and context. Mixed-methods designs combine approaches when the integration adds value—not simply to collect more data.\n\nA cross-sectional study measures a population at a point or short period. A cohort follows participants or units over time. A case-control design selects groups based on outcome status and examines prior exposures. Interviews and focus groups explore accounts and perspectives. Each design has strengths, biases and limits.\n\nDECISION RULE\nStart with the question, then consider time, access, ethics, measurement quality and analysis capacity. Do not choose a complex design because it sounds more scientific.\n\nPRACTICE\nFor your question, compare two possible designs. State what each could answer, what it could not answer, and the main source of bias.\n\nCHECK YOURSELF\nCan you explain why the selected design is the most defensible feasible option?",
+              "resource_url": "https://www.unesco.org/en/legal-affairs/recommendation-science-and-scientific-researchers"
+            },
+            {
+              "title": "Sampling, recruitment and representation",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nDescribe a sampling approach and recognise selection bias, non-response and limits to generalisation.\n\nSAMPLING BASICS\nA target population is the group a study wants to understand. A sampling frame is the practical list or process from which units are selected. Probability sampling gives known selection chances and can support population estimates when implemented correctly. Purposive, convenience and snowball approaches may be useful for qualitative or hard-to-reach groups, but they do not automatically represent a wider population.\n\nFIELD RISKS\nPeople who are unavailable, decline or cannot safely participate may differ from those included. Recruitment through a gatekeeper can exclude less-connected voices. Small samples can support deep exploration but should not be presented as representative without justification.\n\nPRACTICE\nWrite a recruitment plan: eligibility, approach, who makes contact, how refusal is respected, and how non-response is documented. Identify groups that may be missed.\n\nCHECK YOURSELF\nWho is absent from your sampling frame? What claims can your sample support—and which claims would overreach?",
+              "resource_url": "https://www.who.int/publications/i/item/9789241502948"
+            },
+            {
+              "title": "Build and pilot a field instrument",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nDraft clear survey or interview questions and plan a safe, documented pilot.\n\nINSTRUMENT QUALITY\nAsk one thing at a time. Avoid leading wording, unexplained technical terms and assumptions about household roles or lived experience. Response options should be understandable, sufficiently complete and appropriate to the question. For interviews, use open prompts and neutral follow-ups. Translate with attention to meaning, not only literal wording.\n\nPILOTING\nA pilot checks comprehension, flow, duration, accessibility, skip logic and data capture. It is not a shortcut to ethics approval. Explain pilot participation, protect privacy, document changes and obtain the required permissions before any real participant activity.\n\nPRACTICE\nDraft five questions for your study. Ask a colleague to identify ambiguity, sensitivity and possible response bias. Record the changes you would make.\n\nCHECK YOURSELF\nCould a participant understand the question without help? Is any question unnecessary or more intrusive than the study requires?",
+              "resource_url": "https://www.who.int/publications/i/item/9789241502948"
+            },
+            {
+              "title": "Research ethics, safeguarding and accountable governance",
+              "duration_minutes": 30,
+              "resource_url": "https://www.who.int/publications/i/item/9789241502948",
+              "content": "LEARNING OUTCOME\nIdentify the approvals, safeguards and governance responsibilities that must be resolved before research begins.\n\nETHICS IS PART OF THE DESIGN\nResearch involving people must be planned around dignity, rights, welfare, fairness and respect. Consider the purpose, participant burden, potential harms, benefits, privacy, data access, compensation, power differences and routes for raising concerns. Ethics review is independent of a researcher's own judgement and must be completed before recruitment or data collection where required.\n\nGOVERNANCE IN PRACTICE\nConfirm the responsible institution, required ethics committee or review body, permissions from relevant authorities, consent materials, data-management plan, safeguarding arrangements and incident-response process. A community gatekeeper's permission does not replace individual consent where it is required. A signed form does not replace ongoing communication and respect for withdrawal.\n\nPRACTICE\nCreate a pre-fieldwork checklist for a hypothetical study. Assign an owner and evidence of completion to each approval and safeguard.\n\nCHECK YOURSELF\nWhat must be approved before fieldwork, who is independent of the research team, and how can participants raise concerns?"
+            }
+          ]
+        }
+      ],
+      "assessment": {
+        "title": "Research foundations knowledge check",
+        "instructions": "Answer all questions. This short formative quiz checks research-question alignment, design limits and evidence quality. A 70% score is required to pass; you may review the lessons and retry.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "What should guide the choice of a research design?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Which method is most fashionable"
+              },
+              {
+                "id": "b",
+                "text": "The research question, feasibility, ethics and evidence required"
+              },
+              {
+                "id": "c",
+                "text": "The largest possible sample regardless of purpose"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "A cross-sectional survey usually provides what kind of evidence?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A description or association at a point or short period"
+              },
+              {
+                "id": "b",
+                "text": "Definitive proof of causation"
+              },
+              {
+                "id": "c",
+                "text": "A guaranteed forecast"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "Why is a sampling frame important?",
+            "options": [
+              {
+                "id": "a",
+                "text": "It guarantees that nobody declines"
+              },
+              {
+                "id": "b",
+                "text": "It defines the practical population or list from which selection occurs"
+              },
+              {
+                "id": "c",
+                "text": "It removes all possible bias"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "What must happen before a study recruits human participants?",
+            "options": [
+              {
+                "id": "a",
+                "text": "The team should begin and request permission later"
+              },
+              {
+                "id": "b",
+                "text": "Required ethics review and permissions must be in place before recruitment"
+              },
+              {
+                "id": "c",
+                "text": "Only the principal investigator needs to know"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
+    },
+    {
+      "slug": "healthcare-workers",
+      "title": "Climate and Health Resilience",
+      "description": "PILOT CURRICULUM · 6-week learning pathway for healthcare workers, community health personnel and health programme staff. Explore climate-sensitive health pathways, heat and extreme-weather risks, climate information and service continuity. This course supports awareness and preparedness; it is not a clinical qualification and does not replace national or facility protocols.",
+      "category": "Climate and health",
+      "programme_slug": "healthcare-worker-training",
+      "modules": [
+        {
+          "title": "01 / Climate-health systems",
+          "description": "Outcome: explain how hazards interact with exposure, vulnerability and service capacity. Distinguish climate context from individual clinical assessment.",
+          "lessons": [
+            {
+              "title": "Climate hazards, exposure and health pathways",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nExplain how climate hazards can affect health directly and indirectly, and identify why risk differs between people and places.\n\nA SYSTEMS VIEW\nClimate variability and long-term climate change influence hazards such as extreme heat, heavy rainfall, drought and changing seasonal patterns. Health effects depend on exposure, sensitivity and adaptive capacity. Heat can increase physiological stress; floods can damage infrastructure and disrupt water and sanitation; drought can affect food and water security. Indirect pathways may involve livelihoods, displacement, air quality, infectious disease ecology and mental wellbeing.\n\nCONTEXT MATTERS\nAge, disability, occupation, housing, income, access to care and social support influence vulnerability. A gridded climate estimate describes conditions over an area and period; it does not tell you an individual's exposure or diagnosis.\n\nPRACTICE\nMap one climate-health pathway for your service catchment. Include the hazard, exposed groups, possible health or service effects, protective factors and information gaps.\n\nCHECK YOURSELF\nWhich parts are climate evidence, which are health-service data, and which are assumptions that need validation?",
+              "resource_url": "https://www.who.int/news-room/fact-sheets/detail/climate-change-and-health"
+            },
+            {
+              "title": "Heat exposure and safe escalation",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nRecognise heat as a service-readiness concern and describe safe communication and escalation within approved clinical protocols.\n\nHEAT AND HEALTH\nHigh heat can contribute to dehydration, heat exhaustion and heatstroke, and can worsen some existing health conditions. Risk depends on duration, humidity, exertion, housing, access to water, medicines and individual circumstances. Occupational exposure can affect outdoor workers and people in poorly ventilated workplaces.\n\nSAFE PRACTICE\nUse current national and facility clinical guidance for recognition, immediate response and referral. This lesson does not define diagnostic thresholds or replace clinical judgement. Community messages should be clear, practical and accessible: reduce avoidable exposure, seek shade or cooler spaces where possible, maintain safe hydration and seek urgent care for severe symptoms.\n\nPRACTICE\nReview a fictional heat alert. Draft a facility notice that states the date, source, affected area, recommended precautions and escalation contact approved by your service.\n\nCHECK YOURSELF\nDoes your message distinguish a weather alert from a clinical diagnosis? Does it avoid unsupported claims about who is individually at risk?",
+              "resource_url": "https://www.who.int/news-room/fact-sheets/detail/climate-change-and-health"
+            },
+            {
+              "title": "Floods, drought and continuity of care",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nIdentify how floods and drought can disrupt health services and outline continuity actions.\n\nSERVICE PATHWAYS\nFlooding may damage roads, facilities, power, water systems and supply chains. It can create injury risks, displacement and contamination concerns. Drought may affect water access, food security, livelihoods and service demand. Impacts are shaped by infrastructure, preparedness and the resources available to communities.\n\nCONTINUITY PLANNING\nMap essential services, dependencies, alternative routes, backup supplies, communication channels and referral arrangements. Plans should identify who makes decisions, who communicates with communities, how vulnerable people are reached and how services resume safely. Coordinate with local authorities and disaster-management structures.\n\nPRACTICE\nComplete a one-page facility continuity checklist for one hazard. Name three critical dependencies, one backup option for each and the person or team responsible for reviewing the plan.\n\nCHECK YOURSELF\nWhich actions are already approved locally, and which require facility leadership or public-health authority sign-off?",
+              "resource_url": "https://www.who.int/news-room/fact-sheets/detail/climate-change-and-health"
+            }
+          ]
+        },
+        {
+          "title": "02 / Climate information for resilient services",
+          "description": "Outcome: interpret source-labelled climate information, identify uncertainty and translate evidence into practical service-readiness questions without making causal or individual-risk claims.",
+          "lessons": [
+            {
+              "title": "Know your climate data source",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nDistinguish station observations, satellite estimates, reanalysis, forecasts and climate projections.\n\nDATA CLASSES\nStation observations are measurements collected at instruments in specific locations. Satellite estimates are algorithm-derived products with their own spatial resolution and retrieval limitations. Reanalysis combines observations and models to reconstruct past conditions. Forecasts describe expected future conditions from a particular issue time. Climate projections explore possible future climates under stated scenarios.\n\nREAD BEFORE INTERPRETING\nCheck the provider, product, variable, unit, geography, resolution, time period, baseline and update date. A monthly rainfall estimate cannot be treated as a direct measure of a household's water access. A projection is not a deterministic prediction.\n\nPRACTICE\nTake a published climate chart and write a five-line source record: provider/product, data class, unit, area, period and one limitation.\n\nCHECK YOURSELF\nCould a decision-maker reproduce what the chart represents from your source note?",
+              "resource_url": "https://www.ipcc.ch/report/sixth-assessment-report-cycle/2023/"
+            },
+            {
+              "title": "Read rainfall and temperature patterns carefully",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nDescribe seasonal patterns and anomalies while explaining baseline choice and uncertainty.\n\nPATTERNS AND BASELINES\nA time series shows how a variable changes over time. Seasonality is a recurring pattern; an anomaly is a departure from a defined reference period. The baseline must be named and appropriate to the indicator and data product. Different baselines can produce different anomaly values.\n\nINTERPRETATION\nCheck missing periods, changes in station coverage or product version, spatial averaging and whether the time series is complete. Do not replace missing values with zero. A county mean can hide local variation, and a rainfall anomaly alone does not establish drought impact or a health outcome.\n\nPRACTICE\nCompare a fictional monthly rainfall series with a stated baseline. Describe the largest departure, missing months and one decision the data cannot support.\n\nCHECK YOURSELF\nHave you stated the baseline and the data gaps? Is the interpretation descriptive rather than causal?",
+              "resource_url": "https://www.ipcc.ch/report/sixth-assessment-report-cycle/2023/"
+            },
+            {
+              "title": "Turn evidence into a service-readiness action",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nTranslate a climate signal into a bounded operational question and a reviewable action.\n\nFROM SIGNAL TO ACTION\nClimate information is one input to planning. Combine it with facility vulnerability, service demand, local alerts, infrastructure condition and community feedback. A climate series may prompt a question about water storage, cold-chain resilience, staff scheduling or referral routes; it does not by itself prove which intervention will work.\n\nACTION DESIGN\nSpecify the signal, affected service, proposed action, responsible owner, resource requirement, trigger for review and date for reassessment. Record the source and uncertainty. Use approved local protocols and involve the teams responsible for implementation.\n\nPRACTICE\nCreate a small action card for one facility risk. Include one indicator to monitor and one reason the action might need revision.\n\nCHECK YOURSELF\nCan a colleague identify the evidence, decision owner and review date without relying on your memory?",
+              "resource_url": "https://www.who.int/news-room/fact-sheets/detail/climate-change-and-health"
+            },
+            {
+              "title": "Communicate climate-health risk with clarity and equity",
+              "duration_minutes": 25,
+              "resource_url": "https://www.who.int/news-room/fact-sheets/detail/climate-change-and-health",
+              "content": "LEARNING OUTCOME\nPrepare a climate-health communication that states evidence, uncertainty, audience and practical next steps.\n\nCOMMUNICATION PRINCIPLES\nUse plain language and identify the source, date, location, indicator and time period. Distinguish an observed or estimated climate condition from a forecast, a health-service report or a clinical diagnosis. Explain what is known, what is uncertain and what information is missing. Avoid false precision and unsupported causal statements.\n\nEQUITY AND ACCESS\nConsider language, disability, age, literacy, access to phones, transport and trusted communication channels. Co-design messages with local health workers and community partners. Provide a clear contact or escalation route approved by the responsible service. Do not publish personal health information or identify vulnerable individuals.\n\nPRACTICE\nDraft a short message for a fictional heat advisory. Include source and issue date, affected area, practical precautions, limits of the information and an approved route for further help.\n\nCHECK YOURSELF\nCan a reader tell the difference between a climate alert and a clinical assessment? Is the message usable by the people it is intended to reach?"
+            }
+          ]
+        }
+      ],
+      "assessment": {
+        "title": "Climate-health resilience knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks climate-health pathways, source awareness and safe interpretation. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "Which statement best describes climate-health risk?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A hazard alone determines every person's risk"
+              },
+              {
+                "id": "b",
+                "text": "Risk depends on hazard, exposure, vulnerability and adaptive capacity"
+              },
+              {
+                "id": "c",
+                "text": "A county average is an individual diagnosis"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "What is reanalysis?",
+            "options": [
+              {
+                "id": "a",
+                "text": "A retrospective reconstruction combining observations and models"
+              },
+              {
+                "id": "b",
+                "text": "A direct measurement from every household"
+              },
+              {
+                "id": "c",
+                "text": "A guaranteed prediction of tomorrow's weather"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "How should a climate chart be used in a clinical setting?",
+            "options": [
+              {
+                "id": "a",
+                "text": "As a replacement for clinical protocols"
+              },
+              {
+                "id": "b",
+                "text": "As context alongside approved clinical guidance and local service information"
+              },
+              {
+                "id": "c",
+                "text": "As proof that a specific patient has a climate-related illness"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "How should missing periods in a climate time series be handled?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Replace them with zero"
+              },
+              {
+                "id": "b",
+                "text": "Hide them from the chart"
+              },
+              {
+                "id": "c",
+                "text": "Report missingness and use a justified method without inventing values"
+              }
+            ],
+            "correct_option_id": "c",
+            "points": 1
+          }
+        ]
+      }
+    },
+    {
+      "slug": "youth-climate-stewards",
+      "title": "Youth Climate Stewardship and Community Action",
+      "description": "PILOT CURRICULUM · 6-week pathway for youth cohorts working with trained mentors and safeguarding leads. Build climate literacy, plan locally relevant stewardship activities, monitor restoration work and communicate responsibly. Youth activities require age-appropriate consent, adult supervision and organisation-approved safeguarding procedures. This is not an accredited environmental qualification.",
+      "category": "Youth climate stewardship",
+      "programme_slug": "youth-climate-stewardship",
+      "modules": [
+        {
+          "title": "01 / Climate literacy and local stewardship",
+          "description": "Outcome: explain basic climate concepts, identify local environmental pressures and connect stewardship choices to evidence and community priorities.",
+          "lessons": [
+            {
+              "title": "Weather, climate and climate change",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nExplain the difference between weather, climate variability and long-term climate change.\n\nTHREE IDEAS\nWeather describes short-term atmospheric conditions. Climate describes patterns and statistics over longer periods. Climate variability refers to natural fluctuations around those patterns; climate change refers to persistent shifts in climate characteristics. One rainy day does not disprove a warming trend, and one hot afternoon does not by itself prove climate change.\n\nLOCAL OBSERVATION\nCommunities notice changes in seasons, water availability, vegetation and livelihoods. These observations are important context, but a research claim should identify the period, location, method and evidence used. Different places experience different combinations of hazards and capacities.\n\nPRACTICE\nCreate a simple weather diary for one week. Label it as short-term observation, not climate evidence. Then list what additional long-term information would be needed to examine a climate trend.\n\nCHECK YOURSELF\nCan you explain why weather and climate are related but not the same?",
+              "resource_url": "https://www.ipcc.ch/report/sixth-assessment-report-cycle/2023/"
+            },
+            {
+              "title": "Ecosystems, biodiversity and restoration",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nDescribe how healthy ecosystems support people and identify what responsible restoration requires.\n\nECOSYSTEM CONNECTIONS\nSoils, water, plants, animals and people interact. Trees can provide shade, habitat and other benefits, but species choice and planting location matter. A planting count is an activity measure; it is not proof of survival, biodiversity recovery or carbon benefit.\n\nRESTORATION PRINCIPLES\nStart with local ecological guidance. Consider native species, site suitability, water availability, land rights, maintenance, invasive-species risks and long-term stewardship. Ask who owns the land and who is responsible after the event. Avoid planting where it damages wetlands, grasslands or other important ecosystems.\n\nPRACTICE\nAssess a proposed planting site with a mentor using a checklist: permission, ecological suitability, species source, water, maintenance and monitoring owner.\n\nCHECK YOURSELF\nWhat evidence would be needed to report survival after six or twelve months?",
+              "resource_url": "https://www.fao.org/sustainable-forest-management/toolbox/tools/tool-detail/en/c/1397890/"
+            },
+            {
+              "title": "Plan a safe community action",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nDesign a small, inclusive stewardship activity with a clear purpose, permission and safeguarding plan.\n\nPLAN BEFORE ACTION\nIdentify the local issue with community input. Set a realistic objective, define the activity, agree roles and decide how results will be recorded. Obtain landowner and organisational permissions. Youth participation must be voluntary and age-appropriate, with the required parent/guardian consent, assent, adult supervision and safeguarding arrangements.\n\nSAFETY AND RESPECT\nDo not handle chemicals, sharp tools, heavy equipment or hazardous waste unless a trained adult and approved safety procedure explicitly permit it. Do not photograph or identify participants without permission. Provide a way to raise concerns and stop an activity safely.\n\nPRACTICE\nDraft an activity plan with purpose, location at an appropriate level of precision, permission, roles, materials, risks, supervision and follow-up.\n\nCHECK YOURSELF\nWho is accountable for safeguarding and what happens if a participant wants to stop?",
+              "resource_url": "https://www.unicef.org/documents/safeguarding-policy"
+            }
+          ]
+        },
+        {
+          "title": "02 / Youth-led action and evidence",
+          "description": "Outcome: work with mentors, collect simple non-sensitive activity records and communicate results without exaggerating ecological impact.",
+          "lessons": [
+            {
+              "title": "Peer mentorship and inclusive teamwork",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nDescribe the responsibilities of a peer mentor and practise inclusive group facilitation.\n\nMENTORSHIP\nA peer mentor supports learning, encourages questions and helps participants find reliable information. A mentor is not a substitute for a trained safeguarding lead, counsellor, clinician or teacher. Keep boundaries clear, communicate respectfully and refer concerns through approved organisational channels.\n\nINCLUSION\nMake space for different languages, abilities, confidence levels and experiences. Share tasks fairly, avoid public shaming and do not pressure anyone to disclose personal information. Agree group expectations and a safe way to raise concerns.\n\nPRACTICE\nCreate a team agreement with three commitments: respectful participation, safe communication and a clear route for help.\n\nCHECK YOURSELF\nCan everyone participate without being required to share private experiences or agree with the group?",
+              "resource_url": "https://www.unicef.org/documents/safeguarding-policy"
+            },
+            {
+              "title": "Monitor activities without overstating impact",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nDistinguish inputs, activities, outputs and outcomes, and select a proportionate monitoring measure.\n\nRESULTS CHAIN\nInputs are resources such as seedlings, tools and mentor time. Activities are events such as planting or clean-ups. Outputs are immediate counts, such as participants trained or seedlings planted. Outcomes describe changes over time, such as survival, skills gained or improved site condition. Outcomes require follow-up evidence.\n\nGOOD RECORDS\nUse consistent definitions, dates, units and responsible record keepers. Record missing information honestly. Protect personal data and precise locations where disclosure could create risk. A satellite vegetation signal cannot independently verify who planted a tree or whether a particular planting survived.\n\nPRACTICE\nBuild a small monitoring table for a planting activity: seedlings planted, species, date, maintenance visit, survival check and evidence source.\n\nCHECK YOURSELF\nWhich numbers are outputs, and which would require a later measurement to count as outcomes?",
+              "resource_url": "https://www.fao.org/sustainable-forest-management/toolbox/modules/forest-and-landscape-restoration/"
+            },
+            {
+              "title": "Tell a truthful climate action story",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nPrepare a short public update that separates verified facts, participant perspectives and aspirations.\n\nRESPONSIBLE COMMUNICATION\nState what happened, when and where at an appropriate level of detail. Distinguish counts from outcomes and observations from interpretation. Credit community partners with permission. Avoid images or quotes that identify children without approved consent. Do not imply that a single activity solved a complex environmental problem.\n\nSTORY STRUCTURE\n1. The local issue identified with the community.\n2. The activity and who supported it.\n3. What was measured and how.\n4. What remains unknown.\n5. What happens next and who is responsible.\n\nPRACTICE\nDraft a 100-word update using a fictional activity record. Highlight every claim that needs evidence or permission before publication.\n\nCHECK YOURSELF\nWould a reader understand the difference between what was completed and what is hoped for?",
+              "resource_url": "https://www.unicef.org/documents/safeguarding-policy"
+            }
+          ]
+        }
+      ],
+      "assessment": {
+        "title": "Youth stewardship knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks climate literacy, safe participation and honest impact reporting. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "What is the difference between weather and climate?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Weather is short-term conditions; climate describes longer-term patterns"
+              },
+              {
+                "id": "b",
+                "text": "They mean exactly the same thing"
+              },
+              {
+                "id": "c",
+                "text": "One rainy day proves a climate trend"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "A count of seedlings planted is best described as:",
+            "options": [
+              {
+                "id": "a",
+                "text": "Proof of long-term ecosystem recovery"
+              },
+              {
+                "id": "b",
+                "text": "An activity output that needs follow-up to assess survival"
+              },
+              {
+                "id": "c",
+                "text": "A direct measure of carbon sequestration"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "What is required before youth field activities?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Only a social media announcement"
+              },
+              {
+                "id": "b",
+                "text": "Age-appropriate consent, adult supervision and approved safeguarding arrangements"
+              },
+              {
+                "id": "c",
+                "text": "Participants must share personal stories"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "Which statement is a responsible public report?",
+            "options": [
+              {
+                "id": "a",
+                "text": "We planted 50 seedlings; survival will be checked after six months"
+              },
+              {
+                "id": "b",
+                "text": "We restored the entire ecosystem in one day"
+              },
+              {
+                "id": "c",
+                "text": "Every seedling is guaranteed to survive"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
+          }
+        ]
+      }
+    },
+    {
+      "slug": "indigenous-community-knowledge",
+      "title": "Indigenous and Community Knowledge for Climate Resilience",
+      "description": "PILOT CURRICULUM · 6-week pathway for community facilitators, researchers and youth mentors working under community-defined governance. Explore knowledge systems, consent, knowledge sovereignty, ethical co-production and respectful climate-resilience practice. No participant is required to disclose restricted knowledge. Community authority, local protocols and applicable law take precedence. This is not a substitute for legal advice or community approval.",
+      "category": "Community knowledge and resilience",
+      "programme_slug": "indigenous-knowledge-transfer",
+      "modules": [
+        {
+          "title": "01 / Knowledge, rights and relationships",
+          "description": "Outcome: recognise community knowledge as held by rights-bearing people and institutions, and identify why permission must precede documentation or use.",
+          "lessons": [
+            {
+              "title": "Knowledge systems and community authority",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nExplain why local and Indigenous knowledge must be approached through relationships, rights and community-defined protocols.\n\nKNOWLEDGE IN CONTEXT\nCommunities hold diverse knowledge about seasons, ecosystems, food systems, water, health, livelihoods and adaptation. Knowledge is not a free public resource simply because it is shared in a conversation or visible in a landscape. Authority may rest with individuals, families, elders, customary institutions, community organisations or other rights holders. There is no single Indigenous perspective.\n\nSTART WITH LISTENING\nAsk who has authority to discuss the topic, what may be shared, who may benefit and what should remain private. Do not assume one representative can authorise use for everyone.\n\nPRACTICE\nFor a hypothetical project, map the stakeholders and decision rights that must be understood before any knowledge is recorded.\n\nCHECK YOURSELF\nWho decides whether the knowledge may be collected, stored, interpreted or published?",
+              "resource_url": "https://www.un.org/development/desa/indigenouspeoples/declaration-on-the-rights-of-indigenous-peoples.html"
+            },
+            {
+              "title": "Free, prior and informed consent in practice",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nDescribe consent as an ongoing, understandable and voluntary process rather than a one-time signature.\n\nCONSENT PRINCIPLES\nConsent should be sought before an activity begins, in a language and form people understand, with clear information about purpose, methods, risks, storage, access, future use and withdrawal. People must have a genuine opportunity to refuse without penalty. Collective permissions and individual consent may both be required; one does not automatically replace the other.\n\nBEYOND THE FORM\nExplain who will access recordings, translations, photographs, maps and derived materials. Agree what can be quoted, attributed, anonymised or withheld. Revisit consent when the purpose or audience changes. Respect community-specific protocols and applicable legal requirements.\n\nPRACTICE\nReview a fictional consent script. Identify missing information about future use, storage, withdrawal and publication.\n\nCHECK YOURSELF\nCould a person explain in their own words what they are agreeing to—and what they can decline?",
+              "resource_url": "https://www.un.org/development/desa/indigenouspeoples/declaration-on-the-rights-of-indigenous-peoples.html"
+            },
+            {
+              "title": "Knowledge sovereignty, attribution and benefit",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nIdentify governance questions about ownership, control, attribution, access and benefit-sharing.\n\nGOVERNANCE QUESTIONS\nWho controls the original knowledge and the records created from it? Who can access, interpret, translate, license or publish the material? How will contributors be credited if they choose attribution? What benefits are expected, who decides how they are shared, and how will commitments be monitored?\n\nSAFEGUARDS\nDo not assume anonymisation makes restricted knowledge safe to publish. A location, practice or phrase may identify a community even when names are removed. Avoid uploading sensitive material to tools or platforms without explicit approval. Keep access restrictions and deletion or return arrangements clear.\n\nPRACTICE\nDraft a governance checklist covering ownership, access, attribution, storage, benefit-sharing and review.\n\nCHECK YOURSELF\nWhat would happen if a community later decided that material should no longer be shared?",
+              "resource_url": "https://www.un.org/development/desa/indigenouspeoples/declaration-on-the-rights-of-indigenous-peoples.html"
+            }
+          ]
+        },
+        {
+          "title": "02 / Co-production and respectful climate action",
+          "description": "Outcome: design collaborative activities that respect local priorities, protect restricted knowledge and return useful outputs to the communities involved.",
+          "lessons": [
+            {
+              "title": "Co-produce questions and interpretation",
+              "duration_minutes": 30,
+              "content": "LEARNING OUTCOME\nPlan a collaborative process in which community partners help define questions, methods and interpretation.\n\nCO-PRODUCTION\nA respectful project does not merely extract information and return a report at the end. Partners should shape the purpose, decide what evidence is appropriate, identify risks, interpret findings and determine what outputs are useful. Researchers must be transparent about funding, timelines, institutional requirements and limits to what they can promise.\n\nINTERPRETATION\nDifferent knowledge systems may use different categories, time frames and evidence standards. Do not force agreement where there is genuine difference. Record uncertainty, dissent and restrictions according to the agreed protocol.\n\nPRACTICE\nCreate a co-production meeting plan with decision points, accessible materials, translation needs and a process for recording agreements.\n\nCHECK YOURSELF\nWhich decisions are shared, which remain with community authorities, and how will disagreements be handled?",
+              "resource_url": "https://www.unesco.org/en/climate-change/links"
+            },
+            {
+              "title": "Protect sensitive knowledge and locations",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nIdentify when information should be minimised, restricted, generalised or not collected at all.\n\nRISK-BASED PROTECTION\nSensitive knowledge may include sacred sites, customary resource areas, medicinal practices, culturally restricted narratives, threatened species locations or information that could expose people to exploitation. Precise coordinates, photos, audio and combinations of seemingly harmless details can create disclosure risk.\n\nMINIMISATION\nCollect only what is necessary. Use access controls, retention periods and approved storage. Consider whether a broad geographic description is sufficient. Do not publish a map layer merely because it can be generated. Community review must precede release, and some information should never be digitised or shared.\n\nPRACTICE\nAssess a fictional map containing a sensitive site. Decide what to remove, generalise, restrict or leave unpublished, and explain who must approve the decision.\n\nCHECK YOURSELF\nIs publication necessary to meet the project purpose? Who could be harmed if the information became public?",
+              "resource_url": "https://www.unesco.org/en/climate-change/links"
+            },
+            {
+              "title": "Return value and agree accountable action",
+              "duration_minutes": 25,
+              "content": "LEARNING OUTCOME\nDesign a feedback and benefit plan that returns useful outputs and makes responsibilities visible.\n\nRECIPROCITY\nAgree early what the community wants from the collaboration: accessible findings, local-language materials, training, data copies, tools, funding, policy engagement or other benefits. Do not promise benefits outside the project's control. Set owners, timing and a route for concerns or complaints.\n\nCLOSE THE LOOP\nShare findings in a usable format, invite correction, explain what changed and what did not, and document any restrictions on further use. Community approval of a summary does not automatically authorise publication of underlying restricted knowledge.\n\nPRACTICE\nDraft a one-page return-of-results plan with outputs, languages, delivery dates, responsible people and feedback arrangements.\n\nCHECK YOURSELF\nCan community partners see what was done with their contribution and how to raise a concern?",
+              "resource_url": "https://www.unesco.org/en/climate-change/links"
+            }
+          ]
+        }
+      ],
+      "assessment": {
+        "title": "Community knowledge governance knowledge check",
+        "instructions": "Answer all questions. This formative quiz checks consent, community authority and responsible knowledge protection. A 70% score is required to pass; you may retry after reviewing the lessons.",
+        "pass_mark": 70,
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "When should permission to document community knowledge be sought?",
+            "options": [
+              {
+                "id": "a",
+                "text": "After publication"
+              },
+              {
+                "id": "b",
+                "text": "Before the activity, through an understandable and voluntary process"
+              },
+              {
+                "id": "c",
+                "text": "Only if the material is already online"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q2",
+            "prompt": "Who determines whether restricted knowledge may be shared?",
+            "options": [
+              {
+                "id": "a",
+                "text": "The software developer alone"
+              },
+              {
+                "id": "b",
+                "text": "Relevant rights holders and community authorities under their protocols"
+              },
+              {
+                "id": "c",
+                "text": "Any visitor to the area"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q3",
+            "prompt": "What should happen when a map may expose a sensitive community site?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Publish the precise coordinates for transparency"
+              },
+              {
+                "id": "b",
+                "text": "Assess risk and generalise, restrict or withhold the information as authorised"
+              },
+              {
+                "id": "c",
+                "text": "Remove only the map title"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "What is the safest default for restricted or sensitive community knowledge?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Publish it after removing personal names"
+              },
+              {
+                "id": "b",
+                "text": "Do not collect or publish it unless the relevant rights holders explicitly authorise an appropriate use"
+              },
+              {
+                "id": "c",
+                "text": "Upload it to a public map for transparency"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          }
+        ]
+      }
+    }
+  ]
+}

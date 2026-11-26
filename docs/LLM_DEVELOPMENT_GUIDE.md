@@ -178,3 +178,14 @@ Use “implemented” only for code present, “tested” only for checks actual
 - A release retraction or unpublication must remove linked insights from the anonymous public endpoint.
 - Keep internal review notes and arbitrary CMS metadata out of public responses; only explicitly allow-listed fields may be exposed.
 - If no eligible evidence pair exists, retain the public empty state rather than seeding an example insight.
+
+
+## Learning content authoring and safeguarding
+
+- Treat `scripts/data/nextgen_curriculum_content.json` as versioned pilot content, not as an accreditation standard.
+- Keep each lesson outcome, explanation, applied practice and self-check explicit; link to authoritative source material through `resource_url`.
+- Do not present general climate-health material as diagnosis or clinical protocols. Defer to current national and facility guidance.
+- Youth learning activities require age-appropriate consent, adult supervision and organisation-approved safeguarding procedures.
+- Indigenous/community knowledge content must prioritise community authority, prior informed consent, knowledge sovereignty, minimisation and benefit-sharing. Never seed or publish restricted community knowledge as example data.
+- Keep the pilot label visible until subject-matter, clinical, research, safeguarding and community leads approve the relevant material.
+- The demo seed script is an explicit operator action; do not run it automatically during application startup or deployment.

@@ -43,3 +43,8 @@ We are not proposing another disconnected website or spreadsheet. We are buildin
 ## Research-linked climate evidence
 
 The public climate hub now includes a research-context layer. A CMS climate insight must reference both a published provider-backed climate release and a separately published research publication; it is not visible publicly until both are available. This lets the organisation connect climate context with its research portfolio while preserving provenance and avoiding unsupported causal claims.
+
+
+## Learning capacity
+
+The learning workspace now includes four pilot tracks across research methods, climate and health, youth climate stewardship and Indigenous/community knowledge. Twenty-four substantive lessons include applied practice, self-checks and official further reading, supported by four formative quizzes and learner progress. These materials are positioned as a subject-matter review pilot rather than accredited training.

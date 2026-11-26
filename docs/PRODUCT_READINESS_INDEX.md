@@ -6,6 +6,8 @@ Use this index to keep implementation, acceptance and external presentation alig
 - [Product status and priority roadmap](PRODUCT_STATUS_AND_ROADMAP.md)
 - [Research and climate intelligence workflow blueprint](RESEARCH_AND_CLIMATE_INTELLIGENCE_BLUEPRINT.md)
 - [Initial four-track curriculum blueprint](learning/NEXTGEN_CURRICULUM_BLUEPRINT.md)
+- [Substantive curriculum pilot source data](../scripts/data/nextgen_curriculum_content.json)
+- Four-track seed command: Render API startup seeds `next-gen-for-earth-demo`; run `python scripts/seed_nextgen_demo.py --organization-slug <organisation-slug>` explicitly for other organisations
 - [LLM and coding-agent instructions](LLM_DEVELOPMENT_GUIDE.md)
 
 - [Public climate intelligence product/API specification](PUBLIC_CLIMATE_INTELLIGENCE.md)

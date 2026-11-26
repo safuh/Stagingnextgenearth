@@ -53,3 +53,12 @@ For a 15–20 minute session, use [the full founder demonstration and handover g
 - [ ] Verify the insight appears on the public Climate Intelligence page with both evidence links.
 - [ ] Verify an insight linked to an unpublished, missing, superseded or retracted release is not returned by the anonymous API.
 - [ ] If no valid release/publication pair exists, show the intentional no-insights state; do not create a synthetic public insight.
+
+
+## Learning curriculum pilot check
+
+- [ ] Confirm the API container startup seeded the default demo organisation `next-gen-for-earth-demo`; if staging uses another organisation slug, run the documented seed command for that slug.
+- [ ] Verify the four tracks, eight modules, 26 substantive lessons and four formative quizzes are present.
+- [ ] Open one learner classroom and inspect course scope, module progress, lesson reading and source links.
+- [ ] Confirm the quizzes expose questions/options but never expose correct answers before submission.
+- [ ] Present the materials as pilot content pending subject-matter, safeguarding, clinical and community review—not as accredited training.

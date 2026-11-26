@@ -2165,3 +2165,26 @@ footer > span { line-height: 1.7; }
 .climate-public-insight-empty p { max-width: 720px; margin: 8px 0 0; color: var(--cp-muted); font-size: 10px; line-height: 1.8; }
 @media (max-width: 900px) { .climate-public-insight-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 620px) { .climate-public-insights { padding: 0 5% 55px; } .climate-public-insight-grid { grid-template-columns: 1fr; } .climate-public-insight-empty { padding: 20px; } }
+
+
+/* Learner classroom — editorial course and lesson layout */
+.learner-course-intro { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 28px; align-items: center; margin: 24px 0 30px; padding: 26px 28px; border: 1px solid rgba(30,62,46,.18); background: linear-gradient(120deg,#f1f5e9,#fff); }
+.learner-course-intro > div:first-child > p:last-child { max-width: 900px; margin: 12px 0 0; color: #52665b; font-size: 12px; line-height: 1.85; }
+.learner-course-intro-stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.learner-course-intro-stats span { display: grid; gap: 5px; min-width: 84px; padding: 12px; border: 1px solid rgba(30,62,46,.13); color: #66786c; background: rgba(255,255,255,.72); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.learner-course-intro-stats strong { color: #234a36; font: 500 23px "Playfair Display",Georgia,serif; }
+.learner-module-card { margin: 18px 0; padding: 24px; border: 1px solid rgba(30,62,46,.16); background: #fbfcf8; }
+.learner-module-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.learner-module-heading > span { color: #55745e; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.learner-module-card > h3 { margin: 12px 0; color: #173b2b; font: 500 27px/1.15 "Playfair Display",Georgia,serif; }
+.learner-module-card > progress { width: 100%; height: 5px; margin: 8px 0 14px; accent-color: #6c944f; }
+.learner-lesson-card { margin-top: 14px; padding: 20px; border: 1px solid rgba(30,62,46,.12); background: #fff; }
+.learner-lesson-card h4 { margin: 8px 0 14px; color: #203f30; font: 500 21px/1.2 "Playfair Display",Georgia,serif; }
+.learner-lesson-content { margin: 0 0 18px; padding: 18px; border-left: 3px solid #a6c875; color: #40564a; background: #f6f8f2; font-size: 11px; line-height: 1.9; white-space: pre-wrap; }
+.learner-lesson-card .primary-action { margin-top: 6px; }
+@media (max-width: 760px) {
+  .learner-course-intro { grid-template-columns: 1fr; padding: 20px; }
+  .learner-course-intro-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .learner-module-card { padding: 16px; }
+  .learner-lesson-card { padding: 15px; }
+}

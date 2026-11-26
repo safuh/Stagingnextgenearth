@@ -218,3 +218,8 @@ cd web && npm run typecheck && npm run lint && npm test && npm run build
 ~~~
 
 For the founder demonstration, use [the run of show and acceptance checklist](docs/FOUNDER_DEMONSTRATION.md). A successful local build is not a production deployment: production still requires verified organisation content, configured secrets/storage, database backups and restore rehearsal, TLS/ingress, monitoring, security review and stakeholder acceptance.
+
+
+### Learning curriculum pilot
+
+The demo seed catalogue includes four substantive learning tracks—research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge—with 26 lessons, four formative quizzes and curated official readings. These are pilot materials for subject-matter review, not accredited or clinical guidance. See [the curriculum blueprint](docs/learning/NEXTGEN_CURRICULUM_BLUEPRINT.md). The Render API container startup seeds the default demo organisation `next-gen-for-earth-demo`; for a different organisation, run `python scripts/seed_nextgen_demo.py --organization-slug <organisation-slug>` explicitly.
