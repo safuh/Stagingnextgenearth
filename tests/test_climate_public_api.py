@@ -44,6 +44,7 @@ def _release_payload() -> dict[str, object]:
         "limitations": "County aggregate does not represent every local microclimate.",
         "terms_url": "https://www.chc.ucsb.edu/data/chirps",
         "citation_url": "https://www.chc.ucsb.edu/data/chirps",
+        "source_ingestion_run_id": "test-ingestion-run",
     }
 
 
