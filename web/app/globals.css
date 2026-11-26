@@ -2147,3 +2147,21 @@ footer > span { line-height: 1.7; }
   .climate-detail-facts { grid-template-columns: 1fr; }
   .climate-method-grid { padding: 20px 5% 60px; }
 }
+
+
+/* Research-linked climate intelligence */
+.climate-public-insights { padding: 0 7.2% 82px; }
+.climate-public-insight-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.climate-public-insight-card { display: flex; flex-direction: column; min-height: 300px; padding: 25px; border: 1px solid var(--cp-line); background: #fff; }
+.climate-public-insight-card h3 { margin: 22px 0 12px; color: var(--cp-ink); font: 500 25px/1.12 "Playfair Display",Georgia,serif; }
+.climate-public-insight-region { align-self: flex-start; padding: 6px 8px; color: #355d45; background: #e8f0dc; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.climate-public-insight-card > p:not(.climate-public-kicker) { color: var(--cp-muted); font-size: 10px; line-height: 1.85; }
+.climate-public-insight-card > small { padding: 12px; border-left: 2px solid #b7d58a; color: #637568; background: #f5f7f0; font-size: 9px; line-height: 1.7; }
+.climate-public-insight-links { display: grid; gap: 10px; margin-top: auto; padding-top: 20px; }
+.climate-public-insight-links a { color: #315c43; font-size: 9px; font-weight: 800; line-height: 1.5; }
+.climate-public-insight-empty { display: flex; gap: 20px; align-items: flex-start; padding: 28px; border: 1px dashed rgba(16,42,34,.25); background: rgba(255,255,255,.6); }
+.climate-public-insight-empty > span { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px; color: #173c2d; background: #e3edcf; font: 22px Georgia,serif; }
+.climate-public-insight-empty strong { color: var(--cp-ink); font-size: 11px; }
+.climate-public-insight-empty p { max-width: 720px; margin: 8px 0 0; color: var(--cp-muted); font-size: 10px; line-height: 1.8; }
+@media (max-width: 900px) { .climate-public-insight-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 620px) { .climate-public-insights { padding: 0 5% 55px; } .climate-public-insight-grid { grid-template-columns: 1fr; } .climate-public-insight-empty { padding: 20px; } }
