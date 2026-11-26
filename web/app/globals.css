@@ -1556,3 +1556,31 @@ footer > span { line-height: 1.7; }
   .admin-quick-nav { align-items: stretch; flex-direction: column; }
   .admin-quick-nav a { justify-content: flex-start; }
 }
+
+
+/* Learner dashboard and classroom controls. */
+.learner-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.learner-stats { margin: 22px 0 28px; }
+.learner-stats article { min-width: 0; }
+.learner-stats article strong { font-variant-numeric: tabular-nums; }
+.workspace-content progress {
+  display: block;
+  width: 100%;
+  height: 10px;
+  margin: 16px 0 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 99px;
+  accent-color: var(--green);
+}
+@media (max-width: 640px) {
+  .learner-top-nav { gap: 8px; }
+  .learner-top-nav .secondary-action,
+  .learner-top-nav .workspace-signout { font-size: 12px; }
+  .learner-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
