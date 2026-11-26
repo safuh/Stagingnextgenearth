@@ -143,6 +143,12 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             headers=reviewer,
         )
         assert accepted.status_code == 200
+        reviewer_roles = client.patch(
+            f"{org_base}/memberships/{invitation.json()['id']}/roles",
+            headers=author,
+            json={"roles": ["programme_manager", "executive"]},
+        )
+        assert reviewer_roles.status_code == 200
 
         run_ledger = client.get(f"{org_base}/climate-ingestion", headers=author)
         assert run_ledger.status_code == 200
