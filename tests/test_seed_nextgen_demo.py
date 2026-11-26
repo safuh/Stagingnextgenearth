@@ -13,6 +13,7 @@ from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.models import (
     InstitutionalPartner,
+    LearningAssessment,
     LearningCourse,
     LearningLesson,
     LearningModule,
@@ -63,6 +64,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             courses = list((await session.scalars(select(LearningCourse))).all())
             modules = list((await session.scalars(select(LearningModule))).all())
             lessons = list((await session.scalars(select(LearningLesson))).all())
+            assessments = list((await session.scalars(select(LearningAssessment))).all())
             user_count = int(await session.scalar(select(func.count(User.id))) or 0)
             return {
                 "people": len(people),
@@ -80,6 +82,12 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 "course_slugs": sorted(item.slug for item in courses),
                 "modules": len(modules),
                 "lessons": len(lessons),
+                "assessments": len(assessments),
+                "assessments_automated": all(
+                    item.assessment_type == "quiz"
+                    and len((item.configuration or {}).get("questions", [])) == 3
+                    for item in assessments
+                ),
                 "lessons_substantive": all(
                     len(item.content or "") >= 500
                     and "Demo learning outline" not in (item.content or "")
@@ -133,6 +141,8 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["modules"] == 8
     assert first["lessons"] == 24
     assert first["lessons_substantive"] is True
+    assert first["assessments"] == 4
+    assert first["assessments_automated"] is True
     assert first["courses_published"] is True
     assert first["users"] == 1
     assert first["people_public_verified"] is True
