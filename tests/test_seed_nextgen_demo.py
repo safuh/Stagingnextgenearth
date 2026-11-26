@@ -58,6 +58,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             people = list((await session.scalars(select(OrganizationPerson))).all())
             partners = list((await session.scalars(select(InstitutionalPartner))).all())
             content = list((await session.scalars(select(PublicContentEntry))).all())
+            gallery = next((item for item in content if item.slug == "website-gallery"), None)
             programmes = list((await session.scalars(select(Programme))).all())
             courses = list((await session.scalars(select(LearningCourse))).all())
             modules = list((await session.scalars(select(LearningModule))).all())
@@ -65,8 +66,11 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             user_count = int(await session.scalar(select(func.count(User.id))) or 0)
             return {
                 "people": len(people),
+                "people_with_images": sum(bool(item.profile_image_url) for item in people),
                 "partners": len(partners),
                 "content": len(content),
+                "gallery_images": len((gallery.metadata_json or {}).get("gallery", [])) if gallery else 0,
+                "gallery_published": gallery is not None and gallery.publication_state == "published",
                 "programmes": len(programmes),
                 "courses": len(courses),
                 "modules": len(modules),
@@ -98,8 +102,11 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
 
     assert first == second
     assert first["people"] == len(seed_nextgen_demo.PEOPLE)
+    assert first["people_with_images"] == len(seed_nextgen_demo.PEOPLE)
     assert first["partners"] == len(seed_nextgen_demo.PARTNERS)
-    assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS) + len(seed_nextgen_demo.STORY)
+    assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS) + len(seed_nextgen_demo.STORY) + 1
+    assert first["gallery_images"] >= 5
+    assert first["gallery_published"] is True
     assert first["programmes"] == 4
     assert first["courses"] == 3
     assert first["modules"] == 6
