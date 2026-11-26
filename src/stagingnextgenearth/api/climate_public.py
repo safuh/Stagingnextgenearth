@@ -128,7 +128,7 @@ class ClimateReleaseDetail(ClimateReleaseSummary):
 
 
 class ClimateReleaseSeries(BaseModel):
-    release: ClimateReleaseSummary
+    release: ClimateReleaseDetail
     series: list[ClimateSeriesPoint]
     regions: list[ClimateRegionValue]
 
@@ -564,7 +564,7 @@ async def get_public_release_series(
         raise HTTPException(404, "Climate release not found")
     response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
     return ClimateReleaseSeries(
-        release=_summary(row),
+        release=ClimateReleaseDetail.model_validate(row),
         series=[ClimateSeriesPoint.model_validate(point) for point in row.series_json],
         regions=[ClimateRegionValue.model_validate(region) for region in row.regions_json],
     )
