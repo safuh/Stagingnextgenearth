@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.climate_public import (
@@ -87,6 +87,11 @@ class ClimateReleaseCreate(BaseModel):
     def validate_period(self):
         if self.period_end < self.period_start:
             raise ValueError("period_end must not precede period_start")
+        timestamps = [point.observed_at for point in self.series]
+        if any(value < self.period_start or value > self.period_end for value in timestamps):
+            raise ValueError("series timestamps must fall within the declared release period")
+        if timestamps != sorted(timestamps):
+            raise ValueError("series points must be ordered chronologically")
         return self
 
 
