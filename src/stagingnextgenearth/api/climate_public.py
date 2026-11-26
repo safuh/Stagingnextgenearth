@@ -240,6 +240,12 @@ async def create_release(
             422,
             "The release data class must match the CHIRPS product variant recorded at ingestion",
         )
+    expected_resolution = "0.05° CHIRPS grid; arithmetic mean per day"
+    if body.geography_resolution != expected_resolution:
+        raise HTTPException(
+            422,
+            "The public resolution label must match the CHIRPS grid and aggregation method",
+        )
     observation_filter = (
         ClimateObservation.organization_id == organization_id,
         ClimateObservation.ingestion_run_id == source_run.id,
