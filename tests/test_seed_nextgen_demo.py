@@ -69,8 +69,12 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 "people_with_images": sum(bool(item.profile_image_url) for item in people),
                 "partners": len(partners),
                 "content": len(content),
-                "gallery_images": len((gallery.metadata_json or {}).get("gallery", [])) if gallery else 0,
-                "gallery_published": gallery is not None and gallery.publication_state == "published",
+                "gallery_images": (
+                    len((gallery.metadata_json or {}).get("gallery", [])) if gallery else 0
+                ),
+                "gallery_published": (
+                    gallery is not None and gallery.publication_state == "published"
+                ),
                 "programmes": len(programmes),
                 "courses": len(courses),
                 "modules": len(modules),
@@ -104,7 +108,12 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["people"] == len(seed_nextgen_demo.PEOPLE)
     assert first["people_with_images"] == len(seed_nextgen_demo.PEOPLE)
     assert first["partners"] == len(seed_nextgen_demo.PARTNERS)
-    assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS) + len(seed_nextgen_demo.STORY) + 1
+    assert first["content"] == (
+        len(seed_nextgen_demo.CONTENT)
+        + len(seed_nextgen_demo.PUBLICATIONS)
+        + len(seed_nextgen_demo.STORY)
+        + 1
+    )
     assert first["gallery_images"] >= 5
     assert first["gallery_published"] is True
     assert first["programmes"] == 4
