@@ -63,18 +63,18 @@ def test_demo_seed_is_idempotent_and_keeps_unverified_records_private(
                 "content": len(content),
                 "programmes": len(programmes),
                 "users": user_count,
-                "people_private_pending": all(
-                    item.visibility == "private" and item.review_state == "pending"
-                    for item in people
+                "people_public_verified": all(
+                    item.visibility == "public" and item.review_state == "verified"
+                    and item.status == "active" for item in people
                 ),
-                "partners_private_unverified": all(
-                    item.visibility == "private"
+                "partners_public_unverified": all(
+                    item.visibility == "public"
                     and item.verification_state == "pending"
                     and item.relationship_status == "prospect"
                     for item in partners
                 ),
-                "content_draft": all(item.publication_state == "draft" for item in content),
-                "programmes_draft": all(item.status == "draft" for item in programmes),
+                "content_published": all(item.publication_state == "published" for item in content),
+                "programmes_planned": all(item.status == "planned" for item in programmes),
             }
 
     try:
@@ -89,10 +89,10 @@ def test_demo_seed_is_idempotent_and_keeps_unverified_records_private(
     assert first == second
     assert first["people"] == len(seed_nextgen_demo.PEOPLE)
     assert first["partners"] == len(seed_nextgen_demo.PARTNERS)
-    assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS)
+    assert first["content"] == len(seed_nextgen_demo.CONTENT) + len(seed_nextgen_demo.PUBLICATIONS) + len(seed_nextgen_demo.STORY)
     assert first["programmes"] == 4
     assert first["users"] == 1
-    assert first["people_private_pending"] is True
-    assert first["partners_private_unverified"] is True
-    assert first["content_draft"] is True
-    assert first["programmes_draft"] is True
+    assert first["people_public_verified"] is True
+    assert first["partners_public_unverified"] is True
+    assert first["content_published"] is True
+    assert first["programmes_planned"] is True
