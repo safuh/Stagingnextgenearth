@@ -1,0 +1,814 @@
+{
+  "people": [
+    {
+      "full_name": "Esperant Fumyunga",
+      "positions": [
+        "Acting CEO"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Prof Adelaide Lusambili",
+      "positions": [
+        "Senior Scientist & Founder"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Fr Kizito Muchanga",
+      "positions": [
+        "President / Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Rev Fr Boniface Silayo Tanael",
+      "positions": [
+        "Board Member"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Prof Maria Ameria Viteri",
+      "positions": [
+        "Senior Strategist & Advisor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Rose Wishall Ediger",
+      "positions": [
+        "Senior Advisor & Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Ken Dunn MBE",
+      "positions": [
+        "Entrepreneur / Trainer"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Patience Musalia",
+      "positions": [
+        "Executive Assistant to CEO"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Mr Felix Shyaba",
+      "positions": [
+        "CSR Manager"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Gloria Maimela",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Sammy Khagai",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Isiomi Igweike",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dan Oginga",
+      "positions": [
+        "HR"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Dora Oduor",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Dr Dinah Makuba Kassaman",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Prof Caroline Mulinya",
+      "positions": [
+        "Senior Mentor"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Claire Wiraka",
+      "positions": [
+        "Knowledge Translation"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Cheryl Matilda Shirwatso",
+      "positions": [
+        "Social Media Assistant"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "John Njoroge",
+      "positions": [
+        "Website Manager"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Moses Masika Wamukota",
+      "positions": [
+        "Lead Ambassador & Researcher"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Tsion Mekonen Hailu",
+      "positions": [
+        "Lead Ambassador — Ethiopia / Social Media Manager"
+      ],
+      "country_code": "ET",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Annastacia Kimani",
+      "positions": [
+        "Regional Ambassador — Ukambani"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Ukambani"
+    },
+    {
+      "full_name": "Anastasha Cherotich",
+      "positions": [
+        "Regional Ambassador — South Rift"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "South Rift"
+    },
+    {
+      "full_name": "Joram Joe Ihure Macharia",
+      "positions": [
+        "Regional Ambassador — Central Kenya"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Central Kenya"
+    },
+    {
+      "full_name": "Emmanuel Lago",
+      "positions": [
+        "Regional Ambassador — Nyanza"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Nyanza"
+    },
+    {
+      "full_name": "Abdihakim Adan",
+      "positions": [
+        "Regional Ambassador — North Eastern"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "North Eastern"
+    },
+    {
+      "full_name": "Jacob Kinyua Nderitu",
+      "positions": [
+        "Environmental Mentee"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Hedwick Nyangayi Matwang'a",
+      "positions": [
+        "Environmental Research Intern"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Babra Shibichila",
+      "positions": [
+        "Environmental Mentee"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Achieng Regan Odero",
+      "positions": [
+        "Environmental Mentee — Nairobi"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Nairobi"
+    },
+    {
+      "full_name": "Cynthia Mueni",
+      "positions": [
+        "Environmental Mentee — Ukambani"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Ukambani"
+    },
+    {
+      "full_name": "Ronald Galileo Okang'a",
+      "positions": [
+        "Environmental Mentee — Western"
+      ],
+      "country_code": "KE",
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website",
+      "region": "Western"
+    },
+    {
+      "full_name": "Mercy Muema",
+      "positions": [
+        "Environmental Mentee"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    },
+    {
+      "full_name": "Ronald Nasiali",
+      "positions": [
+        "Environmental Mentee"
+      ],
+      "country_code": null,
+      "source_url": "https://nextgenforearth.org/",
+      "source_label": "Official Next Gen For Earth website"
+    }
+  ],
+  "staff": [],
+  "partners": [
+    {
+      "name": "University of Nairobi",
+      "country_code": "KE",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Medical College of Wisconsin",
+      "country_code": "US",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Men In Health",
+      "country_code": "ZW",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Eternal Flame Worldwide",
+      "country_code": null,
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Kilifi County Health Department",
+      "country_code": "KE",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Masinde Muliro University (MMUST)",
+      "country_code": "KE",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "CHANCE Network",
+      "country_code": null,
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Busia County Health Department",
+      "country_code": "KE",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    },
+    {
+      "name": "Ministry of Environment & Climate Change — Kilifi",
+      "country_code": "KE",
+      "partner_type": "other",
+      "source_url": "https://nextgenforearth.org/"
+    }
+  ],
+  "programmes": [
+    {
+      "title": "Research Capacity Building",
+      "slug": "research-capacity-building",
+      "summary": "Weekly training for early-career researchers in research methods, systematic reviews, grant writing, data synthesis and research ethics.",
+      "status": "active"
+    },
+    {
+      "title": "Healthcare Worker Training",
+      "slug": "healthcare-worker-training",
+      "summary": "Monthly training equipping nurses, clinicians and community health workers to understand and respond to climate-driven health challenges.",
+      "status": "active"
+    },
+    {
+      "title": "Youth Climate Stewardship",
+      "slug": "youth-climate-stewardship",
+      "summary": "School students are mentored by trained youth peers on climate literacy, tree planting and environmental action.",
+      "status": "active"
+    },
+    {
+      "title": "Indigenous Knowledge Transfer",
+      "slug": "indigenous-knowledge-transfer",
+      "summary": "Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience.",
+      "status": "active"
+    }
+  ],
+  "research_studies": [
+    {
+      "title": "Mapping the Impact of Climate Seasonality on Ageing",
+      "abstract": "Study of how climate seasonality shapes the lived experiences of older adults in Busia and Kilifi counties, Kenya, including climate-related health and wellbeing and resilience and adaptation strategies at individual, household and community levels.",
+      "project_id": null,
+      "ethics_reference": null
+    }
+  ],
+  "content": [
+    {
+      "slug": "early-career-researchers",
+      "title": "Early Career Researchers",
+      "summary": "Training for graduate students, junior scientists and aspiring researchers. Weekly workshops.",
+      "body": "Topics listed on the official website:\n- Research Methods & Study Design\n- Systematic Reviews\n- Data Collection & Management\n- Synthesising Evidence\n- Grant Writing\n- Research Ethics & Safeguarding",
+      "content_type": "training_track",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "delivery": "as stated on website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "slug": "healthcare-workers",
+      "title": "Healthcare Workers",
+      "summary": "Training for nurses, clinicians and community health workers. Monthly workshops.",
+      "body": "Topics listed on the official website:\n- Climate Change & Health Fundamentals\n- Heat Impacts on Patient Care\n- Extreme Weather & Service Delivery\n- Climate Disrespectful Care\n- Community Resilience Strategies\n- Mental Health & Climate Stress",
+      "content_type": "training_track",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "delivery": "as stated on website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "slug": "youth-climate-stewards",
+      "title": "Youth Climate Stewards",
+      "summary": "School students mentored by trained youth peers. Weekly workshops.",
+      "body": "Topics listed on the official website:\n- Climate Science Fundamentals\n- Environmental Stewardship\n- Tree Planting & Restoration\n- Peer-to-Peer Mentorship\n- Community Engagement\n- Mental Health Peer Support",
+      "content_type": "training_track",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "delivery": "as stated on website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "programme",
+      "slug": "research-capacity-building",
+      "title": "Research Capacity Building",
+      "summary": "Weekly training for early-career researchers in research methods, systematic reviews, grant writing, data synthesis and research ethics.",
+      "body": "Weekly training for early-career researchers in research methods, systematic reviews, grant writing, data synthesis and research ethics.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "programme",
+      "slug": "healthcare-worker-training",
+      "title": "Healthcare Worker Training",
+      "summary": "Monthly training equipping nurses, clinicians and community health workers to understand and respond to climate-driven health challenges.",
+      "body": "Monthly training equipping nurses, clinicians and community health workers to understand and respond to climate-driven health challenges.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "programme",
+      "slug": "youth-climate-stewardship",
+      "title": "Youth Climate Stewardship",
+      "summary": "School students are mentored by trained youth peers on climate literacy, tree planting and environmental action.",
+      "body": "School students are mentored by trained youth peers on climate literacy, tree planting and environmental action.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "programme",
+      "slug": "indigenous-knowledge-transfer",
+      "title": "Indigenous Knowledge Transfer",
+      "summary": "Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience.",
+      "body": "Preserving and amplifying traditional ecological wisdom as a cornerstone of climate adaptation and resilience.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-3389-fpubh-2025-1693703",
+      "title": "Aware but unprepared: climate change impacts on healthcare workers in Africa — a scoping review",
+      "summary": "Lusambili A et al.. Frontiers in Public Health (2026).",
+      "source_url": "https://doi.org/10.3389/fpubh.2025.1693703",
+      "metadata_json": {
+        "authors": "Lusambili A et al.",
+        "journal": "Frontiers in Public Health",
+        "year": "2026",
+        "doi": "10.3389/fpubh.2025.1693703",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1016-j-joclim-2025-100418",
+      "title": "Towards youth-inclusive strategies for climate change and health research in sub-Saharan Africa",
+      "summary": "Lusambili AM et al.. Journal of Climate Change and Health (2025).",
+      "source_url": "https://doi.org/10.1016/j.joclim.2025.100418",
+      "metadata_json": {
+        "authors": "Lusambili AM et al.",
+        "journal": "Journal of Climate Change and Health",
+        "year": "2025",
+        "doi": "10.1016/j.joclim.2025.100418",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1136-bmjopen-2025-103956",
+      "title": "Climate seasonality and health of older adults in rural Busia and Kilifi, Kenya: SENIORS study",
+      "summary": "Shumba CS et al.. BMJ Open (2025).",
+      "source_url": "https://doi.org/10.1136/bmjopen-2025-103956",
+      "metadata_json": {
+        "authors": "Shumba CS et al.",
+        "journal": "BMJ Open",
+        "year": "2025",
+        "doi": "10.1136/bmjopen-2025-103956",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1016-j-oneear-2025-101285",
+      "title": "Ten new insights in climate science 2024",
+      "summary": "Schaeffer R et al.. One Earth (2025).",
+      "source_url": "https://doi.org/10.1016/j.oneear.2025.101285",
+      "metadata_json": {
+        "authors": "Schaeffer R et al.",
+        "journal": "One Earth",
+        "year": "2025",
+        "doi": "10.1016/j.oneear.2025.101285",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1093-heapol-czaf028",
+      "title": "Reducing extreme heat impacts on pregnant women and infants: community intervention in Kilifi, Kenya",
+      "summary": "Lusambili A et al.. Health Policy and Planning (2025).",
+      "source_url": "https://doi.org/10.1093/heapol/czaf028",
+      "metadata_json": {
+        "authors": "Lusambili A et al.",
+        "journal": "Health Policy and Planning",
+        "year": "2025",
+        "doi": "10.1093/heapol/czaf028",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1371-journal-pone-0313781",
+      "title": "Community perspectives of heat and weather warnings for pregnant and postpartum women in Kilifi, Kenya",
+      "summary": "Lusambili A et al.. PLOS ONE (2024).",
+      "source_url": "https://doi.org/10.1371/journal.pone.0313781",
+      "metadata_json": {
+        "authors": "Lusambili A et al.",
+        "journal": "PLOS ONE",
+        "year": "2024",
+        "doi": "10.1371/journal.pone.0313781",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-3389-fpubh-2025-1650966",
+      "title": "Socio-ecological barriers to ART adherence: qualitative insights from Nairobi's informal settlements",
+      "summary": "Muhenje O et al.. Frontiers in Public Health (2025).",
+      "source_url": "https://doi.org/10.3389/fpubh.2025.1650966",
+      "metadata_json": {
+        "authors": "Muhenje O et al.",
+        "journal": "Frontiers in Public Health",
+        "year": "2025",
+        "doi": "10.3389/fpubh.2025.1650966",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1371-journal-pone-0322823",
+      "title": "Resilient in adversity: ART adherence interventions among young adults in Kibera, Nairobi",
+      "summary": "Muhenje O et al.. PLOS ONE (2026).",
+      "source_url": "https://doi.org/10.1371/journal.pone.0322823",
+      "metadata_json": {
+        "authors": "Muhenje O et al.",
+        "journal": "PLOS ONE",
+        "year": "2026",
+        "doi": "10.1371/journal.pone.0322823",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1186-s12887-023-04517-w",
+      "title": "Too hot to thrive: community perspectives on high ambient temperature for postpartum women in Kilifi",
+      "summary": "Lusambili A et al.. BMC Pediatrics (2024).",
+      "source_url": "https://doi.org/10.1186/s12887-023-04517-w",
+      "metadata_json": {
+        "authors": "Lusambili A et al.",
+        "journal": "BMC Pediatrics",
+        "year": "2024",
+        "doi": "10.1186/s12887-023-04517-w",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-1016-j-socscimed-2023-116223",
+      "title": "'Mothers get really exhausted!' Lived experience of pregnancy in extreme heat: Kilifi, Kenya",
+      "summary": "Scorgie F et al.. Social Science & Medicine (2023).",
+      "source_url": "https://doi.org/10.1016/j.socscimed.2023.116223",
+      "metadata_json": {
+        "authors": "Scorgie F et al.",
+        "journal": "Social Science & Medicine",
+        "year": "2023",
+        "doi": "10.1016/j.socscimed.2023.116223",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-3389-fpubh-2023-1146048",
+      "title": "Community co-design workshop on reducing heat exposure impacts on pregnant women in Kilifi, Kenya",
+      "summary": "Lusambili A et al.. Frontiers in Public Health (2023).",
+      "source_url": "https://doi.org/10.3389/fpubh.2023.1146048",
+      "metadata_json": {
+        "authors": "Lusambili A et al.",
+        "journal": "Frontiers in Public Health",
+        "year": "2023",
+        "doi": "10.3389/fpubh.2023.1146048",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "publication",
+      "slug": "publication-10-4102-phcfm-v15i1-3991",
+      "title": "Awareness and interventions to reduce dehydration in pregnant women and newborns in rural Kenya",
+      "summary": "Lusambili A, Nakstad B. African Journal of Primary Health Care & Family Medicine (2023).",
+      "source_url": "https://doi.org/10.4102/phcfm.v15i1.3991",
+      "metadata_json": {
+        "authors": "Lusambili A, Nakstad B",
+        "journal": "African Journal of Primary Health Care & Family Medicine",
+        "year": "2023",
+        "doi": "10.4102/phcfm.v15i1.3991",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "impact_metric",
+      "slug": "impact-youth-trained",
+      "title": "Youth trained in research and safeguarding",
+      "summary": "Youth trained in research and safeguarding",
+      "body": "Youth trained in research and safeguarding",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "display_value": "100+",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "impact_metric",
+      "slug": "impact-children-reached",
+      "title": "School children reached",
+      "summary": "School children reached",
+      "body": "School children reached",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "display_value": "4000+",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "impact_metric",
+      "slug": "impact-publications",
+      "title": "Papers published",
+      "summary": "Papers published",
+      "body": "Papers published",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "display_value": "12",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "impact_metric",
+      "slug": "impact-trees-planted",
+      "title": "Trees planted in schools and communities",
+      "summary": "Trees planted in schools and communities",
+      "body": "Trees planted in schools and communities",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "display_value": "40000+",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "impact_metric",
+      "slug": "impact-researchers-mentored",
+      "title": "Youth mentored in systematic data synthesis",
+      "summary": "Youth mentored in systematic data synthesis",
+      "body": "Youth mentored in systematic data synthesis",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "display_value": "35+",
+        "source": "official_website"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "initiative",
+      "slug": "weekly-learning-workshops",
+      "title": "Weekly Learning Workshops",
+      "summary": "Regular workshops build research capacity and climate literacy across early-career researchers and youth climate stewards.",
+      "body": "The organisation describes recurring weekly workshops in its training tracks. Current published themes include research methods, systematic reviews, grant writing, climate science, environmental stewardship and peer mentorship.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "recurring_workshops",
+        "cadence": "weekly",
+        "source_section": "Training"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "initiative",
+      "slug": "peer-mentorship",
+      "title": "Peer Mentorship",
+      "summary": "Mentorship connects experienced researchers and trained youth peers with emerging researchers and young climate stewards.",
+      "body": "Peer mentorship is listed as part of the organisation's delivery model and youth climate stewardship training. Individual mentor assignments and cohort schedules should be maintained in the organisational portal.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "mentorship",
+        "source_section": "Theory of Change"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "initiative",
+      "slug": "community-field-research",
+      "title": "Community Field Research",
+      "summary": "Field research links climate and health evidence with the lived experiences and priorities of local communities.",
+      "body": "Field research is identified as an organisational activity. The public website also describes active research on climate seasonality and ageing in Busia and Kilifi counties, Kenya.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "field_research",
+        "source_section": "Theory of Change"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "initiative",
+      "slug": "school-tree-planting-and-restoration",
+      "title": "School Tree Planting & Environmental Restoration",
+      "summary": "School and community tree-planting activities support youth-led environmental stewardship and restoration.",
+      "body": "Tree-planting drives and environmental restoration are described as part of the organisation's activities. Specific sites, dates, participant counts and delivery status should be recorded against individual activities in the portal.",
+      "source_url": "https://nextgenforearth.org/",
+      "metadata_json": {
+        "source": "official_website",
+        "activity": "environmental_restoration",
+        "source_section": "Theory of Change"
+      },
+      "publication_state": "review"
+    },
+    {
+      "content_type": "research_area",
+      "slug": "featured-study-climate-seasonality-and-ageing",
+      "title": "Mapping the Impact of Climate Seasonality on Ageing",
+      "summary": "Research on how climate seasonality shapes the lived experiences, health and wellbeing of older adults in Busia and Kilifi counties, Kenya.",
+      "body": "The organisation's website identifies this as a research study. The portal records it at concept stage until the research team confirms the study design, approvals, investigators, timeline and public reporting status.",
+      "source_url": "https://nextgenforearth.org/",
+      "publication_state": "review",
+      "metadata_json": {
+        "source": "official_website",
+        "research_record": "featured_study",
+        "governance_stage": "concept"
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ def test_access_token_round_trip() -> None:
     payload = service.decode(token, expected_type="access")
     assert payload["sub"] == "user-123"
     assert payload["type"] == "access"
+    assert payload["iat_us"] > 0
 
 
 def test_wrong_token_type_is_rejected() -> None:
@@ -35,11 +36,13 @@ def test_reserved_claims_cannot_be_overridden() -> None:
             "sub": "attacker",
             "type": "refresh",
             "exp": datetime.now(UTC) + timedelta(days=365),
+            "iat_us": 0,
         },
     )
     payload = service.decode(token, expected_type="access")
     assert payload["sub"] == "user-123"
     assert payload["type"] == "access"
+    assert payload["iat_us"] > 0
 
 
 def test_invalid_token_parameters_are_rejected() -> None:

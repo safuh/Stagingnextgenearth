@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history docker-up docker-down docker-test docker-prod
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env staging founder-preflight
 
 install:
 	uv sync --extra dev
@@ -45,3 +45,29 @@ docker-test:
 
 docker-prod:
 	bash scripts/docker-production.sh
+
+validate-production-env:
+	uv run python scripts/validate-production-env.py $(if $(ENV_FILE),$(ENV_FILE),.env)
+
+# Bootstrap depends on the schema being current. This is additive and never resets volumes.
+bootstrap: migrate-up
+	uv run python scripts/bootstrap_nextgen.py $(if $(MANIFEST),--manifest $(MANIFEST),)
+
+run-odk-sync:
+	uv run python -m stagingnextgenearth.workers.run_odk_sync --poll-interval-seconds 60
+
+web-check:
+	cd web && npm ci --no-audit --no-fund && npm run typecheck && npm run lint && npm test && npm run build
+
+release-check: check web-check docker-test
+	docker compose --env-file .env.production.example -f docker/compose.production.yml config --quiet
+	docker compose --env-file .env.production.example --profile odk -f docker/compose.production.yml config --quiet
+	docker compose --env-file .env.production.example --profile scanning -f docker/compose.production.yml config --quiet
+
+# Dedicated staging project; uses .env.staging and never removes database volumes.
+staging:
+	bash scripts/docker-staging.sh
+
+# Read-only API/web/owner/public-feed checks; requires FOUNDER_* and ORGANIZATION_SLUG.
+founder-preflight:
+	uv run python scripts/verify_founder_demo.py

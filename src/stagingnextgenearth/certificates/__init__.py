@@ -1,0 +1,1 @@
+"""Verifiable learning credential rendering."""

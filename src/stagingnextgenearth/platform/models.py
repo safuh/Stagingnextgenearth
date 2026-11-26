@@ -1,0 +1,2259 @@
+# ruff: noqa: E501, I001
+# fmt: off
+"""Core organisational, programme, research, and climate data models."""
+
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import uuid4
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
+
+from stagingnextgenearth.core.database import Base
+
+
+class GeometryPoint(UserDefinedType):
+    """PostGIS WGS84 point type with a SQLite BLOB test/development fallback."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: object) -> str:
+        return "geometry(POINT, 4326)"
+
+
+@compiles(GeometryPoint, "sqlite")
+def _compile_geometry_point_sqlite(
+    element: GeometryPoint, compiler: object, **kw: object
+) -> str:
+    return "BLOB"
+
+
+def _uuid() -> str:
+    return str(uuid4())
+
+
+class Organization(Base):
+    """Tenant boundary for an organisation using the platform."""
+
+    __tablename__ = "organizations"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_organizations_slug"),
+        Index("ix_organizations_owner_user_id", "owner_user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class Membership(Base):
+    """A user's role and access state inside one organisation."""
+
+    __tablename__ = "organization_memberships"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
+        CheckConstraint(
+            "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
+            "'youth_volunteer', 'employee', 'institutional_partner', 'learner')",
+            name="ck_membership_role",
+        ),
+        CheckConstraint(
+            "status IN ('invited', 'active', 'suspended')",
+            name="ck_membership_status",
+        ),
+        Index("ix_memberships_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MembershipRole(Base):
+    """One assigned role on an organisation membership.
+
+    Membership.role remains the compatibility/primary role while role grants are
+    migrated to this association table and permission checks are updated.
+    """
+
+    __tablename__ = "organization_membership_roles"
+    __table_args__ = (
+        UniqueConstraint(
+            "membership_id", "role", name="uq_membership_role_assignment"
+        ),
+        CheckConstraint(
+            "role IN ('admin', 'founder', 'executive', 'programme_manager', "
+            "'researcher', 'youth_volunteer', 'employee', "
+            "'institutional_partner', 'learner')",
+            name="ck_membership_role_assignment",
+        ),
+        Index("ix_membership_roles_membership_role", "membership_id", "role"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    membership_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organization_memberships.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class Programme(Base):
+    """An organisation-level programme grouping related projects."""
+
+    __tablename__ = "programmes"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_programme_org_slug"),
+        CheckConstraint(
+            "status IN ('draft', 'planned', 'active', 'completed', 'archived')",
+            name="ck_programme_status",
+        ),
+        CheckConstraint(
+            "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",
+            name="ck_programme_date_order",
+        ),
+        Index("ix_programmes_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    slug: Mapped[str] = mapped_column(String(140), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Project(Base):
+    """A deliverable project belonging to an organisation and optionally a programme."""
+
+    __tablename__ = "projects"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'active', 'on_hold', 'completed', 'archived')",
+            name="ck_project_status",
+        ),
+        Index("ix_projects_org_status", "organization_id", "status"),
+        Index("ix_projects_programme_id", "programme_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    county: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchStudy(Base):
+    """A research study with controlled organisational and project ownership."""
+
+    __tablename__ = "research_studies"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('concept', 'protocol', 'active', 'completed', 'published', 'archived')",
+            name="ck_research_study_status",
+        ),
+        Index("ix_research_studies_org_status", "organization_id", "status"),
+        Index("ix_research_studies_project_id", "project_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    abstract: Mapped[str | None] = mapped_column(Text, nullable=True)
+    study_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="concept")
+    lead_researcher_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    ethics_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResearchProtocolVersion(Base):
+    """Immutable-by-workflow version of a study's research protocol."""
+
+    __tablename__ = "research_protocol_versions"
+    __table_args__ = (
+        UniqueConstraint("study_id", "version_number", name="uq_protocol_study_version"),
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'revisions_required', 'rejected')",
+            name="ck_research_protocol_status",
+        ),
+        CheckConstraint("version_number >= 1", name="ck_protocol_version_positive"),
+        Index("ix_research_protocol_versions_study_status", "study_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    objectives: Mapped[str] = mapped_column(Text, nullable=False)
+    methodology: Mapped[str] = mapped_column(Text, nullable=False)
+    sampling_and_participants: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_management: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_and_safeguarding: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchProtocolReviewEvent(Base):
+    """Append-only review history for submitted protocol versions."""
+
+    __tablename__ = "research_protocol_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected')",
+            name="ck_protocol_review_decision",
+        ),
+        Index("ix_protocol_review_events_protocol_time", "protocol_version_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    protocol_version_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_protocol_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchEthicsReviewEvent(Base):
+    """Append-only ethics committee decision history for a research study."""
+
+    __tablename__ = "research_ethics_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected', 'exempt')",
+            name="ck_ethics_review_decision",
+        ),
+        Index("ix_ethics_review_events_study_time", "study_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    protocol_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_protocol_versions.id", ondelete="RESTRICT"), nullable=True
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ClimateIngestionRun(Base):
+    """Auditable execution record for one provider data retrieval."""
+
+    __tablename__ = "climate_ingestion_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'completed', 'failed')",
+            name="ck_climate_ingestion_run_status",
+        ),
+        CheckConstraint(
+            "records_received >= 0 AND records_inserted >= 0 AND records_skipped >= 0",
+            name="ck_climate_ingestion_run_counts",
+        ),
+        Index("ix_climate_ingestion_runs_org_started", "organization_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    provider_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    licence: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    requested_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_area: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    records_received: Mapped[int] = mapped_column(nullable=False, default=0)
+    records_inserted: Mapped[int] = mapped_column(nullable=False, default=0)
+    records_skipped: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ClimateObservation(Base):
+    """A sourced, timestamped climate observation linked to a project or study."""
+
+    __tablename__ = "climate_observations"
+    __table_args__ = (
+        CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_observation_latitude"),
+        CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_observation_longitude"),
+        CheckConstraint(
+            "quality_status IN ('pending', 'verified', 'rejected')",
+            name="ck_observation_quality_status",
+        ),
+        Index("ix_climate_observations_org_time", "organization_id", "observed_at"),
+        Index("ix_climate_observations_variable_time", "variable", "observed_at"),
+        Index("ix_climate_observations_study_id", "study_id"),
+        UniqueConstraint(
+            "organization_id", "provider_id", "provider_record_id",
+            name="uq_climate_observation_provider_record",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="SET NULL"), nullable=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    variable: Mapped[str] = mapped_column(String(80), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    location: Mapped[object | None] = mapped_column(GeometryPoint(), nullable=True)
+    source: Mapped[str] = mapped_column(String(160), nullable=False)
+    ingestion_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("climate_ingestion_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    provider_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider_record_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    quality_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    safeguarding_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchDataset(Base):
+    """Registry metadata and governance state for an organisation research dataset."""
+
+    __tablename__ = "research_datasets"
+    __table_args__ = (
+        CheckConstraint(
+            "access_classification IN ('public', 'organization', 'restricted')",
+            name="ck_research_dataset_access",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'rejected', 'archived')",
+            name="ck_research_dataset_status",
+        ),
+        CheckConstraint(
+            "collection_end IS NULL OR collection_start IS NULL "
+            "OR collection_end >= collection_start",
+            name="ck_research_dataset_collection_dates",
+        ),
+        Index("ix_research_datasets_org_status", "organization_id", "status"),
+        Index("ix_research_datasets_study_id", "study_id"),
+        Index("ix_research_datasets_owner_id", "owner_user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(40), nullable=False, default="1.0")
+    format: Mapped[str] = mapped_column(String(40), nullable=False)
+    source: Mapped[str] = mapped_column(String(200), nullable=False)
+    license: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    access_classification: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="organization"
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    data_dictionary: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    collection_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    collection_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResearchDatasetReviewEvent(Base):
+    """Append-only record of each dataset governance decision."""
+
+    __tablename__ = "research_dataset_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'rejected')",
+            name="ck_dataset_review_event_decision",
+        ),
+        Index("ix_dataset_review_events_dataset_time", "dataset_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchDatasetFile(Base):
+    """Private object-storage reference and scan state for one dataset file version."""
+
+    __tablename__ = "research_dataset_files"
+    __table_args__ = (
+        CheckConstraint("size_bytes > 0", name="ck_research_dataset_file_size"),
+        CheckConstraint(
+            "scan_status IN ('pending', 'clean', 'rejected')",
+            name="ck_research_dataset_file_scan_status",
+        ),
+        CheckConstraint(
+            "status IN ('upload_pending', 'quarantined', 'available', 'rejected', 'deleted')",
+            name="ck_research_dataset_file_status",
+        ),
+        UniqueConstraint("storage_key", name="uq_research_dataset_file_storage_key"),
+        UniqueConstraint(
+            "dataset_id", "version", name="uq_research_dataset_file_dataset_version"
+        ),
+        Index("ix_research_dataset_files_dataset_status", "dataset_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256_hex: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="upload_pending"
+    )
+    scan_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+
+class ResearchAnalysisRun(Base):
+    """Immutable provenance record for one reproducible analysis execution."""
+
+    __tablename__ = "research_analysis_runs"
+    __table_args__ = (
+        Index("ix_research_analysis_runs_dataset_created", "dataset_id", "created_at"),
+        Index("ix_research_analysis_runs_study_created", "study_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_datasets.id", ondelete="RESTRICT"), nullable=False
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="SET NULL"), nullable=True
+    )
+    input_manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_file_versions: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    analysis_configuration: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    software_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    software_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    code_revision: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    parameters: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    random_seed: Mapped[int | None] = mapped_column(nullable=True)
+    output_artifacts: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchDatasetFileAccessEvent(Base):
+    """Append-only audit record for issuing an authorised dataset file download URL."""
+
+    __tablename__ = "research_dataset_file_access_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('download_url_issued')",
+            name="ck_dataset_file_access_event_action",
+        ),
+        Index(
+            "ix_dataset_file_access_events_file_time",
+            "dataset_file_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dataset_file_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("research_dataset_files.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchStudyCollaborator(Base):
+    """An invited or active organisation member on one research study."""
+
+    __tablename__ = "research_study_collaborators"
+    __table_args__ = (
+        UniqueConstraint("study_id", "user_id", name="uq_study_collaborator_user"),
+        CheckConstraint(
+            "role IN ('editor', 'contributor', 'viewer')",
+            name="ck_study_collaborator_role",
+        ),
+        CheckConstraint(
+            "status IN ('invited', 'active', 'revoked')",
+            name="ck_study_collaborator_status",
+        ),
+        Index("ix_study_collaborators_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="invited")
+    invited_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ResearchStudyProposal(Base):
+    """Versioned proposal record and its current governance state."""
+
+    __tablename__ = "research_study_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'submitted', 'approved', 'revisions_required', 'rejected')",
+            name="ck_research_proposal_status",
+        ),
+        CheckConstraint("version_number >= 1", name="ck_research_proposal_version"),
+        UniqueConstraint("study_id", "version_number", name="uq_research_proposal_study_version"),
+        UniqueConstraint("supersedes_proposal_id", name="uq_research_proposal_supersedes"),
+        Index("ix_research_proposals_study_status", "study_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    supersedes_proposal_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("research_study_proposals.id", ondelete="CASCADE"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    objectives: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_methods: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_outcomes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    version_number: Mapped[int] = mapped_column(nullable=False, default=1)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResearchProposalReviewEvent(Base):
+    """Append-only independent decisions for a research proposal."""
+
+    __tablename__ = "research_proposal_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approved', 'revisions_required', 'rejected')",
+            name="ck_proposal_review_decision",
+        ),
+        Index("ix_proposal_review_events_proposal_time", "proposal_id", "reviewed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    proposal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_study_proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchMilestone(Base):
+    """Assigned, date-bounded deliverable within a research study."""
+
+    __tablename__ = "research_milestones"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'blocked', 'completed', 'cancelled')",
+            name="ck_research_milestone_status",
+        ),
+        CheckConstraint("progress_percent >= 0 AND progress_percent <= 100",
+                        name="ck_research_milestone_progress"),
+        CheckConstraint(
+            "status != 'completed' OR progress_percent = 100",
+            name="ck_research_milestone_completed_progress",
+        ),
+        Index("ix_research_milestones_study_due", "study_id", "due_date"),
+        Index("ix_research_milestones_assignee_status", "assigned_to", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    progress_percent: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResearchMilestoneEvent(Base):
+    """Append-only audit event for a research milestone change."""
+
+    __tablename__ = "research_milestone_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('created', 'updated')",
+            name="ck_research_milestone_event_type",
+        ),
+        Index("ix_research_milestone_events_milestone_time", "milestone_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    milestone_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_milestones.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResearchPublication(Base):
+    """Study-linked scholarly publication and external researcher identifiers."""
+
+    __tablename__ = "research_publications"
+    __table_args__ = (
+        CheckConstraint(
+            "publication_type IN ('article', 'book', 'chapter', 'conference_paper', "
+            "'report', 'preprint', 'other')",
+            name="ck_research_publication_type",
+        ),
+        UniqueConstraint("study_id", "doi", name="uq_research_publication_study_doi"),
+        Index("ix_research_publications_study_date", "study_id", "published_on"),
+        Index("ix_research_publications_openalex_id", "openalex_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_studies.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    authors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    author_orcids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    publication_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    journal_or_venue: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    publisher: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    published_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    doi: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    openalex_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    abstract: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+
+class ResearchPublicationMetadataSource(Base):
+    """Append-only provenance for metadata imported from an external provider."""
+
+    __tablename__ = "research_publication_metadata_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "provider = 'openalex'",
+            name="ck_publication_metadata_source_provider",
+        ),
+        Index(
+            "ix_publication_metadata_sources_publication_time",
+            "publication_id",
+            "fetched_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    publication_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("research_publications.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_work_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    metadata_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    metadata_baseline: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    imported_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    imported_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+
+class LearningCourse(Base):
+    """Organisation-owned course published to learner portals."""
+
+    __tablename__ = "learning_courses"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_learning_course_org_slug"),
+        CheckConstraint("status IN ('draft', 'published', 'archived')",
+                        name="ck_learning_course_status"),
+        Index("ix_learning_courses_org_status", "organization_id", "status"),
+        Index("ix_learning_courses_programme_id", "programme_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    slug: Mapped[str] = mapped_column(String(140), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    delivery_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="blended")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LearningModule(Base):
+    """Ordered course module."""
+
+    __tablename__ = "learning_modules"
+    __table_args__ = (
+        UniqueConstraint("course_id", "position", name="uq_learning_module_position"),
+        Index("ix_learning_modules_course", "course_id", "position"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    position: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningLesson(Base):
+    """Ordered lesson with a resource reference rather than public object credentials."""
+
+    __tablename__ = "learning_lessons"
+    __table_args__ = (
+        UniqueConstraint("module_id", "position", name="uq_learning_lesson_position"),
+        CheckConstraint("content_type IN ('text', 'video', 'document', 'link', 'workshop')",
+                        name="ck_learning_lesson_content_type"),
+        Index("ix_learning_lessons_module", "module_id", "position"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    module_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_modules.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resource_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    position: Mapped[int] = mapped_column(nullable=False)
+
+
+class LearningLessonCompletion(Base):
+    """Learner completion record for a lesson in an approved course."""
+
+    __tablename__ = "learning_lesson_completions"
+    __table_args__ = (
+        UniqueConstraint(
+            "enrollment_id", "lesson_id", name="uq_learning_lesson_completion"
+        ),
+        Index("ix_learning_lesson_completions_enrollment", "enrollment_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    enrollment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    lesson_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_lessons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningEnrollment(Base):
+    """Learner application and approved course registration."""
+
+    __tablename__ = "learning_enrollments"
+    __table_args__ = (
+        UniqueConstraint("course_id", "learner_id", name="uq_learning_enrollment_learner"),
+        CheckConstraint("status IN ('applied', 'approved', 'rejected', 'completed', 'withdrawn')",
+                        name="ck_learning_enrollment_status"),
+        CheckConstraint("progress_percent >= 0 AND progress_percent <= 100",
+                        name="ck_learning_enrollment_progress"),
+        Index("ix_learning_enrollments_course_status", "course_id", "status"),
+        Index("ix_learning_enrollments_learner_status", "learner_id", "status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    learner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="applied")
+    progress_percent: Mapped[int] = mapped_column(nullable=False, default=0)
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LearningAssessment(Base):
+    """Course assessment definition; configuration contains rubric or quiz metadata."""
+
+    __tablename__ = "learning_assessments"
+    __table_args__ = (
+        CheckConstraint("assessment_type IN ('quiz', 'assignment', 'evaluation')",
+                        name="ck_learning_assessment_type"),
+        CheckConstraint("pass_mark >= 0 AND pass_mark <= 100",
+                        name="ck_learning_assessment_pass_mark"),
+        Index("ix_learning_assessments_course", "course_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    assessment_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    instructions: Mapped[str] = mapped_column(Text, nullable=False)
+    configuration: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    pass_mark: Mapped[int] = mapped_column(nullable=False, default=50)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
+class LearningAssessmentAttempt(Base):
+    """Learner submission and staff evaluation."""
+
+    __tablename__ = "learning_assessment_attempts"
+    __table_args__ = (
+        CheckConstraint("score IS NULL OR (score >= 0 AND score <= 100)",
+                        name="ck_learning_attempt_score"),
+        Index("ix_learning_attempts_assessment_learner", "assessment_id", "learner_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    assessment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_assessments.id", ondelete="CASCADE"), nullable=False
+    )
+    learner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    submission: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    score: Mapped[int | None] = mapped_column(nullable=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    evaluated_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LearningAssessmentEvaluation(Base):
+    """Append-only snapshot of each staff evaluation or re-evaluation."""
+
+    __tablename__ = "learning_assessment_evaluations"
+    __table_args__ = (
+        CheckConstraint(
+            "score >= 0 AND score <= 100",
+            name="ck_learning_assessment_evaluation_score",
+        ),
+        Index(
+            "ix_learning_assessment_evaluations_attempt",
+            "attempt_id",
+            "evaluated_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    attempt_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("learning_assessment_attempts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    score: Mapped[int] = mapped_column(nullable=False)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    previous_score: Mapped[int | None] = mapped_column(nullable=True)
+    previous_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evaluated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningMentorship(Base):
+    """Course-scoped mentor assignment."""
+
+    __tablename__ = "learning_mentorships"
+    __table_args__ = (
+        UniqueConstraint("course_id", "mentor_id", "mentee_id", name="uq_learning_mentorship"),
+        CheckConstraint("status IN ('active', 'completed', 'ended')",
+                        name="ck_learning_mentorship_status"),
+        Index("ix_learning_mentorship_mentor", "mentor_id", "status"),
+        Index("ix_learning_mentorship_mentee", "mentee_id", "status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    mentor_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    mentee_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningAttendance(Base):
+    """Workshop attendance record."""
+
+    __tablename__ = "learning_attendance"
+    __table_args__ = (
+        UniqueConstraint("course_id", "session_key", "learner_id", name="uq_learning_attendance"),
+        CheckConstraint("attendance_status IN ('present', 'late', 'excused', 'absent')",
+                        name="ck_learning_attendance_status"),
+        Index("ix_learning_attendance_course_date", "course_id", "session_date"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    session_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    session_title: Mapped[str] = mapped_column(String(240), nullable=False)
+    session_date: Mapped[date] = mapped_column(Date, nullable=False)
+    learner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    attendance_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningResource(Base):
+    """Course or lesson resource metadata; private file access stays in storage grants."""
+
+    __tablename__ = "learning_resources"
+    __table_args__ = (
+        CheckConstraint("resource_type IN ('document', 'video', 'research', 'link')",
+                        name="ck_learning_resource_type"),
+        Index("ix_learning_resources_course", "course_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    lesson_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_lessons.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resource_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    storage_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    uploaded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
+class LearningCertificate(Base):
+    """Revocable, publicly verifiable course completion credential."""
+
+    __tablename__ = "learning_certificates"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", name="uq_learning_certificate_enrollment"),
+        UniqueConstraint("certificate_number", name="uq_learning_certificate_number"),
+        UniqueConstraint("verification_code", name="uq_learning_certificate_verification"),
+        CheckConstraint("status IN ('valid', 'revoked')", name="ck_learning_certificate_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    enrollment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="CASCADE"), nullable=False
+    )
+    certificate_number: Mapped[str] = mapped_column(String(48), nullable=False)
+    verification_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="valid")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+
+
+class OrganizationAuditEvent(Base):
+    """Append-only audit history for privileged organisation operations."""
+
+    __tablename__ = "organization_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('membership.invited', 'membership.invitation_accepted', "
+            "'membership.role_changed', 'membership.roles_changed', 'membership.status_changed', "
+            "'organization.ownership_transferred', "
+            "'volunteer_application.decided', 'employment_application.decided', "
+            "'learning.mentorship.status_changed', 'climate.observation.reviewed', "
+            "'research.study.status_changed', 'research.protocol.version_created', "
+            "'research.protocol.submitted', 'research.protocol.reviewed', "
+            "'research.ethics.review_recorded')",
+            name="ck_organization_audit_event_action",
+        ),
+        Index(
+            "ix_organization_audit_events_org_time",
+            "organization_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    subject_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeDeliverable(Base):
+    """Track an assigned programme output and its evidence review lifecycle."""
+
+    __tablename__ = "programme_deliverables"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'submitted', 'accepted', 'revisions_required')",
+            name="ck_programme_deliverable_status",
+        ),
+        Index("ix_programme_deliverables_programme_status", "programme_id", "status"),
+        Index("ix_programme_deliverables_assignee", "assigned_to"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    assigned_to: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="planned")
+    evidence_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+
+class ProgrammeActivity(Base):
+    """A scheduled operational activity within a programme."""
+
+    __tablename__ = "programme_activities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'completed', 'cancelled')",
+            name="ck_programme_activity_status",
+        ),
+        CheckConstraint(
+            "end_at IS NULL OR end_at >= start_at",
+            name="ck_programme_activity_time_order",
+        ),
+        Index("ix_programme_activities_programme_start", "programme_id", "start_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class OrganizationEmploymentApplication(Base):
+    """Private employment application reviewed before employee membership is granted."""
+    __tablename__ = "organization_employment_applications"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','approved','rejected','withdrawn')",
+                        name="ck_employment_application_status"),
+        Index("ix_employment_applications_org_status", "organization_id", "status"),
+        # Preserve withdrawn and rejected applications for review, while allowing an
+        # applicant to submit again once they have no application awaiting a decision.
+        Index(
+            "uq_employment_applications_org_user_pending",
+            "organization_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text("status = 'pending'"),
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    desired_position: Mapped[str] = mapped_column(String(160), nullable=False)
+    qualifications: Mapped[str] = mapped_column(Text, nullable=False)
+    experience_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ProgrammeVolunteerApplication(Base):
+    """A volunteer's application to participate in an organisation programme."""
+
+    __tablename__ = "programme_volunteer_applications"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "programme_id", "user_id",
+            name="uq_programme_volunteer_application_user",
+        ),
+        CheckConstraint(
+            "participation_type IN ('volunteer', 'ambassador')",
+            name="ck_volunteer_application_type",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'withdrawn')",
+            name="ck_volunteer_application_status",
+        ),
+        Index("ix_volunteer_applications_programme_status", "programme_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    participation_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    interest: Mapped[str] = mapped_column(Text, nullable=False)
+    availability: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safeguarding_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeVolunteerAllocation(Base):
+    """Assignment of an active volunteer member to a programme activity."""
+
+    __tablename__ = "programme_volunteer_allocations"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_activity_volunteer"),
+        CheckConstraint(
+            "status IN ('assigned', 'completed', 'withdrawn')",
+            name="ck_volunteer_allocation_status",
+        ),
+        Index("ix_volunteer_allocations_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="assigned")
+    assigned_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeActivityAttendance(Base):
+    """Individual attendance record for an allocated programme volunteer."""
+
+    __tablename__ = "programme_activity_attendance"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_activity_attendance_user"),
+        CheckConstraint(
+            "attendance_status IN ('present', 'late', 'absent', 'excused')",
+            name="ck_activity_attendance_status",
+        ),
+        Index("ix_activity_attendance_org_activity", "organization_id", "activity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    attendance_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeIndicator(Base):
+    """A measurable programme outcome or output indicator."""
+
+    __tablename__ = "programme_indicators"
+    __table_args__ = (
+        UniqueConstraint("programme_id", "key", name="uq_programme_indicator_key"),
+        CheckConstraint(
+            "direction IN ('increase', 'decrease', 'monitor')",
+            name="ck_programme_indicator_direction",
+        ),
+        Index("ix_programme_indicators_programme", "programme_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    key: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    unit: Mapped[str] = mapped_column(String(40), nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False, default="increase")
+    baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeIndicatorMeasurement(Base):
+    """Append-only, period-based measurement of a programme indicator."""
+
+    __tablename__ = "programme_indicator_measurements"
+    __table_args__ = (
+        CheckConstraint("period_end >= period_start", name="ck_indicator_period_order"),
+        Index(
+            "ix_indicator_measurements_indicator_period",
+            "indicator_id",
+            "period_end",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    indicator_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_indicators.id", ondelete="CASCADE"), nullable=False
+    )
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reported_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+
+
+class ProgrammeGoal(Base):
+    """A measurable strategic goal owned by one programme."""
+
+    __tablename__ = "programme_goals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'active', 'achieved', 'cancelled')",
+            name="ck_programme_goal_status",
+        ),
+        Index("ix_programme_goals_programme_status", "programme_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeMilestone(Base):
+    """A dated checkpoint contributing to a programme goal."""
+
+    __tablename__ = "programme_milestones"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'completed', 'blocked', 'cancelled')",
+            name="ck_programme_milestone_status",
+        ),
+        Index("ix_programme_milestones_goal_status", "goal_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_goals.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeAssignment(Base):
+    """A general programme task assigned to an active organisation member."""
+
+    __tablename__ = "programme_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'completed', 'cancelled')",
+            name="ck_programme_assignment_status",
+        ),
+        CheckConstraint("priority IN ('low', 'normal', 'high')", name="ck_programme_assignment_priority"),  # noqa: E501
+        Index("ix_programme_assignments_programme_status", "programme_id", "status"),
+        Index("ix_programme_assignments_assignee_status", "assigned_to", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    milestone_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programme_milestones.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    priority: Mapped[str] = mapped_column(String(8), nullable=False, default="normal")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeParticipationRecord(Base):
+    """Aggregate school/community participation record without child-level PII."""
+
+    __tablename__ = "programme_participation_records"
+    __table_args__ = (
+        CheckConstraint(
+            "participant_group IN ('school', 'community', 'youth_group', 'institution')",
+            name="ck_programme_participant_group",
+        ),
+        CheckConstraint("participant_count > 0", name="ck_participant_count_positive"),
+        CheckConstraint(
+            "period_end >= period_start",
+            name="ck_participation_period_order",
+        ),
+        Index(
+            "ix_programme_participation_programme_period",
+            "programme_id",
+            "period_end",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programme_activities.id", ondelete="SET NULL"), nullable=True
+    )
+    participant_group: Mapped[str] = mapped_column(String(20), nullable=False)
+    group_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    participant_count: Mapped[int] = mapped_column(nullable=False)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class OrganizationPerson(Base):
+    """Organisation directory record, independent of a portal login account."""
+
+    __tablename__ = "organization_people"
+    __table_args__ = (
+        Index("ix_org_people_org_visibility", "organization_id", "visibility", "review_state"),
+        Index("ix_org_people_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    biography: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positions: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    person_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    profile_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    review_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    updated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class OrganizationPersonAuditEvent(Base):
+    """Append-only audit event for organisation directory profile changes."""
+
+    __tablename__ = "organization_person_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('person.created', 'person.updated', 'person.review_changed', "
+            "'person.publication_changed', 'person.archived', 'person.reactivated')",
+            name="ck_org_person_audit_action",
+        ),
+        Index(
+            "ix_org_person_audit_org_person_time",
+            "organization_id",
+            "person_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    person_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization_people.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class InstitutionalPartner(Base):
+    """Moderated organisation-level partner record."""
+    __tablename__ = "institutional_partners"
+    __table_args__ = (
+        CheckConstraint("partner_type IN ('university','government','ngo','private_sector','network','funder','community_org','other')", name="ck_institutional_partner_type"),
+        CheckConstraint("relationship_status IN ('prospect','active','paused','ended')", name="ck_institutional_partner_status"),
+        CheckConstraint("verification_state IN ('pending','verified','rejected')", name="ck_institutional_partner_verification"),
+        CheckConstraint("visibility IN ('private','public')", name="ck_institutional_partner_visibility"),
+        Index("ix_institutional_partners_org_status", "organization_id", "relationship_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    partner_type: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    description: Mapped[str | None] = mapped_column(Text)
+    website_url: Mapped[str | None] = mapped_column(String(1000))
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="KE")
+    region: Mapped[str | None] = mapped_column(String(120))
+    relationship_status: Mapped[str] = mapped_column(String(16), nullable=False, default="prospect")
+    verification_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class InstitutionalPartnerContact(Base):
+    """Private partner liaison record with explicit contact permission tracking."""
+    __tablename__ = "institutional_partner_contacts"
+    __table_args__ = (
+        CheckConstraint("status IN ('active','inactive')", name="ck_partner_contact_status"),
+        Index("ix_partner_contacts_org_partner", "organization_id", "partner_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    job_title: Mapped[str | None] = mapped_column(String(160))
+    email: Mapped[str | None] = mapped_column(String(320))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    contact_permission: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    permission_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class ProgrammePartner(Base):
+    """Link a programme to a partner and define the relationship."""
+    __tablename__ = "programme_partners"
+    __table_args__ = (
+        UniqueConstraint("programme_id", "partner_id", name="uq_programme_partner"),
+        CheckConstraint("partner_role IN ('implementing_partner','funding_partner','technical_partner','research_partner','community_partner')", name="ck_programme_partner_role"),
+        CheckConstraint("status IN ('planned','active','ended')", name="ck_programme_partner_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    programme_id: Mapped[str] = mapped_column(String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False)
+    partner_id: Mapped[str] = mapped_column(String(36), ForeignKey("institutional_partners.id", ondelete="CASCADE"), nullable=False)
+    partner_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PublicContentEntry(Base):
+    """Moderated CMS record for public website consumption."""
+    __tablename__ = "public_content_entries"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "content_type", "slug", name="uq_public_content_slug"),
+        CheckConstraint("content_type IN ('page','programme','training_track','initiative','research_area','impact_metric','publication')", name="ck_public_content_type"),
+        CheckConstraint("publication_state IN ('draft','review','approved','published','archived')", name="ck_public_content_state"),
+        Index("ix_public_content_org_state", "organization_id", "publication_state"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    publication_state: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_label: Mapped[str | None] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class OrganizationRecordAuditEvent(Base):
+    """Append-only audit history for partner and public CMS record changes."""
+
+    __tablename__ = "organization_record_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('partner', 'content')",
+            name="ck_org_record_audit_entity_type",
+        ),
+        CheckConstraint(
+            "action IN ('record.created', 'record.updated', 'record.state_changed')",
+            name="ck_org_record_audit_action",
+        ),
+        Index(
+            "ix_org_record_audit_entity_time",
+            "organization_id",
+            "entity_type",
+            "entity_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammeDeliverableEvent(Base):
+    """Append-only audit event for deliverable assignment and evidence review."""
+
+    __tablename__ = "programme_deliverable_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('created', 'assigned', 'evidence_submitted', 'accepted', 'revisions_required')",
+            name="ck_programme_deliverable_event_action",
+        ),
+        Index(
+            "ix_programme_deliverable_events_history",
+            "organization_id",
+            "deliverable_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    deliverable_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programme_deliverables.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ProgrammePlanningEvent(Base):
+    """Append-only audit event for programme goals, milestones and indicators."""
+
+    __tablename__ = "programme_planning_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('goal', 'milestone', 'indicator', 'measurement', 'assignment', 'activity', 'volunteer_allocation')",
+            name="ck_programme_planning_event_entity",
+        ),
+        CheckConstraint(
+            "action IN ('created', 'assigned', 'status_changed', 'measurement_recorded')",
+            name="ck_programme_planning_event_action",
+        ),
+        Index(
+            "ix_programme_planning_events_history",
+            "organization_id",
+            "programme_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    entity_title: Mapped[str] = mapped_column(String(240), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ODKConnection(Base):
+    """Encrypted organisation-owned connection to an ODK Central project."""
+
+    __tablename__ = "organization_odk_connections"
+    __table_args__ = (
+        UniqueConstraint("organization_id", name="uq_odk_connection_organization"),
+        CheckConstraint("project_id > 0", name="ck_odk_connection_project_positive"),
+        Index("ix_odk_connections_enabled", "enabled", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    base_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    project_id: Mapped[int] = mapped_column(nullable=False)
+    account_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    encrypted_password: Mapped[str] = mapped_column(Text, nullable=False)
+    form_mappings: Mapped[dict[str, dict[str, str]]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    form_cursors: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    last_sync_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ODKSyncRun(Base):
+    """Append-only execution record for one scheduled ODK Central sync."""
+
+    __tablename__ = "organization_odk_sync_runs"
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'succeeded', 'partial', 'failed')", name="ck_odk_sync_run_status"),
+        Index("ix_odk_sync_runs_connection_started", "connection_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    connection_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization_odk_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    forms_checked: Mapped[int] = mapped_column(nullable=False, default=0)
+    submissions_received: Mapped[int] = mapped_column(nullable=False, default=0)
+    observations_imported: Mapped[int] = mapped_column(nullable=False, default=0)
+    duplicates_skipped: Mapped[int] = mapped_column(nullable=False, default=0)
+    rejected_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_summary: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+# fmt: on
+
+
+class FundingOpportunity(Base):
+    """Tenant-scoped grant opportunity and prospect register."""
+
+    __tablename__ = "funding_opportunities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('identified','reviewing','submitted','awarded','declined','closed')",
+            name="ck_funding_opportunity_status",
+        ),
+        CheckConstraint(
+            "expected_amount IS NULL OR expected_amount >= 0", name="ck_funding_opportunity_amount"
+        ),
+        CheckConstraint("length(currency) = 3", name="ck_funding_opportunity_currency"),
+        Index("ix_funding_opportunities_org_deadline", "organization_id", "deadline"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    donor_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    reference_url: Mapped[str | None] = mapped_column(String(1000))
+    deadline: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="identified")
+    expected_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FundingAward(Base):
+    """Award or grant agreement and its reporting obligations."""
+
+    __tablename__ = "funding_awards"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','active','completed','suspended','closed')",
+            name="ck_funding_award_status",
+        ),
+        CheckConstraint("award_amount >= 0", name="ck_funding_award_amount"),
+        CheckConstraint("length(currency) = 3", name="ck_funding_award_currency"),
+        CheckConstraint(
+            "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",
+            name="ck_funding_award_date_order",
+        ),
+        Index("ix_funding_awards_org_status", "organization_id", "status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    opportunity_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("funding_opportunities.id", ondelete="SET NULL")
+    )
+    partner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("institutional_partners.id", ondelete="SET NULL")
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    donor_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    award_reference: Mapped[str | None] = mapped_column(String(120))
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
+    award_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    restrictions: Mapped[str | None] = mapped_column(Text)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    reporting_deadline: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FundingBudgetLine(Base):
+    """Approved allocation of an award to a budget category or programme."""
+
+    __tablename__ = "funding_budget_lines"
+    __table_args__ = (
+        CheckConstraint("budget_amount >= 0", name="ck_funding_budget_line_amount"),
+        Index("ix_funding_budget_lines_org_award", "organization_id", "award_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    award_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("funding_awards.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL")
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    budget_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class FundingLedgerEntry(Base):
+    """Non-payment financial record: pledge, commitment, or expenditure."""
+
+    __tablename__ = "funding_ledger_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "entry_type IN ('pledge','commitment','expenditure')",
+            name="ck_funding_ledger_entry_type",
+        ),
+        CheckConstraint("amount > 0", name="ck_funding_ledger_entry_amount"),
+        Index("ix_funding_ledger_org_award_date", "organization_id", "award_id", "occurred_on"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    award_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("funding_awards.id", ondelete="CASCADE"), nullable=False
+    )
+    budget_line_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("funding_budget_lines.id", ondelete="SET NULL")
+    )
+    entry_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
+    entered_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class FundingAuditEvent(Base):
+    """Append-only audit trail for funding register changes."""
+
+    __tablename__ = "funding_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('opportunity','award','budget_line','ledger_entry')",
+            name="ck_funding_audit_entity_type",
+        ),
+        CheckConstraint(
+            "action IN ('record.created','record.updated')", name="ck_funding_audit_action"
+        ),
+        Index("ix_funding_audit_org_time", "organization_id", "created_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    state: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
