@@ -153,6 +153,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={**_release_payload(), "source_ingestion_run_id": run_id},
         )
         assert created.status_code == 201
+        assert created.json()["created_by"] == author_id
         assert client.get(
             f"{org_base}/climate-public-releases", headers=author
         ).json()[0]["state"] == "draft"
@@ -318,6 +319,13 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert blocked.status_code == 409
 
+        self_quality_review = client.post(
+            f"{org_base}/climate-ingestion/{pending_run_id}/review",
+            headers=author,
+            json={"decision": "verified", "note": "Submitter must not review own records."},
+        )
+        assert self_quality_review.status_code == 403
+
         batch_review = client.post(
             f"{org_base}/climate-ingestion/{pending_run_id}/review",
             headers=reviewer,
@@ -329,6 +337,22 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         pending_summary = next(item for item in updated_runs.json() if item["id"] == pending_run_id)
         assert pending_summary["verified_observations"] == 1
         assert pending_summary["pending_observations"] == 0
+
+        # A database row marked verified by its own submitter must not be
+        # accepted as independent evidence for a later public release.
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        connection.execute(
+            "UPDATE climate_observations SET reviewed_by = created_by WHERE ingestion_run_id = ?",
+            (run_id,),
+        )
+        connection.commit()
+        connection.close()
+        self_verified = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={**_release_payload(), "source_ingestion_run_id": run_id},
+        )
+        assert self_verified.status_code == 409
 
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
