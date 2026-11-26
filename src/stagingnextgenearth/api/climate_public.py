@@ -144,6 +144,15 @@ class ClimateSourceRead(BaseModel):
     release_count: int
 
 
+class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
+    """Authenticated release view with workflow ownership and provenance references."""
+
+    created_by: str
+    reviewed_by: str | None
+    published_by: str | None
+    source_ingestion_run_id: str
+
+
 class ClimateReleaseAction(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
@@ -174,7 +183,7 @@ def _event(
 
 @router.post(
     "/organizations/{organization_id}/climate-public-releases",
-    response_model=ClimateReleaseDetail,
+    response_model=ClimateReleaseWorkspaceRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_release(
@@ -183,7 +192,7 @@ async def create_release(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseWorkspaceRead:
     if not await membership_has_any_role(session, membership, _RELEASE_ROLES):
         raise HTTPException(403, "Climate release authoring is not permitted")
     source_run = await session.scalar(select(ClimateIngestionRun).where(
@@ -324,19 +333,19 @@ async def create_release(
     _event(session, row, principal.user_id, "created", None, "draft")
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseDetail.model_validate(row)
+    return ClimateReleaseWorkspaceRead.model_validate(row)
 
 
 @router.get(
     "/organizations/{organization_id}/climate-public-releases",
-    response_model=list[ClimateReleaseDetail],
+    response_model=list[ClimateReleaseWorkspaceRead],
 )
 async def list_organisation_releases(
     organization_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(default=100, ge=1, le=200),
-) -> list[ClimateReleaseDetail]:
+) -> list[ClimateReleaseWorkspaceRead]:
     """List release workflow records visible to authorised research workspace members."""
     if not await membership_has_any_role(session, membership, _RELEASE_ROLES | _REVIEW_ROLES):
         raise HTTPException(403, "Climate release workspace access is not permitted")
@@ -346,7 +355,7 @@ async def list_organisation_releases(
         .order_by(ClimatePublicRelease.created_at.desc())
         .limit(limit)
     )
-    return [ClimateReleaseDetail.model_validate(row) for row in rows.all()]
+    return [ClimateReleaseWorkspaceRead.model_validate(row) for row in rows.all()]
 
 
 async def _get_release(
