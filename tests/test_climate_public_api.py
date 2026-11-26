@@ -198,8 +198,51 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert public_series.json()["regions"] == []
         assert [point["value"] for point in public_series.json()["series"]] == [44.2, 28.1]
 
+        # A new draft version must not displace the currently published version.
+        version_two = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={
+                **_release_payload(),
+                "title": "Monthly rainfall in Kilifi — revised",
+                "source_ingestion_run_id": run_id,
+            },
+        )
+        assert version_two.status_code == 201
+        version_two_id = version_two.json()["id"]
+        assert version_two.json()["version"] == 2
+        assert client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases/"
+            "kilifi-monthly-rainfall"
+        ).json()["version"] == 1
+
+        submitted_two = client.post(
+            f"{org_base}/climate-public-releases/{version_two_id}/submit",
+            headers=author,
+            json={"note": "Revised evidence release submitted."},
+        )
+        assert submitted_two.status_code == 200
+        approved_two = client.post(
+            f"{org_base}/climate-public-releases/{version_two_id}/approve",
+            headers=reviewer,
+            json={"note": "Revised provider evidence independently reviewed."},
+        )
+        assert approved_two.status_code == 200
+        published_two = client.post(
+            f"{org_base}/climate-public-releases/{version_two_id}/publish",
+            headers=reviewer,
+            json={"note": "Publish revised version."},
+        )
+        assert published_two.status_code == 200
+        assert published_two.json()["version"] == 2
+        public_versions = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases"
+        ).json()
+        assert len(public_versions) == 1
+        assert public_versions[0]["version"] == 2
+
         retracted = client.post(
-            f"{org_base}/climate-public-releases/{release_id}/retract",
+            f"{org_base}/climate-public-releases/{version_two_id}/retract",
             headers=reviewer,
             json={"note": "Licence review identified a publication restriction."},
         )
