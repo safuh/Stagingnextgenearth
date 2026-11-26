@@ -275,6 +275,7 @@ export default function HomePage() {
           {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Listed organisation · source website</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
         </div></ContentCarousel>
         {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Public people and website-listed organisations will appear here.</p>}
+        <p className="section-more"><Link href="/community">Meet our people and institutional collaborators <span aria-hidden="true">→</span></Link></p>
       </section>
 
       <section className="portals section-wrap field-gallery" id="gallery">
