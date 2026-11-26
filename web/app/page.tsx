@@ -12,6 +12,16 @@ type PublicPartner = { id: string; name: string; partner_type: string; descripti
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
 type PublicCourse = { id: string; title: string; slug: string; description: string; category: string | null; delivery_mode: string; status: string; programme_id: string | null };
 
+const partnerLogos: Record<string, string> = {
+  "University of Nairobi": "/media/nextgen-source/partner-university-of-nairobi.png",
+  "Medical College of Wisconsin": "/media/nextgen-source/partner-medical-college-wisconsin.png",
+  "Men In Health": "/media/nextgen-source/men-in-health-7b0b71fb0d.png",
+  "Eternal Flame Worldwide": "/media/nextgen-source/eternal-flame-worldwide-bf4a67139d.png",
+  "Kilifi County Health Department": "/media/nextgen-source/kilifi-county-health-department-acec4dce86.png",
+  "Masinde Muliro University (MMUST)": "/media/nextgen-source/partner-mmust.png",
+  "CHANCE Network": "/media/nextgen-source/partner-chance-network.png",
+};
+
 
 function LetterHeading({ text, className = "" }: { text: string; className?: string }) {
   const headingRef = useRef<HTMLSpanElement>(null);
@@ -272,7 +282,7 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">OUR COMMUNITY</p><h2><LetterHeading text="People &" /> <em><LetterHeading text="partners." /></em></h2></div><p>Publicly approved leadership, staff, volunteers, mentors and institutional partners.</p></div>
         <ContentCarousel label="People and institutions"><div className="carousel-track">
           {publicPeople.map((person) => <article className="portal-card people-card" key={person.id}>{person.profile_image_url ? <img className="people-avatar" src={person.profile_image_url} alt={person.full_name} width={112} height={112} loading="lazy" /> : <div className="people-avatar people-avatar-fallback" aria-hidden="true">{person.full_name.slice(0, 1)}</div>}<p className="portal-tag">People</p><h3>{person.full_name}</h3><p className="portal-description">{person.positions.join(" · ")}</p>{person.biography && <p className="portal-description">{person.biography}</p>}</article>)}
-          {publicPartners.map((partner) => <article className="portal-card" key={partner.id}><p className="portal-tag">Listed organisation · source website</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
+          {publicPartners.map((partner) => <article className="portal-card partner-card" key={partner.id}>{partnerLogos[partner.name] ? <div className="partner-logo-frame"><img className="partner-logo" src={partnerLogos[partner.name]} alt={`${partner.name} logo`} loading="lazy" /></div> : <div className="partner-logo-frame partner-logo-fallback" aria-hidden="true">{partner.name.slice(0, 2).toUpperCase()}</div>}<p className="portal-tag">Listed organisation · source website</p><h3>{partner.name}</h3><p className="portal-description">{partner.partner_type.replaceAll("_", " ")}{partner.region ? ` · ${partner.region}` : ""}{partner.country_code ? ` · ${partner.country_code}` : ""}</p>{partner.description && <p className="portal-description">{partner.description}</p>}{partner.website_url && <a href={partner.website_url} target="_blank" rel="noreferrer">Partner website ↗</a>}</article>)}
         </div></ContentCarousel>
         {publicPeople.length === 0 && publicPartners.length === 0 && <p className="muted">Public people and website-listed organisations will appear here.</p>}
         <p className="section-more"><Link href="/community">Meet our people and institutional collaborators <span aria-hidden="true">→</span></Link></p>
