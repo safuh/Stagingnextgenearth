@@ -75,7 +75,7 @@ class ClimateReleaseCreate(BaseModel):
     @field_validator("geography_label")
     @classmethod
     def reject_precise_coordinate_labels(cls, value: str) -> str:
-        if re.search(r"-?\\d{1,3}\\.\\d+\\s*[,/]\\s*-?\\d{1,3}\\.\\d+", value):
+        if re.search(r"-?\d{1,3}\.\d+\s*[,/]\s*-?\d{1,3}\.\d+", value):
             raise ValueError("public geography labels must not contain precise coordinate pairs")
         return value
 
@@ -323,6 +323,28 @@ async def create_release(
     await session.commit()
     await session.refresh(row)
     return ClimateReleaseDetail.model_validate(row)
+
+
+@router.get(
+    "/organizations/{organization_id}/climate-public-releases",
+    response_model=list[ClimateReleaseDetail],
+)
+async def list_organisation_releases(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[ClimateReleaseDetail]:
+    """List release workflow records visible to authorised research workspace members."""
+    if not await membership_has_any_role(session, membership, _RELEASE_ROLES | _REVIEW_ROLES):
+        raise HTTPException(403, "Climate release workspace access is not permitted")
+    rows = await session.scalars(
+        select(ClimatePublicRelease)
+        .where(ClimatePublicRelease.organization_id == organization_id)
+        .order_by(ClimatePublicRelease.created_at.desc())
+        .limit(limit)
+    )
+    return [ClimateReleaseDetail.model_validate(row) for row in rows.all()]
 
 
 async def _get_release(
