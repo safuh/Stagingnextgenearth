@@ -2,6 +2,7 @@
 # fmt: off
 """NextGen for Earth platform domain and persistence models."""
 
+from .climate_public import ClimatePublicRelease, ClimatePublicReleaseEvent
 from .models import (
     ClimateIngestionRun,
     FundingAuditEvent,
@@ -62,6 +63,8 @@ from .models import (
 )
 
 __all__ = [
+    "ClimatePublicRelease",
+    "ClimatePublicReleaseEvent",
     "ClimateIngestionRun",
     "FundingAuditEvent",
     "FundingAward",
