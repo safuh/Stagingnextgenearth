@@ -126,7 +126,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         invitation = client.post(
             f"{org_base}/memberships",
             headers=author,
-            json={"identifier": "climate-reviewer@example.org", "role": "admin"},
+            json={"identifier": "climate-reviewer@example.org", "role": "executive"},
         )
         assert invitation.status_code == 201
         accepted = client.post(
