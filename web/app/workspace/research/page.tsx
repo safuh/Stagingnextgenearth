@@ -320,6 +320,13 @@ export default function ResearchWorkspacePage() {
   );
   const canAuthorProtocols = membershipRoles.some((role) => ["admin", "founder", "executive"].includes(role));
   const canViewResearchAudit = canAuthorProtocols;
+  const membershipRoleLabels = membershipRoles.map((role) => role.replace(/_/g, " "));
+  const researchPortfolio = {
+    studies: studies.length,
+    activeStudies: studies.filter((study) => study.status === "active").length,
+    datasets: datasets.length,
+    pendingClimateReviews: climateObservations.length,
+  };
   useEffect(() => {
     if (organizationId && membership) void loadClimateObservations();
     // Reload when the active organisation or membership changes.
@@ -1121,8 +1128,18 @@ export default function ResearchWorkspacePage() {
             {membership && (
               <>
                 <section className="role-workspace">
-                  <div><span className="eyebrow">YOUR ACCESS</span><h2>{membership.role.replace(/_/g, " ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
+                  <div><span className="eyebrow">YOUR ACCESS</span><h2>{membershipRoleLabels.join(" · ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
                   <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link><Link href="/workspace/research/odk">Configure ODK Central →</Link></div>
+                </section>
+                <section className="research-section" aria-label="Research portfolio snapshot">
+                  <div className="section-heading"><div><p className="eyebrow">PORTFOLIO SNAPSHOT</p><h2>Research at a glance</h2></div><span>Current organisation</span></div>
+                  <div className="staff-grid">
+                    <article className="staff-card"><small>Registered studies</small><strong>{researchPortfolio.studies}</strong></article>
+                    <article className="staff-card"><small>Active studies</small><strong>{researchPortfolio.activeStudies}</strong></article>
+                    <article className="staff-card"><small>Research datasets</small><strong>{researchPortfolio.datasets}</strong></article>
+                    <article className="staff-card"><small>Climate reviews pending</small><strong>{researchPortfolio.pendingClimateReviews}</strong></article>
+                  </div>
+                  <p className="workspace-muted">Counts reflect records currently loaded for this organisation; pending climate reviews are limited to the review queue returned by the API.</p>
                 </section>
                 <section className="research-section climate-submission-panel">
                   <div className="section-heading"><div><p className="eyebrow">FIELD DATA</p><h2>Submit a climate observation</h2></div><span>Pending independent review</span></div>
