@@ -81,20 +81,22 @@ export default function HomePage() {
   const [publicProgrammes, setPublicProgrammes] = useState<PublicProgramme[]>([]);
   const [publicCourses, setPublicCourses] = useState<PublicCourse[]>([]);
   const [signedIn, setSignedIn] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     restoreSession()
       .then((session) => { if (active) setSignedIn(Boolean(session)); })
       .catch(() => { if (active) setSignedIn(false); });
-    // Public feeds are independent: a temporary failure in one endpoint must not
-    // suppress otherwise healthy programme, people, partner or CMS sections.
+    // Do not disguise API failures as a genuinely empty catalogue. Render a
+    // visible diagnostic so deployment/configuration faults can be distinguished
+    // from content that has not yet been published.
     Promise.all([
-      apiGet<PublicContent[]>(`/public/organizations/${ORGANIZATION_SLUG}/content`).catch(() => []),
-      apiGet<PublicPerson[]>(`/public/organizations/${ORGANIZATION_SLUG}/people`).catch(() => []),
-      apiGet<PublicPartner[]>(`/public/organizations/${ORGANIZATION_SLUG}/partners`).catch(() => []),
-      apiGet<PublicProgramme[]>(`/public/organizations/${ORGANIZATION_SLUG}/programmes`).catch(() => []),
-      apiGet<PublicCourse[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`).catch(() => []),
+      apiGet<PublicContent[]>(`/public/organizations/${ORGANIZATION_SLUG}/content`),
+      apiGet<PublicPerson[]>(`/public/organizations/${ORGANIZATION_SLUG}/people`),
+      apiGet<PublicPartner[]>(`/public/organizations/${ORGANIZATION_SLUG}/partners`),
+      apiGet<PublicProgramme[]>(`/public/organizations/${ORGANIZATION_SLUG}/programmes`),
+      apiGet<PublicCourse[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`),
     ]).then(([items, people, partners, programmes, courses]) => {
       if (!active) return;
       setCatalogue(items);
@@ -102,6 +104,10 @@ export default function HomePage() {
       setPublicPartners(partners);
       setPublicProgrammes(programmes);
       setPublicCourses(courses);
+      setFeedError(null);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      setFeedError(error instanceof Error ? error.message : "Unable to load public organisation data.");
     });
     return () => { active = false; };
   }, []);
@@ -130,6 +136,7 @@ export default function HomePage() {
 
   return (
     <main>
+      {feedError && <p className="muted" role="alert">Organisation data could not be loaded: {feedError}. Please retry shortly.</p>}
       <header className="topbar">
         <Link className="brand" href="/" aria-label="NextGen for Earth home">
           <span className="brand-mark">N</span>
