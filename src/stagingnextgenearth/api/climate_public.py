@@ -373,7 +373,7 @@ async def _get_release(
 
 @router.post(
     "/organizations/{organization_id}/climate-public-releases/{release_id}/submit",
-    response_model=ClimateReleaseDetail,
+    response_model=ClimateReleaseWorkspaceRead,
 )
 async def submit_release(
     organization_id: str,
@@ -382,7 +382,7 @@ async def submit_release(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseWorkspaceRead:
     row = await _get_release(session, organization_id, release_id)
     if row.created_by != principal.user_id and not await membership_has_any_role(
         session, membership, _REVIEW_ROLES
@@ -394,12 +394,12 @@ async def submit_release(
     _event(session, row, principal.user_id, "submitted", "draft", "review", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseDetail.model_validate(row)
+    return ClimateReleaseWorkspaceRead.model_validate(row)
 
 
 @router.post(
     "/organizations/{organization_id}/climate-public-releases/{release_id}/approve",
-    response_model=ClimateReleaseDetail,
+    response_model=ClimateReleaseWorkspaceRead,
 )
 async def approve_release(
     organization_id: str,
@@ -408,7 +408,7 @@ async def approve_release(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseWorkspaceRead:
     if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(403, "Climate release reviewer role required")
     row = await _get_release(session, organization_id, release_id)
@@ -422,12 +422,12 @@ async def approve_release(
     _event(session, row, principal.user_id, "approved", "review", "approved", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseDetail.model_validate(row)
+    return ClimateReleaseWorkspaceRead.model_validate(row)
 
 
 @router.post(
     "/organizations/{organization_id}/climate-public-releases/{release_id}/publish",
-    response_model=ClimateReleaseDetail,
+    response_model=ClimateReleaseWorkspaceRead,
 )
 async def publish_release(
     organization_id: str,
@@ -436,7 +436,7 @@ async def publish_release(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseWorkspaceRead:
     if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(403, "Climate release publisher role required")
     row = await _get_release(session, organization_id, release_id)
@@ -465,12 +465,12 @@ async def publish_release(
     _event(session, row, principal.user_id, "published", "approved", "published", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseDetail.model_validate(row)
+    return ClimateReleaseWorkspaceRead.model_validate(row)
 
 
 @router.post(
     "/organizations/{organization_id}/climate-public-releases/{release_id}/retract",
-    response_model=ClimateReleaseDetail,
+    response_model=ClimateReleaseWorkspaceRead,
 )
 async def retract_release(
     organization_id: str,
@@ -479,7 +479,7 @@ async def retract_release(
     principal: Annotated[Principal, Depends(get_current_principal)],
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseWorkspaceRead:
     if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
         raise HTTPException(403, "Climate release publisher role required")
     if body.note is None or len(body.note.strip()) < 5:
@@ -493,7 +493,7 @@ async def retract_release(
     _event(session, row, principal.user_id, "retracted", "published", "retracted", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseDetail.model_validate(row)
+    return ClimateReleaseWorkspaceRead.model_validate(row)
 
 
 @router.get(
