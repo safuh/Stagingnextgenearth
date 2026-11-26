@@ -1483,3 +1483,46 @@ footer .brand-light { color: #b7c8ba; }
 @media (prefers-reduced-motion: reduce) {
   .portal-card, .catalogue-image { transition: none !important; }
 }
+
+
+/* Editorial content hierarchy and section rhythm. */
+#about { background: #f2f5ed; }
+#programmes, #activities, #people { background: #fbfcf8; }
+#research, #impact { background: #f0f4ec; }
+#gallery { background: #fff; }
+#about, #programmes, #activities, #research, #impact, #people, #gallery { position: relative; }
+#about::before, #programmes::before, #activities::before, #research::before, #impact::before, #people::before, #gallery::before {
+  content: ""; position: absolute; top: 0; left: 7.2%; right: 7.2%; height: 1px; background: rgba(23,55,45,.09);
+}
+.section-heading h2 { max-width: 760px; }
+.section-heading > div { min-width: 0; }
+.section-heading .eyebrow { margin-bottom: 12px; }
+.content-carousel { padding: 2px 2px 18px; scroll-snap-type: x mandatory; }
+.carousel-track > * { scroll-snap-align: start; }
+.carousel-track > .portal-card { border-radius: 3px; box-shadow: 0 8px 25px rgba(24,52,38,.035); }
+.carousel-track > .portal-card:hover { box-shadow: 0 18px 38px rgba(24,52,38,.09); }
+.story-card { border-radius: 3px; box-shadow: 0 8px 25px rgba(24,52,38,.035); }
+.story-card > p:last-child { font-size: 14px; }
+.portal-card h3 a { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 5px; transition: text-decoration-color .2s; }
+.portal-card h3 a:hover { text-decoration-color: #89a764; }
+.people-card { padding-top: 28px; }
+.people-card .portal-tag { margin-top: 20px; }
+.field-gallery .gallery-item { border: 0; background: #f2f5ed; }
+.field-gallery .gallery-item img { height: 245px; }
+.access-section { position: relative; overflow: hidden; }
+.access-section::before {
+  content: ""; position: absolute; width: 380px; height: 380px; right: -120px; top: -170px;
+  border: 1px solid rgba(75,111,71,.13); border-radius: 50%; pointer-events: none;
+}
+.access-section > * { position: relative; }
+.login-panel { border-radius: 3px; }
+.login-heading h3 { line-height: 1.2; }
+.login-panel .text-link { display: inline-block; margin-top: 17px; }
+footer { gap: 24px; }
+footer > span { line-height: 1.7; }
+@media (max-width: 760px) {
+  #about::before, #programmes::before, #activities::before, #research::before, #impact::before, #people::before, #gallery::before { left: 6%; right: 6%; }
+  .section-heading { margin-bottom: 32px; }
+  .content-carousel { margin-inline: -2px; }
+  .field-gallery .gallery-item img { height: 205px; }
+}
