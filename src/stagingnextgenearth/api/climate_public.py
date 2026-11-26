@@ -6,14 +6,19 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.climate_public import (
     ClimatePublicRelease,
     ClimatePublicReleaseEvent,
 )
-from stagingnextgenearth.platform.models import ClimateIngestionRun, Membership, Organization
+from stagingnextgenearth.platform.models import (
+    ClimateIngestionRun,
+    ClimateObservation,
+    Membership,
+    Organization,
+)
 
 from .dependencies import (
     Principal,
@@ -74,8 +79,6 @@ class ClimateReleaseCreate(BaseModel):
     terms_url: HttpUrl | None = None
     citation_url: HttpUrl | None = None
     source_ingestion_run_id: str
-    series: list[ClimateSeriesPoint] = Field(min_length=1, max_length=5000)
-    regions: list[ClimateRegionValue] = Field(default_factory=list, max_length=500)
 
     @field_validator("period_start", "period_end")
     @classmethod
@@ -88,11 +91,6 @@ class ClimateReleaseCreate(BaseModel):
     def validate_period(self) -> "ClimateReleaseCreate":
         if self.period_end < self.period_start:
             raise ValueError("period_end must not precede period_start")
-        timestamps = [point.observed_at for point in self.series]
-        if any(value < self.period_start or value > self.period_end for value in timestamps):
-            raise ValueError("series timestamps must fall within the declared release period")
-        if timestamps != sorted(timestamps):
-            raise ValueError("series points must be ordered chronologically")
         return self
 
 
@@ -203,6 +201,64 @@ async def create_release(
             422,
             "A completed, same-organisation provider ingestion with inserted records is required",
         )
+    observation_filter = (
+        ClimateObservation.organization_id == organization_id,
+        ClimateObservation.ingestion_run_id == source_run.id,
+    )
+    observation_count = await session.scalar(
+        select(func.count(ClimateObservation.id)).where(*observation_filter)
+    )
+    verified_count = await session.scalar(
+        select(func.count(ClimateObservation.id)).where(
+            *observation_filter,
+            ClimateObservation.quality_status == "verified",
+        )
+    )
+    if observation_count != source_run.records_inserted or verified_count != observation_count:
+        raise HTTPException(
+            409,
+            "Every inserted observation in the provider run must pass independent quality review",
+        )
+    dimensions = (
+        await session.execute(
+            select(ClimateObservation.variable, ClimateObservation.unit)
+            .where(*observation_filter)
+            .group_by(ClimateObservation.variable, ClimateObservation.unit)
+        )
+    ).all()
+    if len(dimensions) != 1:
+        raise HTTPException(422, "A public release must contain one climate variable and unit")
+    variable, unit = dimensions[0]
+    grouped = (
+        await session.execute(
+            select(
+                ClimateObservation.observed_at,
+                func.avg(ClimateObservation.value),
+            )
+            .where(
+                *observation_filter,
+                ClimateObservation.quality_status == "verified",
+                ClimateObservation.observed_at >= body.period_start,
+                ClimateObservation.observed_at <= body.period_end,
+            )
+            .group_by(ClimateObservation.observed_at)
+            .order_by(ClimateObservation.observed_at)
+            .limit(5001)
+        )
+    ).all()
+    if not grouped or len(grouped) > 5000:
+        raise HTTPException(
+            422,
+            "The release period must contain between 1 and 5000 distinct observation timestamps",
+        )
+    series_json: list[dict[str, object]] = []
+    for observed_at, mean_value in grouped:
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            observed_at = observed_at.replace(tzinfo=UTC)
+        series_json.append({
+            "observed_at": observed_at.isoformat(),
+            "value": float(mean_value),
+        })
     latest = await session.scalar(select(ClimatePublicRelease).where(
         ClimatePublicRelease.organization_id == organization_id,
         ClimatePublicRelease.slug == body.slug,
@@ -217,8 +273,8 @@ async def create_release(
         title=body.title.strip(),
         summary=body.summary.strip(),
         state="draft",
-        indicator=body.indicator,
-        unit=body.unit,
+        indicator=variable,
+        unit=unit,
         provider_id=body.provider_id,
         provider_product=body.provider_product,
         provider_version=body.provider_version,
@@ -238,8 +294,8 @@ async def create_release(
         terms_url=str(body.terms_url) if body.terms_url else None,
         citation_url=str(body.citation_url) if body.citation_url else None,
         source_ingestion_run_id=body.source_ingestion_run_id,
-        series_json=[point.model_dump(mode="json") for point in body.series],
-        regions_json=[region.model_dump(mode="json") for region in body.regions],
+        series_json=series_json,
+        regions_json=[],
         created_by=principal.user_id,
     )
     session.add(row)
