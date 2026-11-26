@@ -32,10 +32,6 @@ const labelForState: Record<string, string> = {
   superseded: "Superseded", retracted: "Retracted",
 };
 
-function datePart(value: string): string {
-  return value.slice(0, 10);
-}
-
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value));
 }
@@ -390,7 +386,8 @@ export default function ClimateResearchStudioPage() {
                         <label>Uncertainty statement<textarea value={uncertainty} onChange={(event) => setUncertainty(event.target.value)} /></label>
                         <label>Limitations<textarea value={limitations} onChange={(event) => setLimitations(event.target.value)} minLength={5} required /></label>
                         <div className="climate-form-note"><strong>Publication facts</strong><span>Data class: satellite estimate · Product: CHIRPS v3 · Licence and attribution are inherited from the provider run.</span></div>
-                        <button className="climate-primary" type="submit" disabled={busy || !selectedRun || selectedRun.status !== "completed"}>Create evidence draft <span>↗</span></button>
+                        <button className="climate-primary" type="submit" disabled={busy || !selectedRun || !publishableRuns.some((run) => run.id === selectedRun.id)}>Create evidence draft <span>↗</span></button>
+                        {publishableRuns.length === 0 && <p className="climate-muted">No provider run is currently eligible. Complete an independent review and ensure every inserted observation is verified.</p>}
                       </form>
                     )}
                   </section>
