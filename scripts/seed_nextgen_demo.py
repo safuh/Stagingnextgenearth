@@ -473,6 +473,7 @@ async def seed(slug: str) -> None:
                             title=lesson_spec["title"],
                             content_type="text",
                             content=lesson_spec["content"],
+                            resource_url=lesson_spec.get("resource_url"),
                             duration_minutes=lesson_spec["duration_minutes"],
                             position=lesson_position,
                         )
@@ -481,7 +482,7 @@ async def seed(slug: str) -> None:
                         lesson.title = lesson_spec["title"]
                         lesson.content_type = "text"
                         lesson.content = lesson_spec["content"]
-                        lesson.resource_url = None
+                        lesson.resource_url = lesson_spec.get("resource_url")
                         lesson.duration_minutes = lesson_spec["duration_minutes"]
 
             assessment_spec = course_spec["assessment"]
