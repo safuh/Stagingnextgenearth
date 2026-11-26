@@ -168,7 +168,12 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         created = client.post(
             f"{org_base}/climate-public-releases",
             headers=author,
-            json={**_release_payload(), "source_ingestion_run_id": run_id},
+            json={
+                **_release_payload(),
+                "source_ingestion_run_id": run_id,
+                "series_json": [{"observed_at": "2025-01-01T00:00:00Z", "value": 999999}],
+                "regions_json": [{"region": "Fabricated", "value": 999999}],
+            },
         )
         assert created.status_code == 201
         assert created.json()["created_by"] == author_id
@@ -275,6 +280,13 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         ).json()
         assert len(public_versions) == 1
         assert public_versions[0]["version"] == 2
+        workflow_versions = client.get(
+            f"{org_base}/climate-public-releases", headers=author
+        ).json()
+        assert {item["version"]: item["state"] for item in workflow_versions} == {
+            1: "superseded",
+            2: "published",
+        }
 
         retracted = client.post(
             f"{org_base}/climate-public-releases/{version_two_id}/retract",
