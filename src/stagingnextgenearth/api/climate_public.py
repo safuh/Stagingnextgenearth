@@ -711,15 +711,18 @@ async def public_climate_insights(
             and publication.source_url.startswith("https://")
             else None
         )
+        region = metadata.get("region")
+        indicator = metadata.get("indicator")
+        evidence_note = metadata.get("evidence_note")
         result.append(ClimateInsightRead(
             id=entry.id,
             slug=entry.slug,
             title=entry.title,
             summary=entry.summary,
             body=entry.body,
-            region=metadata.get("region") if isinstance(metadata.get("region"), str) else None,
-            indicator=metadata.get("indicator") if isinstance(metadata.get("indicator"), str) else None,
-            evidence_note=metadata.get("evidence_note") if isinstance(metadata.get("evidence_note"), str) else None,
+            region=region if isinstance(region, str) else None,
+            indicator=indicator if isinstance(indicator, str) else None,
+            evidence_note=evidence_note if isinstance(evidence_note, str) else None,
             release_slug=release_slug,
             publication_title=publication.title,
             publication_url=publication_url,
