@@ -391,6 +391,23 @@ async def publish_release(
     row = await _get_release(session, organization_id, release_id)
     if row.state != "approved" or row.approved_at is None or row.reviewed_by is None:
         raise HTTPException(409, "Release must be independently approved before publication")
+    previous_versions = await session.scalars(select(ClimatePublicRelease).where(
+        ClimatePublicRelease.organization_id == organization_id,
+        ClimatePublicRelease.slug == row.slug,
+        ClimatePublicRelease.state == "published",
+        ClimatePublicRelease.id != row.id,
+    ))
+    for previous in previous_versions.all():
+        previous.state = "superseded"
+        _event(
+            session,
+            previous,
+            principal.user_id,
+            "superseded",
+            "published",
+            "superseded",
+            f"Superseded by version {row.version}",
+        )
     row.state = "published"
     row.published_by = principal.user_id
     row.published_at = datetime.now(UTC)
