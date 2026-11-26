@@ -105,3 +105,16 @@ interface only; all permissions remain enforced by the API.
   or permanent object credentials in public lesson content.
 - Apply safeguarding, consent, retention, and privacy review before enrolling
   minors in live programmes or enabling mentor-to-learner communications.
+
+
+## Applying the curriculum pilot seed
+
+The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculum_content.json`. To apply or refresh the demo courses, lessons, official source links and formative quizzes, run:
+
+```bash
+python scripts/seed_nextgen_demo.py --organization-slug nextgen-for-earth
+```
+
+Run this explicitly in the target environment after backup/approval. The seed is idempotent for its managed demo records and updates lesson text and quiz configuration to match the versioned JSON source. Do not use it as a general production content migration where staff-authored lesson edits must be preserved.
+
+The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
