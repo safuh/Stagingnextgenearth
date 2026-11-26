@@ -195,18 +195,33 @@ async def seed(slug: str) -> None:
                     legacy.publication_state = "archived"
                 legacy.updated_by = actor
 
+        now = datetime.now(UTC)
         for kind, item_slug, title, summary in CONTENT:
-            exists = await session.scalar(select(PublicContentEntry.id).where(
+            entry = await session.scalar(select(PublicContentEntry).where(
                 PublicContentEntry.organization_id == org.id,
                 PublicContentEntry.content_type == kind, PublicContentEntry.slug == item_slug,
             ))
-            if exists is None:
-                session.add(PublicContentEntry(
+            source_metadata = {
+                "source_status": "transcribed from the organisation's existing public website; not independently verified",
+                "source_capture": SOURCE,
+            }
+            if entry is None:
+                entry = PublicContentEntry(
                     organization_id=org.id, content_type=kind, slug=item_slug, title=title,
-                    summary=summary, metadata_json={"source_status": "website-listed; not independently verified"},
-                    publication_state="draft", source_url=SOURCE,
+                    summary=summary, metadata_json=source_metadata,
+                    publication_state="published", source_url=SOURCE,
                     source_label="NextGen For Earth public website", created_by=actor, updated_by=actor,
-                ))
+                    approved_by=actor, approved_at=now, published_at=now,
+                )
+                session.add(entry)
+            else:
+                entry.title, entry.summary = title, summary
+                entry.metadata_json = {**(entry.metadata_json or {}), **source_metadata}
+                entry.source_url = SOURCE
+                entry.source_label = "NextGen For Earth public website"
+                entry.publication_state = "published"
+                entry.approved_by, entry.approved_at, entry.published_at = actor, now, now
+                entry.updated_by = actor
 
         for item_slug, title, summary, body in STORY:
             entry = await session.scalar(select(PublicContentEntry).where(
@@ -244,20 +259,33 @@ async def seed(slug: str) -> None:
                 entry.updated_by = actor
 
         for item_slug, title, summary, doi in PUBLICATIONS:
-            exists = await session.scalar(select(PublicContentEntry.id).where(
+            entry = await session.scalar(select(PublicContentEntry).where(
                 PublicContentEntry.organization_id == org.id,
                 PublicContentEntry.content_type == "publication",
                 PublicContentEntry.slug == item_slug,
             ))
-            if exists is None:
-                session.add(PublicContentEntry(
+            publication_metadata = {
+                "source_status": "listed on the organisation's public website",
+                "source_capture": SOURCE,
+            }
+            if entry is None:
+                entry = PublicContentEntry(
                     organization_id=org.id, content_type="publication", slug=item_slug,
                     title=title, summary=summary,
-                    metadata_json={"source_status": "listed on the public website"},
-                    publication_state="draft", source_url=doi,
+                    metadata_json=publication_metadata,
+                    publication_state="published", source_url=doi,
                     source_label="NextGen For Earth publication listing",
                     created_by=actor, updated_by=actor,
-                ))
+                    approved_by=actor, approved_at=now, published_at=now,
+                )
+                session.add(entry)
+            else:
+                entry.title, entry.summary = title, summary
+                entry.metadata_json = {**(entry.metadata_json or {}), **publication_metadata}
+                entry.publication_state = "published"
+                entry.source_url, entry.source_label = doi, "NextGen For Earth publication listing"
+                entry.approved_by, entry.approved_at, entry.published_at = actor, now, now
+                entry.updated_by = actor
 
         for title, item_slug, summary in [
             ("Research Capacity Building","research-capacity-building","Research capacity building."),
@@ -265,14 +293,19 @@ async def seed(slug: str) -> None:
             ("Youth Climate Stewardship","youth-climate-stewardship","Youth climate stewardship."),
             ("Indigenous Knowledge Transfer","indigenous-knowledge-transfer","Indigenous knowledge transfer."),
         ]:
-            exists = await session.scalar(select(Programme.id).where(
+            programme = await session.scalar(select(Programme).where(
                 Programme.organization_id == org.id, Programme.slug == item_slug
             ))
-            if exists is None:
-                session.add(Programme(
+            if programme is None:
+                programme = Programme(
                     organization_id=org.id, title=title, slug=item_slug, summary=summary,
-                    status="draft", created_by=actor,
-                ))
+                    status="planned", created_by=actor,
+                )
+                session.add(programme)
+            else:
+                programme.title, programme.summary = title, summary
+                if programme.status == "draft":
+                    programme.status = "planned"
         await session.commit()
         print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, and four programme records.")
     await engine.dispose()
