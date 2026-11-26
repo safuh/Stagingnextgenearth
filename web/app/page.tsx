@@ -6,7 +6,7 @@ import Image from "next/image";
 import { apiGet, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
-type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string; gallery?: { alt: string; image_url: string }[] } };
+type PublicContent = { id: string; content_type: string; title: string; summary: string | null; body: string | null; slug: string; source_url?: string | null; metadata_json?: { display_value?: string; image_url?: string; gallery?: { alt: string; image_url: string }[] } };
 type PublicPerson = { id: string; full_name: string; positions: string[]; biography: string | null; profile_image_url?: string | null };
 type PublicPartner = { id: string; name: string; partner_type: string; description: string | null; website_url: string | null; country_code: string; region: string | null };
 type PublicProgramme = { id: string; title: string; slug: string; summary: string | null; status: string; start_date: string | null; end_date: string | null };
@@ -251,10 +251,10 @@ export default function HomePage() {
         <div className="section-heading"><div><p className="eyebrow">ONGOING DELIVERY</p><h2><LetterHeading text="Work in" /> <em><LetterHeading text="motion." /></em></h2></div><p>Current activities connected to programme delivery, learning and community engagement.</p></div>
         <ContentCarousel label="Activities and training"><div className="carousel-track">
           {catalogue.filter((item) => item.content_type === "initiative").map((item) => (
-            <article className="portal-card" key={item.id}><p className="portal-tag">Ongoing activity</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+            <article className="portal-card activity-card" key={item.id}>{item.metadata_json?.image_url && <div className="catalogue-image-wrap"><Image className="catalogue-image" src={item.metadata_json.image_url} alt={item.title} width={720} height={440} quality={90} /></div>}<p className="portal-tag">Ongoing activity</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
           ))}
           {catalogue.filter((item) => item.content_type === "training_track").map((item) => (
-            <article className="portal-card" key={item.id}><p className="portal-tag">Training track</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
+            <article className="portal-card activity-card" key={item.id}>{item.metadata_json?.image_url && <div className="catalogue-image-wrap"><Image className="catalogue-image" src={item.metadata_json.image_url} alt={item.title} width={720} height={440} quality={90} /></div>}<p className="portal-tag">Training track</p><h3>{item.title}</h3><p className="portal-description">{item.summary || item.body}</p></article>
           ))}
         </div></ContentCarousel>
         {catalogue.filter((item) => item.content_type === "initiative" || item.content_type === "training_track").length === 0 && <p className="muted">Activity and training information will appear here as it is published.</p>}
