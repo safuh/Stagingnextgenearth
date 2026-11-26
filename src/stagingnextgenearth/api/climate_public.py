@@ -2,10 +2,13 @@
 """Governed public climate release lifecycle and anonymous read API."""
 
 from datetime import UTC, datetime
+import hashlib
+import json
 import re
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +39,34 @@ _REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _DATA_CLASSES = {
     "station_observation", "satellite_estimate", "reanalysis", "forecast", "projection"
 }
+
+
+_PUBLIC_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=60"
+
+
+def _public_cache_response(
+    request: Request,
+    response: Response,
+    payload: object,
+) -> Response | None:
+    """Attach a representation-specific ETag and honour conditional GET requests."""
+    encoded = json.dumps(
+        jsonable_encoder(payload),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    etag = f'"{hashlib.sha256(encoded.encode("utf-8")).hexdigest()}"'
+    headers = {"ETag": etag, "Cache-Control": _PUBLIC_CACHE_CONTROL}
+    response.headers.update(headers)
+    candidates = {
+        value.strip().removeprefix("W/")
+        for value in request.headers.get("if-none-match", "").split(",")
+        if value.strip()
+    }
+    if "*" in candidates or etag in candidates:
+        return Response(status_code=304, headers=headers)
+    return None
 
 
 class ClimateSeriesPoint(BaseModel):
@@ -547,6 +578,7 @@ async def retract_release(
 )
 async def list_public_releases(
     organization_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
     indicator: str | None = Query(default=None, min_length=2, max_length=100),
@@ -569,8 +601,11 @@ async def list_public_releases(
     rows = await session.scalars(
         statement.order_by(ClimatePublicRelease.published_at.desc()).limit(limit)
     )
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return [_summary(row) for row in rows.all()]
+    result = [_summary(row) for row in rows.all()]
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -580,6 +615,7 @@ async def list_public_releases(
 async def get_public_release(
     organization_slug: str,
     release_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ClimateReleaseDetail:
@@ -593,8 +629,11 @@ async def get_public_release(
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return ClimateReleaseDetail.model_validate(row)
+    result = ClimateReleaseDetail.model_validate(row)
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -604,6 +643,7 @@ async def get_public_release(
 async def get_public_release_series(
     organization_slug: str,
     release_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ClimateReleaseSeries:
@@ -617,12 +657,15 @@ async def get_public_release_series(
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return ClimateReleaseSeries(
+    result = ClimateReleaseSeries(
         release=ClimateReleaseDetail.model_validate(row),
         series=[ClimateSeriesPoint.model_validate(point) for point in row.series_json],
         regions=[ClimateRegionValue.model_validate(region) for region in row.regions_json],
     )
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -631,6 +674,7 @@ async def get_public_release_series(
 )
 async def public_climate_overview(
     organization_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
@@ -642,13 +686,30 @@ async def public_climate_overview(
         ClimatePublicRelease.state == "published",
     ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
     releases = rows.all()
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return {
+    latest_release = releases[0] if releases else None
+    source_retrieved_at = None
+    if latest_release is not None and latest_release.source_ingestion_run_id:
+        source_run = await session.get(ClimateIngestionRun, latest_release.source_ingestion_run_id)
+        if source_run is not None and source_run.finished_at is not None:
+            source_retrieved_at = source_run.finished_at.isoformat()
+    result: dict[str, object] = {
         "organization": org.name,
         "release_count": len(releases),
         "indicators": sorted({row.indicator for row in releases}),
-        "latest_published_at": releases[0].published_at.isoformat() if releases and releases[0].published_at else None,
+        "latest_published_at": (
+            latest_release.published_at.isoformat()
+            if latest_release is not None and latest_release.published_at
+            else None
+        ),
+        "latest_data_period_end": (
+            latest_release.period_end.isoformat() if latest_release is not None else None
+        ),
+        "latest_source_retrieved_at": source_retrieved_at,
     }
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 
@@ -659,6 +720,7 @@ async def public_climate_overview(
 )
 async def public_climate_insights(
     organization_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ClimateInsightRead]:
@@ -728,7 +790,9 @@ async def public_climate_insights(
             publication_url=publication_url,
             published_at=entry.published_at,
         ))
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
     return result
 
 
@@ -738,6 +802,7 @@ async def public_climate_insights(
 )
 async def public_climate_sources(
     organization_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ClimateSourceRead]:
@@ -768,5 +833,8 @@ async def public_climate_sources(
             sources[key] = source.model_copy(
                 update={"release_count": source.release_count + 1}
             )
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return list(sources.values())
+    result = list(sources.values())
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
