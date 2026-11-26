@@ -19,6 +19,12 @@ type Source = {
   provider_id: string; provider_product: string; data_class: string; license_name: string;
   attribution: string; terms_url: string | null; citation_url: string | null; release_count: number;
 };
+type ClimateInsight = {
+  id: string; slug: string; title: string; summary: string | null; body: string | null;
+  region: string | null; indicator: string | null; evidence_note: string | null;
+  release_slug: string; publication_title: string; publication_url: string | null;
+  published_at: string | null;
+};
 
 const dataClassLabels: Record<string, string> = {
   station_observation: "Station observation",
@@ -36,6 +42,7 @@ export default function ClimateIntelligencePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [releases, setReleases] = useState<Release[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [insights, setInsights] = useState<ClimateInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -45,9 +52,10 @@ export default function ClimateIntelligencePage() {
       apiGet<Overview>(`/public/organizations/${ORGANIZATION_SLUG}/climate/overview`),
       apiGet<Release[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases?limit=100`),
       apiGet<Source[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/sources`),
-    ]).then(([summary, items, sourceItems]) => {
+      apiGet<ClimateInsight[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/insights`),
+    ]).then(([summary, items, sourceItems, insightItems]) => {
       if (!active) return;
-      setOverview(summary); setReleases(items); setSources(sourceItems);
+      setOverview(summary); setReleases(items); setSources(sourceItems); setInsights(insightItems);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Climate intelligence is temporarily unavailable.");
     }).finally(() => { if (active) setLoading(false); });
@@ -128,6 +136,35 @@ export default function ClimateIntelligencePage() {
             ))}
           </div>
         )}
+
+        <section className="climate-public-insights">
+          <div className="climate-public-section-head">
+            <div><p className="climate-public-kicker">RESEARCH MEETS CLIMATE EVIDENCE / 02</p><h2>Context is a<br /><em>research question.</em></h2></div>
+            <p>Editorial interpretation is published only when it is connected to a public climate release and a separately published research output. The links make the evidence trail inspectable.</p>
+          </div>
+          {insights.length === 0 ? (
+            <div className="climate-public-insight-empty">
+              <span>↗</span>
+              <div><strong>No research-linked climate insights published yet.</strong><p>When a climate release and its related research publication are public, an independently reviewed editorial insight can connect them here. Research context is not a claim of causation.</p></div>
+            </div>
+          ) : (
+            <div className="climate-public-insight-grid">
+              {insights.map((insight, index) => (
+                <article className="climate-public-insight-card" key={insight.id}>
+                  <p className="climate-public-kicker">FIELD NOTE / {String(index + 1).padStart(2, "0")}</p>
+                  <h3>{insight.title}</h3>
+                  {insight.region && <span className="climate-public-insight-region">{insight.region}</span>}
+                  <p>{insight.summary || insight.body || "Read the linked evidence and research context."}</p>
+                  {insight.evidence_note && <small>{insight.evidence_note}</small>}
+                  <div className="climate-public-insight-links">
+                    <Link href={`/climate-intelligence/${insight.release_slug}`}>Inspect climate release ↗</Link>
+                    {insight.publication_url && <a href={insight.publication_url} target="_blank" rel="noreferrer">Read research: {insight.publication_title} ↗</a>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="climate-public-source-strip">
           <div><p className="climate-public-kicker">SOURCE REGISTER / 02</p><h3>Know where the numbers come from.</h3></div>
