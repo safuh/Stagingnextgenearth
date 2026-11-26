@@ -73,12 +73,12 @@ export default function ClimateResearchStudioPage() {
   const roles = useMemo(() => membership?.roles?.length ? membership.roles : membership?.role ? [membership.role] : [], [membership]);
   const canAuthor = roles.some((role) => ["admin", "founder", "executive", "researcher"].includes(role));
   const canQualityReview = roles.some((role) => ["admin", "programme_manager"].includes(role));
-  const canReleaseReview = roles.some((role) => ["admin", "founder", "executive"].includes(role));
+  const canReleaseReview = roles.some((role) => ["admin", "founder", "executive", "programme_manager"].includes(role));
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? null;
   const verifiedCount = quality?.by_status.verified ?? 0;
   const pendingCount = quality?.by_status.pending ?? 0;
   const publishedCount = releases.filter((release) => release.state === "published").length;
-  const pendingRuns = runs.filter((run) => run.status === "completed" && run.records_inserted > 0);
+  const publishableRuns = runs.filter((run) => run.status === "completed" && run.records_inserted > 0 && run.verified_observations === run.records_inserted && Boolean(run.licence));
 
   const loadWorkspace = useCallback(async (orgId: string) => {
     const [member, runItems, qualitySummary, releaseItems] = await Promise.all([
@@ -94,14 +94,6 @@ export default function ClimateResearchStudioPage() {
     setReleases(releaseItems);
     const eligible = runItems.find((run) => run.status === "completed" && run.records_inserted > 0);
     setSelectedRunId((current) => current && runItems.some((run) => run.id === current) ? current : eligible?.id ?? "");
-  }, []);
-
-  const loadSamples = useCallback(async (orgId: string, runId: string) => {
-    if (!runId) { setObservations([]); return; }
-    const items = await apiGet<Observation[]>(
-      `/organizations/${orgId}/climate-observations?ingestion_run_id=${encodeURIComponent(runId)}&limit=12`,
-    );
-    setObservations(items);
   }, []);
 
   useEffect(() => {
@@ -352,6 +344,7 @@ export default function ClimateResearchStudioPage() {
                           <div><small>Provider</small><strong>{selectedRun.source_name}</strong></div>
                           <div><small>Licence</small><strong>{selectedRun.licence ?? "Not recorded"}</strong></div>
                           <div><small>Inserted</small><strong>{selectedRun.records_inserted.toLocaleString()}</strong></div>
+                          <div><small>Verified / pending</small><strong>{selectedRun.verified_observations.toLocaleString()} / {selectedRun.pending_observations.toLocaleString()}</strong></div>
                           <div><small>Skipped</small><strong>{selectedRun.records_skipped.toLocaleString()}</strong></div>
                           <div><small>Requested start</small><strong>{formatDate(selectedRun.requested_start)}</strong></div>
                           <div><small>Requested end</small><strong>{formatDate(selectedRun.requested_end)}</strong></div>
@@ -390,7 +383,7 @@ export default function ClimateResearchStudioPage() {
                     <p>Build a versioned release from a completed, independently reviewed provider run. Values are derived by the server; this form cannot submit chart data.</p>
                     {!canAuthor ? <p className="climate-lock">Your membership does not include release-authoring permissions.</p> : (
                       <form className="climate-form" onSubmit={createRelease}>
-                        <label>Verified provider run<select value={selectedRunId} onChange={(event) => setSelectedRunId(event.target.value)} required><option value="">Select reviewed provider run</option>{pendingRuns.map((run) => <option key={run.id} value={run.id}>{run.source_name} · {formatDate(run.started_at)} · {run.records_inserted} records</option>)}</select></label>
+                        <label>Verified provider run<select value={selectedRunId} onChange={(event) => setSelectedRunId(event.target.value)} required><option value="">Select reviewed provider run</option>{publishableRuns.map((run) => <option key={run.id} value={run.id}>{run.source_name} · {formatDate(run.started_at)} · {run.records_inserted} records</option>)}</select></label>
                         <label>Release title<input value={releaseTitle} onChange={(event) => setReleaseTitle(event.target.value)} minLength={3} maxLength={240} required /></label>
                         <label>Public URL slug<input value={releaseSlug} onChange={(event) => setReleaseSlug(event.target.value)} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
                         <label>Public summary<textarea value={releaseSummary} onChange={(event) => setReleaseSummary(event.target.value)} minLength={10} required /></label>
@@ -409,7 +402,7 @@ export default function ClimateResearchStudioPage() {
                         <strong>{release.title}</strong>
                         <p>{release.indicator} · {release.unit} · {release.geography_label}</p>
                         <div className="climate-release-actions">
-                          {release.state === "draft" && <button disabled={busy} onClick={() => transitionRelease(release, "submit")}>Submit for review</button>}
+                          {release.state === "draft" && (release.created_by === membership?.user_id || canReleaseReview) && <button disabled={busy} onClick={() => transitionRelease(release, "submit")}>Submit for review</button>}
                           {release.state === "review" && canReleaseReview && <button disabled={busy || release.created_by === membership?.user_id} onClick={() => transitionRelease(release, "approve")}>Approve</button>}
                           {release.state === "approved" && canReleaseReview && <button disabled={busy} onClick={() => transitionRelease(release, "publish")}>Publish public</button>}
                           {release.state === "published" && canReleaseReview && <button className="danger-text" disabled={busy} onClick={() => transitionRelease(release, "retract")}>Retract</button>}
