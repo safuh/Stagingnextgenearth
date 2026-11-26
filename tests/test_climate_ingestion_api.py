@@ -49,7 +49,12 @@ def test_nasa_power_orchestration_requires_point_not_area() -> None:
     assert exc.value.status_code == 422
 
 
-def test_chirps_orchestration_selects_requested_variant() -> None:
+def test_chirps_orchestration_selects_requested_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import stagingnextgenearth.api.climate_ingestion as api_module
+
+    monkeypatch.setattr(api_module, "find_spec", lambda name: object() if name == "rasterio" else None)
     body = ClimateIngestionCreate(
         provider="chirps-v3",
         chirps_variant="sat",
