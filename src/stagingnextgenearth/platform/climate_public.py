@@ -4,13 +4,13 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -84,7 +84,9 @@ class ClimatePublicRelease(Base):
         String(36), ForeignKey("climate_ingestion_runs.id", ondelete="SET NULL"), nullable=True
     )
     series_json: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
-    regions_json: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False, default=list)
+    regions_json: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
