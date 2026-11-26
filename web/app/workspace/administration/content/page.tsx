@@ -92,6 +92,13 @@ export default function ContentReviewPage() {
         title: String(data.get("title") ?? "").trim(),
         summary: String(data.get("summary") ?? "").trim() || null,
         body: String(data.get("body") ?? "").trim() || null,
+        metadata_json: String(data.get("content_type") ?? "") === "climate_insight" ? {
+          release_slug: String(data.get("release_slug") ?? "").trim(),
+          publication_slug: String(data.get("publication_slug") ?? "").trim(),
+          region: String(data.get("region") ?? "").trim(),
+          indicator: String(data.get("indicator") ?? "").trim(),
+          evidence_note: String(data.get("evidence_note") ?? "").trim(),
+        } : {},
       });
       await load(organizationId);
       setNotice("Content saved as draft. Changes to reviewed or published content require a fresh review.");
@@ -159,11 +166,20 @@ export default function ContentReviewPage() {
             <h2>Create a website draft</h2>
             <p className="workspace-muted">Your drafts are private to your account and organisation reviewers. Submitting for review does not publish content; a different authorised reviewer must approve it before an administrator publishes it.</p>
             <form className="content-review-detail" onSubmit={(event) => void createDraft(event)}>
-              <label>Content type<select name="content_type" defaultValue="page"><option value="page">Page</option><option value="programme">Programme</option><option value="training_track">Training track</option><option value="initiative">Initiative</option><option value="research_area">Research area</option><option value="impact_metric">Impact metric</option><option value="publication">Publication</option></select></label>
+              <label>Content type<select name="content_type" defaultValue="page"><option value="page">Page</option><option value="programme">Programme</option><option value="training_track">Training track</option><option value="initiative">Initiative</option><option value="research_area">Research area</option><option value="impact_metric">Impact metric</option><option value="publication">Publication</option><option value="climate_insight">Climate insight</option></select></label>
               <label>URL slug<input name="slug" minLength={2} maxLength={160} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="community-climate-research" required /></label>
               <label>Title<input name="title" minLength={2} maxLength={240} required /></label>
               <label>Summary<textarea name="summary" rows={3} maxLength={5000} /></label>
               <label>Body<textarea name="body" rows={8} maxLength={30000} /></label>
+              <details className="content-review-detail">
+                <summary>Climate insight evidence links <span className="workspace-muted">(required only for climate insights)</span></summary>
+                <p className="workspace-muted">A climate insight becomes public only when its linked climate release and publication are both approved and published.</p>
+                <label>Published climate release slug<input name="release_slug" placeholder="chirps-kilifi-rainfall-2025" /></label>
+                <label>Published research publication slug<input name="publication_slug" placeholder="heat-maternal-health-kilifi" /></label>
+                <label>Region<input name="region" placeholder="Kilifi County, Kenya" maxLength={160} /></label>
+                <label>Indicator<input name="indicator" placeholder="Rainfall / temperature context" maxLength={120} /></label>
+                <label>Evidence note<textarea name="evidence_note" rows={2} maxLength={1200} placeholder="Explain what the linked climate release supports and what it does not establish." /></label>
+              </details>
               <button className="primary-action" disabled={creating}>{creating ? "Saving…" : "Save draft"}</button>
             </form>
             <div className="section-heading"><h2>Your submissions</h2><span>{entries.length} records</span></div>
@@ -181,11 +197,20 @@ export default function ContentReviewPage() {
                 <h2>Create a website draft</h2>
                 <p className="workspace-muted">Drafts remain private until a separate authorised reviewer approves them and an administrator publishes them.</p>
                 <form className="content-review-detail" onSubmit={(event) => void createDraft(event)}>
-                  <label>Content type<select name="content_type" defaultValue="page"><option value="page">Page</option><option value="programme">Programme</option><option value="training_track">Training track</option><option value="initiative">Initiative</option><option value="research_area">Research area</option><option value="impact_metric">Impact metric</option><option value="publication">Publication</option></select></label>
+                  <label>Content type<select name="content_type" defaultValue="page"><option value="page">Page</option><option value="programme">Programme</option><option value="training_track">Training track</option><option value="initiative">Initiative</option><option value="research_area">Research area</option><option value="impact_metric">Impact metric</option><option value="publication">Publication</option><option value="climate_insight">Climate insight</option></select></label>
                   <label>URL slug<input name="slug" minLength={2} maxLength={160} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="community-climate-research" required /></label>
                   <label>Title<input name="title" minLength={2} maxLength={240} required /></label>
                   <label>Summary<textarea name="summary" rows={3} maxLength={5000} /></label>
                   <label>Body<textarea name="body" rows={8} maxLength={30000} /></label>
+              <details className="content-review-detail">
+                <summary>Climate insight evidence links <span className="workspace-muted">(required only for climate insights)</span></summary>
+                <p className="workspace-muted">A climate insight becomes public only when its linked climate release and publication are both approved and published.</p>
+                <label>Published climate release slug<input name="release_slug" placeholder="chirps-kilifi-rainfall-2025" /></label>
+                <label>Published research publication slug<input name="publication_slug" placeholder="heat-maternal-health-kilifi" /></label>
+                <label>Region<input name="region" placeholder="Kilifi County, Kenya" maxLength={160} /></label>
+                <label>Indicator<input name="indicator" placeholder="Rainfall / temperature context" maxLength={120} /></label>
+                <label>Evidence note<textarea name="evidence_note" rows={2} maxLength={1200} placeholder="Explain what the linked climate release supports and what it does not establish." /></label>
+              </details>
                   <button className="primary-action" disabled={creating}>{creating ? "Saving…" : "Save draft"}</button>
                 </form>
               </section>
