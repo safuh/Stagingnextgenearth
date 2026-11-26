@@ -14,6 +14,7 @@ Use this index to keep implementation, acceptance and external presentation alig
 - Authenticated Climate Studio: `web/app/workspace/research/climate/page.tsx`
 - Public climate experience: `web/app/climate-intelligence/`
 - Research-linked climate insights: moderated CMS records linked to a published release and publication.
+- Public climate freshness: ETag/304 conditional reads and distinct publication, source-retrieval and data-period timestamps.
 
 ## Founder and partner presentation
 - [Updated founder presentation](FOUNDER_PRESENTATION.md)
