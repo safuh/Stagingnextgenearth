@@ -117,4 +117,4 @@ This creates a traceable path from provider evidence to research context without
 
 The learning workspace now has four substantive pilot tracks covering research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge. The demo seed catalogue contains 24 lessons with learning outcomes, applied exercises, self-checks and official further reading, plus four formative quizzes. The learner classroom shows course scope, guided learning time and module completion.
 
-Position this as a pilot curriculum prepared for review—not as an accredited qualification. Before cohort delivery, obtain research, clinical, safeguarding and community-lead review as appropriate. The updated seed catalogue must be applied in the target environment with the documented seed command.
+Position this as a pilot curriculum prepared for review—not as an accredited qualification. Before cohort delivery, obtain research, clinical, safeguarding and community-lead review as appropriate. The default staging demo organisation is refreshed by the API container's idempotent seed command; other organisation slugs require an explicit seed operation.
