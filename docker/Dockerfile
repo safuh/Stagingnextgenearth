@@ -22,6 +22,7 @@ RUN uv sync --locked --no-dev --no-install-project --no-editable
 
 COPY src ./src
 COPY alembic ./alembic
+COPY scripts ./scripts
 
 RUN uv sync --locked --no-dev --no-editable \
     && chown -R app:app /app
@@ -31,4 +32,4 @@ EXPOSE 10000
 
 # Run migrations in the actual release container, using the exact installed
 # environment and DATABASE_URL that the application will use.
-CMD ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn stagingnextgenearth.app:create_app --factory --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["/bin/sh", "-c", "alembic upgrade head && python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo && exec uvicorn stagingnextgenearth.app:create_app --factory --host 0.0.0.0 --port ${PORT:-10000}"]
