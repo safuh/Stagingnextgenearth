@@ -393,6 +393,9 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "/api/public/organizations/nextgen-climate/climate/releases"
         ).json() == []
         assert client.get(
+            "/api/public/organizations/nextgen-climate/climate/insights"
+        ).json() == []
+        assert client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"
             "kilifi-monthly-rainfall"
         ).status_code == 404
