@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPost, getAuthenticationContext, login, register, restoreSession } from "@/lib/api";
+import { apiGet, apiPost, clearSession, getAuthenticationContext, login, register, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 import { resolvePortalDestination } from "@/lib/portal-routing";
 
@@ -114,7 +114,10 @@ export default function LearnerPortalPage() {
     <main className="workspace-shell">
       <header className="workspace-topbar">
         <Link className="brand" href="/">NextGen For Earth</Link>
-        <Link className="secondary-action" href="/#access">Staff & partner sign in</Link>
+        <nav className="learner-top-nav" aria-label="Learner navigation">
+          <Link className="secondary-action" href="/">Public website</Link>
+          {authenticated ? <button className="workspace-signout" type="button" onClick={() => { clearSession(); window.location.assign("/learners"); }}>Sign out</button> : <Link className="secondary-action" href="/#access">Staff & partner sign in</Link>}
+        </nav>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">LEARNING COMMUNITY</p>
@@ -159,6 +162,12 @@ export default function LearnerPortalPage() {
           </>
         ) : (
           <>
+            <section className="workspace-stats learner-stats" aria-label="Learning summary">
+              <article><span>APPLICATIONS</span><strong>{applications.length}</strong><p>All course applications</p></article>
+              <article><span>AWAITING REVIEW</span><strong>{applications.filter((item) => ["submitted", "pending", "under_review"].includes(item.status)).length}</strong><p>Applications not yet decided</p></article>
+              <article><span>APPROVED / ACTIVE</span><strong>{applications.filter((item) => ["approved", "in_progress"].includes(item.status)).length}</strong><p>Courses available to start or continue</p></article>
+              <article><span>COMPLETED</span><strong>{applications.filter((item) => item.status === "completed").length}</strong><p>Completed course enrolments</p></article>
+            </section>
             <section className="staff-card">
               <h2>Published learning opportunities</h2>
               {courses.length === 0 ? <p className="workspace-muted">No published courses are currently accepting applications.</p> : (
