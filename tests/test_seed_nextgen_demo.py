@@ -53,7 +53,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             )
             await session.commit()
 
-    async def inspect_seed() -> dict[str, int | bool]:
+    async def inspect_seed() -> dict[str, object]:
         async with async_sessionmaker(engine, expire_on_commit=False)() as session:
             people = list((await session.scalars(select(OrganizationPerson))).all())
             partners = list((await session.scalars(select(InstitutionalPartner))).all())
@@ -77,8 +77,14 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 ),
                 "programmes": len(programmes),
                 "courses": len(courses),
+                "course_slugs": sorted(item.slug for item in courses),
                 "modules": len(modules),
                 "lessons": len(lessons),
+                "lessons_substantive": all(
+                    len(item.content or "") >= 500
+                    and "Demo learning outline" not in (item.content or "")
+                    for item in lessons
+                ),
                 "courses_published": all(item.status == "published" for item in courses),
                 "users": user_count,
                 "people_public_verified": all(
@@ -117,9 +123,16 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["gallery_images"] >= 5
     assert first["gallery_published"] is True
     assert first["programmes"] == 4
-    assert first["courses"] == 3
-    assert first["modules"] == 6
-    assert first["lessons"] == 18
+    assert first["courses"] == 4
+    assert first["course_slugs"] == [
+        "early-career-researchers",
+        "healthcare-workers",
+        "indigenous-community-knowledge",
+        "youth-climate-stewards",
+    ]
+    assert first["modules"] == 8
+    assert first["lessons"] == 24
+    assert first["lessons_substantive"] is True
     assert first["courses_published"] is True
     assert first["users"] == 1
     assert first["people_public_verified"] is True
