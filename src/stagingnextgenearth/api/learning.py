@@ -1654,7 +1654,12 @@ async def course_curriculum(
                 ],
             }
         )
-    return {"course_id": course.id, "title": course.title, "modules": result}
+    return {
+        "course_id": course.id,
+        "title": course.title,
+        "description": course.description,
+        "modules": result,
+    }
 
 
 @router.get("/courses/{course_id}/my-progress")
