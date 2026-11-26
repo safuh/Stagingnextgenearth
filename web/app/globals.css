@@ -1991,3 +1991,159 @@ footer > span { line-height: 1.7; }
 @media (prefers-reduced-motion: reduce) {
   .climate-stage-nav button,.climate-primary { transition: none; }
 }
+
+
+/* Public climate hub: high-contrast editorial data platform. */
+.climate-public {
+  --cp-ink: #10231d; --cp-muted: #64776d; --cp-paper: #f2f4ed;
+  --cp-forest: #102a22; --cp-acid: #d2f17c; --cp-line: rgba(16,42,34,.14);
+  color: var(--cp-ink); background: var(--cp-paper); font-family: "DM Sans",sans-serif;
+}
+.climate-public a { color: inherit; }
+.climate-public-nav { position: sticky; top: 0; z-index: 40; display: flex; justify-content: space-between; align-items: center; min-height: 76px; padding: 0 max(5.5%,calc((100vw - 1480px)/2)); border-bottom: 1px solid rgba(255,255,255,.11); color: #f0f5eb; background: rgba(12,32,26,.97); backdrop-filter: blur(18px); }
+.climate-public-brand { display: inline-flex; align-items: center; gap: 10px; color: #f0f5eb !important; font-size: 10px; font-weight: 800; letter-spacing: .15em; white-space: nowrap; }
+.climate-public-brand > span { display: grid; place-items: center; width: 31px; height: 31px; color: #13271d; background: var(--cp-acid); font: 700 17px Georgia,serif; border-radius: 2px 9px 2px 2px; }
+.climate-public-brand i { color: #9eafa4; font-style: normal; font-weight: 500; }
+.climate-public-nav nav { display: flex; align-items: center; gap: 30px; color: #bdc9c0; font-size: 10px; }
+.climate-public-nav nav a:hover { color: var(--cp-acid); }
+.climate-public-nav .climate-public-nav-cta { padding: 12px 15px; border: 1px solid rgba(210,241,124,.38); color: var(--cp-acid); }
+.climate-public-nav-cta span { margin-left: 10px; }
+.climate-public-hero { position: relative; display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: 6%; align-items: center; min-height: 620px; padding: 85px max(7.2%,calc((100vw - 1480px)/2)) 90px; overflow: hidden; color: #f1f5eb; background: radial-gradient(ellipse at 85% 25%,rgba(76,137,105,.28),transparent 38rem),linear-gradient(120deg,#0c211a,#142f25 65%,#0b211c); }
+.climate-public-hero::before { content: ""; position: absolute; inset: 0; opacity: .15; pointer-events: none; background-image: linear-gradient(rgba(220,239,213,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(220,239,213,.11) 1px,transparent 1px); background-size: 54px 54px; mask-image: linear-gradient(90deg,transparent,#000); }
+.climate-public-hero-copy { position: relative; z-index: 1; }
+.climate-public-kicker { display: flex; align-items: center; gap: 10px; margin: 0; color: #6f8d79; font-size: 8px; font-weight: 800; letter-spacing: .19em; }
+.climate-public-hero .climate-public-kicker { color: #b8d09c; }
+.climate-public-kicker > span { width: 6px; height: 6px; border-radius: 50%; background: var(--cp-acid); box-shadow: 0 0 0 5px rgba(210,241,124,.09); }
+.climate-public-hero h1 { margin: 25px 0 22px; color: #f3f5eb; font: 500 clamp(58px,6.8vw,92px)/.92 "Playfair Display",Georgia,serif; letter-spacing: -4px; }
+.climate-public-hero h1 em,.climate-public-section-head h2 em,.climate-public-principles h2 em { color: var(--cp-acid); font-weight: 500; }
+.climate-public-intro { max-width: 490px; color: #b2c1b5; font-size: 13px; line-height: 1.95; }
+.climate-public-actions { display: flex; align-items: center; gap: 26px; margin-top: 32px; }
+.climate-public-primary { display: inline-flex; align-items: center; gap: 25px; padding: 15px 18px; color: #10251a !important; background: var(--cp-acid); font-size: 10px; font-weight: 800; }
+.climate-public-primary:hover { background: #e2ff9d; }
+.climate-public-secondary { color: #d0dbd0 !important; font-size: 10px; }
+.climate-public-proof { display: flex; align-items: center; gap: 10px; margin-top: 54px; color: #81978a; font-size: 8px; letter-spacing: .16em; }
+.climate-public-proof-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cp-acid); }
+.climate-signal-art { position: relative; min-height: 420px; overflow: hidden; border: 1px solid rgba(221,242,211,.2); background: radial-gradient(ellipse at 50% 45%,rgba(88,150,119,.28),transparent 45%),linear-gradient(135deg,rgba(224,241,211,.08),rgba(15,49,38,.08)); }
+.climate-signal-grid { position: absolute; inset: 0; opacity: .45; background-image: linear-gradient(rgba(220,239,213,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(220,239,213,.14) 1px,transparent 1px); background-size: 32px 32px; mask-image: radial-gradient(ellipse at center,#000,transparent 80%); }
+.climate-signal-orbit { position: absolute; left: 50%; top: 48%; border: 1px solid rgba(210,241,124,.34); border-radius: 50%; transform: translate(-50%,-50%) rotate(-28deg); }
+.climate-signal-orbit.orbit-a { width: 410px; height: 170px; }
+.climate-signal-orbit.orbit-b { width: 500px; height: 250px; border-color: rgba(117,217,208,.24); transform: translate(-50%,-50%) rotate(32deg); }
+.climate-signal-core { position: absolute; top: 48%; left: 50%; display: grid; place-items: center; gap: 8px; width: 164px; height: 164px; border: 1px solid rgba(210,241,124,.58); border-radius: 50%; background: rgba(10,35,27,.88); box-shadow: 0 0 0 12px rgba(210,241,124,.035),0 0 65px rgba(136,199,117,.15); transform: translate(-50%,-50%); }
+.climate-signal-core span { color: #a9c39b; font-size: 8px; letter-spacing: .2em; }
+.climate-signal-core strong { color: var(--cp-acid); font: 48px Georgia,serif; }
+.climate-signal-core small { color: #82988a; font-size: 6px; letter-spacing: .15em; }
+.climate-signal-tag { position: absolute; padding: 8px 10px; border: 1px solid rgba(220,239,213,.2); color: #d3e0d1; background: rgba(10,32,25,.8); font-size: 7px; letter-spacing: .14em; }
+.signal-tag-a { top: 17%; left: 9%; }.signal-tag-b { top: 26%; right: 8%; }.signal-tag-c { bottom: 17%; left: 22%; }
+.climate-signal-caption { position: absolute; right: 18px; bottom: 16px; color: #91a99a; font-size: 7px; letter-spacing: .15em; }
+.climate-public-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); padding: 26px 7.2%; color: #e8f1e7; background: #183d2e; }
+.climate-public-metrics > div { display: grid; gap: 7px; padding: 4px 20px; border-right: 1px solid rgba(235,247,229,.15); }
+.climate-public-metrics > div:first-child { padding-left: 0; }.climate-public-metrics > div:last-child { border: 0; }
+.climate-public-metrics span { color: #9db3a2; font-size: 7px; font-weight: 800; letter-spacing: .16em; }
+.climate-public-metrics strong { color: var(--cp-acid); font: 500 26px "Playfair Display",Georgia,serif; font-variant-numeric: tabular-nums; }
+.climate-public-content { padding: 100px 7.2% 96px; }
+.climate-public-section-head { display: flex; justify-content: space-between; align-items: end; gap: 40px; margin-bottom: 42px; }
+.climate-public-section-head h2,.climate-public-principles h2 { margin: 15px 0 0; color: var(--cp-ink); font: 500 clamp(40px,4.5vw,61px)/1.02 "Playfair Display",Georgia,serif; letter-spacing: -2px; }
+.climate-public-section-head h2 em,.climate-public-principles h2 em { color: #6d944e; }
+.climate-public-section-head > p { max-width: 370px; margin: 0 0 6px; color: var(--cp-muted); font-size: 11px; line-height: 1.9; }
+.climate-public-state { padding: 25px; border: 1px solid var(--cp-line); color: var(--cp-muted); background: rgba(255,255,255,.65); font-size: 11px; }
+.climate-public-error { color: #963f36; }
+.climate-public-error p { margin-bottom: 0; font-size: 10px; }
+.climate-public-empty { display: grid; grid-template-columns: 76px minmax(0,1fr) auto; align-items: center; gap: 22px; padding: 34px; border: 1px solid rgba(16,42,34,.16); background: linear-gradient(120deg,#fff,#f8faf4); }
+.climate-empty-mark { display: grid; place-items: center; width: 60px; height: 60px; color: #153b2c; background: #e3edcf; font: 35px Georgia,serif; }
+.climate-public-empty h3 { margin: 8px 0; color: var(--cp-ink); font: 500 25px "Playfair Display",Georgia,serif; }
+.climate-public-empty > div:nth-child(2) > p:last-child { max-width: 620px; margin: 0; color: var(--cp-muted); font-size: 10px; line-height: 1.8; }
+.climate-public-empty > a { color: #326246; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.climate-public-release-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.climate-public-release-card { display: flex; flex-direction: column; min-height: 335px; padding: 23px; border: 1px solid var(--cp-line); background: #fff; transition: transform .2s,box-shadow .2s; }
+.climate-public-release-card:hover { transform: translateY(-4px); box-shadow: 0 17px 35px rgba(20,49,35,.09); }
+.climate-public-card-top { display: flex; justify-content: space-between; color: #829187; font-size: 7px; font-weight: 800; letter-spacing: .13em; }
+.climate-public-data-class { display: inline-flex; align-self: flex-start; margin: 30px 0 8px; padding: 6px 8px; color: #486c3b; background: #edf4df; font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.climate-public-release-card h3 { margin: 0 0 10px; color: var(--cp-ink); font: 500 23px/1.15 "Playfair Display",Georgia,serif; }
+.climate-public-card-summary { margin: 0; color: var(--cp-muted); font-size: 10px; line-height: 1.8; }
+.climate-public-card-data { display: flex; align-items: baseline; gap: 8px; margin-top: auto; padding-top: 24px; }
+.climate-public-card-data strong { color: #315c43; font: 500 18px "Playfair Display",Georgia,serif; }
+.climate-public-card-data span { color: #809086; font-size: 9px; }
+.climate-public-card-meta { display: grid; gap: 6px; margin-top: 10px; color: #7b8a80; font-size: 8px; }
+.climate-public-card-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--cp-line); color: #7b8a80; font-size: 8px; }
+.climate-public-card-foot a { color: #315c43; font-weight: 800; white-space: nowrap; }
+.climate-public-source-strip { display: grid; grid-template-columns: minmax(220px,.7fr) minmax(0,1.3fr); gap: 40px; margin-top: 65px; padding-top: 32px; border-top: 1px solid var(--cp-line); }
+.climate-public-source-strip h3 { margin: 11px 0; color: var(--cp-ink); font: 500 26px "Playfair Display",Georgia,serif; }
+.climate-public-source-strip > p { color: var(--cp-muted); font-size: 10px; line-height: 1.8; }
+.climate-public-source-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.climate-public-source-list article { display: grid; gap: 7px; padding: 17px; border: 1px solid var(--cp-line); background: rgba(255,255,255,.72); }
+.climate-public-source-list strong { color: var(--cp-ink); font-size: 11px; }
+.climate-public-source-list span,.climate-public-source-list small { color: var(--cp-muted); font-size: 9px; line-height: 1.6; }
+.climate-public-source-list article > div { display: flex; gap: 13px; font-size: 8px; font-weight: 800; color: #326246; }
+.climate-public-principles { display: grid; grid-template-columns: .8fr 1.2fr; gap: 8%; align-items: start; padding: 86px 7.2%; color: #eff5eb; background: #102c22; }
+.climate-public-principles h2 { color: #eff5eb; }
+.climate-public-principles h2 em { color: var(--cp-acid); }
+.climate-principle-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.climate-principle-grid article { display: grid; align-content: start; gap: 14px; min-height: 185px; padding: 18px; border: 1px solid rgba(230,245,225,.15); }
+.climate-principle-grid article > span { color: var(--cp-acid); font: 15px Georgia,serif; }
+.climate-principle-grid strong { color: #e7f0e4; font-size: 10px; line-height: 1.5; }
+.climate-principle-grid p { margin: 0; color: #9eb2a4; font-size: 9px; line-height: 1.8; }
+.climate-public-principles > a { grid-column: 2; color: var(--cp-acid); font-size: 9px; font-weight: 800; }
+.climate-public-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 26px 7.2%; color: #9fb2a5; background: #0b211a; font-size: 9px; }
+.climate-public-footer p { margin: 0; }
+.climate-public-detail { min-height: 100vh; background: var(--cp-paper); }
+.climate-public-detail .climate-detail-hero { padding: 70px 7.2% 56px; color: #eff5eb; background: radial-gradient(ellipse at 85% 10%,rgba(76,137,105,.25),transparent 35rem),#102c22; }
+.climate-detail-hero h1 { max-width: 980px; margin: 20px 0; color: #f3f5eb; font: 500 clamp(42px,5.5vw,70px)/1 "Playfair Display",Georgia,serif; letter-spacing: -2px; }
+.climate-detail-hero > p:last-child { max-width: 760px; color: #b2c1b5; font-size: 12px; line-height: 1.8; }
+.climate-detail-content { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(260px,.7fr); gap: 16px; padding: 45px 7.2% 80px; }
+.climate-detail-panel { min-width: 0; padding: 24px; border: 1px solid var(--cp-line); background: #fff; }
+.climate-detail-panel h2 { margin: 0 0 18px; color: var(--cp-ink); font: 500 25px "Playfair Display",Georgia,serif; }
+.climate-detail-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 18px; }
+.climate-detail-facts div { padding: 13px 0; border-bottom: 1px solid var(--cp-line); }
+.climate-detail-facts dt { color: #7a8b80; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.climate-detail-facts dd { margin: 6px 0 0; color: var(--cp-ink); font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
+.climate-series-chart { width: 100%; height: auto; overflow: visible; }
+.climate-series-chart .grid-line { stroke: #e5ebe1; stroke-width: 1; }
+.climate-series-chart .series-line { fill: none; stroke: #54804c; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.climate-series-chart .series-dot { fill: #d2f17c; stroke: #315b43; stroke-width: 1.5; }
+.climate-chart-axis { display: flex; justify-content: space-between; gap: 10px; color: #829187; font-size: 8px; }
+.climate-detail-table { width: 100%; border-collapse: collapse; text-align: left; }
+.climate-detail-table th,.climate-detail-table td { padding: 11px 12px; border-bottom: 1px solid var(--cp-line); font-size: 9px; }
+.climate-detail-table th { color: #7a8b80; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; }
+.climate-public-method { min-height: 100vh; color: #eff5eb; background: #102c22; }
+.climate-method-hero { padding: 80px 7.2% 55px; background: radial-gradient(ellipse at 80% 0%,rgba(76,137,105,.25),transparent 35rem),#102c22; }
+.climate-method-hero h1 { margin: 18px 0; font: 500 clamp(44px,5.5vw,70px)/1 "Playfair Display",Georgia,serif; letter-spacing: -2px; }
+.climate-method-hero p:last-child { max-width: 700px; color: #b2c1b5; font-size: 12px; line-height: 1.8; }
+.climate-method-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; padding: 30px 7.2% 80px; }
+.climate-method-grid article { padding: 23px; border: 1px solid rgba(230,245,225,.15); background: rgba(255,255,255,.025); }
+.climate-method-grid h2 { margin: 0 0 12px; color: var(--cp-acid); font: 500 23px "Playfair Display",Georgia,serif; }
+.climate-method-grid p,.climate-method-grid li { color: #aabdb0; font-size: 10px; line-height: 1.8; }
+.climate-method-grid ul { padding-left: 18px; }
+.climate-method-grid li { margin: 8px 0; }
+@media (max-width: 900px) {
+  .climate-public-hero { grid-template-columns: 1fr; gap: 42px; padding: 65px 6%; }
+  .climate-signal-art { min-height: 350px; }
+  .climate-public-release-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .climate-public-principles { grid-template-columns: 1fr; gap: 30px; }
+  .climate-public-principles > a { grid-column: 1; }
+}
+@media (max-width: 650px) {
+  .climate-public-nav { align-items: flex-start; flex-direction: column; gap: 13px; padding: 15px 5%; }
+  .climate-public-nav nav { flex-wrap: wrap; gap: 12px 18px; font-size: 9px; }
+  .climate-public-hero { min-height: 0; padding: 55px 5% 58px; }
+  .climate-public-hero h1 { font-size: clamp(52px,13vw,72px); letter-spacing: -2.5px; }
+  .climate-signal-art { min-height: 285px; }
+  .climate-signal-orbit.orbit-a { width: 300px; height: 125px; }
+  .climate-signal-orbit.orbit-b { width: 350px; height: 180px; }
+  .climate-signal-core { width: 130px; height: 130px; }
+  .climate-public-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 0; padding: 22px 5%; }
+  .climate-public-metrics > div:nth-child(2) { border-right: 0; }
+  .climate-public-metrics > div:nth-child(3) { padding-left: 0; }
+  .climate-public-content { padding: 65px 5%; }
+  .climate-public-section-head { display: block; }
+  .climate-public-section-head > p { margin-top: 18px; }
+  .climate-public-empty { grid-template-columns: 1fr; padding: 24px; }
+  .climate-public-empty > a { white-space: normal; }
+  .climate-public-release-grid,.climate-public-source-list,.climate-principle-grid,.climate-method-grid { grid-template-columns: 1fr; }
+  .climate-public-source-strip { grid-template-columns: 1fr; gap: 14px; }
+  .climate-public-principles { padding: 65px 5%; }
+  .climate-public-footer { align-items: flex-start; flex-direction: column; padding: 24px 5%; }
+  .climate-detail-content { grid-template-columns: 1fr; padding: 28px 5% 60px; }
+  .climate-public-detail .climate-detail-hero,.climate-method-hero { padding: 55px 5% 40px; }
+  .climate-detail-facts { grid-template-columns: 1fr; }
+  .climate-method-grid { padding: 20px 5% 60px; }
+}
