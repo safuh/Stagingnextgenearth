@@ -48,3 +48,8 @@ The public climate hub now includes a research-context layer. A CMS climate insi
 ## Learning capacity
 
 The learning workspace now includes four pilot tracks across research methods, climate and health, youth climate stewardship and Indigenous/community knowledge. Twenty-four substantive lessons include applied practice, self-checks and official further reading, supported by four formative quizzes and learner progress. These materials are positioned as a subject-matter review pilot rather than accredited training.
+
+
+## Climate evidence freshness
+
+The public hub now shows the release publication date, provider retrieval completion and the data-period end separately. Public climate endpoints also support ETag/304 conditional reads, improving cache efficiency without hiding data age or calling historical data live.
