@@ -1746,3 +1746,76 @@ footer > span { line-height: 1.7; }
   .proof-ticker { overflow-x: auto; }
   .proof-ticker-group[aria-hidden="true"] { display: none; }
 }
+
+
+/* Motion system: count-up impact figures and editorial reading sweeps. */
+.animated-metric {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  will-change: contents;
+}
+.impact-ribbon-stat .animated-metric {
+  display: inline-block;
+  min-width: 1ch;
+  text-shadow: 0 0 22px rgba(213,233,156,.18);
+}
+.portal-card, .theory-step, .story-card, .gallery-item {
+  position: relative;
+  isolation: isolate;
+}
+.portal-card h3, .portal-card .portal-description,
+.theory-step h3, .theory-step li,
+.story-card > p:last-child, .gallery-item figcaption {
+  background-image: linear-gradient(105deg,
+    currentColor 0%, currentColor 42%,
+    rgba(166,198,105,.95) 49%,
+    currentColor 57%, currentColor 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  transition: background-position .85s cubic-bezier(.2,.75,.25,1), transform .45s ease;
+}
+.portal-card:hover h3, .portal-card:focus-within h3,
+.portal-card:hover .portal-description, .portal-card:focus-within .portal-description,
+.theory-step:hover h3, .theory-step:focus-within h3,
+.theory-step:hover li, .theory-step:focus-within li,
+.story-card:hover > p:last-child, .story-card:focus-within > p:last-child,
+.gallery-item:hover figcaption, .gallery-item:focus-within figcaption {
+  background-position: 0 0;
+  transform: translateX(3px);
+}
+.portal-card:hover h3, .theory-step:hover h3 { transition-duration: .95s; }
+.portal-card:hover, .theory-step:hover, .story-card:hover, .gallery-item:hover {
+  box-shadow: 0 20px 44px rgba(24,52,38,.12);
+}
+.portal-card::after, .theory-step::after, .story-card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 auto 0 0;
+  width: 3px;
+  opacity: 0;
+  background: linear-gradient(180deg,#c8df82,#4c8058);
+  transform: scaleY(.25);
+  transform-origin: center;
+  transition: opacity .35s ease, transform .45s ease;
+}
+.portal-card:hover::after, .portal-card:focus-within::after,
+.theory-step:hover::after, .theory-step:focus-within::after,
+.story-card:hover::after, .story-card:focus-within::after {
+  opacity: 1;
+  transform: scaleY(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animated-metric { will-change: auto; }
+  .portal-card h3, .portal-card .portal-description,
+  .theory-step h3, .theory-step li,
+  .story-card > p:last-child, .gallery-item figcaption {
+    transition: none !important;
+    background-image: none !important;
+    transform: none !important;
+  }
+}
