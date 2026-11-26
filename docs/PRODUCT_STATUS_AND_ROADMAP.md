@@ -229,7 +229,7 @@ This is a code milestone, not evidence that any editorial insight has been autho
 
 ## Learning curriculum pilot content — implementation increment
 
-- Four published pilot tracks now have 24 substantive lessons across eight modules.
+- Four published pilot tracks now have 26 substantive lessons across eight modules.
 - Lesson content includes learning outcomes, explanatory material, applied practice and self-checks.
 - Four automated formative quizzes are seeded (four questions per course; 70% pass mark).
 - Lesson source links point to official WHO, IPCC, UNICEF, FAO, UNESCO and UN materials.
