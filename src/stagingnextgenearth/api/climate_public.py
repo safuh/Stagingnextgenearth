@@ -220,6 +220,8 @@ async def create_release(
         select(func.count(ClimateObservation.id)).where(
             *observation_filter,
             ClimateObservation.quality_status == "verified",
+            ClimateObservation.reviewed_by.is_not(None),
+            ClimateObservation.reviewed_by != ClimateObservation.created_by,
         )
     )
     if observation_count != source_run.records_inserted or verified_count != observation_count:
