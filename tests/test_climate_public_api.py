@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for governed public climate releases and anonymous publication boundaries."""
 
 import asyncio
