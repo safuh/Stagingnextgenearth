@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.core.config import get_settings
 from stagingnextgenearth.platform.models import (
-    InstitutionalPartner, Organization, OrganizationPerson, Programme, PublicContentEntry,
+    InstitutionalPartner, LearningCourse, LearningLesson, LearningModule,
+    Organization, OrganizationPerson, Programme, PublicContentEntry,
 )
 
 SOURCE = "https://nextgenforearth.org/"
@@ -306,8 +307,80 @@ async def seed(slug: str) -> None:
                 programme.title, programme.summary = title, summary
                 if programme.status == "draft":
                     programme.status = "planned"
+        course_specs = [
+            (
+                "early-career-researchers", "Early Career Researchers",
+                "Research methods, systematic reviews, data management, evidence synthesis, grant writing and research ethics.",
+                "research-capacity-building",
+                [
+                    ("Research foundations", ["Research Methods & Study Design", "Data Collection & Management"]),
+                    ("Evidence and dissemination", ["Systematic Reviews", "Synthesising Evidence", "Grant Writing", "Research Ethics & Safeguarding"]),
+                ],
+            ),
+            (
+                "healthcare-workers", "Healthcare Workers",
+                "Climate-health fundamentals, heat impacts, extreme weather, service delivery, resilience and mental health.",
+                "healthcare-worker-training",
+                [
+                    ("Climate and health", ["Climate Change & Health Fundamentals", "Heat Impacts on Patient Care"]),
+                    ("Resilient services", ["Extreme Weather & Service Delivery", "Climate-Responsive Care", "Community Resilience Strategies", "Mental Health & Climate Stress"]),
+                ],
+            ),
+            (
+                "youth-climate-stewards", "Youth Climate Stewards",
+                "Climate science, environmental stewardship, restoration, peer mentorship and community engagement.",
+                "youth-climate-stewardship",
+                [
+                    ("Climate literacy and stewardship", ["Climate Science Fundamentals", "Environmental Stewardship", "Tree Planting & Restoration"]),
+                    ("Youth-led action", ["Peer-to-Peer Mentorship", "Community Engagement", "Mental Health Peer Support"]),
+                ],
+            ),
+        ]
+        for course_slug, title, description, programme_slug, modules in course_specs:
+            programme = await session.scalar(select(Programme).where(
+                Programme.organization_id == org.id, Programme.slug == programme_slug
+            ))
+            course = await session.scalar(select(LearningCourse).where(
+                LearningCourse.organization_id == org.id, LearningCourse.slug == course_slug
+            ))
+            if course is None:
+                course = LearningCourse(
+                    organization_id=org.id, programme_id=programme.id if programme else None,
+                    title=title, slug=course_slug, description=description,
+                    category="Climate and research capacity", delivery_mode="blended",
+                    status="published", created_by=actor,
+                )
+                session.add(course)
+                await session.flush()
+            else:
+                course.title, course.description, course.status = title, description, "published"
+                if programme is not None:
+                    course.programme_id = programme.id
+            for module_position, (module_title, lessons) in enumerate(modules, start=1):
+                module = await session.scalar(select(LearningModule).where(
+                    LearningModule.course_id == course.id,
+                    LearningModule.position == module_position,
+                ))
+                if module is None:
+                    module = LearningModule(
+                        course_id=course.id, title=module_title,
+                        description=f"{title}: {module_title}.", position=module_position,
+                    )
+                    session.add(module)
+                    await session.flush()
+                for lesson_position, lesson_title in enumerate(lessons, start=1):
+                    lesson = await session.scalar(select(LearningLesson).where(
+                        LearningLesson.module_id == module.id,
+                        LearningLesson.position == lesson_position,
+                    ))
+                    if lesson is None:
+                        session.add(LearningLesson(
+                            module_id=module.id, title=lesson_title, content_type="text",
+                            content=f"Demo learning outline for {lesson_title}. Add organisation-approved learning resources, facilitator notes and assessments before live delivery.",
+                            duration_minutes=25, position=lesson_position,
+                        ))
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, and four programme records.")
+        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, four programmes and {len(course_specs)} published learning courses.")
     await engine.dispose()
 
 if __name__ == "__main__":
