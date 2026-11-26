@@ -196,6 +196,17 @@ export default function HomePage() {
         ))}
       </section>
 
+      <section className="proof-ticker" aria-label="Training, reach and geographic impact">
+        <div className="proof-ticker-track">
+          <div className="proof-ticker-group">
+            <span>Research Methods Training</span><i>✳</i><span>Systematic Reviews</span><i>✳</i><span>Grant Writing</span><i>✳</i><span>Climate Stewardship</span><i>✳</i><strong>4,000+ Children Reached</strong><i>✳</i><strong>40,000+ Trees Planted</strong><i>✳</i><span>Kenya · Ethiopia · Zimbabwe</span>
+          </div>
+          <div className="proof-ticker-group" aria-hidden="true">
+            <span>Research Methods Training</span><i>✳</i><span>Systematic Reviews</span><i>✳</i><span>Grant Writing</span><i>✳</i><span>Climate Stewardship</span><i>✳</i><strong>4,000+ Children Reached</strong><i>✳</i><strong>40,000+ Trees Planted</strong><i>✳</i><span>Kenya · Ethiopia · Zimbabwe</span>
+          </div>
+        </div>
+      </section>
+
       <section className="portals section-wrap" id="portals">
         <div className="section-heading">
           <div><p className="eyebrow">CONNECTED BY PURPOSE</p><h2><LetterHeading text="One mission." /><br /><em><LetterHeading text="Four ways in." /></em></h2></div>
@@ -293,6 +304,23 @@ export default function HomePage() {
         <ContentCarousel label="Field photographs"><div className="carousel-track">
           {(catalogue.find((item) => item.slug === "website-gallery")?.metadata_json?.gallery ?? []).map((item) => <figure className="gallery-item" key={item.image_url}><img src={item.image_url} alt={item.alt} width={720} height={480} loading="lazy" /><figcaption>{item.alt}</figcaption></figure>)}
         </div></ContentCarousel>
+      </section>
+      <section className="theory-section section-wrap" id="our-logic">
+        <div className="section-heading">
+          <div><p className="eyebrow">OUR LOGIC</p><h2><LetterHeading text="Theory of" /> <em><LetterHeading text="Change." /></em></h2></div>
+          <p>How we move from training and science to lasting climate impact across Africa.</p>
+        </div>
+        <div className="theory-flow">
+          <article className="theory-step"><span className="theory-number">1</span><p className="portal-tag">The foundation</p><h3>Input</h3><ul><li>Expert mentors</li><li>Published science</li><li>Community partnerships</li><li>Funded programmes</li></ul></article>
+          <span className="theory-arrow" aria-hidden="true">→</span>
+          <article className="theory-step"><span className="theory-number">2</span><p className="portal-tag">What we do</p><h3>Activities</h3><ul><li>Weekly workshops</li><li>Peer mentorship</li><li>Field research</li><li>Tree planting drives</li></ul></article>
+          <span className="theory-arrow" aria-hidden="true">→</span>
+          <article className="theory-step"><span className="theory-number">3</span><p className="portal-tag">What we deliver</p><h3>Outputs</h3><ul><li>100+ youth trained</li><li>35 researchers mentored</li><li>4,000+ children reached</li><li>12 publications</li></ul></article>
+          <span className="theory-arrow" aria-hidden="true">→</span>
+          <article className="theory-step"><span className="theory-number">4</span><p className="portal-tag">What changes</p><h3>Outcomes</h3><ul><li>Youth lead research</li><li>Schools adopt stewardship</li><li>Communities more resilient</li><li>Policies informed</li></ul></article>
+          <span className="theory-arrow" aria-hidden="true">→</span>
+          <article className="theory-step theory-impact"><span className="theory-number">5</span><p className="portal-tag">The long-term change</p><h3>Impact</h3><ul><li>Climate-literate generation</li><li>Evidence-based policy</li><li>Healthier communities</li><li>Sustainable Africa</li></ul></article>
+        </div>
       </section>
       <section className="access-section" id="access">
         <div className="access-copy">
