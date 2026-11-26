@@ -43,7 +43,7 @@ def _release_payload() -> dict[str, object]:
         "uncertainty_summary": "Satellite-derived estimates; not station measurements.",
         "limitations": "County aggregate does not represent every local microclimate.",
         "terms_url": "https://www.chc.ucsb.edu/data/chirps",
-        "citation_url": "https://www.chc.ucsb.edu/data/chirps",
+        "citation_url": "https://doi.org/10.15780/G2JQ0P",
         "source_ingestion_run_id": "test-ingestion-run",
     }
 
@@ -201,7 +201,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert public_detail.status_code == 200
         assert public_detail.json()["provider_id"] == "chirps-v3"
         assert public_detail.json()["data_class"] == "satellite_estimate"
-        assert public_detail.json()["provider_product"] == "CHIRPS v3"
+        assert public_detail.json()["provider_product"] == "CHIRPS v3 SAT"
         assert public_detail.json()["license_name"] == "CHIRPS terms of use"
         assert "created_by" not in public_detail.json()
         assert "source_ingestion_run_id" not in public_detail.json()
