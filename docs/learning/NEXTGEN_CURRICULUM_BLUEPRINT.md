@@ -319,7 +319,7 @@ The seed catalogue now contains four pilot tracks aligned to the organisation's 
 3. Youth Climate Stewardship and Community Action
 4. Indigenous and Community Knowledge for Climate Resilience
 
-Each track currently contains two modules and three substantive lessons per module (24 lessons total). Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
+Each track currently contains two modules and three substantive lessons per module (26 lessons total). Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
 
 The learner classroom now presents the course overview, module/lesson counts, estimated guided minutes, module-level completion and readable lesson-content panels.
 
