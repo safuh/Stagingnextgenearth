@@ -103,7 +103,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["programmes"] == 4
     assert first["courses"] == 3
     assert first["modules"] == 6
-    assert first["lessons"] == 16
+    assert first["lessons"] == 18
     assert first["courses_published"] is True
     assert first["users"] == 1
     assert first["people_public_verified"] is True
