@@ -130,7 +130,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         invitation = client.post(
             f"{org_base}/memberships",
             headers=author,
-            json={"identifier": "climate-reviewer@example.org", "role": "executive"},
+            json={"identifier": "climate-reviewer@example.org", "role": "programme_manager"},
         )
         assert invitation.status_code == 201
         accepted = client.post(
@@ -139,12 +139,23 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert accepted.status_code == 200
 
+        run_ledger = client.get(f"{org_base}/climate-ingestion", headers=author)
+        assert run_ledger.status_code == 200
+        assert run_ledger.json()[0]["verified_observations"] == 2
+        assert run_ledger.json()[0]["pending_observations"] == 0
+        assert client.get(
+            f"{org_base}/climate-public-releases", headers=author
+        ).json() == []
+
         created = client.post(
             f"{org_base}/climate-public-releases",
             headers=author,
             json={**_release_payload(), "source_ingestion_run_id": run_id},
         )
         assert created.status_code == 201
+        assert client.get(
+            f"{org_base}/climate-public-releases", headers=author
+        ).json()[0]["state"] == "draft"
         release_id = created.json()["id"]
         assert created.json()["state"] == "draft"
 
@@ -306,6 +317,18 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             },
         )
         assert blocked.status_code == 409
+
+        batch_review = client.post(
+            f"{org_base}/climate-ingestion/{pending_run_id}/review",
+            headers=reviewer,
+            json={"decision": "verified", "note": "Provider run sample and source reviewed."},
+        )
+        assert batch_review.status_code == 200
+        assert batch_review.json()["reviewed_count"] == 1
+        updated_runs = client.get(f"{org_base}/climate-ingestion", headers=reviewer)
+        pending_summary = next(item for item in updated_runs.json() if item["id"] == pending_run_id)
+        assert pending_summary["verified_observations"] == 1
+        assert pending_summary["pending_observations"] == 0
 
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
