@@ -4,7 +4,7 @@
 
 NextGen For Earth already has the mission, programmes, research activity and public presence. The next step is to connect those assets to the systems that coordinate delivery and demonstrate results.
 
-We are building one organisational platform around that mission. The public website communicates the organisation's work. The workspace is where authorised teams manage people, programmes, learning, research, climate information, partners and evidence.
+We are building one organisational platform around that mission. The public website communicates the organisation's work and will include a dedicated Climate Intelligence hub for Kenya and East Africa. The hub will publish carefully reviewed climate indicators, regional trends and research insights with their sources, periods, methods and limitations visible. The workspace is where authorised teams manage people, programmes, learning, research, climate information, partners and evidence.
 
 The research layer is designed to take a publication or study from discovery and source attribution through proposal, protocol and ethics review, datasets, climate evidence, analysis and publication. Climate intelligence is not limited to manual field submissions: the architecture brings together external sources such as NASA POWER and CHIRPS, with Copernicus ERA5 subject to deployment configuration, alongside reviewed field observations.
 
@@ -18,7 +18,7 @@ The objective is practical: reduce fragmented records, make programme delivery e
 2. **Founder workspace (60 sec):** show organisation overview, people/roles, partner verification and audit controls.
 3. **Research library (90 sec):** open a website-imported publication, show its source provenance, preview external scholarly metadata and create a new study in concept status.
 4. **Research governance (60 sec):** show proposal/protocol/ethics gates, dataset submission/review and analysis provenance. Do not imply a concept is approved or active.
-5. **Climate intelligence (75 sec):** show provider catalogue and a successful NASA POWER/CHIRPS run if available. Display source, units, period, coverage and quality state. If live provider access is unavailable, show the last-run status rather than invented data.
+5. **Climate intelligence (75 sec):** open the public Climate Intelligence hub and show an approved public release if one exists. Explain the provider, data class, unit, geography, period, baseline, coverage and limitations. Then show the deeper authenticated research workspace/provider catalogue. If no approved public release exists, show the honest no-data state; do not expose private observations or call an internal provider run a public release.
 6. **Field-data loop (45 sec):** demonstrate the synthetic ODK simulator only when no live Central test endpoint is configured. Label all fixture records Synthetic demo and show duplicate suppression and pending review.
 7. **Learning and programme delivery (60 sec):** show the proposed curriculum catalogue, course structure, enrolment/assessment workflow and programme activities. Clearly distinguish placeholder lessons from approved instructional content.
 8. **Close (25 sec):** return to the leadership proposition: one connected system for research, youth development, climate stewardship, healthier communities and evidence.
@@ -31,7 +31,8 @@ We are not proposing another disconnected website or spreadsheet. We are buildin
 
 - Use dedicated staging/demo accounts and synthetic learner identities.
 - Label imported website records, external provider data and synthetic fixtures.
-- Verify the provider's latest successful ingestion before showing live values.
+- Public climate visuals must use published releases only; a verified observation is not automatically public.
+- Verify both a recent successful provider ingestion and an approved published public climate release before showing public climate values.
 - Do not describe ODK simulator activity as a live Central connection.
 - Do not present website-reported impact figures as independently audited.
 - Do not present unverified partner prospects as signed partnerships.
