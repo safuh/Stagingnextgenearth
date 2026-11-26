@@ -11,10 +11,10 @@ from stagingnextgenearth.core.config import get_settings
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity import RefreshToken, ResearcherProfile, User  # noqa: F401
 from stagingnextgenearth.platform import (  # noqa: F401
-    ClimatePublicRelease,
-    ClimatePublicReleaseEvent,
     ClimateIngestionRun,
     ClimateObservation,
+    ClimatePublicRelease,
+    ClimatePublicReleaseEvent,
     LearningAssessment,
     LearningAssessmentAttempt,
     LearningAttendance,
