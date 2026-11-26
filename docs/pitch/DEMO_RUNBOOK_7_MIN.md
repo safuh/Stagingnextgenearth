@@ -62,3 +62,11 @@ For a 15–20 minute session, use [the full founder demonstration and handover g
 - [ ] Open one learner classroom and inspect course scope, module progress, lesson reading and source links.
 - [ ] Confirm the quizzes expose questions/options but never expose correct answers before submission.
 - [ ] Present the materials as pilot content pending subject-matter, safeguarding, clinical and community review—not as accredited training.
+
+
+## Climate freshness and cache check
+
+- [ ] Open the public climate hub and verify that publication, source retrieval and data-period end are shown as distinct timestamps.
+- [ ] Inspect the public overview response and confirm it does not label historical data as live.
+- [ ] Send a matching `If-None-Match` request to a public climate GET endpoint and verify a bodyless HTTP 304 with ETag and Cache-Control headers.
+- [ ] Publish a new release version in staging and confirm the public ETag changes.
