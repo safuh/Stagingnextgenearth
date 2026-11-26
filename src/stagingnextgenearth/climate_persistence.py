@@ -24,6 +24,8 @@ async def persist_provider_measurements(
     licence: str | None,
     request: ClimateProviderRequest,
     measurements: AsyncIterator[ClimateMeasurement],
+    area_label: str | None = None,
+    product_variant: str | None = None,
 ) -> ClimateIngestionRun:
     """Persist one provider stream atomically; new records remain pending review.
 
@@ -41,9 +43,16 @@ async def persist_provider_measurements(
         requested_start=request.start,
         requested_end=request.end,
         requested_area=(
-            request.area.model_dump()
+            {
+                **request.area.model_dump(),
+                **({"label": area_label.strip()} if area_label else {}),
+                **({"product_variant": product_variant} if product_variant else {}),
+            }
             if request.area is not None
-            else {"point": request.point.model_dump()}
+            else {
+                "point": request.point.model_dump(),
+                **({"product_variant": product_variant} if product_variant else {}),
+            }
             if request.point is not None
             else None
         ),
