@@ -1,7 +1,9 @@
 """Tests for governed public climate releases and anonymous publication boundaries."""
 
 import asyncio
+import sqlite3
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -76,7 +78,8 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         jwt_secret_key="test-only-signing-secret-that-is-long-enough",
     )
 
-    with TestClient(create_app(settings)) as client:
+    app = create_app(settings)
+    with TestClient(app) as client:
         author = _auth(client, "climate-author@example.org")
         reviewer = _auth(client, "climate-reviewer@example.org")
         organisation = client.post(
@@ -87,6 +90,31 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert organisation.status_code == 201
         org_id = organisation.json()["id"]
         org_base = f"/api/organizations/{org_id}"
+
+        # Insert a completed provider-ingestion fixture directly into the test
+        # database; no external provider request or synthetic public release is used.
+        run_id = str(uuid4())
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        author_id = connection.execute(
+            "SELECT id FROM users WHERE identifier = ?",
+            ("climate-author@example.org",),
+        ).fetchone()[0]
+        connection.execute(
+            """INSERT INTO climate_ingestion_runs (
+                id, organization_id, provider_id, source_name, licence,
+                requested_start, requested_end, requested_area, status,
+                records_received, records_inserted, records_skipped,
+                error_summary, started_by, started_at, finished_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                run_id, org_id, "chirps-v3", "CHIRPS v3", "CHIRPS terms of use",
+                "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
+                None, "completed", 2, 2, 0, None, author_id,
+                "2026-01-01T00:00:00+00:00", "2026-01-01T00:01:00+00:00",
+            ),
+        )
+        connection.commit()
+        connection.close()
 
         invitation = client.post(
             f"{org_base}/memberships",
@@ -103,7 +131,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         created = client.post(
             f"{org_base}/climate-public-releases",
             headers=author,
-            json=_release_payload(),
+            json={**_release_payload(), "source_ingestion_run_id": run_id},
         )
         assert created.status_code == 201
         release_id = created.json()["id"]
