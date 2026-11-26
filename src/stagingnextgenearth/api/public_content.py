@@ -250,9 +250,15 @@ async def public_content(organization_slug: str, session: Annotated[AsyncSession
     result = []
     for row in rows.all():
         item = PublicContentRead.model_validate(row)
-        source_url = row.source_url
-        if source_url and not source_url.startswith(("https://", "http://")):
-            source_url = None
+        # Only publication records expose an outbound citation. Internal CMS
+        # source provenance for programmes, pages and other records stays private.
+        source_url = (
+            row.source_url
+            if row.content_type == "publication"
+            and row.source_url
+            and row.source_url.startswith("https://")
+            else None
+        )
         result.append(item.model_copy(update={
             "source_url": source_url,
             "metadata_json": _public_metadata(row.metadata_json),
