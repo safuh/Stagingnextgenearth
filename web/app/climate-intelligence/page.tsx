@@ -125,7 +125,7 @@ export default function ClimateIntelligencePage() {
       <section className="climate-public-freshness" aria-label="Evidence freshness and time coverage">
         <div><span>LAST PUBLISHED</span><strong>{loading ? "—" : formatDateTime(overview?.latest_published_at ?? null)}</strong></div>
         <div><span>SOURCE RETRIEVED</span><strong>{loading ? "—" : formatDateTime(overview?.latest_source_retrieved_at ?? null)}</strong></div>
-        <div><span>DATA PERIOD ENDS</span><strong>{loading ? "—" : formatDate(overview?.latest_data_period_end ?? "") || "Not yet available"}</strong></div>
+        <div><span>DATA PERIOD ENDS</span><strong>{loading ? "—" : overview?.latest_data_period_end ? formatDate(overview.latest_data_period_end) : "Not yet available"}</strong></div>
         <p>Publication time, provider retrieval time and the period represented by the data are different timestamps. Historical releases are not live conditions.</p>
       </section>
 
