@@ -122,6 +122,26 @@
             ],
             "correct_option_id": "b",
             "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "What must happen before a study recruits human participants?",
+            "options": [
+              {
+                "id": "a",
+                "text": "The team should begin and request permission later"
+              },
+              {
+                "id": "b",
+                "text": "Required ethics review and permissions must be in place before recruitment"
+              },
+              {
+                "id": "c",
+                "text": "Only the principal investigator needs to know"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
           }
         ]
       }
@@ -245,6 +265,26 @@
               }
             ],
             "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "How should missing periods in a climate time series be handled?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Replace them with zero"
+              },
+              {
+                "id": "b",
+                "text": "Hide them from the chart"
+              },
+              {
+                "id": "c",
+                "text": "Report missingness and use a justified method without inventing values"
+              }
+            ],
+            "correct_option_id": "c",
             "points": 1
           }
         ]
@@ -370,6 +410,26 @@
             ],
             "correct_option_id": "b",
             "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "Which statement is a responsible public report?",
+            "options": [
+              {
+                "id": "a",
+                "text": "We planted 50 seedlings; survival will be checked after six months"
+              },
+              {
+                "id": "b",
+                "text": "We restored the entire ecosystem in one day"
+              },
+              {
+                "id": "c",
+                "text": "Every seedling is guaranteed to survive"
+              }
+            ],
+            "correct_option_id": "a",
+            "points": 1
           }
         ]
       }
@@ -490,6 +550,26 @@
               {
                 "id": "c",
                 "text": "Remove only the map title"
+              }
+            ],
+            "correct_option_id": "b",
+            "points": 1
+          },
+          {
+            "id": "q4",
+            "prompt": "What is the safest default for restricted or sensitive community knowledge?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Publish it after removing personal names"
+              },
+              {
+                "id": "b",
+                "text": "Do not collect or publish it unless the relevant rights holders explicitly authorise an appropriate use"
+              },
+              {
+                "id": "c",
+                "text": "Upload it to a public map for transparency"
               }
             ],
             "correct_option_id": "b",
