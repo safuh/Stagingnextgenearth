@@ -257,6 +257,7 @@ export default function HomePage() {
           ))}
         </div></ContentCarousel>
         {catalogue.filter((item) => item.content_type === "publication" || item.content_type === "research_area").length === 0 && <p className="muted">Published research records will appear here.</p>}
+        <p className="section-more"><Link href="/research">Explore the research catalogue <span aria-hidden="true">→</span></Link></p>
       </section>
       <section className="portals section-wrap" id="impact">
         <div className="section-heading"><div><p className="eyebrow">ORGANISATIONAL IMPACT</p><h2><LetterHeading text="Evidence of" /> <em><LetterHeading text="progress." /></em></h2></div><p>Impact figures shown here are sourced from the organisation&apos;s published website and should be updated through reviewed reporting.</p></div>
