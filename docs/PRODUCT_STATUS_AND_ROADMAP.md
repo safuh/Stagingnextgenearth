@@ -81,6 +81,19 @@ A researcher or administrator can move a research record from discovery or creat
 - All lists, charts and maps are tenant-scoped and state their time window, unit, quality filter and missing-data policy.
 - A complete demo can use imported public research plus clearly labelled synthetic records without claiming live ODK data.
 
+## Public climate intelligence — required public product surface
+
+Climate intelligence must be available from the public website, not only the authenticated researcher portal. This is a product requirement and a separate publication surface over the same provider/evidence infrastructure.
+
+- Public route: `/climate-intelligence`, with insight detail and methodology pages.
+- Public API: anonymous, read-only, bounded endpoints for overview, published releases, time series, regional summaries, insights and public provider/source metadata.
+- Public data is served only through an explicit `ClimatePublicRelease` publication workflow. Existing `ClimateObservation.quality_status='verified'` means quality reviewed; it does not grant permission for public disclosure.
+- A different authorised reviewer must approve a candidate release before publication. Public API must never return pending, rejected, synthetic, restricted, participant-level or unapproved data.
+- Release records preserve provider/product/version, data class, unit, geography, period, baseline, method, coverage, missing-data policy, uncertainty, licence, citation, retrieval time and source lineage.
+- Homepage navigation and feature card link to the public climate hub. No "live" wording unless provider latency has been measured and disclosed.
+
+The detailed public data model, API contract, release workflow, security requirements, implementation sequence and definition of done are in [PUBLIC_CLIMATE_INTELLIGENCE.md](PUBLIC_CLIMATE_INTELLIGENCE.md). This is a specification only until the model, routes, frontend and tests are implemented.
+
 ## Priority 2 — Curriculum and learning content
 
 ### Product outcome
