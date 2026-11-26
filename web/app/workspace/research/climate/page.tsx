@@ -75,7 +75,15 @@ export default function ClimateResearchStudioPage() {
   const verifiedCount = quality?.by_status.verified ?? 0;
   const pendingCount = quality?.by_status.pending ?? 0;
   const publishedCount = releases.filter((release) => release.state === "published").length;
-  const publishableRuns = runs.filter((run) => run.status === "completed" && run.records_inserted > 0 && run.verified_observations === run.records_inserted && Boolean(run.licence));
+  const publishableRuns = runs.filter((run) =>
+    run.status === "completed"
+    && run.provider_id === "chirps-v3"
+    && Boolean(run.requested_area)
+    && run.records_inserted > 0
+    && run.verified_observations === run.records_inserted
+    && Boolean(run.licence)
+  );
+  const selectedReleaseRun = publishableRuns.find((run) => run.id === selectedRunId) ?? publishableRuns[0] ?? null;
 
   const loadWorkspace = useCallback(async (orgId: string) => {
     const [member, runItems, qualitySummary, releaseItems] = await Promise.all([
@@ -194,19 +202,19 @@ export default function ClimateResearchStudioPage() {
 
   async function createRelease(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!organisationId || !selectedRun) return;
+    if (!organisationId || !selectedReleaseRun) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await apiPost<Release>(
         `/organizations/${organisationId}/climate-public-releases`,
         {
           slug: releaseSlug, title: releaseTitle, summary: releaseSummary,
-          provider_id: selectedRun.provider_id, data_class: "satellite_estimate",
+          provider_id: selectedReleaseRun.provider_id, data_class: "satellite_estimate",
           geography_label: areaLabel, geography_resolution: "0.05° CHIRPS grid; area mean per day",
-          period_start: selectedRun.requested_start, period_end: selectedRun.requested_end,
+          period_start: selectedReleaseRun.requested_start, period_end: selectedReleaseRun.requested_end,
           baseline: null, uncertainty_summary: uncertainty, limitations,
           citation_url: "https://doi.org/10.15780/G2JQ0P",
-          source_ingestion_run_id: selectedRun.id,
+          source_ingestion_run_id: selectedReleaseRun.id,
         },
       );
       setNotice(`Release draft created as version ${result.version}. Continue through independent review and publication.`);
@@ -359,8 +367,8 @@ export default function ClimateResearchStudioPage() {
                             <label>Reviewer note<textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} minLength={5} /></label>
                             <p>This batch decision applies to every pending observation in the selected provider run. Your own submissions cannot be reviewed by you.</p>
                             <div className="climate-action-row">
-                              <button className="climate-primary" disabled={busy || !observations.some((item) => item.quality_status === "pending")} onClick={() => reviewRun("verified")}>Verify pending batch</button>
-                              <button className="climate-danger" disabled={busy || !observations.some((item) => item.quality_status === "pending")} onClick={() => reviewRun("rejected")}>Reject pending batch</button>
+                              <button className="climate-primary" disabled={busy || selectedRun.pending_observations === 0} onClick={() => reviewRun("verified")}>Verify {selectedRun.pending_observations.toLocaleString()} pending</button>
+                              <button className="climate-danger" disabled={busy || selectedRun.pending_observations === 0} onClick={() => reviewRun("rejected")}>Reject pending batch</button>
                             </div>
                           </div>
                         )}
@@ -384,15 +392,15 @@ export default function ClimateResearchStudioPage() {
                     <p>Build a versioned release from a completed, independently reviewed provider run. Values are derived by the server; this form cannot submit chart data.</p>
                     {!canAuthor ? <p className="climate-lock">Your membership does not include release-authoring permissions.</p> : (
                       <form className="climate-form" onSubmit={createRelease}>
-                        <label>Verified provider run<select value={selectedRunId} onChange={(event) => setSelectedRunId(event.target.value)} required><option value="">Select reviewed provider run</option>{publishableRuns.map((run) => <option key={run.id} value={run.id}>{run.source_name} · {formatDate(run.started_at)} · {run.records_inserted} records</option>)}</select></label>
+                        <label>Verified provider run<select value={selectedReleaseRun?.id ?? ""} onChange={(event) => setSelectedRunId(event.target.value)} required><option value="">Select reviewed CHIRPS area run</option>{publishableRuns.map((run) => <option key={run.id} value={run.id}>{run.source_name} · {formatDate(run.started_at)} · {run.records_inserted} records</option>)}</select></label>
                         <label>Release title<input value={releaseTitle} onChange={(event) => setReleaseTitle(event.target.value)} minLength={3} maxLength={240} required /></label>
                         <label>Public URL slug<input value={releaseSlug} onChange={(event) => setReleaseSlug(event.target.value)} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
                         <label>Public summary<textarea value={releaseSummary} onChange={(event) => setReleaseSummary(event.target.value)} minLength={10} required /></label>
                         <label>Uncertainty statement<textarea value={uncertainty} onChange={(event) => setUncertainty(event.target.value)} /></label>
                         <label>Limitations<textarea value={limitations} onChange={(event) => setLimitations(event.target.value)} minLength={5} required /></label>
                         <div className="climate-form-note"><strong>Publication facts</strong><span>Data class: satellite estimate · Product: CHIRPS v3 · Licence and attribution are inherited from the provider run.</span></div>
-                        <button className="climate-primary" type="submit" disabled={busy || !selectedRun || !publishableRuns.some((run) => run.id === selectedRun.id)}>Create evidence draft <span>↗</span></button>
-                        {publishableRuns.length === 0 && <p className="climate-muted">No provider run is currently eligible. Complete an independent review and ensure every inserted observation is verified.</p>}
+                        <button className="climate-primary" type="submit" disabled={busy || !selectedReleaseRun}>Create evidence draft <span>↗</span></button>
+                        {publishableRuns.length === 0 && <p className="climate-muted">No provider run is currently eligible. This public release workflow accepts bounded CHIRPS v3 area runs only. Complete independent review, verify every inserted observation and retain the provider licence.</p>}
                       </form>
                     )}
                   </section>
