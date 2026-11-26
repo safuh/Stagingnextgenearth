@@ -293,6 +293,11 @@ def _provider_for(body: ClimateIngestionCreate):
 
         return NASAPowerProvider()
     if body.provider == "chirps-v3":
+        if find_spec("rasterio") is None:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "CHIRPS area ingestion requires the rasterio runtime dependency",
+            )
         from stagingnextgenearth.providers.chirps import CHIRPSProvider
 
         return CHIRPSProvider(variant=body.chirps_variant)
