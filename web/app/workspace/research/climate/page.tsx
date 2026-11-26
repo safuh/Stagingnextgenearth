@@ -53,12 +53,12 @@ export default function ClimateResearchStudioPage() {
   const [provider, setProvider] = useState("chirps-v3");
   const [variant, setVariant] = useState("sat");
   const [startDate, setStartDate] = useState("2025-01-01");
-  const [endDate, setEndDate] = useState("2025-01-08");
-  const [west, setWest] = useState("39.0");
-  const [south, setSouth] = useState("-4.5");
-  const [east, setEast] = useState("40.5");
-  const [north, setNorth] = useState("-2.5");
-  const [areaLabel, setAreaLabel] = useState("Kilifi County, Kenya");
+  const [endDate, setEndDate] = useState("2025-01-03");
+  const [west, setWest] = useState("39.7");
+  const [south, setSouth] = useState("-3.8");
+  const [east, setEast] = useState("40.0");
+  const [north, setNorth] = useState("-3.5");
+  const [areaLabel, setAreaLabel] = useState("Kilifi coastal study area, Kenya");
   const [reviewNote, setReviewNote] = useState("Provider metadata, requested extent, date range and sample values checked.");
   const [releaseTitle, setReleaseTitle] = useState("Daily rainfall signal — Kilifi");
   const [releaseSlug, setReleaseSlug] = useState("kilifi-daily-rainfall");
@@ -155,7 +155,7 @@ export default function ClimateResearchStudioPage() {
       const start = new Date(`${startDate}T00:00:00Z`);
       const end = new Date(`${endDate}T23:59:59Z`);
       const daySpan = Math.ceil((end.getTime() - start.getTime()) / 86400000);
-      if (daySpan < 1 || daySpan > 31) throw new Error("Choose a date window between 1 and 31 days.");
+      if (daySpan < 1 || daySpan > 7) throw new Error("Choose a date window between 1 and 7 days for this synchronous ingestion workflow.");
       const area = { west: Number(west), south: Number(south), east: Number(east), north: Number(north) };
       if (!(area.west < area.east && area.south < area.north)) throw new Error("The bounding box must have west < east and south < north.");
       const result = await apiPost<IngestionRun>(
@@ -309,7 +309,7 @@ export default function ClimateResearchStudioPage() {
                           <label>East<input inputMode="decimal" value={east} onChange={(event) => setEast(event.target.value)} required /></label>
                           <label>North<input inputMode="decimal" value={north} onChange={(event) => setNorth(event.target.value)} required /></label>
                         </div>
-                        <div className="climate-form-note"><strong>Request guardrails</strong><span>Maximum 31 days per request · one bounded area · no arbitrary URLs · provider licence retained.</span></div>
+                        <div className="climate-form-note"><strong>Request guardrails</strong><span>Maximum 7 days per request · one bounded area · no arbitrary URLs · provider licence retained.</span></div>
                         <button className="climate-primary" type="submit" disabled={busy}>{busy ? "Retrieving provider data…" : "Run provider ingestion"} <span>↗</span></button>
                       </form>
                     )}
