@@ -1584,3 +1584,32 @@ footer > span { line-height: 1.7; }
   .learner-top-nav .workspace-signout { font-size: 12px; }
   .learner-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Source website partner marks: contain logos without stretching or clipping. */
+.partner-logo-frame {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 76px;
+  margin: 0 0 18px;
+  padding: 8px 12px;
+  border: 1px solid rgba(35, 72, 49, .10);
+  border-radius: 6px;
+  background: #fff;
+}
+.partner-logo {
+  display: block;
+  width: auto;
+  max-width: min(100%, 190px);
+  height: auto;
+  max-height: 58px;
+  object-fit: contain;
+}
+.partner-logo-fallback {
+  width: 76px;
+  min-height: 76px;
+  justify-content: center;
+  color: var(--nfe-forest);
+  background: #e8eee3;
+  font: 700 22px Georgia, serif;
+}
