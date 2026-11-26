@@ -1,7 +1,8 @@
 """Secure ODK Central connection configuration and form discovery."""
 
 import re
-from typing import Annotated
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Literal
 from urllib.parse import quote, urlsplit
 
 import httpx
@@ -11,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, SecretStr, field_val
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.core.odk_tls import odk_tls_verify
 from stagingnextgenearth.platform.models import Membership, ODKConnection, ODKSyncRun
 
 from .dependencies import (
@@ -82,6 +85,23 @@ class ODKConnectionTestResult(BaseModel):
     message: str
 
 
+class ODKOperationsAlert(BaseModel):
+    code: str
+    severity: Literal["info", "warning", "critical"]
+    message: str
+
+
+class ODKOperationsSummary(BaseModel):
+    configured: bool
+    enabled: bool = False
+    last_sync_at: str | None = None
+    last_sync_status: str | None = None
+    mapped_forms: int = 0
+    forms_with_cursors: int = 0
+    consecutive_error_runs: int = 0
+    alerts: list[ODKOperationsAlert] = Field(default_factory=list)
+
+
 def _fernet(request: Request) -> Fernet:
     key = request.app.state.settings.odk_encryption_key
     if key is None:
@@ -117,7 +137,16 @@ async def _authenticate_and_list_forms(
     *, base_url: str, project_id: int, email: str, password: str
 ) -> list[dict[str, object]]:
     timeout = httpx.Timeout(15.0, connect=5.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+    try:
+        verify_tls = odk_tls_verify(base_url, get_settings())
+    except ValueError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Disabling ODK TLS verification is allowed only for local Central hosts",
+        ) from exc
+    async with httpx.AsyncClient(
+        timeout=timeout, follow_redirects=False, verify=verify_tls
+    ) as client:
         token: str | None = None
         try:
             login = await client.post(
@@ -318,6 +347,131 @@ async def delete_odk_connection(
         await session.commit()
 
 
+@router.get("/operations", response_model=ODKOperationsSummary)
+async def get_odk_operations_status(
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ODKOperationsSummary:
+    """Summarise actionable Central sync failures and worker/cursor freshness."""
+    if not await membership_has_any_role(session, membership, _MANAGER_ROLES):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Organisation administrator permission required"
+        )
+    connection = await session.scalar(
+        select(ODKConnection).where(ODKConnection.organization_id == membership.organization_id)
+    )
+    if connection is None:
+        return ODKOperationsSummary(configured=False)
+
+    alerts: list[ODKOperationsAlert] = []
+    runs = list(
+        (
+            await session.scalars(
+                select(ODKSyncRun)
+                .where(ODKSyncRun.connection_id == connection.id)
+                .order_by(ODKSyncRun.started_at.desc())
+                .limit(3)
+            )
+        ).all()
+    )
+    consecutive_errors = 0
+    for run in runs:
+        if run.error_count > 0 or run.status in {"failed", "partial"}:
+            consecutive_errors += 1
+        else:
+            break
+
+    last_sync_at = connection.last_sync_at
+    if last_sync_at is not None and last_sync_at.tzinfo is None:
+        last_sync_at = last_sync_at.replace(tzinfo=UTC)
+    now = datetime.now(UTC)
+    if not connection.enabled:
+        alerts.append(
+            ODKOperationsAlert(
+                code="connection_disabled",
+                severity="info",
+                message="ODK Central synchronisation is disabled for this organisation.",
+            )
+        )
+    elif last_sync_at is None:
+        alerts.append(
+            ODKOperationsAlert(
+                code="sync_not_started",
+                severity="warning",
+                message="No ODK Central synchronisation has completed yet.",
+            )
+        )
+    elif now - last_sync_at > timedelta(minutes=5):
+        alerts.append(
+            ODKOperationsAlert(
+                code="worker_stale",
+                severity="warning",
+                message=(
+                    "No ODK Central sync has completed in the last five minutes; check the worker."
+                ),
+            )
+        )
+
+    if connection.enabled and connection.form_cursors:
+        if last_sync_at is None or now - last_sync_at > timedelta(minutes=15):
+            alerts.append(
+                ODKOperationsAlert(
+                    code="stale_pagination_cursor",
+                    severity="warning",
+                    message=(
+                        "A saved ODK pagination cursor has not progressed recently; "
+                        "inspect the latest sync errors."
+                    ),
+                )
+            )
+
+    if consecutive_errors >= 3:
+        alerts.append(
+            ODKOperationsAlert(
+                code="repeated_sync_failures",
+                severity="critical",
+                message=(
+                    "The last three ODK sync runs reported errors; "
+                    "investigate Central access and form mappings."
+                ),
+            )
+        )
+
+    latest_error = runs[0].error_summary or "" if runs else ""
+    if "HTTP 401" in latest_error:
+        alerts.append(
+            ODKOperationsAlert(
+                code="central_credentials_rejected",
+                severity="critical",
+                message=(
+                    "ODK Central rejected the saved credentials. Verify the service account "
+                    "password and rotate it if required."
+                ),
+            )
+        )
+    elif "HTTP 403" in latest_error:
+        alerts.append(
+            ODKOperationsAlert(
+                code="central_project_access_denied",
+                severity="critical",
+                message=(
+                    "The ODK Central account lacks permission for the configured project or form."
+                ),
+            )
+        )
+
+    return ODKOperationsSummary(
+        configured=True,
+        enabled=connection.enabled,
+        last_sync_at=last_sync_at.isoformat() if last_sync_at else None,
+        last_sync_status=connection.last_sync_status,
+        mapped_forms=len(connection.form_mappings),
+        forms_with_cursors=len(connection.form_cursors),
+        consecutive_error_runs=consecutive_errors,
+        alerts=alerts,
+    )
+
+
 @router.get("/sync-runs")
 async def list_odk_sync_runs(
     membership: Annotated[Membership, Depends(require_membership)],
@@ -343,6 +497,7 @@ async def list_odk_sync_runs(
             "submissions_received": run.submissions_received,
             "observations_imported": run.observations_imported,
             "duplicates_skipped": run.duplicates_skipped,
+            "rejected_count": run.rejected_count,
             "error_count": run.error_count,
             "error_summary": run.error_summary,
             "started_at": run.started_at.isoformat(),

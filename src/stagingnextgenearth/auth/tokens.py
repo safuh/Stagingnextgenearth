@@ -41,6 +41,8 @@ class TokenService:
             raise ValueError("JWT token_type is required")
 
         now = datetime.now(UTC)
+        elapsed = now - datetime(1970, 1, 1, tzinfo=UTC)
+        issued_at_us = (elapsed.days * 86_400 + elapsed.seconds) * 1_000_000 + elapsed.microseconds
         payload: dict[str, Any] = dict(claims or {})
         # These claims define the token's security semantics and cannot be
         # overridden by application-provided custom claims.
@@ -48,6 +50,7 @@ class TokenService:
             {
                 "sub": subject,
                 "iat": now,
+                "iat_us": issued_at_us,
                 "exp": now + expires_in,
                 "type": token_type,
             }

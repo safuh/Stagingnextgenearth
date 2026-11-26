@@ -3,8 +3,11 @@
 import asyncio
 from pathlib import Path
 
+import httpx
+import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -45,9 +48,12 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
     settings = Settings(
         environment=Environment.TEST,
         database_url=url,
-        jwt_secret_key="test-only-signing-secret-that-is-long-enough",
-        odk_encryption_key=key,
+        jwt_secret_key=SecretStr("test-only-signing-secret-that-is-long-enough"),
+        odk_encryption_key=SecretStr(key),
     )
+
+    source_revision: dict[str, str | bool] = {"updated_at": "2026-11-18T08:30:00Z"}
+    cursor_history: list[str | None] = []
 
     class FakeCentral:
         def __init__(self, base_url: str, email: str, password: str) -> None:
@@ -68,17 +74,29 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         async def submission_pages(self, project_id: int, form_id: str, cursor: str | None = None):
             assert project_id == 22
             assert form_id == "rainfall-v2"
+            cursor_history.append(cursor)
+            if cursor is not None and source_revision.get("expire_cursor"):
+                request = httpx.Request("GET", cursor)
+                response = httpx.Response(410, request=request)
+                raise httpx.HTTPStatusError("cursor expired", request=request, response=response)
 
             def row(number: int) -> dict[str, object]:
-                return {
+                record = {
                     "__id": f"uuid:rainfall-{number:04d}",
-                    "__system": {"submissionDate": "2026-11-18T08:30:00Z"},
+                    "__system": {
+                        "submissionDate": "2026-11-18T08:30:00Z",
+                        "updatedAt": source_revision["updated_at"],
+                        "reviewState": "approved",
+                    },
                     "measurement": "rainfall",
                     "value": number + 0.25,
                     "unit": "mm",
                     "latitude": -0.681,
                     "longitude": 34.767,
                 }
+                if number == 0:
+                    record.pop("latitude")
+                return record
 
             if cursor is not None:
                 assert cursor.endswith("$skiptoken=page-11")
@@ -127,7 +145,9 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
         )
         assert saved.status_code == 200, saved.text
 
-        async def run_twice() -> tuple[dict, dict, list[ClimateObservation], list[ODKSyncRun]]:
+        async def run_with_cursor_recovery() -> tuple[
+            dict, dict, dict, dict, dict, list[ClimateObservation], list[ODKSyncRun]
+        ]:
             db_engine = create_async_engine(url)
             factory = async_sessionmaker(db_engine, expire_on_commit=False)
             try:
@@ -146,20 +166,48 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
                     factory, connection_id, encryption_key=key
                 )
                 async with factory() as session:
+                    reviewed = await session.scalar(
+                        select(ClimateObservation).where(ClimateObservation.value == 1.25)
+                    )
+                    assert reviewed is not None
+                    reviewed.quality_status = "verified"
+                    await session.commit()
+                source_revision["updated_at"] = "2026-11-19T09:45:00Z"
+                third = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
+                source_revision["expire_cursor"] = True
+                fourth = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
+                async with factory() as session:
+                    connection = await session.scalar(
+                        select(ODKConnection).where(ODKConnection.id == connection_id)
+                    )
+                    assert connection is not None
+                    assert "rainfall-v2" not in connection.form_cursors
+                source_revision["expire_cursor"] = False
+                fifth = await odk_sync.sync_odk_connection(
+                    factory, connection_id, encryption_key=key
+                )
+                async with factory() as session:
                     observations = list((await session.scalars(select(ClimateObservation))).all())
                     runs = list((await session.scalars(select(ODKSyncRun))).all())
-                return first, second, observations, runs
+                return first, second, third, fourth, fifth, observations, runs
             finally:
                 await db_engine.dispose()
 
-        first, second, observations, runs = asyncio.run(run_twice())
+        first, second, third, fourth, fifth, observations, runs = asyncio.run(
+            run_with_cursor_recovery()
+        )
         assert first == {
             "status": "partial",
             "forms": 1,
             "received": 10,
-            "imported": 10,
+            "imported": 9,
             "duplicates": 0,
-            "errors": 1,
+            "rejected": 1,
+            "errors": 2,
         }
         assert second == {
             "status": "succeeded",
@@ -167,11 +215,83 @@ def test_worker_imports_and_deduplicates_central_odata_submissions(
             "received": 1,
             "imported": 1,
             "duplicates": 0,
+            "rejected": 0,
             "errors": 0,
         }
-        assert len(observations) == 11
-        assert all(item.quality_status == "pending" for item in observations)
-        assert {item.value for item in observations} == {
-            number + 0.25 for number in range(11)
+        assert third == {
+            "status": "partial",
+            "forms": 1,
+            "received": 10,
+            "imported": 0,
+            "duplicates": 9,
+            "rejected": 1,
+            "errors": 2,
         }
-        assert len(runs) == 2
+        assert fourth == {
+            "status": "failed",
+            "forms": 1,
+            "received": 0,
+            "imported": 0,
+            "duplicates": 0,
+            "rejected": 0,
+            "errors": 1,
+        }
+        assert fifth == {
+            "status": "partial",
+            "forms": 1,
+            "received": 10,
+            "imported": 0,
+            "duplicates": 9,
+            "rejected": 1,
+            "errors": 2,
+        }
+        assert cursor_history[3] is not None
+        assert cursor_history[4] is None
+        assert len(observations) == 10
+        assert {item.value for item in observations} == {number + 0.25 for number in range(1, 11)}
+        verified = next(item for item in observations if item.value == 1.25)
+        assert verified.quality_status == "verified"
+        assert verified.metadata_json is not None
+        assert verified.metadata_json["odk_source_revision_detected"] is True
+        assert verified.metadata_json["odk_source_updated_at"] == "2026-11-19T09:45:00Z"
+        assert verified.metadata_json["odk_source_review_state"] == "approved"
+        assert all(
+            item.quality_status == "pending" for item in observations if item.id != verified.id
+        )
+        assert len(runs) == 5
+        assert [run.rejected_count for run in runs] == [1, 0, 1, 0, 1]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [
+        (401, "rejected the integration credentials"),
+        (403, "denied access to the configured project or form"),
+        (410, "pagination cursor expired"),
+        (429, "rate-limited the integration"),
+    ],
+)
+def test_central_http_errors_are_classified_without_exposing_response_text(
+    status_code: int, expected: str
+) -> None:
+    request = httpx.Request("GET", "https://central.example.org/submissions")
+    response = httpx.Response(status_code, request=request, text="private response payload")
+    error = httpx.HTTPStatusError("private request detail", request=request, response=response)
+    message = odk_sync._safe_central_error(error)
+    assert expected in message
+    assert "private" not in message
+
+
+def test_source_provenance_marks_deleted_submission_for_reviewer_reconciliation() -> None:
+    provenance = odk_sync._source_provenance(
+        {
+            "__system": {
+                "updatedAt": "2026-11-19T09:45:00Z",
+                "deletedAt": "2026-11-19T10:00:00Z",
+                "reviewState": "hasIssues",
+            }
+        }
+    )
+    assert provenance["odk_source_deleted"] is True
+    assert provenance["odk_source_deleted_at"] == "2026-11-19T10:00:00Z"
+    assert provenance["odk_source_review_state"] == "hasIssues"

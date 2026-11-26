@@ -8,6 +8,22 @@ export interface RegistrationResponse {
   subject: string;
 }
 
+export interface AuthenticationMembership {
+  membership_id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  role: string;
+  roles: string[];
+  status: "active" | "invited";
+}
+
+export interface AuthenticationContext {
+  user_id: string;
+  identifier: string;
+  memberships: AuthenticationMembership[];
+}
+
 export interface ApiError {
   detail?: string;
   message?: string;
@@ -74,6 +90,10 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export async function getAuthenticationContext(): Promise<AuthenticationContext> {
+  return apiGet<AuthenticationContext>("/auth/context");
 }
 
 export async function register(identifier: string, password: string): Promise<RegistrationResponse> {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiPost, login, logout, restoreSession } from "@/lib/api";
+import { apiPost, getAuthenticationContext, login, logout, restoreSession } from "@/lib/api";
 
 type Membership = { id: string; role: string; status: string };
 
@@ -12,15 +12,32 @@ export default function AcceptInvitationPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
+  const [invitationMatchesAccount, setInvitationMatchesAccount] = useState<boolean | null>(null);
+  const [accountIdentifier, setAccountIdentifier] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setOrganizationId(params.get("organization_id") ?? "");
-    setInvitationId(params.get("invitation_id") ?? "");
-    restoreSession().then((session) => setAuthenticated(Boolean(session))).catch(() => setAuthenticated(false));
+    const orgId = params.get("organization_id") ?? "";
+    const inviteId = params.get("invitation_id") ?? "";
+    setOrganizationId(orgId);
+    setInvitationId(inviteId);
+    if (!orgId || !inviteId) setInvitationMatchesAccount(false);
+    restoreSession().then(async (session) => {
+      setAuthenticated(Boolean(session));
+      if (!session || !orgId || !inviteId) return;
+      try {
+        const context = await getAuthenticationContext();
+        setAccountIdentifier(context.identifier);
+        setInvitationMatchesAccount(context.memberships.some((item) =>
+          item.organization_id === orgId && item.membership_id === inviteId && item.status === "invited"
+        ));
+      } catch {
+        setInvitationMatchesAccount(false);
+      }
+    }).catch(() => setAuthenticated(false));
   }, []);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
@@ -28,9 +45,17 @@ export default function AcceptInvitationPage() {
     setBusy(true); setError("");
     try {
       await login(identifier.trim(), password);
+      const context = await getAuthenticationContext();
       setAuthenticated(true);
       setPassword("");
-      setNotice("Signed in. Accept the organisation invitation to activate your membership.");
+      setAccountIdentifier(context.identifier);
+      const matches = context.memberships.some((item) =>
+        item.organization_id === organizationId && item.membership_id === invitationId && item.status === "invited"
+      );
+      setInvitationMatchesAccount(matches);
+      setNotice(matches
+        ? "Signed in with the invited account. Review the invitation and accept to activate your membership."
+        : "This account does not own the invitation link. Sign out and use the exact account invited by the organisation.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
     } finally {
@@ -44,6 +69,8 @@ export default function AcceptInvitationPage() {
     try {
       await logout();
       setAuthenticated(false);
+      setInvitationMatchesAccount(null);
+      setAccountIdentifier("");
       setNotice("Signed out. Sign in using the exact account email invited by the organisation.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to switch accounts.");
@@ -94,8 +121,17 @@ export default function AcceptInvitationPage() {
         ) : (
           <section className="staff-card">
             <h2>Invitation ready</h2>
-            <p>Your account is authenticated. Accepting will activate the membership for this organisation.</p>
-            <button className="primary-action" onClick={() => void accept()} disabled={busy || !organizationId || !invitationId}>{busy ? "Accepting…" : "Accept organisation invitation"}</button>
+            <p>Signed in as <strong>{accountIdentifier || "your account"}</strong>.</p>
+            {invitationMatchesAccount === true ? (
+              <>
+                <p>The pending invitation is assigned to this account. Accepting activates the membership and its administrator-assigned role.</p>
+                <button className="primary-action" onClick={() => void accept()} disabled={busy || !organizationId || !invitationId}>{busy ? "Accepting…" : "Accept organisation invitation"}</button>
+              </>
+            ) : invitationMatchesAccount === false ? (
+              <p className="workspace-error" role="alert">This account is not the account named in this invitation. Sign out and use the exact invited email address. The server will also verify ownership before activation.</p>
+            ) : (
+              <p className="workspace-muted">Checking invitation ownership…</p>
+            )}
             <button className="text-link" type="button" onClick={() => void switchAccount()} disabled={busy}>Not the invited account? Switch account</button>
           </section>
         )}

@@ -4,6 +4,11 @@
 
 from .models import (
     ClimateIngestionRun,
+    FundingAuditEvent,
+    FundingAward,
+    FundingBudgetLine,
+    FundingLedgerEntry,
+    FundingOpportunity,
     ClimateObservation,
     LearningAssessment,
     LearningAssessmentAttempt,
@@ -58,6 +63,11 @@ from .models import (
 
 __all__ = [
     "ClimateIngestionRun",
+    "FundingAuditEvent",
+    "FundingAward",
+    "FundingBudgetLine",
+    "FundingLedgerEntry",
+    "FundingOpportunity",
     "ClimateObservation",
     "LearningAssessment",
     "LearningAssessmentAttempt",

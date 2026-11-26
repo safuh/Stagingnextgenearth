@@ -1,0 +1,69 @@
+# NextGen for Earth — Render deployment blueprint.
+# The API image runs Alembic migrations before starting the application.
+# The web app proxies API calls server-side; both services share a region with Postgres.
+services:
+  - type: web
+    name: nextgen-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: APP_NAME
+        value: NextGenForEarth
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nextgen-postgres
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        value: https://nextgen-web-upag.onrender.com
+      - key: CORS_ORIGINS
+        value: '["https://nextgen-web-upag.onrender.com"]'
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
+      - key: ODK_TLS_VERIFY
+        value: "true"
+      - key: DEBUG
+        value: "false"
+
+  - type: web
+    name: nextgen-web
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: BACKEND_API_HOSTPORT
+        fromService:
+          type: web
+          name: nextgen-api
+          property: hostport
+      - key: NEXT_PUBLIC_ORGANIZATION_SLUG
+        value: next-gen-for-earth-demo
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+databases:
+  - name: nextgen-postgres
+    databaseName: nextgen
+    user: nextgen
+    region: frankfurt
+    plan: 0.1c-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []

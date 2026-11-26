@@ -1,10 +1,14 @@
 """HTTP transport for the password authentication lifecycle."""
 
 from collections.abc import Callable
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any, cast
 
+import structlog
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..auth import (
@@ -12,13 +16,24 @@ from ..auth import (
     AuthenticationError,
     IdentifierAlreadyExistsError,
     LoginRequest,
+    PasswordHasher,
     RegistrationError,
     RegistrationRequest,
     TokenError,
 )
 from ..core.errors import BackboneError
+from ..identity.models import User
+from ..identity.refresh_tokens import RefreshToken
+from ..platform.models import Membership, Organization
+from .dependencies import (
+    Principal,
+    get_current_principal,
+    get_membership_roles,
+    get_session,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_audit_logger = structlog.get_logger("stagingnextgenearth.audit")
 
 
 class CredentialsRequest(BaseModel):
@@ -28,10 +43,44 @@ class CredentialsRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class PortalMembershipContext(BaseModel):
+    """One organisation context used to route an authenticated user safely."""
+
+    membership_id: str
+    organization_id: str
+    organization_name: str
+    organization_slug: str
+    role: str
+    roles: list[str]
+    status: str
+
+
+class AuthenticationContextResponse(BaseModel):
+    """Minimal identity and tenant memberships for post-login portal routing."""
+
+    user_id: str
+    identifier: str
+    memberships: list[PortalMembershipContext]
+
+
 class TokenRequest(BaseModel):
     """Refresh token accepted by rotation and logout endpoints."""
 
     refresh_token: str = Field(min_length=1)
+
+
+class PasswordChangeRequest(BaseModel):
+    """Current and replacement password for an authenticated account."""
+
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
+
+
+class PasswordChangeResponse(BaseModel):
+    """Non-sensitive confirmation returned after a password change."""
+
+    message: str
+    revoked_refresh_sessions: int
 
 
 class RegistrationResponseModel(BaseModel):
@@ -116,6 +165,99 @@ async def login(
         subject=result.subject,
         access_token=result.access_token,
         refresh_token=result.refresh_token,
+    )
+
+
+@router.get("/context", response_model=AuthenticationContextResponse)
+async def get_authentication_context(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> AuthenticationContextResponse:
+    """Return only the caller's memberships for deterministic portal routing.
+
+    Active and invited memberships are included so the client can distinguish
+    staff workspaces, learner access, and invitations awaiting acceptance.
+    Public registration never assigns an organisation role; an empty list is
+    therefore a valid state for a newly registered applicant.
+    """
+    user = await session.get(User, principal.user_id)
+    if user is None:
+        raise BackboneError("account_unavailable", "Account is unavailable", 401)
+    rows = await session.execute(
+        select(Membership, Organization.name, Organization.slug)
+        .join(Organization, Organization.id == Membership.organization_id)
+        .where(
+            Membership.user_id == principal.user_id,
+            Membership.status.in_({"active", "invited"}),
+        )
+        .order_by(Organization.name, Membership.created_at)
+    )
+    memberships: list[PortalMembershipContext] = []
+    for membership, organization_name, organization_slug in rows.all():
+        memberships.append(
+            PortalMembershipContext(
+                membership_id=membership.id,
+                organization_id=membership.organization_id,
+                organization_name=organization_name,
+                organization_slug=organization_slug,
+                role=membership.role,
+                roles=sorted(await get_membership_roles(session, membership)),
+                status=membership.status,
+            )
+        )
+    return AuthenticationContextResponse(
+        user_id=user.id, identifier=user.identifier, memberships=memberships
+    )
+
+
+@router.post("/change-password", response_model=PasswordChangeResponse)
+async def change_password(
+    body: PasswordChangeRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PasswordChangeResponse:
+    """Change the password and invalidate every older access/refresh session.
+
+    Access JWTs issued before the change timestamp are rejected immediately.
+    """
+    user = await session.get(User, principal.user_id, with_for_update=True)
+    if user is None:
+        raise BackboneError("account_unavailable", "Account is unavailable", 401)
+    hasher = PasswordHasher()
+    if not hasher.verify(body.current_password, user.password_hash):
+        _audit_logger.info(
+            "identity_audit",
+            audit_action="password_change",
+            audit_outcome="failure",
+            subject=principal.user_id,
+        )
+        raise BackboneError("invalid_current_password", "Current password is incorrect", 400)
+    if body.current_password == body.new_password:
+        raise BackboneError("password_unchanged", "Choose a different password", 422)
+
+    user.password_hash = hasher.hash(body.new_password)
+    user.password_changed_at = datetime.now(UTC)
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.subject == principal.user_id,
+                RefreshToken.revoked.is_(False),
+            )
+            .values(revoked=True)
+        ),
+    )
+    await session.commit()
+    _audit_logger.info(
+        "identity_audit",
+        audit_action="password_change",
+        audit_outcome="success",
+        subject=principal.user_id,
+    )
+    return PasswordChangeResponse(
+        message="Password changed. Sign in again on your devices.",
+        revoked_refresh_sessions=max(int(result.rowcount or 0), 0),
     )
 
 

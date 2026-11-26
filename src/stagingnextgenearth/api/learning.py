@@ -607,12 +607,26 @@ async def decide_enrollment(
             )
         )
         if existing_membership is None:
+            learner_membership = Membership(
+                organization_id=organization_id,
+                user_id=learner_id,
+                role="learner",
+                status="active",
+            )
+            session.add(learner_membership)
+            await session.flush()
+            session.add(MembershipRole(membership_id=learner_membership.id, role="learner"))
             session.add(
-                Membership(
+                OrganizationAuditEvent(
                     organization_id=organization_id,
-                    user_id=learner_id,
-                    role="learner",
-                    status="active",
+                    actor_user_id=principal.user_id,
+                    subject_user_id=learner_id,
+                    action="membership.roles_changed",
+                    changes={
+                        "roles": {"before": [], "after": ["learner"]},
+                        "reason": "course_enrollment_approved",
+                        "course_id": course_id,
+                    },
                 )
             )
         elif existing_membership.status != "active" or not await membership_has_any_role(

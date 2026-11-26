@@ -25,6 +25,9 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     identifier: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -43,9 +46,7 @@ class ResearcherProfile(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -54,12 +55,8 @@ class ResearcherProfile(Base):
     affiliation: Mapped[str | None] = mapped_column(String(200), nullable=True)
     orcid: Mapped[str | None] = mapped_column(String(19), nullable=True)
     website_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    research_interests: Mapped[list[str]] = mapped_column(
-        JSON, nullable=False, default=list
-    )
-    visibility: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="private"
-    )
+    research_interests: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="private")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

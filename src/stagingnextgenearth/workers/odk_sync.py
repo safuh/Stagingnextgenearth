@@ -1,5 +1,6 @@
 """Scheduled ODK Central OData poller and climate-evidence importer."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -10,9 +11,12 @@ import httpx
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stagingnextgenearth.api.odk import ODKFieldMapping, _field, _required_text
+from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.core.odk_tls import odk_tls_verify
 from stagingnextgenearth.platform.models import (
     ClimateObservation,
     ODKConnection,
@@ -23,18 +27,50 @@ from stagingnextgenearth.platform.models import (
 
 logger = logging.getLogger("stagingnextgenearth.odk_sync")
 _PAGE_SIZE = 100
+_MAX_REQUEST_ATTEMPTS = 4
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _safe_central_error(exc: Exception) -> str:
+    """Classify Central failures without logging request data or credentials."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        messages = {
+            401: "Central rejected the integration credentials (HTTP 401)",
+            403: "Central denied access to the configured project or form (HTTP 403)",
+            404: "The configured Central project or form was not found (HTTP 404)",
+            410: "The Central pagination cursor expired and was reset (HTTP 410)",
+            429: "Central rate-limited the integration (HTTP 429)",
+        }
+        return messages.get(code, f"Central request failed (HTTP {code})")
+    if isinstance(exc, httpx.TimeoutException):
+        return "Central request timed out"
+    if isinstance(exc, httpx.RequestError):
+        return "Central could not be reached"
+    if isinstance(exc, InvalidToken):
+        return "Stored credentials could not be decrypted; check the ODK encryption key"
+    if isinstance(exc, ValidationError):
+        return "Configured form mapping is invalid"
+    return f"Sync validation failed ({type(exc).__name__})"
+
+
 _MAX_PAGES_PER_FORM = 10
 
 
 class ODKCentralClient:
     """Small Central API client using documented session auth and OData feeds."""
 
-    def __init__(self, base_url: str, email: str, password: str) -> None:
+    def __init__(
+        self, base_url: str, email: str, password: str, *, verify_tls: bool | None = None
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self._email = email
         self._password = password
+        tls_verify = True if verify_tls is None else verify_tls
         self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(30, connect=8), follow_redirects=False
+            timeout=httpx.Timeout(30, connect=8),
+            follow_redirects=False,
+            verify=tls_verify,
         )
         self._token: str | None = None
 
@@ -64,6 +100,36 @@ class ODKCentralClient:
                 logger.warning("ODK Central session revocation failed")
         await self._client.aclose()
 
+    async def _get_with_retry(
+        self,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        """Retry idempotent Central reads on transient transport/server failures."""
+        for attempt in range(_MAX_REQUEST_ATTEMPTS):
+            try:
+                response = await self._client.get(url, headers=self.headers, params=params)
+            except httpx.RequestError:
+                if attempt == _MAX_REQUEST_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(min(0.25 * (2**attempt), 2.0))
+                continue
+            if response.status_code not in _RETRYABLE_STATUS_CODES:
+                response.raise_for_status()
+                return response
+            if attempt == _MAX_REQUEST_ATTEMPTS - 1:
+                response.raise_for_status()
+            retry_after = response.headers.get("Retry-After", "")
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                delay = 0.25 * (2**attempt)
+            if not isfinite(delay) or delay < 0:
+                delay = 0.25 * (2**attempt)
+            await asyncio.sleep(min(delay, 10.0))
+        raise RuntimeError("ODK Central request retry loop exited unexpectedly")
+
     @property
     def headers(self) -> dict[str, str]:
         if not self._token:
@@ -71,10 +137,7 @@ class ODKCentralClient:
         return {"Authorization": f"Bearer {self._token}"}
 
     async def list_forms(self, project_id: int) -> list[dict[str, object]]:
-        response = await self._client.get(
-            f"{self.base_url}/v1/projects/{project_id}/forms", headers=self.headers
-        )
-        response.raise_for_status()
+        response = await self._get_with_retry(f"{self.base_url}/v1/projects/{project_id}/forms")
         payload = response.json()
         if not isinstance(payload, list):
             raise ValueError("ODK Central returned an invalid forms document")
@@ -88,8 +151,7 @@ class ODKCentralClient:
         params: dict[str, str] | None = {"$top": str(_PAGE_SIZE)} if cursor is None else None
         base_origin = urlsplit(self.base_url)
         for _ in range(_MAX_PAGES_PER_FORM):
-            response = await self._client.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
+            response = await self._get_with_retry(url, params=params)
             payload = response.json()
             if not isinstance(payload, dict) or not isinstance(payload.get("value"), list):
                 raise ValueError("ODK Central returned an invalid OData submissions page")
@@ -110,6 +172,146 @@ class ODKCentralClient:
         raise ValueError("ODK Central form exceeded the per-run pagination limit")
 
 
+def _source_provenance(data: dict[str, object]) -> dict[str, object]:
+    """Extract non-sensitive ODK system revision and lifecycle metadata."""
+    system = data.get("__system")
+    if not isinstance(system, dict):
+        return {}
+    provenance: dict[str, object] = {}
+    updated_at = system.get("updatedAt")
+    review_state = system.get("reviewState")
+    deleted_at = system.get("deletedAt")
+    if isinstance(updated_at, str) and updated_at.strip():
+        provenance["odk_source_updated_at"] = updated_at.strip()[:64]
+    if isinstance(review_state, str) and review_state.strip():
+        provenance["odk_source_review_state"] = review_state.strip()[:40]
+    if isinstance(deleted_at, str) and deleted_at.strip():
+        provenance["odk_source_deleted_at"] = deleted_at.strip()[:64]
+        provenance["odk_source_deleted"] = True
+    return provenance
+
+
+async def _persist_submission(
+    session: AsyncSession,
+    *,
+    connection: ODKConnection,
+    form_id: str,
+    data: dict[str, object],
+    mapping: ODKFieldMapping,
+) -> str:
+    """Validate and persist one row; caller supplies a row-level savepoint."""
+    instance_id = data.get("__id") or _field(data, "meta/instanceID") or data.get("instanceId")
+    if not isinstance(instance_id, str) or not instance_id.strip():
+        raise ValueError("submission has no ODK instance ID")
+    record_id = f"{form_id}:{instance_id.strip()}"
+    if len(record_id) > 200:
+        raise ValueError("form and instance identifier exceed the supported length")
+
+    existing = await session.scalar(
+        select(ClimateObservation).where(
+            ClimateObservation.organization_id == connection.organization_id,
+            ClimateObservation.provider_id == "odk-central",
+            ClimateObservation.provider_record_id == record_id,
+        )
+    )
+    provenance = _source_provenance(data)
+    if existing is not None:
+        metadata = dict(existing.metadata_json or {})
+        previous_updated_at = metadata.get("odk_source_updated_at")
+        incoming_updated_at = provenance.get("odk_source_updated_at")
+        if (
+            incoming_updated_at
+            and previous_updated_at
+            and incoming_updated_at != previous_updated_at
+        ):
+            metadata["odk_source_revision_detected"] = True
+        if provenance.get("odk_source_deleted"):
+            metadata["odk_source_deleted"] = True
+            metadata["odk_source_deleted_at"] = provenance["odk_source_deleted_at"]
+            metadata["odk_source_deletion_review_required"] = True
+        if provenance:
+            metadata.update(provenance)
+            existing.metadata_json = metadata
+        # Never overwrite the imported measurements or a human review decision
+        # from a changed source submission. A reviewer must reconcile revisions.
+        return "duplicate"
+
+    try:
+        observed_at = datetime.fromisoformat(
+            _required_text(data, mapping.observed_at, "observed_at")
+        )
+    except ValueError as exc:
+        raise ValueError("observed_at must be a valid ISO-8601 timestamp") from exc
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError("observed_at must include a timezone")
+
+    variable = _required_text(data, mapping.variable, "variable")
+    unit = _required_text(data, mapping.unit, "unit")
+    if len(variable) > 80 or len(unit) > 32:
+        raise ValueError("variable or unit exceeds the supported length")
+
+    try:
+        value = float(_required_text(data, mapping.value, "value"))
+        latitude = float(_required_text(data, mapping.latitude, "latitude"))
+        longitude = float(_required_text(data, mapping.longitude, "longitude"))
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("value, latitude and longitude must be numeric") from exc
+    if not all(isfinite(number) for number in (value, latitude, longitude)):
+        raise ValueError("numeric values must be finite")
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        raise ValueError("coordinates are outside valid WGS84 bounds")
+
+    project_id_value = _field(data, mapping.project_id) if mapping.project_id else None
+    study_id_value = _field(data, mapping.study_id) if mapping.study_id else None
+    project_id = str(project_id_value).strip() if project_id_value is not None else None
+    study_id = str(study_id_value).strip() if study_id_value is not None else None
+    if project_id is not None:
+        project = await session.scalar(
+            select(Project.id).where(
+                Project.id == project_id,
+                Project.organization_id == connection.organization_id,
+            )
+        )
+        if project is None:
+            raise ValueError("mapping references a project outside this organisation")
+    if study_id is not None:
+        study = await session.scalar(
+            select(ResearchStudy).where(
+                ResearchStudy.id == study_id,
+                ResearchStudy.organization_id == connection.organization_id,
+            )
+        )
+        if study is None or (project_id is not None and study.project_id not in {None, project_id}):
+            raise ValueError("mapping references an incompatible research study")
+
+    session.add(
+        ClimateObservation(
+            organization_id=connection.organization_id,
+            project_id=project_id,
+            study_id=study_id,
+            observed_at=observed_at.astimezone(UTC),
+            variable=variable,
+            value=value,
+            unit=unit,
+            latitude=latitude,
+            longitude=longitude,
+            source=f"ODK Central form {form_id}"[:160],
+            provider_id="odk-central",
+            provider_record_id=record_id,
+            quality_status="pending",
+            metadata_json={
+                "provider": "odk-central",
+                "form_id": form_id,
+                "instance_id": instance_id,
+                **provenance,
+            },
+            created_by=connection.created_by,
+        )
+    )
+    await session.flush()
+    return "imported"
+
+
 async def _persist_page(
     session: AsyncSession,
     *,
@@ -117,92 +319,40 @@ async def _persist_page(
     form_id: str,
     rows: list[dict[str, object]],
     mapping: ODKFieldMapping,
-) -> tuple[int, int]:
+) -> tuple[int, int, int, list[str]]:
+    """Import valid rows independently; malformed rows cannot poison a whole page."""
     imported = 0
     duplicates = 0
+    rejected = 0
+    row_errors: list[str] = []
     for index, data in enumerate(rows):
-        instance_id = data.get("__id") or _field(data, "meta/instanceID") or data.get("instanceId")
-        if not isinstance(instance_id, str) or not instance_id.strip():
-            raise ValueError(f"Submission row {index} has no ODK instance ID")
-        record_id = f"{form_id}:{instance_id.strip()}"
-        if len(record_id) > 200:
-            raise ValueError("ODK form and instance identifier exceed the supported length")
-        existing = await session.scalar(
-            select(ClimateObservation.id).where(
-                ClimateObservation.organization_id == connection.organization_id,
-                ClimateObservation.provider_id == "odk-central",
-                ClimateObservation.provider_record_id == record_id,
-            )
-        )
-        if existing is not None:
-            duplicates += 1
-            continue
-        observed_at = datetime.fromisoformat(
-            _required_text(data, mapping.observed_at, "observed_at")
-        )
-        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-            raise ValueError("ODK observation timestamp must include a timezone")
-        variable = _required_text(data, mapping.variable, "variable")
-        unit = _required_text(data, mapping.unit, "unit")
-        if len(variable) > 80 or len(unit) > 32:
-            raise ValueError("ODK variable or unit exceeds the supported length")
-        value = float(_required_text(data, mapping.value, "value"))
-        latitude = float(_required_text(data, mapping.latitude, "latitude"))
-        longitude = float(_required_text(data, mapping.longitude, "longitude"))
-        if not all(isfinite(number) for number in (value, latitude, longitude)):
-            raise ValueError("ODK numeric values must be finite")
-        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-            raise ValueError("ODK coordinates are outside valid bounds")
-        project_id_value = _field(data, mapping.project_id) if mapping.project_id else None
-        study_id_value = _field(data, mapping.study_id) if mapping.study_id else None
-        project_id = str(project_id_value).strip() if project_id_value is not None else None
-        study_id = str(study_id_value).strip() if study_id_value is not None else None
-        if project_id is not None:
-            project = await session.scalar(
-                select(Project.id).where(
-                    Project.id == project_id,
-                    Project.organization_id == connection.organization_id,
+        try:
+            async with session.begin_nested():
+                outcome = await _persist_submission(
+                    session,
+                    connection=connection,
+                    form_id=form_id,
+                    data=data,
+                    mapping=mapping,
                 )
-            )
-            if project is None:
-                raise ValueError("ODK mapping references a project outside this organisation")
-        if study_id is not None:
-            study = await session.scalar(
-                select(ResearchStudy).where(
-                    ResearchStudy.id == study_id,
-                    ResearchStudy.organization_id == connection.organization_id,
-                )
-            )
-            if study is None or (
-                project_id is not None and study.project_id not in {None, project_id}
-            ):
-                raise ValueError("ODK mapping references an incompatible research study")
-        session.add(
-            ClimateObservation(
-                organization_id=connection.organization_id,
-                project_id=project_id,
-                study_id=study_id,
-                observed_at=observed_at.astimezone(UTC),
-                variable=variable,
-                value=value,
-                unit=unit,
-                latitude=latitude,
-                longitude=longitude,
-                source=f"ODK Central form {form_id}"[:160],
-                provider_id="odk-central",
-                provider_record_id=record_id,
-                quality_status="pending",
-                metadata_json={
-                    "provider": "odk-central",
-                    "form_id": form_id,
-                    "instance_id": instance_id,
-                },
-                created_by=connection.created_by,
-            )
-        )
-        imported += 1
-    await session.flush()
-    return imported, duplicates
+            if outcome == "duplicate":
+                duplicates += 1
+            else:
+                imported += 1
+        except (ValueError, TypeError, OverflowError, ValidationError, IntegrityError) as exc:
+            rejected += 1
+            if isinstance(exc, IntegrityError):
+                reason = "record violates a data integrity constraint"
+            elif isinstance(exc, ValidationError):
+                reason = "configured field mapping is invalid"
+            elif isinstance(exc, TypeError):
+                reason = "field has an unexpected data type"
+            elif isinstance(exc, OverflowError):
+                reason = "numeric value is outside the supported range"
+            else:
+                reason = str(exc)[:180]
+            row_errors.append(f"row {index + 1}: {reason}")
+    return imported, duplicates, rejected, row_errors
 
 
 async def sync_odk_connection(
@@ -228,13 +378,29 @@ async def sync_odk_connection(
         )
         session.add(run)
         await session.flush()
-        totals = {"forms": 0, "received": 0, "imported": 0, "duplicates": 0, "errors": 0}
+        totals = {
+            "forms": 0,
+            "received": 0,
+            "imported": 0,
+            "duplicates": 0,
+            "rejected": 0,
+            "errors": 0,
+        }
         errors: list[str] = []
         try:
             password = cipher.decrypt(connection.encrypted_password.encode()).decode()
-            async with ODKCentralClient(
-                connection.base_url, connection.account_email, password
-            ) as central:
+            verify_tls = odk_tls_verify(connection.base_url, get_settings())
+            central_client = (
+                ODKCentralClient(
+                    connection.base_url,
+                    connection.account_email,
+                    password,
+                    verify_tls=False,
+                )
+                if not verify_tls
+                else ODKCentralClient(connection.base_url, connection.account_email, password)
+            )
+            async with central_client as central:
                 forms = await central.list_forms(connection.project_id)
                 available = {
                     str(form.get("xmlFormId")): form
@@ -255,16 +421,20 @@ async def sync_odk_connection(
                             connection.form_cursors.get(form_id),
                         ):
                             totals["received"] += len(page)
-                            async with session.begin_nested():
-                                imported, duplicates = await _persist_page(
-                                    session,
-                                    connection=connection,
-                                    form_id=form_id,
-                                    rows=page,
-                                    mapping=mapping,
-                                )
+                            imported, duplicates, rejected, row_errors = await _persist_page(
+                                session,
+                                connection=connection,
+                                form_id=form_id,
+                                rows=page,
+                                mapping=mapping,
+                            )
                             totals["imported"] += imported
                             totals["duplicates"] += duplicates
+                            totals["rejected"] += rejected
+                            totals["errors"] += rejected
+                            errors.extend(
+                                f"Form {form_id[:80]} {message}" for message in row_errors
+                            )
                             updated_cursors = dict(connection.form_cursors)
                             if next_cursor is None:
                                 updated_cursors.pop(form_id, None)
@@ -288,7 +458,9 @@ async def sync_odk_connection(
                             updated_cursors.pop(form_id, None)
                             connection.form_cursors = updated_cursors
                         totals["errors"] += 1
-                        errors.append(f"Form {form_id[:80]} sync failed ({type(exc).__name__})")
+                        errors.append(
+                            f"Form {form_id[:80]} sync failed: {_safe_central_error(exc)}"
+                        )
                         logger.warning(
                             "ODK form sync failed: form=%s error_type=%s",
                             form_id,
@@ -296,7 +468,7 @@ async def sync_odk_connection(
                         )
             run.status = (
                 "failed"
-                if totals["errors"] and not totals["imported"]
+                if totals["errors"] and not totals["imported"] and not totals["duplicates"]
                 else "partial"
                 if totals["errors"]
                 else "succeeded"
@@ -304,7 +476,7 @@ async def sync_odk_connection(
         except (InvalidToken, UnicodeDecodeError, httpx.HTTPError, ValueError) as exc:
             run.status = "failed"
             totals["errors"] += 1
-            errors.append(f"Connection sync failed ({type(exc).__name__})")
+            errors.append(f"Connection sync failed: {_safe_central_error(exc)}")
             logger.warning(
                 "ODK connection sync failed: connection=%s error_type=%s",
                 connection_id,
@@ -314,6 +486,7 @@ async def sync_odk_connection(
         run.submissions_received = totals["received"]
         run.observations_imported = totals["imported"]
         run.duplicates_skipped = totals["duplicates"]
+        run.rejected_count = totals["rejected"]
         run.error_count = totals["errors"]
         run.error_summary = "; ".join(errors)[:500] if errors else None
         run.completed_at = datetime.now(UTC)
@@ -321,12 +494,20 @@ async def sync_odk_connection(
         connection.last_sync_status = run.status
         connection.last_sync_message = run.error_summary
         await session.commit()
+        if run.status != "succeeded":
+            logger.warning(
+                "ODK sync completed with issues: connection=%s status=%s errors=%s",
+                connection_id,
+                run.status,
+                run.error_count,
+            )
         return {
             "status": run.status,
             "forms": totals["forms"],
             "received": totals["received"],
             "imported": totals["imported"],
             "duplicates": totals["duplicates"],
+            "rejected": totals["rejected"],
             "errors": totals["errors"],
         }
 

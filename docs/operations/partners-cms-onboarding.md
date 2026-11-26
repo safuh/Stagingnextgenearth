@@ -81,3 +81,9 @@ An administrator can invite an existing portal account using its registered iden
 - Do not place personal phone numbers, private email addresses, HR files or safeguarding records in public CMS fields.
 - Use the public website feed only for approved content and explicitly public partner/person records.
 - Archive or make a record private when it is no longer current; do not rely on hiding it in the frontend.
+
+The repository regression test runs the loader twice against an isolated SQLite database and verifies idempotency, that it creates directory records rather than login accounts, and that people remain private/pending, partners remain private/unverified prospects, and CMS/programme records remain drafts:
+
+```bash
+uv run pytest -q tests/test_seed_nextgen_demo.py
+```

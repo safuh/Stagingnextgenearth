@@ -141,6 +141,7 @@ These foundation checks must continue passing as product code is added.
 - [x] Public learner course applications without pre-existing membership, with approval-created learner membership and caller-scoped application status.
 - [x] Public organisation identity endpoint so learner application history loads even when no course is currently published.
 - [x] Staff and partner invitation acceptance bound to the invited account; staff membership alone does not grant access to learner curriculum without an approved enrollment.
+- [x] Authenticated self-service password change with current-password verification, Argon2 rehashing, and revocation of all outstanding refresh sessions; immediate access-JWT revocation via a persisted password-change timestamp and high-resolution issuance claim; verified email recovery remains an explicit launch follow-up.
 
 ## M7 — Organisation directory, integrations and organisational intelligence
 
@@ -178,7 +179,7 @@ These foundation checks must continue passing as product code is added.
 - [x] PostgreSQL/PostGIS integration and migration CI (PostgreSQL 17/PostGIS 3.5 service; migration upgrade, schema assertions, downgrade and re-upgrade are exercised).
 - [ ] API integration suite and frontend BFF policy unit tests run in CI; browser end-to-end coverage and broader interaction tests remain.
 - [ ] Security review, privacy impact assessment and safeguarding review.
-- [ ] Backups, restore drills, retention and deletion policies.
+- [x] Documented PostgreSQL logical backup procedure, archive validation, checksum and isolated restore-drill procedure; scheduled/off-site execution, object-storage recovery, retention approval and a successful production-like restore drill remain pending.
 - [ ] Observability, alerting and operational runbooks.
 - [ ] Deployment environments, secrets management and disaster recovery.
 - [ ] Stakeholder acceptance testing with representative portal users.
@@ -346,8 +347,8 @@ These foundation checks must continue passing as product code is added.
 ## M85 — ODK field-operations acceptance and reliability (in progress)
 
 - Validate against a dedicated ODK Central test project with representative forms, submissions, pagination and credential rotation.
-- Add operational alerts for repeated sync failures, stale cursors and disabled/expired Central accounts.
-- Add a documented key-rotation procedure that preserves or re-encrypts existing connection credentials.
+- [x] Add operational alerts for repeated sync failures, stale cursors and disabled/expired Central accounts.
+- [x] Add a transactional key-rotation procedure that preserves/re-encrypts existing connection credentials.
 - Keep imported observations pending until the independent climate-review workflow approves them.
 
 ## M86 — Staging and release readiness hardening (in progress)
@@ -357,7 +358,7 @@ These foundation checks must continue passing as product code is added.
 - Added regression tests for valid and invalid production environment configurations.
 - Updated the production deployment script to validate the exact environment file, check Compose interpolation, apply migrations once and report service logs on failed readiness.
 - Added founder demo and staging acceptance guidance covering governance, learning, ODK, climate, CMS, funding and security.
-- Verified locally: backend suite 241 passed / 4 skipped; ODK and production-env regression set 9 passed; Ruff and Mypy passed.
+- Verified locally: backend suite 246 passed / 4 skipped; ODK and production-environment regression set 9 passed; Ruff and Mypy passed.
 - Verified locally: frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 25 static pages and completed standalone tracing.
 - Verified local, production, ODK and scanning Compose configurations; the ODK profile activates `odk-sync`.
 - Verified the Docker smoke against PostgreSQL 17/PostGIS: API and database containers started, migrations `0001` through `0060` applied, and liveness/readiness both returned HTTP 200. Containers/network were removed; the named smoke database volume was retained.
@@ -365,9 +366,69 @@ These foundation checks must continue passing as product code is added.
 - Do not declare production launch-ready until the remaining operational prerequisites are evidenced.
 
 
-## M87 — Funding and grant management (planned)
+## M87 — Funding and grant management (implemented; local verification passed)
 
-- Add tenant-scoped funding opportunities, grant/award records and donor registers.
-- Track budgets and budget lines, pledges, commitments, restrictions, expenditure and reporting deadlines.
-- Add approval/audit history, role-based access and safe CSV reporting.
-- Do not add payment processing, checkout, card capture, bank integrations or payment-provider APIs.
+- [x] Add tenant-scoped funding opportunities and grant/award records with donor/funder details.
+- [x] Track budget lines, pledges, commitments, expenditure, restrictions and reporting deadlines.
+- [x] Enforce award/budget ceilings, tenant-safe references, administrator-only access and append-only audit events.
+- [x] Provide per-award funding summaries and formula-safe private CSV export without cross-currency aggregation.
+- [x] Add an administrator funding workspace for opportunity/award creation, budget allocation and ledger entry.
+- [x] Explicitly exclude payment processing, checkout, card capture, bank integrations, transfers and payment-provider APIs.
+- [x] Backend suite: 247 passed, 4 skipped; funding-specific regression rerun after audit-action correction.
+- [x] Ruff and Mypy passed (87 source files); `git diff --check` passed.
+- [x] Frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 26 routes/pages.
+- [x] PostgreSQL 17/PostGIS Docker smoke passed: API liveness/readiness returned HTTP 200 and migration head reached `0061_funding_register`.
+- [x] Migration rollback from `0061_funding_register` to `0060_odk_form_cursors` and re-upgrade to `0061_funding_register` both succeeded.
+- Remaining external acceptance: validate funding workflows with the founder/finance owner, real ODK Central test-project sync, production backup/restore, monitoring/alerting, HTTPS/CORS review and data-protection sign-off.
+
+
+## M88 — ODK operational reliability and credential rotation (implemented; external acceptance pending)
+
+- [x] Add a manager-only ODK operations endpoint for stale workers/cursors, repeated failures, disabled connections and Central 401/403 access failures.
+- [x] Classify Central HTTP failures without persisting response bodies, credentials, request URLs or submission contents.
+- [x] Surface actionable operational alerts in the ODK research workspace.
+- [x] Add transactional Fernet key rotation with dry-run verification and all-or-nothing rollback on undecryptable credentials.
+- [x] Document local and production key-rotation sequencing, worker shutdown, backup and post-rotation verification.
+- [x] ODK regression set: 12 passed; the strengthened all-or-nothing key-rotation tests re-ran separately (3 passed).
+- [x] Ruff and Mypy passed (88 source files); `git diff --check` passed.
+- [x] Frontend typecheck, ESLint and 5 unit tests passed; Next.js production build generated all 26 routes/pages.
+- [ ] Validate form discovery, a real submission sync, pagination recovery, duplicate handling and credential rotation against the organisation's dedicated ODK Central test project.
+- [ ] Confirm staging alert visibility and agree an external notification/incident owner.
+
+
+## M93 — Local ODK Central without a work mailbox (implemented; live execution pending)
+
+- [x] Add a reproducible helper to clone and configure the official ODK Central stable stack locally with self-signed TLS and non-conflicting host ports.
+- [x] Add CLI-based local administrator bootstrap using the reserved `@example.test` login; the documented Central CLI flow sets the password directly and does not require an invitation or password-reset mailbox.
+- [x] Add an explicit local-only TLS verification override for self-signed Central; reject insecure TLS configuration in production and reject the override for non-local Central hostnames.
+- [x] Add CI shell syntax checks and regression tests for local-only TLS policy.
+- [ ] Run the Central stack on the development workstation, create the local project and synthetic form, and validate login, project discovery, OData pagination and one full NextGen sync.
+- [ ] Keep hosted/staging Central acceptance separate; it still requires a real domain, trusted TLS and a real operational mailbox for account verification and recovery.
+
+## M94 — Reproducible ODK climate-observation demo (assets implemented; live Central acceptance pending)
+
+- [x] Add a Central-uploadable XLSForm with climate variable, numeric value/unit, timestamp, decimal WGS84 coordinates and non-personal site code.
+- [x] Add synthetic OData submission fixtures aligned to the worker field contract and ODK __id identifier.
+- [x] Document local project creation, draft preview/publication, least-privilege integration identity, field mapping, sync, duplicate suppression, pending review and credential revocation.
+- [x] Add an asset validator and execute it in the operations-scripts CI job.
+- [ ] Run local Central, upload and publish the form, submit synthetic records, and verify full NextGen sync and second-run idempotency.
+- [ ] Keep hosted/staging acceptance separate until trusted TLS, operational email and a dedicated non-production Central project are available.
+
+
+## M95 — ODK row-level validation and durable import diagnostics
+
+- [x] Validate each ODK submission in an isolated database savepoint so malformed rows do not roll back valid neighbours.
+- [x] Validate timezone-aware ISO timestamps, finite numeric readings, WGS84 coordinate bounds, and organisation-scoped project/study mappings.
+- [x] Keep raw submission content and credential material out of diagnostic summaries.
+- [x] Persist rejected-row counts in ODK sync history and expose them in the research ODK workspace.
+- [x] Test mixed valid/invalid pages, cursor continuation, and replay deduplication.
+- [ ] Complete the full ODK integration regression suite and GitHub CI matrix.
+- [ ] Verify the same behaviour against a running local ODK Central project; Docker image availability and live Central acceptance remain external prerequisites.
+
+## M96 — ODK source revision and deletion provenance
+
+- [x] Capture ODK Central `__system.updatedAt`, `reviewState` and `deletedAt` metadata on imported climate observations without storing raw submission payloads.
+- [x] Detect changed source revisions on replay and flag them for reviewer reconciliation instead of overwriting scientific measurements or existing human verification decisions.
+- [x] Preserve source-deletion evidence and mark it as requiring reviewer reconciliation; never silently delete the NextGen observation.
+- [x] Add regression coverage for revised source records, verified-record preservation and deletion metadata extraction.
+- [ ] Complete full CI and validate lifecycle metadata against the locally running ODK Central stack; Central version and actual form behaviour remain external acceptance checks.

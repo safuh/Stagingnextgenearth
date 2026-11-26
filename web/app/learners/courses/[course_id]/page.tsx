@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPost, restoreSession } from "@/lib/api";
+import { apiGet, apiPost, clearSession, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 interface Lesson {
@@ -225,7 +225,10 @@ export default function LearnerClassroomPage() {
     <main className="workspace-shell">
       <header className="workspace-topbar">
         <Link className="brand" href="/">NextGen For Earth</Link>
-        <Link className="secondary-action" href="/learners">My learning</Link>
+        <nav className="learner-top-nav" aria-label="Classroom navigation">
+          <Link className="secondary-action" href="/learners">My learning</Link>
+          <button className="workspace-signout" type="button" onClick={() => { clearSession(); window.location.assign("/learners"); }}>Sign out</button>
+        </nav>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">LEARNER CLASSROOM</p>

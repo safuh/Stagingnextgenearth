@@ -1,0 +1,6 @@
+{
+ "value": [
+  {"__id":"uuid:nextgen-demo-0001","__system":{"submissionDate":"2026-11-20T06:30:00.000Z","submitterId":1},"site_code":"KSI-DEMO-001","observed_at":"2026-11-20T09:20:00+03:00","measurement":"rainfall","value":12.5,"unit":"mm","latitude":-0.681,"longitude":34.767,"quality_note":"Synthetic demo record; not a field observation."},
+  {"__id":"uuid:nextgen-demo-0002","__system":{"submissionDate":"2026-11-20T07:00:00.000Z","submitterId":1},"site_code":"KSI-DEMO-002","observed_at":"2026-11-20T10:00:00+03:00","measurement":"air_temperature","value":24.3,"unit":"degC","latitude":-0.694,"longitude":34.752,"quality_note":"Synthetic demo record; not a field observation."}
+ ]
+}

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
+import { expectedRequestOrigin, isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
 const API_BASE = (
   process.env.BACKEND_API_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://127.0.0.1:8000/api"
+  (process.env.BACKEND_API_HOSTPORT
+    ? `http://${process.env.BACKEND_API_HOSTPORT}/api`
+    : process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api")
 ).replace(/\/$/, "");
 const ACCESS_COOKIE = "nfe_access";
 const REFRESH_COOKIE = "nfe_refresh";
@@ -100,7 +101,7 @@ function rotateRefreshToken(refreshToken: string): Promise<Tokens | null> {
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), expectedRequestOrigin(request.headers, request.nextUrl.origin))) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 

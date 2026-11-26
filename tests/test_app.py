@@ -129,3 +129,16 @@ def test_production_requires_https_public_base_url() -> None:
             jwt_secret_key="a" * 48,
             public_base_url="http://nextgenforearth.org",
         )
+
+
+def test_openapi_operation_ids_are_unique() -> None:
+    app = create_app(make_settings())
+    schema = app.openapi()
+    operation_ids = [
+        operation["operationId"]
+        for methods in schema["paths"].values()
+        for method, operation in methods.items()
+        if method in {"get", "post", "put", "patch", "delete", "options", "head"}
+        and "operationId" in operation
+    ]
+    assert len(operation_ids) == len(set(operation_ids))

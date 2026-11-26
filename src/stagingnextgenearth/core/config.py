@@ -3,7 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field, SecretStr, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     object_storage_secret_access_key: SecretStr | None = None
     malware_scanning_enabled: bool = False
     odk_encryption_key: SecretStr | None = None
+    odk_tls_verify: bool = True
     clamav_host: str | None = None
     clamav_port: int = Field(default=3310, ge=1, le=65535)
     clamav_timeout_seconds: float = Field(default=30, gt=0, le=300)
@@ -74,9 +75,22 @@ class Settings(BaseSettings):
         default_factory=lambda: ["Authorization", "Content-Type", "X-Request-ID"]
     )
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_postgres_url(cls, value: object) -> object:
+        """Accept Render's standard Postgres URL and adapt it to asyncpg."""
+        if isinstance(value, str):
+            if value.startswith("postgres://"):
+                return "postgresql+asyncpg://" + value.removeprefix("postgres://")
+            if value.startswith("postgresql://"):
+                return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+        return value
+
     @model_validator(mode="after")
     def validate_profile(self) -> "Settings":
         if self.environment is Environment.PRODUCTION:
+            if not self.odk_tls_verify:
+                raise ValueError("ODK_TLS_VERIFY must remain true in production")
             if self.debug:
                 raise ValueError("debug must be false in production")
             if not self.database_url.startswith("postgresql+asyncpg://"):

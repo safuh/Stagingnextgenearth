@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env
+.PHONY: install test lint typecheck check run prod migrate migrate-up migrate-down migrate-current migrate-history bootstrap docker-up docker-down docker-test docker-prod run-odk-sync web-check release-check validate-production-env staging founder-preflight
 
 install:
 	uv sync --extra dev
@@ -63,3 +63,11 @@ release-check: check web-check docker-test
 	docker compose --env-file .env.production.example -f docker/compose.production.yml config --quiet
 	docker compose --env-file .env.production.example --profile odk -f docker/compose.production.yml config --quiet
 	docker compose --env-file .env.production.example --profile scanning -f docker/compose.production.yml config --quiet
+
+# Dedicated staging project; uses .env.staging and never removes database volumes.
+staging:
+	bash scripts/docker-staging.sh
+
+# Read-only API/web/owner/public-feed checks; requires FOUNDER_* and ORGANIZATION_SLUG.
+founder-preflight:
+	uv run python scripts/verify_founder_demo.py

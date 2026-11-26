@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -37,8 +38,11 @@ async def get_current_principal(
 ) -> Principal:
     """Validate an access JWT and ensure its subject is still an active user."""
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     secret = request.app.state.settings.jwt_secret_key
     if secret is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Authentication is not configured")
@@ -48,13 +52,36 @@ async def get_current_principal(
         )
         subject = claims["sub"]
     except (TokenError, KeyError, TypeError) as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid access token",
-                            headers={"WWW-Authenticate": "Bearer"}) from exc
-    user = await session.scalar(select(User.id).where(User.id == subject))
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Invalid access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    user = await session.scalar(select(User).where(User.id == subject))
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account is unavailable",
-                            headers={"WWW-Authenticate": "Bearer"})
-    return Principal(user_id=user)
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Account is unavailable",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.password_changed_at is not None:
+        changed_at = user.password_changed_at
+        if changed_at.tzinfo is None:
+            changed_at = changed_at.replace(tzinfo=UTC)
+        elapsed = changed_at.astimezone(UTC) - datetime(1970, 1, 1, tzinfo=UTC)
+        changed_at_us = (elapsed.days * 86_400 + elapsed.seconds) * 1_000_000 + elapsed.microseconds
+        issued_at_us = claims.get("iat_us")
+        if (
+            isinstance(issued_at_us, bool)
+            or not isinstance(issued_at_us, int)
+            or issued_at_us < changed_at_us
+        ):
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                "Session expired after an account security change",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    return Principal(user_id=user.id)
 
 
 async def get_membership_roles(
@@ -67,9 +94,7 @@ async def get_membership_roles(
     remain authorization-compatible while role assignments are migrated.
     """
     assigned = await session.scalars(
-        select(MembershipRole.role).where(
-            MembershipRole.membership_id == membership.id
-        )
+        select(MembershipRole.role).where(MembershipRole.membership_id == membership.id)
     )
     return frozenset({membership.role, *assigned.all()})
 
@@ -102,4 +127,3 @@ async def require_membership(
         # Avoid disclosing whether an inaccessible tenant exists.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Organisation not found")
     return membership
-

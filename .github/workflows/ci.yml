@@ -115,3 +115,17 @@ jobs:
       - name: Build production web container
         working-directory: .
         run: docker build -f web/Dockerfile -t nextgen-for-earth-web:${{ github.sha }} .
+
+  operations-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PostgreSQL backup scripts
+        shell: bash
+        run: |
+          bash -n scripts/backup_postgres.sh tests/test_backup_postgres.sh scripts/validate_nginx_edge.sh scripts/setup_odk_central_local.sh scripts/bootstrap_odk_central_local_admin.sh
+          bash tests/test_backup_postgres.sh
+          python -m pip install --quiet openpyxl
+          python scripts/validate_odk_climate_demo.py
+      - name: Validate Nginx edge configuration
+        run: ./scripts/validate_nginx_edge.sh

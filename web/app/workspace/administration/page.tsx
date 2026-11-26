@@ -151,11 +151,28 @@ export default function AdministrationPage() {
         <Link className="brand" href="/workspace"><span className="brand-mark">N</span><span>nextgen<span className="brand-light">for</span>earth</span></Link>
         <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
       </header>
-      <section className="workspace-content">
-        <p className="eyebrow">ORGANISATION GOVERNANCE</p>
-        <h1 className="workspace-title">Administration <em>workspace.</em></h1>
-        <p className="workspace-muted">Manage membership access, roles, ownership and the organisation audit trail.</p>
-        <p><Link className="secondary-action" href="/workspace/administration/overview">Executive overview →</Link> · <Link className="secondary-action" href="/workspace/administration/people">Manage people directory →</Link> · <Link className="secondary-action" href="/workspace/administration/partners">Manage partners →</Link> · <Link className="secondary-action" href="/workspace/administration/content">CMS review queue →</Link> · <Link className="secondary-action" href="/workspace/administration/applications">Review volunteer applications →</Link> · <Link className="secondary-action" href="/workspace/administration/employment-applications">Review employee applications →</Link></p>
+      <section className="workspace-content admin-workspace-content">
+        <div className="admin-page-heading">
+          <div>
+            <p className="eyebrow">ORGANISATION GOVERNANCE</p>
+            <h1 className="workspace-title">Administration <em>workspace.</em></h1>
+            <p className="workspace-muted">A single control centre for people, partnerships, programmes, content and organisational accountability.</p>
+          </div>
+          <Link className="admin-back-link" href="/workspace">← Workspace home</Link>
+        </div>
+        <div className="admin-navigation-heading">
+          <div><p className="eyebrow">MANAGEMENT AREAS</p><h2>Organisation operations</h2></div>
+          <span>Choose an area to manage</span>
+        </div>
+        <nav className="admin-section-nav" aria-label="Administration sections">
+          <Link className="admin-section-link" href="/workspace/administration/overview"><span className="admin-section-number">01</span><span className="admin-section-copy"><strong>Executive overview</strong><small>Governance snapshot and reporting</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/people"><span className="admin-section-number">02</span><span className="admin-section-copy"><strong>People directory</strong><small>Profiles, roles and team records</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/partners"><span className="admin-section-number">03</span><span className="admin-section-copy"><strong>Institutional partners</strong><small>Partner records and verification</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/funding"><span className="admin-section-number">04</span><span className="admin-section-copy"><strong>Funding management</strong><small>Funding opportunities and records</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/content"><span className="admin-section-number">05</span><span className="admin-section-copy"><strong>Website and CMS</strong><small>Editorial drafts and review queue</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/applications"><span className="admin-section-number">06</span><span className="admin-section-copy"><strong>Volunteer applications</strong><small>Review and manage applications</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+          <Link className="admin-section-link" href="/workspace/administration/employment-applications"><span className="admin-section-number">07</span><span className="admin-section-copy"><strong>Employment applications</strong><small>Recruitment and applicant review</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
+        </nav>
         {organizations.length > 1 && <label className="admin-org-picker">Organisation<select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}

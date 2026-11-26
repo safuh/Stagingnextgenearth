@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOriginMutation, parseTokenPair } from "@/lib/session-policy";
+import { expectedRequestOrigin, isSameOriginMutation, parseTokenPair } from "@/lib/session-policy";
 
 export const dynamic = "force-dynamic";
 
 const API_BASE = (
   process.env.BACKEND_API_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://127.0.0.1:8000/api"
+  (process.env.BACKEND_API_HOSTPORT
+    ? `http://${process.env.BACKEND_API_HOSTPORT}/api`
+    : process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api")
 ).replace(/\/$/, "");
 
 function cookieOptions(maxAge: number) {
@@ -20,7 +21,7 @@ function cookieOptions(maxAge: number) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSameOriginMutation(request.method, request.headers.get("origin"), request.nextUrl.origin)) {
+  if (!isSameOriginMutation(request.method, request.headers.get("origin"), expectedRequestOrigin(request.headers, request.nextUrl.origin))) {
     return NextResponse.json({ detail: "Cross-origin request rejected" }, { status: 403 });
   }
 
@@ -34,12 +35,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ detail: "Identifier and password are required" }, { status: 422 });
   }
 
-  const upstream = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(credentials),
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(credentials),
+      cache: "no-store",
+    });
+  } catch {
+    return NextResponse.json({ detail: "Authentication service is temporarily unavailable." }, { status: 502 });
+  }
   const payload: unknown = await upstream.json().catch(() => null);
   const tokenPair = parseTokenPair(payload);
   const subject = typeof payload === "object" && payload !== null && !Array.isArray(payload)

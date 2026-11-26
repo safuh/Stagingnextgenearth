@@ -291,14 +291,16 @@ export default function ProgrammeAdminPage() {
     } finally { setBusy(false); }
   }
 
-  async function run(label: string, work: () => Promise<unknown>) {
+  async function run(label: string, work: () => Promise<unknown>): Promise<boolean> {
     setBusy(true); setError(""); setNotice("");
     try {
       await work();
       await load(organizationId);
       setNotice(label);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The programme operation failed.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -308,11 +310,11 @@ export default function ProgrammeAdminPage() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    await run("Programme draft created.", () => apiPost(`/organizations/${organizationId}/programmes`, {
+    const created = await run("Programme draft created.", () => apiPost(`/organizations/${organizationId}/programmes`, {
       title: data.get("title"), slug: data.get("slug"), summary: data.get("summary") || null,
       start_date: data.get("start_date") || null, end_date: data.get("end_date") || null,
     }));
-    form.reset();
+    if (created) form.reset();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -330,6 +332,12 @@ export default function ProgrammeAdminPage() {
   }
 
   const selected = programmes.find((item) => item.id === selectedId) ?? null;
+  const programmeCounts = {
+    total: programmes.length,
+    active: programmes.filter((item) => item.status === "active").length,
+    planned: programmes.filter((item) => item.status === "planned").length,
+    completed: programmes.filter((item) => item.status === "completed").length,
+  };
   if (loading) return <main className="workspace-shell"><p>Loading programme administration…</p></main>;
 
   return (
@@ -342,6 +350,20 @@ export default function ProgrammeAdminPage() {
         <p className="eyebrow">PROGRAMME GOVERNANCE</p>
         <h1 className="workspace-title">Programme <em>management.</em></h1>
         <p className="workspace-muted">Create programmes, maintain catalogue metadata, control lifecycle transitions and inspect linked projects.</p>
+        <div className="staff-actions" aria-label="Programme workspace actions">
+          <button className="secondary-action" disabled={busy || !organizationId} onClick={() => {
+            setBusy(true); setError(""); setNotice("");
+            load(organizationId).then(() => setNotice("Programme records refreshed."))
+              .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to refresh programmes."))
+              .finally(() => setBusy(false));
+          }}>{busy ? "Working…" : "Refresh records"}</button>
+        </div>
+        <div className="staff-grid" aria-label="Programme portfolio summary">
+          <article className="staff-card"><small>Total programmes</small><strong>{programmeCounts.total}</strong></article>
+          <article className="staff-card"><small>Active</small><strong>{programmeCounts.active}</strong></article>
+          <article className="staff-card"><small>Planned</small><strong>{programmeCounts.planned}</strong></article>
+          <article className="staff-card"><small>Completed</small><strong>{programmeCounts.completed}</strong></article>
+        </div>
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         <div className="staff-grid">
