@@ -147,6 +147,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             f"{org_base}/climate-public-releases", headers=author
         ).json() == []
 
+        mismatched_area = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={**_release_payload(), "geography_label": "Busia County, Kenya"},
+        )
+        assert mismatched_area.status_code == 422
+        mismatched_class = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={**_release_payload(), "data_class": "reanalysis"},
+        )
+        assert mismatched_class.status_code == 422
+
         created = client.post(
             f"{org_base}/climate-public-releases",
             headers=author,
