@@ -85,7 +85,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 "assessments": len(assessments),
                 "assessments_automated": all(
                     item.assessment_type == "quiz"
-                    and len((item.configuration or {}).get("questions", [])) == 3
+                    and len((item.configuration or {}).get("questions", [])) == 4
                     for item in assessments
                 ),
                 "lessons_substantive": all(
