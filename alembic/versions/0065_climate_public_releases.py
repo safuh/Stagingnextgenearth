@@ -1,8 +1,9 @@
 # ruff: noqa: E501
 """Add governed public climate release records and lifecycle events."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0065_climate_public_releases"
 down_revision = "0064_membership_invite_audit"
