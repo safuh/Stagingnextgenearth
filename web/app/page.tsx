@@ -23,6 +23,42 @@ const partnerLogos: Record<string, string> = {
 };
 
 
+function AnimatedMetric({ value }: { value: string }) {
+  const nodeRef = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(value);
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    const match = value.match(/^(\\D*?)([\\d,]+)(\\D*)$/);
+    if (!match) { setDisplay(value); return; }
+    const target = Number(match[2].replaceAll(",", ""));
+    if (!Number.isFinite(target) || target <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(value); return;
+    }
+    const prefix = match[1], suffix = match[3];
+    let frame = 0;
+    let start = 0;
+    let observer: IntersectionObserver | undefined;
+    const animate = (now: number) => {
+      if (!start) start = now;
+      const progress = Math.min((now - start) / 1450, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      const current = Math.round(target * eased);
+      setDisplay(prefix + current.toLocaleString("en-US") + suffix);
+      if (progress < 1) frame = window.requestAnimationFrame(animate);
+    };
+    observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        observer?.disconnect();
+        frame = window.requestAnimationFrame(animate);
+      }
+    }, { threshold: 0.35 });
+    observer.observe(node);
+    return () => { observer?.disconnect(); window.cancelAnimationFrame(frame); };
+  }, [value]);
+  return <span ref={nodeRef} className="animated-metric" aria-label={value}>{display}</span>;
+}
+
 function LetterHeading({ text, className = "" }: { text: string; className?: string }) {
   const headingRef = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(false);
@@ -192,7 +228,7 @@ export default function HomePage() {
       <section className="impact-ribbon" aria-label="Organisation-reported impact figures">
         <div className="impact-ribbon-intro"><span>THE WORK SO FAR</span><strong>Progress, grounded in people.</strong></div>
         {catalogue.filter((item) => item.content_type === "impact_metric").map((item) => (
-          <div className="impact-ribbon-stat" key={item.id}><strong>{item.metadata_json?.display_value || "—"}</strong><span>{item.title}</span></div>
+          <div className="impact-ribbon-stat" key={item.id}><strong><AnimatedMetric value={item.metadata_json?.display_value || "—"} /></strong><span>{item.title}</span></div>
         ))}
       </section>
 
