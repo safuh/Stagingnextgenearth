@@ -39,6 +39,21 @@ Public users should be able to select geography, indicator and period from a bou
 
 Add a primary navigation item and a visible homepage feature card linking to Climate Intelligence. The card should use the latest approved public climate release only. It must not display a manually maintained "live" number or imply real-time status when the underlying source is daily, monthly, delayed or a historical reanalysis.
 
+## 2A. Initial NextGen For Earth use cases
+
+The public organisation website describes climate science-to-action, climate-health research, youth stewardship and community resilience. Its research section includes work on heat exposure and maternal/infant health in Kilifi, climate seasonality and ageing in Busia and Kilifi, healthcare-worker preparedness, and youth-inclusive climate/health research. These public descriptions provide a defensible initial editorial focus, but they do not themselves supply gridded climate measurements or permission to republish private research data.
+
+Prioritise the public hub around:
+
+1. **Heat and health context in coastal Kenya:** temperature/heat indicators for Kilifi and nearby supported areas, with a clear distinction between gridded ambient conditions and individual exposure. Link to approved NextGen publications on maternal health and heat.
+2. **Seasonality and health in Busia and Kilifi:** rainfall/temperature seasonal context for the geography and periods covered by the SENIORS study. Do not infer individual health effects from climate series.
+3. **Rainfall variability and drought context:** CHIRPS rainfall summaries and, when methodologically appropriate, drought/vegetation indicators. Show baseline and spatial coverage.
+4. **Healthcare worker preparedness:** pair approved climate-health research summaries with external climate context; do not publish patient or health-worker personal data.
+5. **Youth/community climate stewardship:** present approved programme activity and aggregate restoration indicators separately from satellite-derived vegetation change. Do not claim planted-tree survival or ecological recovery from an unvalidated imagery comparison.
+6. **Indigenous/community knowledge:** publish only community-authorised knowledge and co-approved narratives. Restricted knowledge must remain outside the public site even if a climate map overlaps the relevant region.
+
+The first release should focus on a small number of defensible indicators and geographies rather than a broad but weakly evidenced "Africa climate dashboard".
+
 ## 3. Data classes and publication boundary
 
 Keep these data classes distinct in the UI and API:
