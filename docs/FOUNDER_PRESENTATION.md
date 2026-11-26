@@ -104,3 +104,10 @@ The platform will preserve source, period, method, owner, reviewer and evidence 
 Tell the story. Run the programmes. Organise the people. Connect the partners. Demonstrate the evidence.
 
 The objective is a stronger organisation capable of turning research, youth leadership and climate action into measurable, accountable impact.
+
+
+## Public climate intelligence — research context
+
+The public climate hub now connects two separately governed evidence streams: provider-backed climate releases and published research outputs. An editorial climate insight can be published only when both linked records are public. The public card exposes its geography, indicator, evidence note, source research and underlying climate release. Retracting the climate release removes the insight from public discovery.
+
+This creates a traceable path from provider evidence to research context without treating an association as causation. The public page shows an explicit empty state until a valid pair of published records exists; no synthetic insight is seeded.

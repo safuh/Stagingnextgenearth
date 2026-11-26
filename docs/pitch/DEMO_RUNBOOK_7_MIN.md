@@ -44,3 +44,12 @@
 ## Extended demonstration
 
 For a 15–20 minute session, use [the full founder demonstration and handover guide](../FOUNDER_DEMONSTRATION.md), followed by the research and curriculum blueprints.
+
+
+## Research-linked climate insight check
+
+- [ ] In the CMS authoring form, select **Climate insight** and link it to a currently published climate release and a separately published research publication.
+- [ ] Submit the insight, obtain approval from a different authorised reviewer, then publish it.
+- [ ] Verify the insight appears on the public Climate Intelligence page with both evidence links.
+- [ ] Verify an insight linked to an unpublished, missing, superseded or retracted release is not returned by the anonymous API.
+- [ ] If no valid release/publication pair exists, show the intentional no-insights state; do not create a synthetic public insight.

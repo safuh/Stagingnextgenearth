@@ -9,6 +9,11 @@ def test_public_metadata_only_exposes_approved_presentation_fields() -> None:
         "publisher": "Example Journal",
         "doi": "https://doi.org/10.0000/example",
         "topic": "Climate and health",
+        "release_slug": "kilifi-monthly-rainfall",
+        "publication_slug": "heat-maternal-health-kilifi",
+        "region": "Kilifi County, Kenya",
+        "indicator": "Rainfall",
+        "evidence_note": "Context only.",
         "gallery": [
             {"alt": "Field work", "image_url": "/media/field.jpg"},
             {"alt": "Remote image", "image_url": "https://images.example/field.jpg"},
@@ -26,6 +31,11 @@ def test_public_metadata_only_exposes_approved_presentation_fields() -> None:
     assert result["display_value"] == "12"
     assert result["authors"] == ["A. Researcher"]
     assert result["year"] == 2025
+    assert result["release_slug"] == "kilifi-monthly-rainfall"
+    assert result["publication_slug"] == "heat-maternal-health-kilifi"
+    assert result["region"] == "Kilifi County, Kenya"
+    assert result["indicator"] == "Rainfall"
+    assert result["evidence_note"] == "Context only."
     assert result["gallery"] == [
         {"alt": "Field work", "image_url": "/media/field.jpg"},
         {"alt": "Remote image", "image_url": "https://images.example/field.jpg"},

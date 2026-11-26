@@ -1868,7 +1868,7 @@ class PublicContentEntry(Base):
     __tablename__ = "public_content_entries"
     __table_args__ = (
         UniqueConstraint("organization_id", "content_type", "slug", name="uq_public_content_slug"),
-        CheckConstraint("content_type IN ('page','programme','training_track','initiative','research_area','impact_metric','publication')", name="ck_public_content_type"),
+        CheckConstraint("content_type IN ('page','programme','training_track','initiative','research_area','impact_metric','publication','climate_insight')", name="ck_public_content_type"),
         CheckConstraint("publication_state IN ('draft','review','approved','published','archived')", name="ck_public_content_state"),
         Index("ix_public_content_org_state", "organization_id", "publication_state"),
     )

@@ -143,6 +143,12 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             headers=reviewer,
         )
         assert accepted.status_code == 200
+        reviewer_roles = client.patch(
+            f"{org_base}/memberships/{invitation.json()['id']}/roles",
+            headers=author,
+            json={"roles": ["programme_manager", "executive"]},
+        )
+        assert reviewer_roles.status_code == 200
 
         run_ledger = client.get(f"{org_base}/climate-ingestion", headers=author)
         assert run_ledger.status_code == 200
@@ -288,6 +294,111 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             2: "published",
         }
 
+        # Public editorial insights require both a currently published climate
+        # release and a separately published research publication.
+        publication = client.post(
+            f"{org_base}/content",
+            headers=author,
+            json={
+                "content_type": "publication",
+                "slug": "heat-maternal-health-kilifi",
+                "title": "Heat and maternal health in Kilifi",
+                "summary": "Published research context for climate and health.",
+                "source_url": "https://example.org/research/heat-maternal-health",
+            },
+        )
+        assert publication.status_code == 201
+        publication_id = publication.json()["id"]
+        assert client.patch(
+            f"{org_base}/content/{publication_id}", headers=author,
+            json={"publication_state": "review"},
+        ).status_code == 200
+        assert client.patch(
+            f"{org_base}/content/{publication_id}", headers=reviewer,
+            json={"publication_state": "approved"},
+        ).status_code == 200
+        assert client.patch(
+            f"{org_base}/content/{publication_id}", headers=reviewer,
+            json={"publication_state": "published"},
+        ).status_code == 200
+
+        invalid_insight = client.post(
+            f"{org_base}/content",
+            headers=author,
+            json={
+                "content_type": "climate_insight",
+                "slug": "missing-evidence-links",
+                "title": "Insight without evidence links",
+            },
+        )
+        assert invalid_insight.status_code == 422
+
+        insight = client.post(
+            f"{org_base}/content",
+            headers=author,
+            json={
+                "content_type": "climate_insight",
+                "slug": "kilifi-heat-research-context",
+                "title": "Reading heat exposure alongside maternal health research",
+                "summary": "A contextual reading of approved climate evidence and published research.",
+                "body": "The climate series describes gridded ambient conditions for its stated period and geography. It does not measure individual exposure or establish a health outcome.",
+                "metadata_json": {
+                    "release_slug": "kilifi-monthly-rainfall",
+                    "publication_slug": "heat-maternal-health-kilifi",
+                    "region": "Kilifi County, Kenya",
+                    "indicator": "Precipitation",
+                    "evidence_note": "Context only; no causal inference is made.",
+                    "internal_review_note": "Never expose this field.",
+                },
+            },
+        )
+        assert insight.status_code == 201
+        insight_id = insight.json()["id"]
+        for state, actor in (("review", author), ("approved", reviewer), ("published", reviewer)):
+            transition = client.patch(
+                f"{org_base}/content/{insight_id}",
+                headers=actor,
+                json={"publication_state": state},
+            )
+            assert transition.status_code == 200
+
+        public_insights = client.get(
+            "/api/public/organizations/nextgen-climate/climate/insights"
+        )
+        assert public_insights.status_code == 200
+        assert len(public_insights.json()) == 1
+        assert public_insights.json()[0]["publication_title"] == "Heat and maternal health in Kilifi"
+        assert public_insights.json()[0]["release_slug"] == "kilifi-monthly-rainfall"
+        assert public_insights.json()[0]["publication_url"] == "https://example.org/research/heat-maternal-health"
+        assert "internal_review_note" not in public_insights.json()[0]
+
+        # A public insight with an unpublished/missing release is not exposed.
+        orphan = client.post(
+            f"{org_base}/content",
+            headers=author,
+            json={
+                "content_type": "climate_insight",
+                "slug": "orphan-climate-insight",
+                "title": "Unlinked climate commentary",
+                "summary": "This record references a release that does not exist.",
+                "metadata_json": {
+                    "release_slug": "not-published",
+                    "publication_slug": "heat-maternal-health-kilifi",
+                },
+            },
+        )
+        assert orphan.status_code == 201
+        orphan_id = orphan.json()["id"]
+        for state, actor in (("review", author), ("approved", reviewer), ("published", reviewer)):
+            assert client.patch(
+                f"{org_base}/content/{orphan_id}",
+                headers=actor,
+                json={"publication_state": state},
+            ).status_code == 200
+        assert len(client.get(
+            "/api/public/organizations/nextgen-climate/climate/insights"
+        ).json()) == 1
+
         retracted = client.post(
             f"{org_base}/climate-public-releases/{version_two_id}/retract",
             headers=reviewer,
@@ -297,6 +408,9 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert retracted.json()["state"] == "retracted"
         assert client.get(
             "/api/public/organizations/nextgen-climate/climate/releases"
+        ).json() == []
+        assert client.get(
+            "/api/public/organizations/nextgen-climate/climate/insights"
         ).json() == []
         assert client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"

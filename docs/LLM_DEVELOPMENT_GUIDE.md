@@ -167,3 +167,14 @@ For each work item report:
 7. Known limitations and follow-up acceptance work.
 
 Use “implemented” only for code present, “tested” only for checks actually run, “deployed” only after deployment confirmation, and “accepted” only after the relevant user journey passes.
+
+
+## Public climate editorial insight rules
+
+- Treat `climate_insight` as a governed CMS content type, not a free-form public blog post.
+- Every public climate insight must link to a currently published climate release and a separately published research publication in the same organisation.
+- Never infer or write a causal climate-health claim from co-location or temporal overlap alone.
+- State geography, indicator and evidence limitations in the editorial record.
+- A release retraction or unpublication must remove linked insights from the anonymous public endpoint.
+- Keep internal review notes and arbitrary CMS metadata out of public responses; only explicitly allow-listed fields may be exposed.
+- If no eligible evidence pair exists, retain the public empty state rather than seeding an example insight.

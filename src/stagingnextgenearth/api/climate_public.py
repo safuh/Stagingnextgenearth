@@ -19,6 +19,7 @@ from stagingnextgenearth.platform.models import (
     ClimateObservation,
     Membership,
     Organization,
+    PublicContentEntry,
 )
 
 from .dependencies import (
@@ -142,6 +143,23 @@ class ClimateSourceRead(BaseModel):
     terms_url: str | None
     citation_url: str | None
     release_count: int
+
+
+class ClimateInsightRead(BaseModel):
+    """Public editorial context linked to a published release and publication."""
+
+    id: str
+    slug: str
+    title: str
+    summary: str | None
+    body: str | None
+    region: str | None
+    indicator: str | None
+    evidence_note: str | None
+    release_slug: str
+    publication_title: str
+    publication_url: str | None
+    published_at: datetime | None
 
 
 class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
@@ -633,6 +651,85 @@ async def public_climate_overview(
     }
 
 
+
+
+@router.get(
+    "/public/organizations/{organization_slug}/climate/insights",
+    response_model=list[ClimateInsightRead],
+)
+async def public_climate_insights(
+    organization_slug: str,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[ClimateInsightRead]:
+    """Return editorial insights only when both linked evidence and publication are public."""
+    org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
+    if org is None:
+        raise HTTPException(404, "Organisation not found")
+    entries = await session.scalars(
+        select(PublicContentEntry)
+        .where(
+            PublicContentEntry.organization_id == org.id,
+            PublicContentEntry.content_type == "climate_insight",
+            PublicContentEntry.publication_state == "published",
+        )
+        .order_by(PublicContentEntry.published_at.desc(), PublicContentEntry.title)
+        .limit(100)
+    )
+    result: list[ClimateInsightRead] = []
+    for entry in entries.all():
+        metadata = entry.metadata_json if isinstance(entry.metadata_json, dict) else {}
+        release_slug = metadata.get("release_slug")
+        publication_slug = metadata.get("publication_slug")
+        if (
+            not isinstance(release_slug, str)
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", release_slug)
+            or not isinstance(publication_slug, str)
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", publication_slug)
+        ):
+            continue
+        release_exists = await session.scalar(
+            select(ClimatePublicRelease.id).where(
+                ClimatePublicRelease.organization_id == org.id,
+                ClimatePublicRelease.slug == release_slug,
+                ClimatePublicRelease.state == "published",
+            ).limit(1)
+        )
+        publication = await session.scalar(
+            select(PublicContentEntry).where(
+                PublicContentEntry.organization_id == org.id,
+                PublicContentEntry.slug == publication_slug,
+                PublicContentEntry.content_type == "publication",
+                PublicContentEntry.publication_state == "published",
+            )
+        )
+        if release_exists is None or publication is None:
+            continue
+        publication_url = (
+            publication.source_url
+            if isinstance(publication.source_url, str)
+            and publication.source_url.startswith("https://")
+            else None
+        )
+        region = metadata.get("region")
+        indicator = metadata.get("indicator")
+        evidence_note = metadata.get("evidence_note")
+        result.append(ClimateInsightRead(
+            id=entry.id,
+            slug=entry.slug,
+            title=entry.title,
+            summary=entry.summary,
+            body=entry.body,
+            region=region if isinstance(region, str) else None,
+            indicator=indicator if isinstance(indicator, str) else None,
+            evidence_note=evidence_note if isinstance(evidence_note, str) else None,
+            release_slug=release_slug,
+            publication_title=publication.title,
+            publication_url=publication_url,
+            published_at=entry.published_at,
+        ))
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    return result
 
 
 @router.get(

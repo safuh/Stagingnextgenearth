@@ -38,3 +38,8 @@ We are not proposing another disconnected website or spreadsheet. We are buildin
 - Do not present unverified partner prospects as signed partnerships.
 - Do not present draft curriculum content as approved or accredited.
 - Do not expose private records, credentials, storage keys or invitation links.
+
+
+## Research-linked climate evidence
+
+The public climate hub now includes a research-context layer. A CMS climate insight must reference both a published provider-backed climate release and a separately published research publication; it is not visible publicly until both are available. This lets the organisation connect climate context with its research portfolio while preserving provenance and avoiding unsupported causal claims.

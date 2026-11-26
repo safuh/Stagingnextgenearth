@@ -213,3 +213,15 @@ Maintain these repository artefacts together:
 - [Curriculum blueprint](learning/NEXTGEN_CURRICULUM_BLUEPRINT.md).
 
 A demo may combine live platform records, imported website records and synthetic fixtures only when each category is labelled. Never present an unavailable provider as live, a simulated ODK endpoint as ODK Central, a website claim as independently audited impact, or an unfinished workflow as production-ready.
+
+
+## Research-linked public climate insights — implementation increment
+
+The public climate hub now has a governed editorial layer for research-linked interpretation:
+- CMS supports a dedicated `climate_insight` content type and captures the linked public climate release slug and published research publication slug.
+- Anonymous `/public/organizations/{slug}/climate/insights` returns only published editorial records whose linked release is currently published and whose linked publication is separately published.
+- The public hub presents the insight, region/indicator context, evidence note, climate release link and research citation.
+- Retracting the linked release removes the insight from the public endpoint.
+- Missing links, unpublished records and internal CMS metadata are excluded.
+
+This is a code milestone, not evidence that any editorial insight has been authored or approved in staging. The section intentionally renders a no-insights state until the complete evidence and publication chain exists.

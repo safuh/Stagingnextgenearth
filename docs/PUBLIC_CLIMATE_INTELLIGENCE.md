@@ -1,7 +1,7 @@
 # Public Climate Intelligence — Product, API and Release Specification
 
 **Priority:** research/climate intelligence — public presentation workstream  
-**Status:** implementation specification; not a claim that public climate routes or pages are already implemented  
+**Status:** baseline public hub, release workflow and research-linked insight pathway implemented; real provider-backed publication acceptance and regional aggregation remain outstanding  
 **Applies to:** public website, research workspace, climate ingestion and reporting
 
 ## 1. Product decision
@@ -53,6 +53,12 @@ Prioritise the public hub around:
 6. **Indigenous/community knowledge:** publish only community-authorised knowledge and co-approved narratives. Restricted knowledge must remain outside the public site even if a climate map overlaps the relevant region.
 
 The first release should focus on a small number of defensible indicators and geographies rather than a broad but weakly evidenced "Africa climate dashboard".
+
+## 2B. Implemented public editorial insight pathway
+
+The CMS supports a dedicated `climate_insight` content type. Each insight records a linked public climate release slug and a linked public research publication slug, plus optional region, indicator and evidence note. Anonymous climate insight reads return an item only while both linked records are independently published in the same organisation. The release must be in the current `published` state; a retraction or supersession that removes the current public release also removes the linked insight from public discovery.
+
+The public hub displays these editorial cards separately from quantitative climate release cards. If there are no eligible insight records, it shows a deliberate no-insights state. An insight is not a substitute for a data release and cannot publish independently of its evidence links.
 
 ## 3. Data classes and publication boundary
 
