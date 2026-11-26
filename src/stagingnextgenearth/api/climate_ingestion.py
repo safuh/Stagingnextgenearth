@@ -91,7 +91,9 @@ async def list_climate_ingestion_runs(
     limit: int = Query(default=50, ge=1, le=100),
 ) -> list[ClimateIngestionRead]:
     """List recent provider runs within the caller's organisation."""
-    if not await membership_has_any_role(session, membership, _INGEST_ROLES | {"executive", "founder", "programme_manager"}):
+    if not await membership_has_any_role(
+        session, membership, _INGEST_ROLES | {"executive", "founder", "programme_manager"}
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Climate ingestion access is not permitted")
     rows = await session.scalars(
         select(ClimateIngestionRun)
@@ -181,7 +183,9 @@ async def review_climate_ingestion_run(
     )
     pending = observations.all()
     if not pending:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This provider run has no pending observations")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This provider run has no pending observations"
+        )
     if any(item.created_by == principal.user_id for item in pending):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
