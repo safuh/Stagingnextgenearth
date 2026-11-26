@@ -2,7 +2,6 @@
 """Add governed public climate release records and lifecycle events."""
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0065_climate_public_releases"
