@@ -1526,3 +1526,33 @@ footer > span { line-height: 1.7; }
   .content-carousel { margin-inline: -2px; }
   .field-gallery .gallery-item img { height: 205px; }
 }
+
+
+/* Executive workspace navigation and public directory page rhythm. */
+.admin-quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 26px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.58);
+}
+.admin-quick-nav a,
+.section-more a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+}
+.admin-quick-nav a { white-space: nowrap; }
+.section-more { margin-top: 22px; }
+.section-more a { color: var(--green); }
+.section-more a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.workspace-content > .staff-card + .staff-card { margin-top: 24px; }
+.workspace-content > .workspace-title + .workspace-muted { max-width: 760px; line-height: 1.8; }
+@media (max-width: 640px) {
+  .admin-quick-nav { align-items: stretch; flex-direction: column; }
+  .admin-quick-nav a { justify-content: flex-start; }
+}
