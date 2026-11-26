@@ -36,7 +36,7 @@ def _release_payload() -> dict[str, object]:
         "provider_id": "chirps-v3",
         "data_class": "satellite_estimate",
         "geography_label": "Kilifi County, Kenya",
-        "geography_resolution": "0.05 degree grid, county aggregate",
+        "geography_resolution": "0.05° CHIRPS grid; arithmetic mean per day",
         "period_start": "2025-01-01T00:00:00+00:00",
         "period_end": "2025-12-01T00:00:00+00:00",
         "baseline": "Not applicable; descriptive annual series",
@@ -101,7 +101,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             (
                 run_id, org_id, "chirps-v3", "CHIRPS v3", "CHIRPS terms of use",
                 "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
-                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2,"label":"Kilifi County","product_variant":"sat"}', "completed", 2, 2, 0, None, author_id,
+                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2,"label":"Kilifi County, Kenya","product_variant":"sat"}', "completed", 2, 2, 0, None, author_id,
                 "2026-01-01T00:00:00+00:00", "2026-01-01T00:01:00+00:00",
             ),
         )
@@ -287,7 +287,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             (
                 pending_run_id, org_id, "chirps-v3", "CHIRPS v3", "CC-BY-4.0",
                 "2025-01-01T00:00:00+00:00", "2025-12-31T00:00:00+00:00",
-                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2,"label":"Kilifi County","product_variant":"sat"}', "completed", 1, 1, 0, None, author_id,
+                '{"west":39.7,"south":-3.7,"east":40.1,"north":-3.2,"label":"Kilifi County, Kenya","product_variant":"sat"}', "completed", 1, 1, 0, None, author_id,
                 "2026-01-02T00:00:00+00:00", "2026-01-02T00:01:00+00:00",
             ),
         )
