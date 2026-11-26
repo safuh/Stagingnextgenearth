@@ -5,14 +5,14 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.platform.climate_public import (
     ClimatePublicRelease,
     ClimatePublicReleaseEvent,
 )
-from stagingnextgenearth.platform.models import Membership, Organization
+from stagingnextgenearth.platform.models import ClimateIngestionRun, Membership, Organization
 
 from .dependencies import (
     Principal,
@@ -34,6 +34,13 @@ class ClimateSeriesPoint(BaseModel):
     observed_at: datetime
     value: float
 
+    @field_validator("observed_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("series timestamps must include a timezone")
+        return value
+
 
 class ClimateRegionValue(BaseModel):
     region: str = Field(min_length=1, max_length=120)
@@ -47,7 +54,7 @@ class ClimateReleaseCreate(BaseModel):
     summary: str = Field(min_length=10, max_length=4000)
     indicator: str = Field(min_length=2, max_length=100)
     unit: str = Field(min_length=1, max_length=40)
-    provider_id: str = Field(min_length=2, max_length=100)
+    provider_id: Literal["nasa-power", "chirps-v3", "copernicus-era5"]
     provider_product: str = Field(min_length=2, max_length=160)
     provider_version: str | None = Field(default=None, max_length=100)
     data_class: Literal["station_observation", "satellite_estimate", "reanalysis", "forecast", "projection"]
@@ -165,10 +172,31 @@ async def create_release(
 ) -> ClimateReleaseDetail:
     if not await membership_has_any_role(session, membership, _RELEASE_ROLES):
         raise HTTPException(403, "Climate release authoring is not permitted")
+    source_run = await session.scalar(select(ClimateIngestionRun).where(
+        ClimateIngestionRun.id == body.source_ingestion_run_id,
+        ClimateIngestionRun.organization_id == organization_id,
+    ))
+    if (
+        source_run is None
+        or source_run.status != "completed"
+        or source_run.provider_id != body.provider_id
+        or source_run.records_inserted < 1
+    ):
+        raise HTTPException(
+            422,
+            "A completed, same-organisation provider ingestion with inserted records is required",
+        )
+    latest = await session.scalar(select(ClimatePublicRelease).where(
+        ClimatePublicRelease.organization_id == organization_id,
+        ClimatePublicRelease.slug == body.slug,
+    ).order_by(ClimatePublicRelease.version.desc()).limit(1))
+    if latest is not None and latest.state not in {"published", "retracted"}:
+        raise HTTPException(409, "An existing release version is still in workflow")
+    next_version = latest.version + 1 if latest is not None else 1
     row = ClimatePublicRelease(
         organization_id=organization_id,
         slug=body.slug,
-        version=1,
+        version=next_version,
         title=body.title.strip(),
         summary=body.summary.strip(),
         state="draft",
