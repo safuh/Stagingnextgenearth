@@ -291,3 +291,15 @@ Still outstanding:
 - Stale-data indicators, ETags/cache invalidation and operational monitoring for public release freshness.
 - Durable asynchronous jobs for larger provider backfills; the current endpoint is synchronous and should remain bounded.
 Do not claim the public climate hub is populated or live until a real provider-backed run has been quality-reviewed, published and verified through the staging public API.
+
+
+## Public read caching and freshness metadata (M122)
+
+Anonymous public climate GET routes now return a representation-specific SHA-256 ETag with the existing public cache policy. Matching `If-None-Match` requests receive a bodyless HTTP 304 response with the same ETag and cache headers. ETags are derived from the encoded response payload, so a changed release/publication representation produces a new validator.
+
+The public overview exposes three distinct timestamps:
+- `latest_published_at`: when the release was approved and published for public access;
+- `latest_source_retrieved_at`: when the linked provider ingestion run completed;
+- `latest_data_period_end`: the end of the time interval represented by the latest release.
+
+The public UI labels these separately. It does not infer that a dataset is "live" or "stale" from a fixed age threshold; users can see when the source was retrieved and which period the evidence describes.
