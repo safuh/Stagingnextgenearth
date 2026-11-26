@@ -591,20 +591,24 @@ async def public_climate_sources(
         ClimatePublicRelease.organization_id == org.id,
         ClimatePublicRelease.state == "published",
     ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
-    sources: dict[tuple[str, str, str], dict[str, object]] = {}
+    sources: dict[tuple[str, str, str], ClimateSourceRead] = {}
     for row in rows.all():
         key = (row.provider_id, row.provider_product, row.data_class)
         if key not in sources:
-            sources[key] = {
-                "provider_id": row.provider_id,
-                "provider_product": row.provider_product,
-                "data_class": row.data_class,
-                "license_name": row.license_name,
-                "attribution": row.attribution,
-                "terms_url": row.terms_url,
-                "citation_url": row.citation_url,
-                "release_count": 0,
-            }
-        sources[key]["release_count"] = int(sources[key]["release_count"]) + 1
+            sources[key] = ClimateSourceRead(
+                provider_id=row.provider_id,
+                provider_product=row.provider_product,
+                data_class=row.data_class,
+                license_name=row.license_name,
+                attribution=row.attribution,
+                terms_url=row.terms_url,
+                citation_url=row.citation_url,
+                release_count=1,
+            )
+        else:
+            source = sources[key]
+            sources[key] = source.model_copy(
+                update={"release_count": source.release_count + 1}
+            )
     response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return [ClimateSourceRead.model_validate(item) for item in sources.values()]
+    return list(sources.values())
