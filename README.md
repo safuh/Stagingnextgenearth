@@ -198,6 +198,10 @@ Copernicus adapters, unit harmonisation, quality assessment and
 spatial/temporal query APIs remain planned work.
 
 
+## Climate intelligence
+
+The public evidence hub is available at `/climate-intelligence`. The authenticated researcher-facing Climate Studio is available at `/workspace/research/climate` and connects bounded CHIRPS v3 ingestion, provider-run inspection, independent batch quality review and versioned public release governance. The public hub displays published releases only; it remains empty until real provider data have passed review and explicit publication.
+
 ## Web application
 
 The Next.js application lives in `web/` and includes the public landing page and role-oriented workspaces. Browser code calls the same-origin BFF at `/api/backend/*`; the BFF keeps access and rotating refresh tokens in HttpOnly cookies and forwards authorised requests to FastAPI. Browser JavaScript does not receive bearer tokens.
