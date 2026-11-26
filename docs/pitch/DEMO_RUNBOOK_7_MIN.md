@@ -58,7 +58,7 @@ For a 15–20 minute session, use [the full founder demonstration and handover g
 ## Learning curriculum pilot check
 
 - [ ] Confirm the API container startup seeded the default demo organisation `next-gen-for-earth-demo`; if staging uses another organisation slug, run the documented seed command for that slug.
-- [ ] Verify the four tracks, eight modules, 24 substantive lessons and four formative quizzes are present.
+- [ ] Verify the four tracks, eight modules, 26 substantive lessons and four formative quizzes are present.
 - [ ] Open one learner classroom and inspect course scope, module progress, lesson reading and source links.
 - [ ] Confirm the quizzes expose questions/options but never expose correct answers before submission.
 - [ ] Present the materials as pilot content pending subject-matter, safeguarding, clinical and community review—not as accredited training.
