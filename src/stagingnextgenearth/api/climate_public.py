@@ -1,3 +1,4 @@
+# ruff: noqa: E501, I001
 """Governed public climate release lifecycle and anonymous read API."""
 
 from datetime import UTC, datetime
@@ -84,7 +85,7 @@ class ClimateReleaseCreate(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_period(self):
+    def validate_period(self) -> "ClimateReleaseCreate":
         if self.period_end < self.period_start:
             raise ValueError("period_end must not precede period_start")
         timestamps = [point.observed_at for point in self.series]
