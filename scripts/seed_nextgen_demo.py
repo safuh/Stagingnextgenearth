@@ -291,10 +291,21 @@ async def seed(slug: str) -> None:
                 PublicContentEntry.organization_id == org.id,
                 PublicContentEntry.content_type == kind, PublicContentEntry.slug == item_slug,
             ))
+            activity_images = {
+                "youth-research-fellowship": "/media/nextgen-source/programme-research-capacity.jpg",
+                "school-climate-stewardship": "/media/nextgen-source/programme-youth-stewardship.jpg",
+                "healthcare-training-initiative": "/media/nextgen-source/programme-healthcare-workers.jpg",
+                "global-youth-science-network": "/media/nextgen-source/gallery-early-career.jpg",
+                "early-career-researchers": "/media/nextgen-source/programme-research-capacity.jpg",
+                "healthcare-workers": "/media/nextgen-source/programme-healthcare-workers.jpg",
+                "youth-climate-stewards": "/media/nextgen-source/programme-youth-stewardship.jpg",
+            }
             source_metadata = {
                 "source_status": "transcribed from the organisation's existing public website; not independently verified",
                 "source_capture": SOURCE,
             }
+            if kind in {"initiative", "training_track"} and item_slug in activity_images:
+                source_metadata["image_url"] = activity_images[item_slug]
             if entry is None:
                 entry = PublicContentEntry(
                     organization_id=org.id, content_type=kind, slug=item_slug, title=title,
