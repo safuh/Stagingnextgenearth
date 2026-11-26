@@ -93,6 +93,10 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                     and "Demo learning outline" not in (item.content or "")
                     for item in lessons
                 ),
+                "lessons_have_sources": all(
+                    bool(item.resource_url) and item.resource_url.startswith("https://")
+                    for item in lessons
+                ),
                 "courses_published": all(item.status == "published" for item in courses),
                 "users": user_count,
                 "people_public_verified": all(
@@ -141,6 +145,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["modules"] == 8
     assert first["lessons"] == 24
     assert first["lessons_substantive"] is True
+    assert first["lessons_have_sources"] is True
     assert first["assessments"] == 4
     assert first["assessments_automated"] is True
     assert first["courses_published"] is True
