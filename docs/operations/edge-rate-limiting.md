@@ -5,6 +5,14 @@ shared counter across API workers or replicas. Public deployments should place
 a trusted edge in front of the Next.js BFF and enforce shared client-IP limits
 there before traffic reaches the application.
 
+The FastAPI API also applies a bounded process-local limit to anonymous
+`GET /api/public/organizations/{slug}/climate/*` reads (60 requests per
+client/organisation per 60 seconds by default). This protects Render deployments
+that expose the API directly, but its counters are not shared across workers or
+replicas. Enforce a shared client-IP limit at the managed ingress/WAF when
+scaling beyond one API process. The middleware deliberately uses the socket peer
+address and does not trust arbitrary forwarded headers.
+
 ## Nginx reference configuration
 
 `docker/nginx/nginx.conf` is a standalone Nginx configuration for an edge
