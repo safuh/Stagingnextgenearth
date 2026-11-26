@@ -129,3 +129,5 @@ jobs:
           python scripts/validate_odk_climate_demo.py
       - name: Validate Nginx edge configuration
         run: ./scripts/validate_nginx_edge.sh
+      - name: Build production API container
+        run: docker build -f docker/Dockerfile -t nextgen-for-earth-api:${{ github.sha }} .
