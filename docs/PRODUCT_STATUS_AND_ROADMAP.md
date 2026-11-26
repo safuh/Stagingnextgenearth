@@ -225,3 +225,15 @@ The public climate hub now has a governed editorial layer for research-linked in
 - Missing links, unpublished records and internal CMS metadata are excluded.
 
 This is a code milestone, not evidence that any editorial insight has been authored or approved in staging. The section intentionally renders a no-insights state until the complete evidence and publication chain exists.
+
+
+## Learning curriculum pilot content — implementation increment
+
+- Four published pilot tracks now have 24 substantive lessons across eight modules.
+- Lesson content includes learning outcomes, explanatory material, applied practice and self-checks.
+- Four automated formative quizzes are seeded (three questions per course; 70% pass mark).
+- Lesson source links point to official WHO, IPCC, UNICEF, FAO, UNESCO and UN materials.
+- Learner classroom includes course overview, module completion and improved lesson-reading layout.
+- Seed script updates existing lesson records and quiz definitions idempotently.
+
+The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The updated catalogue is applied by running the seed script explicitly in the target environment; deploying code does not run seed data automatically.
