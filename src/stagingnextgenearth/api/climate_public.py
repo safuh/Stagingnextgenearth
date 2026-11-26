@@ -72,7 +72,7 @@ class ClimateReleaseCreate(BaseModel):
     attribution: str = Field(min_length=5, max_length=2000)
     terms_url: HttpUrl | None = None
     citation_url: HttpUrl | None = None
-    source_ingestion_run_id: str | None = None
+    source_ingestion_run_id: str
     series: list[ClimateSeriesPoint] = Field(min_length=1, max_length=5000)
     regions: list[ClimateRegionValue] = Field(default_factory=list, max_length=500)
 
