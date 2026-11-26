@@ -38,7 +38,6 @@ function AnimatedMetric({ value }: { value: string }) {
     const prefix = match[1], suffix = match[3];
     let frame = 0;
     let start = 0;
-    let observer: IntersectionObserver | undefined;
     const animate = (now: number) => {
       if (!start) start = now;
       const progress = Math.min((now - start) / 1450, 1);
@@ -47,14 +46,14 @@ function AnimatedMetric({ value }: { value: string }) {
       setDisplay(prefix + current.toLocaleString("en-US") + suffix);
       if (progress < 1) frame = window.requestAnimationFrame(animate);
     };
-    observer = new IntersectionObserver(([entry]) => {
+    const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
-        observer?.disconnect();
+        observer.disconnect();
         frame = window.requestAnimationFrame(animate);
       }
     }, { threshold: 0.35 });
     observer.observe(node);
-    return () => { observer?.disconnect(); window.cancelAnimationFrame(frame); };
+    return () => { observer.disconnect(); window.cancelAnimationFrame(frame); };
   }, [value]);
   return <span ref={nodeRef} className="animated-metric" aria-label={value}>{display}</span>;
 }
