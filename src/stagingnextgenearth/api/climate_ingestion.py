@@ -47,6 +47,7 @@ class ClimateIngestionCreate(BaseModel):
     end: datetime
     point: ClimatePoint | None = None
     area: ClimateBoundingBox | None = None
+    area_label: str | None = Field(default=None, min_length=2, max_length=200)
     chirps_variant: Literal["rnl", "sat"] = "rnl"
 
     @model_validator(mode="after")
@@ -268,6 +269,8 @@ async def run_climate_ingestion(
             licence=provider.licence,
             request=request,
             measurements=provider.fetch(request),
+            area_label=body.area_label,
+            product_variant=body.chirps_variant if body.provider == "chirps-v3" else None,
         )
     except Exception as exc:
         # Persistence records a failed run and rolls back partial observations.
