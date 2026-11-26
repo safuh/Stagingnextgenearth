@@ -147,6 +147,7 @@ class ClimateSourceRead(BaseModel):
 class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
     """Authenticated release view with workflow ownership and provenance references."""
 
+    state: str
     created_by: str
     reviewed_by: str | None
     published_by: str | None
