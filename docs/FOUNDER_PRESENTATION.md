@@ -45,7 +45,15 @@ Climate intelligence is not limited to manually entered observations. The curren
 
 Where a live ODK Central test endpoint is unavailable, the demonstration will use the repository's synthetic simulator and label the records as synthetic. It will not be represented as a live Central integration test.
 
-## 5. Learning and curriculum — second product priority
+## 5. Public climate intelligence — visible mission capability
+
+Climate intelligence will be available on the public website as a dedicated hub, alongside the deeper authenticated research workspace. The public experience will present Kenya and East Africa rainfall, temperature/heat, drought/vegetation and climate-health context where suitable source data and approved releases exist.
+
+The public site will not query private observation records directly. Researchers prepare a versioned public release from eligible provider or reviewed organisation data; an independent reviewer approves it; an authorised publisher makes it public. Every chart and map identifies provider/product, data class, unit, geography, period, baseline, method, coverage, missingness, uncertainty, licence and limitations.
+
+NASA POWER and CHIRPS adapters are present in the repository; this does not mean a public release pipeline or public climate dashboard is already deployed. ERA5 requires additional runtime configuration. The public climate hub is an implementation priority, not a claim of current live public climate coverage.
+
+## 6. Learning and curriculum — second product priority
 
 The existing demo seed creates three published course shells with ordered modules and lessons. Their current lesson text is placeholder content, not approved instructional material. The next curriculum increment defines four proposed tracks for organisational review:
 
@@ -56,7 +64,7 @@ The existing demo seed creates three published course shells with ordered module
 
 Each curriculum is designed around measurable outcomes, lesson plans, practical activities, assessment rubrics, safeguarding requirements and transparent certificate criteria. The Indigenous knowledge track requires community-led governance, permissions and benefit-sharing.
 
-## 6. What remains to complete
+## 7. What remains to complete
 
 - Finish the connected research authoring, governance, discovery and climate analysis experience.
 - Replace placeholder lesson bodies with reviewed, substantive curriculum content and assessments.
@@ -67,20 +75,20 @@ Each curriculum is designed around measurable outcomes, lesson plans, practical 
 - Complete partner/funder reporting, evidence exports and grant reporting.
 - Complete browser end-to-end tests, security/privacy/safeguarding review, observability, alerting, backup automation and restore drills.
 
-## 7. Evidence and integrity
+## 8. Evidence and integrity
 
 Website-reported impact metrics are source claims until independently validated. Website-listed people are not automatically active portal users. Website-listed partners are not automatically verified agreements. Imported publications are not automatically organisation-authored research. Provider ingestion does not equal scientific validation. Synthetic demo records must remain visibly labelled.
 
 The platform will preserve source, period, method, owner, reviewer and evidence references for reported indicators.
 
-## 8. Rollout
+## 9. Rollout
 
 **A — Product completion:** research workflow, climate provider presentation, curriculum authoring and founder/admin acceptance.  
 **B — Organisational validation:** reconcile people, programmes, publications, partner relationships, permissions and impact evidence.  
 **C — Pilot:** onboard a small group of administrators, researchers, programme leads and learners; execute acceptance journeys.  
 **D — Production:** security and safeguarding review, backup/restore validation, monitoring, operational handover and controlled launch.
 
-## 9. Decisions requested
+## 10. Decisions requested
 
 - Confirm the organisation's research and curriculum subject-matter leads.
 - Confirm research governance and ethics approval responsibilities.
