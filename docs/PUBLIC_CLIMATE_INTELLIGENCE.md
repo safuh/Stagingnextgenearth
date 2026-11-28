@@ -1,7 +1,7 @@
 # Public Climate Intelligence — Product, API and Release Specification
 
 **Priority:** research/climate intelligence — public presentation workstream  
-**Status:** baseline public hub, release workflow and research-linked insight pathway implemented; real provider-backed publication acceptance and regional aggregation remain outstanding  
+**Status:** public hub, governed release workflow, research-linked insight pathway and staging synthetic showcase implemented; real provider-backed publication acceptance and dedicated regional aggregation remain outstanding  
 **Applies to:** public website, research workspace, climate ingestion and reporting
 
 ## 1. Product decision
@@ -33,7 +33,7 @@ Recommended sections:
 7. **Research and field evidence:** approved public research summaries and community projects with publication permissions.
 8. **Data and methodology:** provider catalogue, definitions, source citations, licence/attribution and known limitations.
 
-Public users should be able to select geography, indicator and period from a bounded set of supported options. The UI must show a meaningful empty state when no approved public release exists; it must not substitute synthetic or pending observations.
+Public users should be able to select geography, indicator and period from a bounded set of supported options. The UI must show a meaningful empty state when no eligible public release exists. Synthetic or pending observations must never be substituted for real evidence. A dedicated staging-only synthetic showcase is permitted only when every release is prominently labelled as illustrative and the production API excludes it.
 
 ### Homepage integration
 
@@ -72,7 +72,7 @@ Keep these data classes distinct in the UI and API:
 | Forecast | Model output for a future valid period | Yes only with provider issue time, valid time and forecast status |
 | Climate projection | Scenario/model ensemble for future climate | Yes only with scenario, model/ensemble and reference period explicit |
 | Organisation field observation | Collected through programme/ODK workflow | No until independently reviewed, safeguarding checked and explicitly approved for public release |
-| Synthetic demo | Deterministic generated fixture | Never represented as observed climate or public climate evidence |
+| Synthetic demo | Deterministic generated fixture | Permitted only in non-production staging as an explicitly labelled UX demonstration; never represented as observed climate or scientific evidence |
 
 **Important:** a verified climate observation is not automatically public. Existing `ClimateObservation.quality_status='verified'` is a quality-review state, not a publication permission. Public exposure requires a separate explicit release decision.
 
@@ -238,7 +238,7 @@ For anomaly charts, publish the reference baseline and calculation. For projecti
 - Avoid precise coordinates for field/community records; apply disclosure thresholds and geometry generalisation.
 - Keep source licence/attribution attached to every chart, map and downloadable export.
 - Monitor freshness and show stale/unavailable state rather than generating substitute values.
-- Add automated checks that public endpoints cannot return pending, rejected, restricted or synthetic data.
+- Add automated checks that production public endpoints cannot return pending, rejected, restricted or synthetic demo data; staging fixture responses must carry the dedicated synthetic provider/data-class labels and limitations.
 
 ## 10. Definition of done
 
@@ -273,7 +273,7 @@ Implemented in the current feature branch:
 - Coverage and missingness are returned as unreported until a defensible denominator/coverage calculation is implemented; do not invent percentages.
 - Publishing a replacement version supersedes the prior published version. Retraction removes the current version from public reads.
 - Anonymous endpoints currently cover overview, release list, release detail, series and source catalogue. Public reads are bounded and cacheable.
-- The website currently has the catalogue, release detail and methodology routes, plus homepage navigation and an honest no-release state.
+- The website has the catalogue, release detail and methodology routes, homepage navigation, source register and research-linked insight cards. The staging demo seed publishes synthetic rainfall and temperature series with 72 monthly points each and a clearly disclosed linked field note; production responses exclude the synthetic provider.
 
 The authenticated browser workflow is now implemented at `/workspace/research/climate`:
 - Bounded CHIRPS v3 SAT ingestion with a 7-day UI limit, explicit WGS84 bounding box, researcher-supplied area label and pinned Rasterio runtime in the API image.
