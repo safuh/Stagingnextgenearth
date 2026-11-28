@@ -41,6 +41,26 @@ CHIRPS and ERA5 accept points or bounded areas. CHIRPS selects `rnl` or
 `sat`. ERA5 additionally requires its optional runtime libraries and
 operator-configured CDS credentials and dataset acceptance.
 
+## CHIRPS request-rate and failure handling
+
+The Climate Hazards Center data service recommends keeping total traffic at
+about one request per second or less per public IP. The API therefore spaces
+daily raster requests by at least 1.1 seconds, serializes CHIRPS ingestion
+across API instances with a PostgreSQL advisory lock, and enforces a persisted
+cooldown from the latest CHIRPS run completion time. A new one-day ingestion
+cannot bypass the interval by creating a fresh provider instance. After a
+provider timeout or 403/429 rate-limit response, the persisted failed-run
+record enforces a three-hour minimum cooldown and returns HTTP 503 with a
+Retry-After header. Do not start overlapping or repeated provider runs.
+
+HTTP 403/429 responses and request timeouts are treated as provider
+unavailability, not transient errors to hammer with retries. The workspace
+returns HTTP 503 with an actionable message and records a failed ingestion
+run without persisting partial observations. If this occurs, stop retrying and
+wait several hours before another attempt; the provider documents that
+automated blocks can also appear as repeated timeouts. See the CHC
+[downloading guidance](https://github.com/chc-ucsb/chc-data-download#downloading-politely).
+
 Only active organisation memberships holding `admin` or `researcher` can
 start ingestion. Learners, volunteers and ordinary members cannot trigger
 upstream retrieval. The route uses the existing tenant-scoped membership

@@ -18,6 +18,7 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
     ClimatePoint,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 
 CHIRPS_V3_DAILY_BASE_URL = (
@@ -31,7 +32,7 @@ CHIRPS_V3_LICENSE = "CC-BY-4.0"
 CHIRPS_V3_RESOLUTION_DEGREES = 0.05
 _VARIANT_START_DATES = {"rnl": date(1981, 1, 1), "sat": date(1998, 1, 1)}
 _MISSING_VALUES = {-9999.0, -999.0}
-_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+_RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
 
 RasterCell: TypeAlias = tuple[float, float, float]
 
@@ -58,6 +59,7 @@ class CHIRPSProvider:
         max_days: int = 366,
         max_area_cells: int = 10_000,
         max_raster_bytes: int = 256 * 1024 * 1024,
+        request_interval_seconds: float = 1.1,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         if variant not in {"rnl", "sat"}:
@@ -68,12 +70,17 @@ class CHIRPSProvider:
             raise ValueError("max_retries must be between 0 and 5")
         if max_days < 1 or max_area_cells < 1 or max_raster_bytes < 1:
             raise ValueError("request limits must be positive")
+        if request_interval_seconds < 0:
+            raise ValueError("request_interval_seconds must be non-negative")
         self.variant = variant
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.max_days = max_days
         self.max_area_cells = max_area_cells
         self.max_raster_bytes = max_raster_bytes
+        self.request_interval_seconds = request_interval_seconds
+        self._request_lock = asyncio.Lock()
+        self._last_request_completed_at: float | None = None
         self._client = client
 
     async def fetch(
@@ -136,58 +143,79 @@ class CHIRPSProvider:
         )
         for attempt in range(self.max_retries + 1):
             retry_delay: float | None = None
-            try:
-                async with client.stream("GET", url) as response:
-                    if response.status_code in _RETRYABLE_STATUS_CODES:
-                        if attempt >= self.max_retries:
-                            response.raise_for_status()
-                        retry_after = response.headers.get("Retry-After")
-                        try:
-                            retry_delay = (
-                                min(max(float(retry_after), 0.0), 5.0)
-                                if retry_after
-                                else 0.5 * (2**attempt)
+            async with self._request_lock:
+                loop = asyncio.get_running_loop()
+                if self._last_request_completed_at is not None:
+                    elapsed = loop.time() - self._last_request_completed_at
+                    wait_seconds = self.request_interval_seconds - elapsed
+                    if wait_seconds > 0:
+                        await asyncio.sleep(wait_seconds)
+                try:
+                    async with client.stream("GET", url) as response:
+                        if response.status_code in {403, 429}:
+                            raise ClimateProviderUnavailable(
+                                "CHIRPS denied the request (HTTP "
+                                f"{response.status_code}). The data service may be "
+                                "rate-limiting this server's public IP. Stop retries "
+                                "and wait several hours before trying again."
                             )
-                        except ValueError:
-                            retry_delay = 0.5 * (2**attempt)
-                    elif response.status_code == 404:
-                        raise ValueError(
-                            f"CHIRPS v3 {self.variant} raster is unavailable for {observed_date}"
-                        )
-                    else:
-                        response.raise_for_status()
-                        content_length = response.headers.get("Content-Length")
-                        if content_length is not None:
+                        if response.status_code in _RETRYABLE_STATUS_CODES:
+                            if attempt >= self.max_retries:
+                                response.raise_for_status()
+                            retry_after = response.headers.get("Retry-After")
                             try:
-                                declared_size = int(content_length)
+                                retry_delay = (
+                                    min(max(float(retry_after), 5.0), 60.0)
+                                    if retry_after
+                                    else min(5.0 * (2**attempt), 30.0)
+                                )
                             except ValueError:
-                                declared_size = -1
-                            if declared_size > self.max_raster_bytes:
-                                raise ValueError(
-                                    "CHIRPS raster exceeds the configured download-size "
-                                    f"limit ({self.max_raster_bytes} bytes)"
-                                )
-                        content = bytearray()
-                        async for chunk in response.aiter_bytes():
-                            if len(content) + len(chunk) > self.max_raster_bytes:
-                                raise ValueError(
-                                    "CHIRPS raster exceeds the configured download-size "
-                                    f"limit ({self.max_raster_bytes} bytes)"
-                                )
-                            content.extend(chunk)
-                        if not content:
+                                retry_delay = min(5.0 * (2**attempt), 30.0)
+                        elif response.status_code == 404:
                             raise ValueError(
-                                f"CHIRPS returned an empty raster for {observed_date}"
+                                "CHIRPS v3 "
+                                f"{self.variant} raster is unavailable for {observed_date}"
                             )
-                        return bytes(content)
-            except httpx.TransportError:
-                if attempt >= self.max_retries:
-                    raise
-                await asyncio.sleep(0.5 * (2**attempt))
-                continue
+                        else:
+                            response.raise_for_status()
+                            content_length = response.headers.get("Content-Length")
+                            if content_length is not None:
+                                try:
+                                    declared_size = int(content_length)
+                                except ValueError:
+                                    declared_size = -1
+                                if declared_size > self.max_raster_bytes:
+                                    raise ValueError(
+                                        "CHIRPS raster exceeds the configured download-size "
+                                        f"limit ({self.max_raster_bytes} bytes)"
+                                    )
+                            content = bytearray()
+                            async for chunk in response.aiter_bytes():
+                                if len(content) + len(chunk) > self.max_raster_bytes:
+                                    raise ValueError(
+                                        "CHIRPS raster exceeds the configured download-size "
+                                        f"limit ({self.max_raster_bytes} bytes)"
+                                    )
+                                content.extend(chunk)
+                            if not content:
+                                raise ValueError(
+                                    f"CHIRPS returned an empty raster for {observed_date}"
+                                )
+                            return bytes(content)
+                except httpx.TimeoutException as exc:
+                    raise ClimateProviderUnavailable(
+                        "The CHIRPS data service timed out. It may be temporarily "
+                        "unavailable or rate-limiting this server's public IP. Stop "
+                        "retries and wait several hours before trying again."
+                    ) from exc
+                except httpx.TransportError:
+                    if attempt >= self.max_retries:
+                        raise
+                    retry_delay = min(5.0 * (2**attempt), 30.0)
+                finally:
+                    self._last_request_completed_at = loop.time()
             if retry_delay is not None:
                 await asyncio.sleep(retry_delay)
-                continue
         raise RuntimeError("CHIRPS download exhausted its retry budget")
 
 def _measurements_for_day(

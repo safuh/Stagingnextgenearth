@@ -12,6 +12,10 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
 
+class ClimateProviderUnavailable(RuntimeError):
+    """A provider is unavailable or is explicitly limiting this deployment."""
+
+
 class ClimatePoint(BaseModel):
     """WGS84 point location expressed as latitude and longitude."""
 

@@ -1,19 +1,23 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
+import asyncio
 import logging
-from datetime import UTC, datetime
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stagingnextgenearth.climate_ingestion import (
     ClimateBoundingBox,
     ClimatePoint,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
 from stagingnextgenearth.platform.models import (
@@ -37,6 +41,75 @@ router = APIRouter(
 )
 _INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
 logger = logging.getLogger(__name__)
+_CHIRPS_ADVISORY_LOCK_KEY = 0x434849525053
+_CHIRPS_REQUEST_INTERVAL_SECONDS = 1.1
+_CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS = 3 * 60 * 60
+
+
+@asynccontextmanager
+async def _provider_ingestion_guard(
+    session: AsyncSession, provider_id: str
+) -> AsyncIterator[None]:
+    """Serialize CHIRPS requests across API instances using a PostgreSQL advisory lock."""
+    engine = session.bind
+    if (
+        provider_id != "chirps-v3"
+        or engine is None
+        or engine.dialect.name != "postgresql"
+    ):
+        yield
+        return
+
+    acquired = await session.scalar(
+        text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+        {"lock_key": _CHIRPS_ADVISORY_LOCK_KEY},
+    )
+    if not acquired:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A CHIRPS ingestion is already running. Wait for it to finish before "
+            "starting another request.",
+        )
+    # Persisted run completion times carry the cooldown across new provider instances
+    # and Render API instances. A run's finished_at is written before the route commits
+    # and releases this transaction-scoped advisory lock.
+    last_run = await session.scalar(
+        select(ClimateIngestionRun)
+        .where(
+            ClimateIngestionRun.provider_id == provider_id,
+            ClimateIngestionRun.finished_at.is_not(None),
+        )
+        .order_by(ClimateIngestionRun.finished_at.desc())
+        .limit(1)
+    )
+    if last_run is not None and last_run.finished_at is not None:
+        error_type = (last_run.error_summary or "").split(":", 1)[0]
+        # Older deployed versions recorded the raw httpx timeout class before the
+        # provider-specific unavailable exception was introduced.
+        provider_blocked = (
+            error_type == "ClimateProviderUnavailable" or error_type.endswith("Timeout")
+        )
+        cooldown = timedelta(
+            seconds=(
+                _CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS
+                if provider_blocked
+                else _CHIRPS_REQUEST_INTERVAL_SECONDS
+            )
+        )
+        retry_at = last_run.finished_at + cooldown
+        wait_seconds = (retry_at - datetime.now(UTC)).total_seconds()
+        if wait_seconds > 0:
+            if provider_blocked:
+                retry_at_text = retry_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "CHIRPS provider cooldown is active after a timeout or rate-limit "
+                    f"response. Do not retry before {retry_at_text}.",
+                    headers={"Retry-After": str(max(1, int(wait_seconds) + 1))},
+                )
+            await asyncio.sleep(wait_seconds)
+    yield
+    # The transaction-scoped lock is released by the route's commit or rollback.
 
 
 class ClimateIngestionCreate(BaseModel):
@@ -261,46 +334,49 @@ async def run_climate_ingestion(
             "The selected climate provider is not enabled on this deployment",
         )
 
-    try:
-        run = await persist_provider_measurements(
-            session,
-            organization_id=organization_id,
-            actor_user_id=principal.user_id,
-            provider_id=provider.provider_id,
-            source_name=provider.source_name,
-            licence=provider.licence,
-            request=request,
-            measurements=provider.fetch(request),
-            area_label=body.area_label,
-            product_variant=body.chirps_variant if body.provider == "chirps-v3" else None,
-        )
-    except Exception as exc:
-        # Persistence records a failed run and rolls back partial observations.
-        # Commit that audit row when the database transaction remains usable.
-        # Keep the traceback in server logs for diagnosis, but never expose
-        # provider URLs, response bodies, SQL values or credentials to clients.
-        logger.exception(
-            "Climate provider ingestion failed",
-            extra={
-                "organization_id": organization_id,
-                "provider_id": provider.provider_id,
-                "exception_type": type(exc).__name__,
-            },
-        )
+    async with _provider_ingestion_guard(session, provider.provider_id):
         try:
-            await session.commit()
-        except Exception:
-            await session.rollback()
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            (
-                "Climate provider ingestion failed. Refresh the ingestion ledger "
-                "for the recorded failure details."
-            ),
-        ) from exc
-    await session.commit()
-    await session.refresh(run)
-    return ClimateIngestionRead.model_validate(run)
+            run = await persist_provider_measurements(
+                session,
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                provider_id=provider.provider_id,
+                source_name=provider.source_name,
+                licence=provider.licence,
+                request=request,
+                measurements=provider.fetch(request),
+                area_label=body.area_label,
+                product_variant=body.chirps_variant if body.provider == "chirps-v3" else None,
+            )
+        except Exception as exc:
+            # Persistence records a failed run and rolls back partial observations.
+            # Keep the traceback in server logs; never expose upstream payloads or secrets.
+            logger.exception(
+                "Climate provider ingestion failed",
+                extra={
+                    "organization_id": organization_id,
+                    "provider_id": provider.provider_id,
+                    "exception_type": type(exc).__name__,
+                },
+            )
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+            if isinstance(exc, ClimateProviderUnavailable):
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)
+                ) from exc
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                (
+                    "Climate provider ingestion failed. Refresh the ingestion ledger "
+                    "for the recorded failure details."
+                ),
+            ) from exc
+        await session.commit()
+        await session.refresh(run)
+        return ClimateIngestionRead.model_validate(run)
 
 
 def _provider_for(body: ClimateIngestionCreate):
