@@ -970,8 +970,8 @@ export default function LearningAdminPage() {
               </select></label>
               <label>Mentee<select name="mentee_id" required defaultValue="">
                 <option value="" disabled>Select an active mentee</option>
-                {members.map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{enrollments.find((enrollment) => enrollment.learner_id === member.user_id)?.learner_ref ?? "Enrolled learner"}</option>
+                {enrollments.filter((item) => ["approved", "completed"].includes(item.status)).map((item) => (
+                  <option key={item.learner_id} value={item.learner_id}>{item.learner_ref} · {item.status}</option>
                 ))}
               </select></label>
               <label>Notes<textarea name="notes" /></label>
