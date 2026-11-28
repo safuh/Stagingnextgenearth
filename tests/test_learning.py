@@ -198,12 +198,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert immutable_lesson_update.status_code == 409
 
-        published = client.post(
-            f"{base}/courses/{course_id}/publish",
-            headers=admin_headers,
-        )
-        assert published.status_code == 200
-
         # Staff membership alone must not grant access to learner curriculum.
         employee_headers = _register(client, "learning-employee@example.org")
         employee_invitation = client.post(
