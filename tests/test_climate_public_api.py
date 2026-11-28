@@ -274,6 +274,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         # An older-published release may still cover a later data period. The
         # overview must aggregate across the complete public catalogue rather
         # than only the latest 100 publications.
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
         release_cursor = connection.execute(
             "SELECT * FROM climate_public_releases LIMIT 1"
         )
@@ -309,6 +310,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "DELETE FROM climate_public_releases WHERE slug LIKE 'overview-aggregate-%'"
         )
         connection.commit()
+        connection.close()
 
         public_series = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"
