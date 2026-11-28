@@ -20,7 +20,7 @@ The objective is practical: reduce fragmented records, make programme delivery e
 4. **Research governance (60 sec):** show proposal/protocol/ethics gates, dataset submission/review and analysis provenance. Do not imply a concept is approved or active.
 5. **Climate intelligence (75 sec):** open the redesigned public Climate Intelligence hub and methodology. If a genuine provider-backed release has been approved and published, inspect its data class, unit, geography, period, method, licence and limitations. Then enter the authenticated Climate Studio: run bounded CHIRPS ingestion, inspect the sample, record independent batch quality review, draft a versioned release and demonstrate the approval/publication queue. If the provider is not configured or no release exists, show the honest no-data state; never fabricate public values.
 6. **Field-data loop (45 sec):** demonstrate the synthetic ODK simulator only when no live Central test endpoint is configured. Label all fixture records Synthetic demo and show duplicate suppression and pending review.
-7. **Learning and programme delivery (60 sec):** show the proposed curriculum catalogue, course structure, enrolment/assessment workflow and programme activities. Clearly distinguish placeholder lessons from approved instructional content.
+7. **Learning and programme delivery (60 sec):** show the four-track pilot catalogue, course overview, substantive lesson, source reading, module progress and formative quiz. State clearly that content awaits organisational subject-matter review and is not accredited training.
 8. **Close (25 sec):** return to the leadership proposition: one connected system for research, youth development, climate stewardship, healthier communities and evidence.
 
 ## Closing statement
@@ -47,4 +47,4 @@ The public climate hub now includes a research-context layer. A CMS climate insi
 
 ## Learning capacity
 
-The learning workspace now includes four pilot tracks across research methods, climate and health, youth climate stewardship and Indigenous/community knowledge. Twenty-four substantive lessons include applied practice, self-checks and official further reading, supported by four formative quizzes and learner progress. These materials are positioned as a subject-matter review pilot rather than accredited training.
+The learning workspace now includes four pilot tracks across research methods, climate and health, youth climate stewardship and Indigenous/community knowledge. Twenty-six substantive lessons include applied practice, self-checks and official further reading, supported by four formative quizzes and learner progress. These materials are positioned as a subject-matter review pilot rather than accredited training.
