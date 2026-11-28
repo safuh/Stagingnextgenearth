@@ -151,3 +151,34 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
 export async function apiDelete<T>(path: string): Promise<T> {
   return request<T>(path, { method: "DELETE" });
 }
+
+
+type RevalidatedValue = { etag: string; value: unknown };
+const publicGetCache = new Map<string, RevalidatedValue>();
+
+/** Revalidate a public GET using its ETag; reuse the cached representation on 304. */
+export async function apiGetRevalidated<T>(path: string): Promise<T> {
+  const cached = publicGetCache.get(path);
+  const headers = new Headers({ Accept: "application/json" });
+  if (cached) headers.set("If-None-Match", cached.etag);
+  const response = await fetch(`/api/backend${path}`, {
+    method: "GET", headers, credentials: "same-origin", cache: "no-store",
+  });
+  if (response.status === 304) {
+    if (!cached) throw new Error("Received a 304 response without a cached representation.");
+    return cached.value as T;
+  }
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const body = (await response.json()) as ApiError;
+      message = body.detail ?? body.message ?? message;
+    } catch { /* retain status-based message */ }
+    throw new Error(message);
+  }
+  const value = (await response.json()) as T;
+  const etag = response.headers.get("ETag");
+  if (etag) publicGetCache.set(path, { etag, value });
+  else publicGetCache.delete(path);
+  return value;
+}
