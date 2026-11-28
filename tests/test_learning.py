@@ -1031,11 +1031,11 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
             json={"status": "active"},
         )
-        assert active_cohort.status_code == 200
+        assert active_cohort.status_code == 409
         invalid_cohort_transition = client.patch(
             f"{base}/cohorts/{cohort_id}",
             headers=admin_headers,
-            json={"status": "open"},
+            json={"status": "draft"},
         )
         assert invalid_cohort_transition.status_code == 409
 
