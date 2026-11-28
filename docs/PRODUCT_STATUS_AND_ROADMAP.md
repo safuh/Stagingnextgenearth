@@ -31,12 +31,15 @@ Repository documentation and tests establish implementation intent and local/CI 
 
 ## Important distinction: seeded versus production-quality content
 
-The idempotent demo seed currently creates three published learning courses:
-1. Early Career Researchers
-2. Healthcare Workers
-3. Youth Climate Stewards
+The idempotent demo seed now creates four published pilot learning courses:
+1. Research Methods and Evidence Practice
+2. Climate and Health Resilience
+3. Youth Climate Stewardship and Community Action
+4. Indigenous and Community Knowledge for Climate Resilience
 
-It creates ordered modules and lessons, but lesson bodies are explicitly generic demo placeholders asking operators to add approved learning resources, facilitator notes and assessments. The seed does not yet provide a complete instructional curriculum. Indigenous Knowledge Transfer is a programme pillar but is not yet represented as a seeded course.
+The versioned catalogue contains eight modules and 26 substantive lessons: six core lessons in each track, plus one additional applied lesson in the research and healthcare tracks. Each lesson includes an outcome, core concepts, applied practice and a self-check; each course has a four-question formative quiz with a 70% pass mark and official further-reading links. The learner classroom presents the course scope, guided learning time and module completion.
+
+This is a substantive curriculum pilot, not an approved or accredited programme. The appropriate research, clinical, safeguarding and community leads must review the material before cohort delivery. The Indigenous/community track does not contain restricted community knowledge; collection or publication requires rights-holder authority and appropriate consent. The Render API container runs the idempotent seed for the default staging demo organisation on startup; it replaces the managed demo lesson and quiz content with the versioned catalogue. Do not treat that behaviour as a general production content-management strategy.
 
 The seed also imports website-listed people, partners, programmes, publications and impact claims. These are source-attributed records, not proof of current employment, signed partner agreements, audited impact or scientific validation. Review and correct these records with organisational owners before using them as authoritative evidence.
 
