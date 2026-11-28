@@ -767,6 +767,8 @@ async def link_cohort_course(
     )
     if course is None:
         raise HTTPException(404, "Published course not found in this organisation")
+    if cohort.programme_id is not None and course.programme_id != cohort.programme_id:
+        raise HTTPException(409, "Course must belong to the cohort programme")
     link = LearningCohortCourse(
         organization_id=organization_id,
         cohort_id=cohort_id,
