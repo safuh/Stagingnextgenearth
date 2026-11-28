@@ -30,6 +30,25 @@ interface ProgrammeChoice {
   title: string;
   status: string;
 }
+interface Cohort {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  programme_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  capacity: number | null;
+  status: "draft" | "open" | "active" | "closed" | "archived";
+  course_count: number;
+  member_count: number;
+}
+interface CohortMember {
+  membership_id: string;
+  display_name: string;
+  status: "active" | "completed" | "withdrawn" | "suspended";
+  joined_at: string;
+}
 interface Course {
   id: string;
   title: string;
@@ -157,6 +176,9 @@ interface CourseReport {
 export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeChoice[]>([]);
+  const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [cohortMembers, setCohortMembers] = useState<CohortMember[]>([]);
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<ModuleChoice[]>([]);
   const [curriculum, setCurriculum] = useState<{
@@ -216,6 +238,18 @@ export default function LearningAdminPage() {
         if (items[0]) setCourseId(items[0].id);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load staff workspace data."));
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    apiGet<Cohort[]>(`/organizations/${organizationId}/learning/cohorts`)
+      .then((items) => {
+        setCohorts(items);
+        setSelectedCohortId((current) => current && items.some((item) => item.id === current)
+          ? current
+          : items[0]?.id ?? "");
+      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load learner cohorts."));
   }, [organizationId]);
 
   const refreshReports = useCallback(async (id = courseId) => {
@@ -306,6 +340,89 @@ export default function LearningAdminPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function refreshCohorts(preferredId = selectedCohortId) {
+    if (!organizationId) return;
+    const items = await apiGet<Cohort[]>(base + "/cohorts");
+    setCohorts(items);
+    const nextId = preferredId && items.some((item) => item.id === preferredId)
+      ? preferredId
+      : items[0]?.id ?? "";
+    setSelectedCohortId(nextId);
+    if (nextId) {
+      const roster = await apiGet<CohortMember[]>(base + `/cohorts/${nextId}/members`);
+      setCohortMembers(roster);
+    } else {
+      setCohortMembers([]);
+    }
+  }
+
+  async function createCohort(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const cohort = await apiPost<Cohort>(base + "/cohorts", {
+        name: data.get("name"),
+        slug: data.get("slug"),
+        description: data.get("description") || null,
+        programme_id: data.get("programme_id") || null,
+        start_date: data.get("start_date") || null,
+        end_date: data.get("end_date") || null,
+        capacity: data.get("capacity") ? Number(data.get("capacity")) : null,
+      });
+      await refreshCohorts(cohort.id);
+      setNotice("Cohort created as a draft. Open it when its programme and safeguarding checks are complete.");
+      form.reset();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create cohort.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeCohortStatus(status: Cohort["status"]) {
+    if (!selectedCohortId) return;
+    await action(`Cohort moved to ${status}.`, async () => {
+      await apiPatch(base + `/cohorts/${selectedCohortId}`, { status });
+      await refreshCohorts(selectedCohortId);
+    });
+  }
+
+  async function linkSelectedCourse() {
+    if (!selectedCohortId || !courseId) return;
+    await action("Published course linked to cohort.", async () => {
+      await apiPost(base + `/cohorts/${selectedCohortId}/courses`, { course_id: courseId });
+      await refreshCohorts(selectedCohortId);
+    });
+  }
+
+  async function addCohortMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    await action("Learner added to cohort.", async () => {
+      await apiPost(base + `/cohorts/${selectedCohortId}/members`, {
+        learner_id: String(data.get("learner_id") || "").trim(),
+      });
+      const roster = await apiGet<CohortMember[]>(base + `/cohorts/${selectedCohortId}/members`);
+      setCohortMembers(roster);
+      await refreshCohorts(selectedCohortId);
+    });
+    form.reset();
+  }
+
+  async function updateCohortMember(memberId: string, status: CohortMember["status"]) {
+    await action(`Learner status updated to ${status}.`, async () => {
+      await apiPatch(base + `/cohorts/${selectedCohortId}/members/${memberId}`, { status });
+      const roster = await apiGet<CohortMember[]>(base + `/cohorts/${selectedCohortId}/members`);
+      setCohortMembers(roster);
+      await refreshCohorts(selectedCohortId);
+    });
   }
 
   async function createCourse(event: FormEvent<HTMLFormElement>) {
@@ -633,6 +750,70 @@ export default function LearningAdminPage() {
                 <article className="staff-record" key={course.course_id}>
                   <strong>{course.title}</strong>
                   <small>{course.status} · {course.learners} enrolments · {course.completed} completed · {course.average_progress}% average progress · {course.pending_evaluations} pending evaluations</small>
+                </article>
+              ))}
+            </>
+          )}
+        </section>
+        <section className="staff-card" aria-labelledby="cohort-management-heading">
+          <p className="eyebrow">LEARNER INTAKES</p>
+          <h2 id="cohort-management-heading">Cohorts and intakes</h2>
+          <p className="workspace-muted">Create programme-linked intakes, attach published courses and manage learner participation. Cohort rosters display only names explicitly shared with the organisation.</p>
+          <form onSubmit={createCohort}>
+            <label>Cohort name<input name="name" minLength={3} maxLength={180} required placeholder="Community climate fellows · Intake 01" /></label>
+            <label>URL slug<input name="slug" minLength={2} maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
+            <label>Programme<select name="programme_id" defaultValue=""><option value="">No programme link</option>{programmes.map((programme) => <option key={programme.id} value={programme.id}>{programme.title}</option>)}</select></label>
+            <label>Description<textarea name="description" maxLength={5000} /></label>
+            <div className="staff-actions">
+              <label>Start date<input name="start_date" type="date" /></label>
+              <label>End date<input name="end_date" type="date" /></label>
+              <label>Capacity<input name="capacity" type="number" min="1" max="10000" /></label>
+            </div>
+            <button className="primary-action" disabled={busy}>Create intake</button>
+          </form>
+          {cohorts.length > 0 && (
+            <>
+              <div className="staff-actions">
+                <label>Selected cohort<select value={selectedCohortId} onChange={async (event) => {
+                  const id = event.target.value;
+                  setSelectedCohortId(id);
+                  if (id) {
+                    try { setCohortMembers(await apiGet<CohortMember[]>(base + `/cohorts/${id}/members`)); }
+                    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load cohort roster."); }
+                  } else setCohortMembers([]);
+                }}>{cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name} · {cohort.status}</option>)}</select></label>
+                {(() => {
+                  const current = cohorts.find((item) => item.id === selectedCohortId);
+                  const next: Partial<Record<Cohort["status"], Cohort["status"]>> = {
+                    draft: "open", open: "active", active: "closed", closed: "archived",
+                  };
+                  const nextStatus = current ? next[current.status] : undefined;
+                  return nextStatus ? <button className="secondary-action" disabled={busy} onClick={() => changeCohortStatus(nextStatus)}>Move to {nextStatus}</button> : null;
+                })()}
+              </div>
+              {cohorts.filter((item) => item.id === selectedCohortId).map((cohort) => (
+                <article className="staff-record" key={cohort.id}>
+                  <strong>{cohort.name}</strong>
+                  <small>{cohort.status} · {cohort.course_count} courses · {cohort.member_count} active learners · {cohort.capacity ?? "No capacity limit"}</small>
+                  <small>{cohort.start_date ?? "Start date not set"} – {cohort.end_date ?? "End date not set"}</small>
+                </article>
+              ))}
+              <div className="staff-actions">
+                <button className="secondary-action" disabled={busy || !courseId || !["published"].includes(courses.find((item) => item.id === courseId)?.status ?? "") || ["closed", "archived"].includes(cohorts.find((item) => item.id === selectedCohortId)?.status ?? "")} onClick={linkSelectedCourse}>Link selected published course</button>
+              </div>
+              {["open", "active"].includes(cohorts.find((item) => item.id === selectedCohortId)?.status ?? "") && (
+                <form onSubmit={addCohortMember}>
+                  <label>Learner account ID<input name="learner_id" required placeholder="Enter the learner account ID" /></label>
+                  <small>Used only for the authorised enrolment action. The cohort roster never returns account IDs.</small>
+                  <button className="primary-action" disabled={busy}>Add learner</button>
+                </form>
+              )}
+              <h3>Intake roster</h3>
+              {cohortMembers.length === 0 ? <p className="workspace-muted">No cohort members yet.</p> : cohortMembers.map((member) => (
+                <article className="staff-record" key={member.membership_id}>
+                  <strong>{member.display_name}</strong>
+                  <small>{member.status} · joined {new Date(member.joined_at).toLocaleDateString()}</small>
+                  {member.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => updateCohortMember(member.membership_id, "withdrawn")}>Withdraw</button><button disabled={busy} onClick={() => updateCohortMember(member.membership_id, "suspended")}>Suspend</button><button disabled={busy} onClick={() => updateCohortMember(member.membership_id, "completed")}>Complete</button></div>}
                 </article>
               ))}
             </>
