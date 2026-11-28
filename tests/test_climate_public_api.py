@@ -268,6 +268,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert approval_without_licence_review.status_code == 409
 
+        author_cannot_review_licence = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=author,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "The release author cannot review their own licence.",
+            },
+        )
+        assert author_cannot_review_licence.status_code == 403
+
         quality_reviewer_cannot_review_licence = client.post(
             f"{org_base}/climate-public-releases/{release_id}/licence-review",
             headers=reviewer,
@@ -730,6 +743,20 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={**_release_payload(), "source_ingestion_run_id": run_id},
         )
         assert self_verified.status_code == 409
+
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        connection.execute(
+            "UPDATE climate_observations SET created_by = ?, reviewed_by = ? WHERE ingestion_run_id = ?",
+            (reviewer_id, author_id, run_id),
+        )
+        connection.commit()
+        connection.close()
+        author_is_quality_reviewer = client.post(
+            f"{org_base}/climate-public-releases",
+            headers=author,
+            json={**_release_payload(), "source_ingestion_run_id": run_id},
+        )
+        assert author_is_quality_reviewer.status_code == 403
 
 
 
