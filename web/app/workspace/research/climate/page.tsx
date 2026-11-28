@@ -25,6 +25,7 @@ type Release = {
   attribution: string; terms_url: string | null; citation_url: string | null;
   created_by: string; reviewed_by: string | null; published_by: string | null;
   licence_reviewed_by: string | null; licence_reviewed_at: string | null;
+  licence_review_note: string | null;
 };
 type LicenceChecks = {
   licence_terms_confirmed: boolean;
@@ -543,7 +544,11 @@ export default function ClimateResearchStudioPage() {
                           </div>
                         )}
                         {release.licence_reviewed_at && (
-                          <p className="climate-side-note">Licence and attribution reviewed on {formatDate(release.licence_reviewed_at)}. Reviewer: {release.licence_reviewed_by}</p>
+                          <div className="climate-side-note">
+                            <strong>Licence review recorded</strong>
+                            <p>Reviewed on {formatDate(release.licence_reviewed_at)} · Reviewer account: {release.licence_reviewed_by}</p>
+                            {release.licence_review_note && <p>Review note: {release.licence_review_note}</p>}
+                          </div>
                         )}
                         <div className="climate-release-actions">
                           {release.state === "draft" && (release.created_by === membership?.user_id || canReleaseReview) && <button disabled={busy} onClick={() => transitionRelease(release, "submit")}>Submit for review</button>}
