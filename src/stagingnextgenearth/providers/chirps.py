@@ -17,8 +17,8 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateBoundingBox,
     ClimateMeasurement,
     ClimatePoint,
-    ClimateProviderUnavailable,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 
 CHIRPS_V3_DAILY_BASE_URL = (
