@@ -54,6 +54,7 @@ interface Cohort {
 interface Enrollment {
   id: string;
   learner_id: string;
+  learner_ref: string;
   cohort_id?: string | null;
   cohort_title?: string | null;
   status: string;
@@ -358,6 +359,8 @@ export default function LearningAdminPage() {
         base + `/courses/${courseId}/enrollments/${learnerId}/cohort`,
         { cohort_id: cohortId || null },
       );
+      const refreshedCohorts = await apiGet<Cohort[]>(base + "/cohorts");
+      setCohorts(refreshedCohorts);
     });
   }
 
@@ -808,12 +811,12 @@ export default function LearningAdminPage() {
           <section className="staff-card">
             <h2>Learner roster <span>{enrollments.length} enrolments · {enrollments.filter((item) => item.status === "applied").length} pending</span></h2>
             <div className="staff-actions">
-              <label>Search learner ID
+              <label>Search learner reference
                 <input
                   type="search"
                   value={enrollmentSearch}
                   onChange={(event) => setEnrollmentSearch(event.target.value)}
-                  placeholder="Filter by learner ID"
+                  placeholder="Filter by learner reference"
                 />
               </label>
               <label>Cohort
@@ -842,11 +845,11 @@ export default function LearningAdminPage() {
             </div>
             {enrollments.length === 0 ? <p className="workspace-muted">No learner enrolments yet.</p> : enrollments
               .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
-              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
+              .filter((item) => item.learner_ref.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
               .filter((item) => cohortFilter === "all" || (cohortFilter === "unassigned" ? !item.cohort_id : item.cohort_id === cohortFilter))
               .map((item) => (
                 <article className="staff-record" key={item.id}>
-                  <strong>{item.learner_id}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()} · {item.cohort_title ?? "No cohort"}</small>
+                  <strong>{item.learner_ref}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()} · {item.cohort_title ?? "No cohort"}</small>
                   <label>Assign cohort
                     <select value={item.cohort_id ?? ""} onChange={(event) => void assignCohort(item.learner_id, event.target.value)} disabled={busy}>
                       <option value="">Unassigned</option>
