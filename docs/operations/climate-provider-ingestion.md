@@ -84,6 +84,24 @@ conversion and screening flags. Import is not verification: a different
 authorised reviewer must make the separate quality decision. Reviewers cannot
 verify their own submissions.
 
+## Licence review and publication separation
+
+A release cannot be approved until a separate licence reviewer records four
+explicit checks: the licence permits the intended public use, provider terms
+and dataset conditions have been checked, attribution is correct, and the
+source citation identifies the intended product/version. The reviewer must
+not be the release author, ingestion operator or observation quality reviewer.
+The checklist, exact licence metadata, reviewer identity and substantive note
+are retained in the append-only release event ledger.
+
+The release approver must be different from the author, ingestion operator,
+quality reviewer and licence reviewer. Publication is a further decision: the
+publisher must be different from all those actors and must record a substantive
+publication note. The API enforces these separations; hiding buttons in the
+workspace is not an authorization boundary. If the organisation cannot staff
+the independent roles, the release remains in review rather than weakening
+the control.
+
 The current route is a bounded synchronous MVP, not a durable background-job
 queue. Do not use it for large-area or long-period batch backfills. Production
 deployment should put a durable queue and worker behind the same provider and
