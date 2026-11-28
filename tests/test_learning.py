@@ -849,6 +849,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             course_id,
             second_course_id,
         }
+        assert sum(item["enrolments"] for item in outcomes["courses"]) == 4
+        assert all(item["learners"] == item["enrolments"] for item in outcomes["courses"])
         denied_programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
             headers=learner_headers,
@@ -867,6 +869,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert exported_outcomes.headers["content-type"].startswith("text/csv")
         assert "programme_total,learners,3" in exported_outcomes.text
         assert "programme_total,enrolments,4" in exported_outcomes.text
+        assert "enrolments,approved,completed,average_progress" in exported_outcomes.text
         denied_outcomes_export = client.get(
             f"{base}/programmes/{programme_id}/outcomes/export",
             headers=learner_headers,
