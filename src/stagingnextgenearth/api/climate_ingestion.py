@@ -1,9 +1,10 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
@@ -41,6 +42,7 @@ router = APIRouter(
 _INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
 logger = logging.getLogger(__name__)
 _CHIRPS_ADVISORY_LOCK_KEY = 0x434849525053
+_CHIRPS_REQUEST_INTERVAL_SECONDS = 1.1
 
 
 @asynccontextmanager
@@ -67,6 +69,23 @@ async def _provider_ingestion_guard(
             "A CHIRPS ingestion is already running. Wait for it to finish before "
             "starting another request.",
         )
+    # Persisted run completion times carry the cooldown across new provider instances
+    # and Render API instances. A run's finished_at is written before the route commits
+    # and releases this transaction-scoped advisory lock.
+    last_finished_at = await session.scalar(
+        select(func.max(ClimateIngestionRun.finished_at)).where(
+            ClimateIngestionRun.provider_id == provider_id,
+            ClimateIngestionRun.finished_at.is_not(None),
+        )
+    )
+    if last_finished_at is not None:
+        wait_seconds = (
+            last_finished_at
+            + timedelta(seconds=_CHIRPS_REQUEST_INTERVAL_SECONDS)
+            - datetime.now(UTC)
+        ).total_seconds()
+        if wait_seconds > 0:
+            await asyncio.sleep(wait_seconds)
     # The transaction-scoped lock is released by the route's commit or rollback.
 
 

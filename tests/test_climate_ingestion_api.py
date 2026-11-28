@@ -1,12 +1,14 @@
 """Tests for tenant climate-ingestion orchestration request validation."""
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from stagingnextgenearth.api import climate_ingestion as climate_ingestion_api
 from stagingnextgenearth.api.climate_ingestion import (
     ClimateIngestionCreate,
     _provider_for,
@@ -122,3 +124,36 @@ async def test_chirps_ingestion_guard_serializes_postgres_sessions() -> None:
                 await second.commit()
     finally:
         await engine.dispose()
+
+
+
+@pytest.mark.asyncio
+async def test_chirps_guard_enforces_persisted_cooldown_between_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delays: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        delays.append(delay)
+
+    class FakeSession:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def scalar(self, statement: object, params: object | None = None) -> object:
+            self.calls += 1
+            if self.calls == 1:
+                return True
+            return datetime.now(UTC) - timedelta(milliseconds=100)
+
+    monkeypatch.setattr(climate_ingestion_api.asyncio, "sleep", fake_sleep)
+    session = FakeSession()
+
+    async with _provider_ingestion_guard(session, "chirps-v3"):
+        pass
+
+    assert session.calls == 2
+    assert len(delays) == 1
+    assert 0.8 <= delays[0] <= 1.1
