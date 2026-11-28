@@ -34,6 +34,12 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] Record workshop attendance and assign a mentor using active same-organisation accounts.
 - [ ] Issue a certificate, download its PDF and verify its public QR/code URL. Revoke a test certificate and confirm its download is denied.
 - [ ] Submit a volunteer expression of interest and review the safeguarding/consent attestations before approval.
+- [ ] Create a draft cohort linked to a programme, verify date and capacity validation, then open it.
+- [ ] Link a published course from the same organisation; confirm drafts and cross-organisation courses cannot be linked.
+- [ ] Add an active organisation learner to the open cohort; verify capacity and duplicate-member checks.
+- [ ] Confirm cohort roster shows only organisation-visible display names or "Name not shared", never account IDs or private profile fields.
+- [ ] Verify cohort and learner membership transitions are audited and invalid transitions are rejected.
+- [ ] Complete safeguarding, consent and parent/guardian checks where applicable before activating a real intake.
 
 ## 4. Research, climate intelligence and ODK
 
