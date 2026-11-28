@@ -1226,7 +1226,7 @@ export default function ResearchWorkspacePage() {
                       </select>
                     </div>
                     <div className="research-filter-field">
-                      <label htmlFor="research-publication-topic">Research topic</label>
+                      <label htmlFor="research-publication-topic">Editorial topic</label>
                       <select id="research-publication-topic" value={publicationTopic} onChange={(event) => setPublicationTopic(event.target.value)}>
                         <option value="">All topics</option>
                         {publicationTopics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
@@ -1252,7 +1252,7 @@ export default function ResearchWorkspacePage() {
                         const authorText = typeof authors === "string"
                           ? authors
                           : Array.isArray(authors) ? authors.join(", ") : null;
-                        const topic = publication.metadata_json?.topic;
+                        const topic = publication.metadata_json?.editorial_topic;
                         const year = publication.metadata_json?.year ?? publication.metadata_json?.publication_date;
                         return (
                           <article className="research-publication-card" key={publication.id}>
@@ -1270,7 +1270,11 @@ export default function ResearchWorkspacePage() {
                               <p className="research-publication-doi">DOI: {publication.metadata_json.doi}</p>
                             )}
                             <div className="research-publication-meta">
-                              {typeof topic === "string" && <span>{topic}</span>}
+                              {typeof topic === "string" && (
+                                <span title={publication.metadata_json?.editorial_topic_provenance || "Editorial discovery classification"}>
+                                  EDITORIAL · {topic}
+                                </span>
+                              )}
                               {(typeof year === "string" || typeof year === "number") && <span>{year}</span>}
                               <span>NextGen For Earth public website</span>
                             </div>
@@ -1285,7 +1289,7 @@ export default function ResearchWorkspacePage() {
                     </div>
                   )}
                   <div className="research-publication-footer">
-                    <span>Source records are preserved as published website listings; metadata is not silently enriched or re-attributed.</span>
+                    <span>Author, venue and DOI details are source-attributed. Editorial topic tags are added for discovery and are not source-reported keywords.</span>
                     <a href="#research-study-registration">Create a new research study ↓</a>
                   </div>
                 </section>
