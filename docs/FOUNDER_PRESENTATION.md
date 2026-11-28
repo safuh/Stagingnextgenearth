@@ -57,7 +57,7 @@ This is a deployable workflow increment, not evidence of live climate coverage. 
 
 ## 6. Learning and curriculum — second product priority
 
-The existing demo seed creates three published course shells with ordered modules and lessons. Their current lesson text is placeholder content, not approved instructional material. The next curriculum increment defines four proposed tracks for organisational review:
+The staging demo now contains four substantive pilot tracks, eight modules and 26 lessons, supported by four formative quizzes and official further-reading links. These are pilot materials for organisational review, not approved or accredited instructional programmes:
 
 1. Research Methods and Evidence Practice.
 2. Climate and Health Resilience.
@@ -69,10 +69,10 @@ Each curriculum is designed around measurable outcomes, lesson plans, practical 
 ## 7. What remains to complete
 
 - Finish the connected research authoring, governance, discovery and climate analysis experience.
-- Replace placeholder lesson bodies with reviewed, substantive curriculum content and assessments.
+- Obtain research, clinical, safeguarding and community-lead review of the substantive pilot lessons and formative quizzes before cohort delivery.
 - Complete founder/admin operational queues and governance visibility.
 - Improve programme delivery, participant progression and cohort operations.
-- Complete learner assessment, progress and certificate acceptance.
+- Complete end-to-end learner assessment, progress and certificate acceptance; verify certificate wording does not imply accreditation.
 - Build leadership impact reporting that distinguishes inputs, activities, outputs, outcomes and long-term impact.
 - Complete partner/funder reporting, evidence exports and grant reporting.
 - Complete browser end-to-end tests, security/privacy/safeguarding review, observability, alerting, backup automation and restore drills.
