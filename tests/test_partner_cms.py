@@ -363,4 +363,7 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert edited.json()["publication_state"] == "draft"
         assert edited.json()["approved_by"] is None
         assert edited.json()["approved_at"] is None
-        assert client.get("/api/public/organizations/nextgen-for-earth/content").json() == []
+        remaining_public = client.get(
+            "/api/public/organizations/nextgen-for-earth/content"
+        ).json()
+        assert [row["slug"] for row in remaining_public] == ["heat-health-publication"]
