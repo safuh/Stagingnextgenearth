@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
@@ -501,6 +502,33 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={**_release_payload(), "source_ingestion_run_id": run_id},
         )
         assert self_verified.status_code == 409
+
+
+
+def test_production_public_climate_filter_excludes_synthetic_demo_provider(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from stagingnextgenearth.api import climate_public
+
+    monkeypatch.setattr(
+        climate_public,
+        "get_settings",
+        lambda: SimpleNamespace(environment=Environment.PRODUCTION),
+    )
+    filters = climate_public._public_release_filters("demo-organisation")
+    statement = select(climate_public.ClimatePublicRelease).where(*filters)
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "provider_id != 'demo-synthetic'" in compiled
+
+    monkeypatch.setattr(
+        climate_public,
+        "get_settings",
+        lambda: SimpleNamespace(environment=Environment.TEST),
+    )
+    test_filters = climate_public._public_release_filters("demo-organisation")
+    test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
+    test_compiled = str(test_statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "provider_id != 'demo-synthetic'" not in test_compiled
 
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
