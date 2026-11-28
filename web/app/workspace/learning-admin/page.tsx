@@ -320,6 +320,13 @@ export default function LearningAdminPage() {
       );
       setModules((current) => current.map((item) => item.id === moduleId ? updated : item)
         .sort((a, b) => a.position - b.position));
+      setCurriculum((current) => current ? {
+        ...current,
+        modules: current.modules.map((item) => item.id === moduleId ? {
+          ...item,
+          ...updated,
+        } : item).sort((a, b) => a.position - b.position),
+      } : current);
     });
   }
 
@@ -331,7 +338,7 @@ export default function LearningAdminPage() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     await action("Draft lesson updated.", async () => {
-      await apiPatch<LessonChoice>(
+      const updated = await apiPatch<LessonChoice>(
         base + `/courses/${courseId}/lessons/${lessonId}`,
         {
           title: data.get("title"),
@@ -344,6 +351,15 @@ export default function LearningAdminPage() {
           position: Number(data.get("position")),
         },
       );
+      setCurriculum((current) => current ? {
+        ...current,
+        modules: current.modules.map((module) => ({
+          ...module,
+          lessons: module.lessons?.map((lesson) =>
+            lesson.id === lessonId ? updated : lesson
+          ).sort((a, b) => a.position - b.position),
+        })),
+      } : current);
     });
   }
 
