@@ -249,3 +249,10 @@ The content is a pilot for organisational review, not accreditation or a substit
 - API health: https://nextgen-api-au53.onrender.com/api/health
 
 **Acceptance boundary:** deployment and API availability are verified. Manual browser-based visual, accessibility, responsive and authenticated learner-flow acceptance remains outstanding. Curriculum remains a pilot pending relevant subject-matter review; it is not an accredited qualification.
+
+
+## M122 — research portfolio source library
+
+The authenticated research workspace now includes a distinct public website publication library. It reads published CMS publication entries for the selected organisation, exposes source/DOI links and supports search across available title, summary, slug and topic fields. It clearly distinguishes public website listings from organisation-owned research studies and study-linked publication records. A direct anchor takes the researcher to the existing concept-study registration form.
+
+The code increment is in branch `feat/research-publication-portfolio-m122` and is pending CI/merge/deployment. Do not describe it as live until the merge commit is deployed and the workspace has been visually checked in staging.
