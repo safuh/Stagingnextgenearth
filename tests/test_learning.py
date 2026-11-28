@@ -1062,7 +1062,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
             json={"status": "draft"},
         )
-        assert invalid_cohort_transition.status_code == 409
+        assert invalid_cohort_transition.status_code == 422
 
         programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
