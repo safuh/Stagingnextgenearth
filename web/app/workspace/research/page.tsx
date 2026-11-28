@@ -27,7 +27,9 @@ interface PublicResearchPublication {
     year?: number | string;
     publisher?: string;
     doi?: string;
-    topic?: string;
+    year_provenance?: string;
+    editorial_topic?: string;
+    editorial_topic_provenance?: string;
   } | null;
   published_at: string | null;
 }
