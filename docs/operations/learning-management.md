@@ -118,3 +118,12 @@ python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
 
 The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
+
+
+## Learner roster and bulk enrolment decisions
+
+The staff learning workspace exposes a course-scoped roster with enrolment status, progress and application date. Staff can filter by learner ID and lifecycle status. The current identity model does not provide a reviewed display-name field, so the roster uses internal learner IDs rather than exposing account identifiers or unapproved profile data.
+
+For bounded batch review, managers can call `POST /courses/{course_id}/enrollments/bulk-decision` with 1–100 unique learner IDs and an `approved` or `rejected` decision. The response contains a result for every learner, including successful transitions and individual conflict/not-found details. Each decision is committed independently, so one invalid or already-decided application does not roll back successful decisions in the same batch. The endpoint requires a course-management role and validates the course within the organisation. The workspace splits larger selections into batches of at most 100 and displays partial failures.
+
+This increment does not replace the cohort/intake model, learner profile and history, bulk invitations, or audited transfer/withdrawal lifecycle; those remain in [issue #143](https://github.com/safuh/Stagingnextgenearth/issues/143).
