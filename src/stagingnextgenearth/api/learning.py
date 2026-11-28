@@ -6,9 +6,9 @@ import secrets
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,8 +20,10 @@ from stagingnextgenearth.platform.models import (
     LearningAssessmentEvaluation,
     LearningAttendance,
     LearningCertificate,
+    LearningCohort,
     LearningCourse,
     LearningEnrollment,
+    LearningEnrollmentEvent,
     LearningLesson,
     LearningLessonCompletion,
     LearningMentorship,
@@ -226,6 +228,70 @@ class LessonCreate(BaseModel):
     resource_url: str | None = Field(default=None, max_length=2000)
     duration_minutes: int | None = Field(default=None, ge=1, le=1440)
     position: int = Field(ge=1, le=500)
+
+
+class CohortCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=240)
+    slug: str = Field(min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    code: str = Field(min_length=2, max_length=40, pattern=r"^[A-Z0-9][A-Z0-9-]*$")
+    description: str | None = Field(default=None, max_length=5000)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    enrollment_opens_at: datetime | None = None
+    enrollment_closes_at: datetime | None = None
+    capacity: int | None = Field(default=None, ge=1, le=100000)
+
+
+class CohortUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=240)
+    slug: str | None = Field(default=None, min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    code: str | None = Field(default=None, min_length=2, max_length=40, pattern=r"^[A-Z0-9][A-Z0-9-]*$")
+    description: str | None = Field(default=None, max_length=5000)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    enrollment_opens_at: datetime | None = None
+    enrollment_closes_at: datetime | None = None
+    capacity: int | None = Field(default=None, ge=1, le=100000)
+
+
+class CohortRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    programme_id: str | None
+    course_id: str
+    title: str
+    slug: str
+    code: str
+    description: str | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    enrollment_opens_at: datetime | None
+    enrollment_closes_at: datetime | None
+    capacity: int | None
+    status: str
+    safeguarding_policy_version: str | None
+    consent_policy_version: str | None
+    retention_policy_version: str | None
+    minor_access_policy_version: str | None
+    readiness_reviewed_by: str | None
+    readiness_reviewed_at: datetime | None
+
+
+class CohortReadiness(BaseModel):
+    safeguarding_policy_version: str = Field(min_length=1, max_length=100)
+    consent_policy_version: str = Field(min_length=1, max_length=100)
+    retention_policy_version: str = Field(min_length=1, max_length=100)
+    minor_access_policy_version: str = Field(min_length=1, max_length=100)
+
+
+class EnrollmentApplication(BaseModel):
+    cohort_id: str | None = None
+
+
+class EnrollmentTransfer(BaseModel):
+    cohort_id: str
+    reason: str = Field(min_length=5, max_length=1000)
 
 
 class EnrollmentDecision(BaseModel):
