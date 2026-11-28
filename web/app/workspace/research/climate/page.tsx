@@ -22,11 +22,27 @@ type Release = {
   indicator: string; unit: string; provider_id: string; provider_product: string;
   data_class: string; geography_label: string; geography_resolution: string;
   period_start: string; period_end: string; state: string; license_name: string;
-  created_by: string; reviewed_by: string | null; published_at: string | null;
+  attribution: string; terms_url: string | null; citation_url: string | null;
+  created_by: string; reviewed_by: string | null; published_by: string | null;
+  licence_reviewed_by: string | null; licence_reviewed_at: string | null;
+  licence_review_note: string | null;
+};
+type LicenceChecks = {
+  licence_terms_confirmed: boolean;
+  provider_terms_confirmed: boolean;
+  attribution_confirmed: boolean;
+  citation_confirmed: boolean;
 };
 type QualitySummary = { total: number; by_status: Record<string, number>; by_variable: Record<string, number> };
 
 type Stage = "collect" | "verify" | "publish";
+
+const emptyLicenceChecks: LicenceChecks = {
+  licence_terms_confirmed: false,
+  provider_terms_confirmed: false,
+  attribution_confirmed: false,
+  citation_confirmed: false,
+};
 
 const labelForState: Record<string, string> = {
   draft: "Draft", review: "Awaiting review", approved: "Approved", published: "Published",
@@ -55,6 +71,7 @@ export default function ClimateResearchStudioPage() {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [quality, setQuality] = useState<QualitySummary | null>(null);
   const [releases, setReleases] = useState<Release[]>([]);
+  const [licenceChecks, setLicenceChecks] = useState<Record<string, LicenceChecks>>({});
   const [selectedRunId, setSelectedRunId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -263,18 +280,66 @@ export default function ClimateResearchStudioPage() {
     } finally { setBusy(false); }
   }
 
-  async function transitionRelease(release: Release, action: "submit" | "approve" | "publish" | "retract") {
+  function updateLicenceCheck(releaseId: string, key: keyof LicenceChecks, checked: boolean) {
+    setLicenceChecks((current) => ({
+      ...current,
+      [releaseId]: { ...emptyLicenceChecks, ...current[releaseId], [key]: checked },
+    }));
+  }
+
+  async function transitionRelease(
+    release: Release,
+    action: "submit" | "licence-review" | "approve" | "publish" | "retract",
+  ) {
     if (!organisationId) return;
-    const note = action === "retract" ? window.prompt("Enter a substantive retraction reason (minimum 5 characters):") : null;
-    if (action === "retract" && (!note || note.trim().length < 5)) return;
-    if (action === "publish" && !window.confirm("Publish this independently approved climate release to the public website?")) return;
+    let body: Record<string, unknown>;
+    if (action === "licence-review") {
+      const checks = licenceChecks[release.id] ?? emptyLicenceChecks;
+      if (!Object.values(checks).every(Boolean)) {
+        setError("Complete every licence, provider-terms, attribution and citation check before recording the review.");
+        return;
+      }
+      const note = window.prompt("Record the licence, provider terms, attribution and citation findings (minimum 10 characters):");
+      if (!note || note.trim().length < 10) return;
+      body = { ...checks, note: note.trim() };
+    } else {
+      let note = `Workflow action: ${action}`;
+      if (action === "approve") {
+        const entered = window.prompt("Record the independent release approval rationale (minimum 10 characters):");
+        if (!entered || entered.trim().length < 10) return;
+        note = entered.trim();
+      }
+      if (action === "publish") {
+        if (!window.confirm("Publish this independently reviewed climate release to the public website?")) return;
+        const entered = window.prompt("Record the publication decision (minimum 10 characters):");
+        if (!entered || entered.trim().length < 10) return;
+        note = entered.trim();
+      }
+      if (action === "retract") {
+        const entered = window.prompt("Enter a substantive retraction reason (minimum 5 characters):");
+        if (!entered || entered.trim().length < 5) return;
+        note = entered.trim();
+      }
+      body = { note };
+    }
+
     setBusy(true); setError(""); setNotice("");
     try {
       await apiPost(
         `/organizations/${organisationId}/climate-public-releases/${release.id}/${action}`,
-        { note: note ?? `Workflow action: ${action}` },
+        body,
       );
-      setNotice(`Release '${release.title}' moved to ${labelForState[action === "submit" ? "review" : action === "approve" ? "approved" : action === "publish" ? "published" : "retracted"]}.`);
+      if (action === "licence-review") {
+        setLicenceChecks((current) => {
+          const updated = { ...current };
+          delete updated[release.id];
+          return updated;
+        });
+        setNotice(`Independent licence and attribution review recorded for '${release.title}'.`);
+      } else {
+        const nextState = action === "submit" ? "review" : action === "approve" ? "approved" : action === "publish" ? "published" : action === "retract" ? "retracted" : "review";
+        setNotice(`Release '${release.title}' moved to ${labelForState[nextState]}.`);
+      }
       await refresh();
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Release workflow action failed.");
@@ -459,10 +524,40 @@ export default function ClimateResearchStudioPage() {
                         <div><span className={`climate-state ${release.state}`}>{labelForState[release.state] ?? release.state}</span><small>VERSION {release.version}</small></div>
                         <strong>{release.title}</strong>
                         <p>{release.indicator} · {release.unit} · {release.geography_label}</p>
+                        <div className="climate-release-provenance">
+                          <p><strong>Licence:</strong> {release.license_name}</p>
+                          <p><strong>Attribution:</strong> {release.attribution}</p>
+                          <div>
+                            {release.terms_url && <a href={release.terms_url} target="_blank" rel="noreferrer">Provider terms ↗</a>}
+                            {release.citation_url && <a href={release.citation_url} target="_blank" rel="noreferrer">Source citation ↗</a>}
+                          </div>
+                        </div>
+                        {release.state === "review" && canReleaseReview && !release.licence_reviewed_at && (
+                          <div className="climate-review-box">
+                            <strong>Independent licence and attribution review</strong>
+                            <p>Inspect the exact licence, provider terms, attribution and source citation before confirming public use. The licence reviewer must be different from the ingestion operator and observation quality reviewer.</p>
+                            <label className="climate-licence-check"><input type="checkbox" checked={licenceChecks[release.id]?.licence_terms_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "licence_terms_confirmed", event.target.checked)} /> The licence permits this intended public release.</label>
+                            <label className="climate-licence-check"><input type="checkbox" checked={licenceChecks[release.id]?.provider_terms_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "provider_terms_confirmed", event.target.checked)} /> Provider terms and dataset-specific conditions have been checked.</label>
+                            <label className="climate-licence-check"><input type="checkbox" checked={licenceChecks[release.id]?.attribution_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "attribution_confirmed", event.target.checked)} /> Attribution matches the provider&apos;s requirements.</label>
+                            <label className="climate-licence-check"><input type="checkbox" checked={licenceChecks[release.id]?.citation_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "citation_confirmed", event.target.checked)} /> The source citation identifies the intended product and version.</label>
+                            <button disabled={busy || release.created_by === membership?.user_id} onClick={() => transitionRelease(release, "licence-review")}>Record licence review</button>
+                          </div>
+                        )}
+                        {release.licence_reviewed_at && (
+                          <div className="climate-side-note">
+                            <strong>Licence review recorded</strong>
+                            <p>Reviewed on {formatDate(release.licence_reviewed_at)} · Reviewer account: {release.licence_reviewed_by}</p>
+                            {release.licence_review_note && <p>Review note: {release.licence_review_note}</p>}
+                          </div>
+                        )}
                         <div className="climate-release-actions">
                           {release.state === "draft" && (release.created_by === membership?.user_id || canReleaseReview) && <button disabled={busy} onClick={() => transitionRelease(release, "submit")}>Submit for review</button>}
-                          {release.state === "review" && canReleaseReview && <button disabled={busy || release.created_by === membership?.user_id} onClick={() => transitionRelease(release, "approve")}>Approve</button>}
-                          {release.state === "approved" && canReleaseReview && <button disabled={busy} onClick={() => transitionRelease(release, "publish")}>Publish public</button>}
+                          {release.state === "review" && canReleaseReview && release.licence_reviewed_at && (
+                            <button disabled={busy || release.created_by === membership?.user_id || release.licence_reviewed_by === membership?.user_id} onClick={() => transitionRelease(release, "approve")}>Approve independently</button>
+                          )}
+                          {release.state === "approved" && canReleaseReview && (
+                            <button disabled={busy || release.created_by === membership?.user_id || release.reviewed_by === membership?.user_id || release.licence_reviewed_by === membership?.user_id} onClick={() => transitionRelease(release, "publish")}>Publish public</button>
+                          )}
                           {release.state === "published" && canReleaseReview && <button className="danger-text" disabled={busy} onClick={() => transitionRelease(release, "retract")}>Retract</button>}
                         </div>
                       </article>
