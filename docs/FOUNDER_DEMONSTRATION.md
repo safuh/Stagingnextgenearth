@@ -147,6 +147,7 @@ Run the richer idempotent catalogue seed against the same demo database after
 the organisation exists:
 
 ```bash
+export CLIMATE_DEMO_SEED_ENABLED=true
 uv run python scripts/seed_nextgen_demo.py \
   --organization-slug next-gen-for-earth-demo
 ```
