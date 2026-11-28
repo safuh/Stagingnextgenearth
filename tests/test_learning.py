@@ -791,6 +791,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert outcomes["programme_id"] == programme_id
         assert outcomes["course_count"] == 1
         assert outcomes["totals"]["learners"] == 3
+        assert outcomes["totals"]["enrolments"] == 3
         assert outcomes["totals"]["completed"] == 1
         assert outcomes["totals"]["attendance_records"] == 2
         assert outcomes["totals"]["pending_evaluations"] == 0
@@ -812,6 +813,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert exported_outcomes.status_code == 200
         assert exported_outcomes.headers["content-type"].startswith("text/csv")
         assert "programme_total,learners,3" in exported_outcomes.text
+        assert "programme_total,enrolments,3" in exported_outcomes.text
         denied_outcomes_export = client.get(
             f"{base}/programmes/{programme_id}/outcomes/export",
             headers=learner_headers,
@@ -827,6 +829,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learning_portfolio_body["programmes_total"] == 1
         assert learning_portfolio_body["courses_total"] == 1
         assert learning_portfolio_body["totals"]["learners"] == 3
+        assert learning_portfolio_body["totals"]["enrolments"] == 3
         assert learning_portfolio_body["totals"]["completed"] == 1
         assert learning_portfolio_body["totals"]["attendance_records"] == 2
         assert learning_portfolio_body["totals"]["pending_evaluations"] == 0
@@ -845,6 +848,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learning_portfolio_export.headers["content-type"].startswith("text/csv")
         assert learning_portfolio_export.content.startswith(b"\xef\xbb\xbf")
         assert "organisation_total,learners,3" in learning_portfolio_export.text
+        assert "organisation_total,enrolments,3" in learning_portfolio_export.text
         assert "Climate Learning Programme" in learning_portfolio_export.text
         denied_learning_portfolio_export = client.get(
             f"{base}/portfolio-outcomes/export",
