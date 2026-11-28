@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPost, restoreSession } from "@/lib/api";
+import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type EmploymentApplication = {
   id: string;
@@ -11,7 +12,7 @@ type EmploymentApplication = {
   review_note: string | null;
 };
 
-const organizationSlug = "nextgen-for-earth";
+const organizationSlug = ORGANIZATION_SLUG;
 
 export default function EmploymentApplyPage() {
   const [busy, setBusy] = useState(false);

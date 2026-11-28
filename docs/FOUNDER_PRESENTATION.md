@@ -137,3 +137,10 @@ The release includes 26 source-linked pilot lessons and four formative quizzes. 
 The research workspace now brings the organisation's public website publication catalogue into the authenticated research environment as a clearly separated source library. Researchers can search the listed works and open their source/DOI links without treating a public listing as proof of organisational authorship or study linkage. The existing study registration flow remains the path for creating a new organisation-owned research record, with protocol and ethics controls preserved.
 
 This increment is pending CI and staging verification. Demonstrate it only after the staging release is live and the researcher journey has been visually checked.
+
+
+## Volunteer and careers access — staging journey
+
+The public site exposes two separate application entry points: `/volunteer/apply` for volunteer and ambassador expressions of interest, and `/employment/apply` for employee-position expressions of interest. Both pages resolve the organisation through the shared public organisation configuration (the staging fallback is `next-gen-for-earth-demo`), rather than maintaining independent tenant slugs.
+
+Applicants must sign in or create a portal account before submitting. Volunteer applicants select a currently planned or active programme; programme teams review each submission, and safeguarding/consent requirements remain a separate approval gate before participation or membership activation. Employment applications remain private and pending until an authorised organisation administrator reviews them; approval does not automatically publish a person's profile. These are application workflows, not automatic recruitment, appointment or volunteer clearance.
