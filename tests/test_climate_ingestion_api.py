@@ -12,7 +12,11 @@ from stagingnextgenearth.api.climate_ingestion import (
     _provider_for,
     _provider_ingestion_guard,
 )
-from stagingnextgenearth.climate_ingestion import ClimateBoundingBox, ClimatePoint
+from stagingnextgenearth.climate_ingestion import (
+    ClimateBoundingBox,
+    ClimatePoint,
+    ClimateProviderUnavailable,
+)
 
 
 def _period() -> dict[str, datetime]:
@@ -182,3 +186,62 @@ async def test_chirps_guard_rejects_a_concurrent_run() -> None:
             pytest.fail("a concurrent CHIRPS run should not acquire the lock")
 
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_chirps_provider_block_response_includes_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSession:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+
+        def __init__(self) -> None:
+            self.commits = 0
+
+        async def commit(self) -> None:
+            self.commits += 1
+
+        async def rollback(self) -> None:
+            pass
+
+    async def allow_ingestion(*_args: object) -> bool:
+        return True
+
+    async def blocked_provider(*_args: object, **_kwargs: object) -> None:
+        raise ClimateProviderUnavailable(
+            "CHIRPS denied the request (HTTP 429). Stop retries and wait several hours."
+        )
+
+    provider = SimpleNamespace(
+        provider_id="chirps-v3",
+        source_name="CHIRPS v3",
+        licence="CC-BY-4.0",
+        fetch=lambda _request: None,
+    )
+    monkeypatch.setattr(climate_ingestion_api, "membership_has_any_role", allow_ingestion)
+    monkeypatch.setattr(climate_ingestion_api, "_provider_for", lambda _body: provider)
+    monkeypatch.setattr(
+        climate_ingestion_api,
+        "persist_provider_measurements",
+        blocked_provider,
+    )
+    session = FakeSession()
+    body = ClimateIngestionCreate(
+        provider="chirps-v3",
+        **_period(),
+        area={"west": 36.7, "south": -1.3, "east": 36.8, "north": -1.2},
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await climate_ingestion_api.run_climate_ingestion(
+            organization_id="org-1",
+            body=body,
+            principal=SimpleNamespace(user_id="researcher-1"),
+            membership=SimpleNamespace(),
+            session=session,
+        )
+
+    assert exc.value.status_code == 503
+    assert exc.value.headers is not None
+    assert exc.value.headers["Retry-After"] == "10800"
+    assert session.commits == 1

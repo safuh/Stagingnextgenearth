@@ -364,8 +364,15 @@ async def run_climate_ingestion(
             except Exception:
                 await session.rollback()
             if isinstance(exc, ClimateProviderUnavailable):
+                headers = (
+                    {"Retry-After": str(_CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS)}
+                    if provider.provider_id == "chirps-v3"
+                    else None
+                )
                 raise HTTPException(
-                    status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    str(exc),
+                    headers=headers,
                 ) from exc
             raise HTTPException(
                 status.HTTP_502_BAD_GATEWAY,

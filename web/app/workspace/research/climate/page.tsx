@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { apiGet, apiPost, hasSession } from "@/lib/api";
+import { ApiRequestError, apiGet, apiPost, hasSession } from "@/lib/api";
 
 type Organisation = { id: string; name: string; country_code: string };
 type Membership = { user_id: string; role: string; roles?: string[]; status: string };
@@ -37,6 +37,15 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value));
 }
 
+function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 export default function ClimateResearchStudioPage() {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
   const [organisationId, setOrganisationId] = useState("");
@@ -51,6 +60,8 @@ export default function ClimateResearchStudioPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [retryUntil, setRetryUntil] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [provider, setProvider] = useState("chirps-v3");
   const [variant, setVariant] = useState("sat");
   const [startDate, setStartDate] = useState("2025-01-01");
@@ -66,6 +77,23 @@ export default function ClimateResearchStudioPage() {
   const [releaseSummary, setReleaseSummary] = useState("Daily precipitation estimates derived from CHIRPS v3 satellite data over the selected Kilifi County area.");
   const [limitations, setLimitations] = useState("Satellite-derived precipitation estimates are not direct station measurements. Spatial averaging can mask local variation. This release is descriptive and does not establish climate-health causation or individual risk.");
   const [uncertainty, setUncertainty] = useState("CHIRPS estimates have product-specific uncertainty and may differ from local gauge measurements.");
+
+  useEffect(() => {
+    if (retryUntil === null) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= retryUntil) {
+        window.clearInterval(timer);
+        setRetryUntil(null);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryUntil]);
+
+  const retrySeconds = retryUntil === null
+    ? 0
+    : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
 
   const roles = useMemo(() => membership?.roles?.length ? membership.roles : membership?.role ? [membership.role] : [], [membership]);
   const canAuthor = roles.some((role) => ["admin", "founder", "executive", "researcher"].includes(role));
@@ -171,12 +199,18 @@ export default function ClimateResearchStudioPage() {
         `/organizations/${organisationId}/climate-ingestion`,
         { provider, start: start.toISOString(), end: end.toISOString(), area, area_label: areaLabel, chirps_variant: variant },
       );
+      setRetryUntil(null);
       setNotice(`Provider run completed: ${result.records_inserted.toLocaleString()} observations inserted. They remain pending quality review.`);
       await refresh();
       setSelectedRunId(result.id);
       setStage("verify");
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Provider ingestion failed.");
+      if (cause instanceof ApiRequestError && cause.retryAfterSeconds !== undefined) {
+        setRetryUntil(Date.now() + cause.retryAfterSeconds * 1000);
+      } else {
+        setRetryUntil(null);
+      }
       // A failed provider run is still an auditable ledger entry. Refresh it
       // immediately so the operator can see the recorded failure summary.
       try { await refresh(); } catch { /* preserve the primary ingestion error */ }
@@ -294,6 +328,11 @@ export default function ClimateResearchStudioPage() {
           </div>
 
           {error && <p className="climate-alert climate-alert-error" role="alert">{error}</p>}
+          {retrySeconds > 0 && (
+            <p className="climate-alert climate-alert-error" role="status" aria-live="polite">
+              CHIRPS safety cooldown active. New ingestion is disabled for {formatDuration(retrySeconds)}; the API enforces this limit across sessions.
+            </p>
+          )}
           {notice && <p className="climate-alert climate-alert-success" role="status">{notice}</p>}
           {loading ? <div className="climate-skeleton" role="status">Loading climate systems…</div> : (
             <>
@@ -327,7 +366,7 @@ export default function ClimateResearchStudioPage() {
                           <label>North<input inputMode="decimal" value={north} onChange={(event) => setNorth(event.target.value)} required /></label>
                         </div>
                         <div className="climate-form-note"><strong>Request guardrails</strong><span>Maximum 7 days per request · one bounded area · no arbitrary URLs · provider licence retained.</span></div>
-                        <button className="climate-primary" type="submit" disabled={busy}>{busy ? "Retrieving provider data…" : "Run provider ingestion"} <span>↗</span></button>
+                        <button className="climate-primary" type="submit" disabled={busy || retrySeconds > 0}>{busy ? "Retrieving provider data…" : retrySeconds > 0 ? `Provider cooldown · ${formatDuration(retrySeconds)}` : "Run provider ingestion"} <span>↗</span></button>
                       </form>
                     )}
                   </section>

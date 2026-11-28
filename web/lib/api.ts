@@ -29,6 +29,26 @@ export interface ApiError {
   message?: string;
 }
 
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, Math.ceil(seconds));
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return undefined;
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+}
+
 // Authentication cookies are HttpOnly and are deliberately inaccessible to JavaScript.
 // The BFF validates protected requests and refreshes expired access tokens after a 401.
 export function setSession(_tokens: TokenResponse): void {
@@ -73,7 +93,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       // Keep the status-based message when the response is not JSON.
     }
-    throw new Error(message);
+    throw new ApiRequestError(
+      message,
+      response.status,
+      parseRetryAfter(response.headers.get("retry-after")),
+    );
   }
 
   if (response.status === 204) return undefined as T;

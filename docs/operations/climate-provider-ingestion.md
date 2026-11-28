@@ -55,10 +55,13 @@ Retry-After header. Do not start overlapping or repeated provider runs.
 
 HTTP 403/429 responses and request timeouts are treated as provider
 unavailability, not transient errors to hammer with retries. The workspace
-returns HTTP 503 with an actionable message and records a failed ingestion
-run without persisting partial observations. If this occurs, stop retrying and
-wait several hours before another attempt; the provider documents that
-automated blocks can also appear as repeated timeouts. See the CHC
+returns HTTP 503 with an actionable message and a numeric `Retry-After`
+header, and records a failed ingestion run without persisting partial
+observations. The same header is forwarded through the web BFF; the Climate
+Studio displays a countdown and disables further ingestion while the server
+cooldown is active. If this occurs, stop retrying and wait several hours before
+another attempt; the provider documents that automated blocks can also appear
+as repeated timeouts. See the CHC
 [downloading guidance](https://github.com/chc-ucsb/chc-data-download#downloading-politely).
 
 Only active organisation memberships holding `admin` or `researcher` can
