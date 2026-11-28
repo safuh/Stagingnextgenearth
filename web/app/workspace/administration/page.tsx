@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 import { resolveInitialOrganisationId } from "@/lib/organisation-onboarding";
 
 interface Organization { id: string; name: string; slug: string; country_code: string }
 interface Membership {
   id: string; organization_id: string; user_id: string; identifier?: string | null;
-  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "funder" | "learner";
   roles?: Membership["role"][];
   status: "invited" | "active" | "suspended";
 }
@@ -16,16 +16,21 @@ interface AuditEvent {
   id: string; action: string; actor_user_id: string; subject_user_id: string | null;
   changes: Record<string, unknown>; created_at: string;
 }
+interface OnboardingInvitation {
+  id: string; email: string; roles: string[]; status: string;
+  expires_at: string; created_at: string; invitation_url?: string | null;
+}
 interface AdministrationSummary {
   organization_id: string; organization_name: string; owner_user_id: string; created_at: string;
 }
-type InvitableRole = "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner" | "founder" | "executive";
+type InvitableRole = "admin" | "programme_manager" | "employee" | "researcher" | "youth_volunteer" | "institutional_partner" | "funder" | "learner" | "founder" | "executive";
 
 export default function AdministrationPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
   const [membership, setMembership] = useState<Membership | null>(null);
   const [members, setMembers] = useState<Membership[]>([]);
+  const [onboardingInvitations, setOnboardingInvitations] = useState<OnboardingInvitation[]>([]);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [administration, setAdministration] = useState<AdministrationSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,12 +50,14 @@ export default function AdministrationPage() {
       setAccessLoading(false);
       return;
     }
-    const [memberRows, auditRows, adminSummary] = await Promise.all([
+    const [memberRows, auditRows, adminSummary, invitationRows] = await Promise.all([
       apiGet<Membership[]>(`/organizations/${id}/memberships`),
       apiGet<AuditEvent[]>(`/organizations/${id}/audit-events?limit=100`),
       apiGet<AdministrationSummary>(`/organizations/${id}/administration-summary`),
+      apiGet<OnboardingInvitation[]>(`/organizations/${id}/onboarding-invitations`),
     ]);
     setMembers(memberRows);
+    setOnboardingInvitations(invitationRows);
     setEvents(auditRows);
     setAdministration(adminSummary);
     setAccessLoading(false);
@@ -127,6 +134,40 @@ export default function AdministrationPage() {
     }
   }
 
+  async function inviteNewPerson(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const email = String(data.get("email") ?? "").trim();
+    const roles = data.getAll("new_roles").map(String);
+    const expiresInHours = Number(data.get("expires_in_hours") ?? 168);
+    const programmeId = String(data.get("programme_id") ?? "").trim();
+    const courseId = String(data.get("course_id") ?? "").trim();
+    const cohortId = String(data.get("cohort_id") ?? "").trim();
+    const message = String(data.get("message") ?? "").trim();
+    setBusyId("new-invite"); setError(""); setNotice(""); setInvitationLink("");
+    try {
+      const invitation = await apiPost<OnboardingInvitation>(
+        `/organizations/${organizationId}/onboarding-invitations`,
+        { email, roles, expires_in_hours: expiresInHours,
+          ...(programmeId ? { programme_id: programmeId } : {}),
+          ...(courseId ? { course_id: courseId } : {}),
+          ...(cohortId ? { cohort_id: cohortId } : {}),
+          ...(message ? { message } : {}) },
+      );
+      await refresh(organizationId);
+      if (invitation.invitation_url) setInvitationLink(invitation.invitation_url);
+      setNotice(invitation.status === "delivered"
+        ? `Invitation email sent to ${email}. The recipient can create a password from the secure one-time link.`
+        : invitation.status === "manual_link_ready"
+          ? `Email delivery is not configured. Copy the staging-only one-time link below and send it only to ${email}.`
+          : `Invitation for ${email} is recorded but email delivery is pending. Configure the email provider and resend it.`);
+      form.reset();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to send the invitation.");
+    } finally { setBusyId(""); }
+  }
+
   async function updateRoles(event: FormEvent<HTMLFormElement>, item: Membership) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -191,11 +232,39 @@ export default function AdministrationPage() {
             </div>
             <div className="staff-grid admin-grid">
               <section className="staff-card">
+                <p className="eyebrow">NEW USER ONBOARDING</p>
+                <h2>Invite a person by email</h2>
+                <p>Send a one-time, expiring invitation. The recipient verifies control of the mailbox, creates a password and receives only the roles and curriculum scope selected here.</p>
+                <form onSubmit={inviteNewPerson}>
+                  <label>Email address<input name="email" type="email" autoComplete="email" maxLength={320} required /></label>
+                  <fieldset className="membership-role-assignments"><legend>Assigned roles</legend>
+                    {(["learner", "employee", "researcher", "youth_volunteer", "institutional_partner", "funder", "programme_manager", "admin", "founder", "executive"] as const).map((role) => <label key={role}><input type="checkbox" name="new_roles" value={role} defaultChecked={false} disabled={["admin", "founder", "executive"].includes(role) && administration?.owner_user_id !== membership?.user_id} />{role.replaceAll("_", " ")}{["admin", "founder", "executive"].includes(role) ? " (owner only)" : ""}</label>)}
+                  </fieldset>
+                  <p className="workspace-muted">Course, cohort and programme scope currently apply to learner-only invitations. Staff, researcher, partner and funder roles are organisation-scoped until granular programme permissions are implemented.</p>
+                  <label>Invitation validity<select name="expires_in_hours" defaultValue="168"><option value="24">24 hours</option><option value="72">3 days</option><option value="168">7 days</option><option value="336">14 days</option><option value="720">30 days</option></select></label>
+                  <label>Programme ID (optional)<input name="programme_id" maxLength={36} /></label>
+                  <label>Published course ID (optional)<input name="course_id" maxLength={36} /></label>
+                  <label>Open cohort ID (optional)<input name="cohort_id" maxLength={36} /></label>
+                  <label>Onboarding message<textarea name="message" maxLength={1000} rows={3} /></label>
+                  <button className="primary-action" disabled={busyId === "new-invite"}>{busyId === "new-invite" ? "Sending invitation…" : "Send secure invitation"}</button>
+                </form>
+                {invitationLink && <div className="workspace-notice" role="status"><p>Staging-only invitation link:</p><p><a href={invitationLink}>{invitationLink}</a></p><button className="secondary-action" type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)}>Copy invitation link</button></div>}
+                <div className="admin-member-list">
+                  {onboardingInvitations.map((item) => <article className="admin-member-row" key={item.id}>
+                    <div className="admin-member-meta"><strong>{item.email}</strong><span>{item.roles.join(" · ")} · {item.status} · Expires {new Date(item.expires_at).toLocaleString()}</span></div>
+                    <div className="admin-member-actions">
+                      {!["accepted", "revoked"].includes(item.status) && <button className="secondary-action" disabled={busyId === item.id} onClick={() => void perform(item.id, "Invitation rotated and resent.", () => apiPost(`/organizations/${organizationId}/onboarding-invitations/${item.id}/resend`, {}))}>Resend / rotate</button>}
+                      {!["accepted", "revoked"].includes(item.status) && <button className="secondary-action" disabled={busyId === item.id} onClick={() => void perform(item.id, "Invitation revoked.", () => apiDelete(`/organizations/${organizationId}/onboarding-invitations/${item.id}`))}>Revoke</button>}
+                    </div>
+                  </article>)}
+                </div>
+              </section>
+              <section className="staff-card">
                 <h2>Invite an existing account</h2>
                 <p>The person must first create an account from the public sign-in page using this exact email address. Then invite that account and share its private acceptance link. Access remains inactive until the invitee signs in and accepts.</p>
                 <form onSubmit={invite}>
                   <label>Account email / identifier<input name="identifier" type="text" inputMode="email" autoComplete="email" maxLength={320} required /></label>
-                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option><option value="learner">Learner</option></select></label>
+                  <label>Organisation role<select name="role" required><option value="programme_manager">Programme manager</option><option value="employee">Employee</option><option value="founder">Founder (owner only)</option><option value="executive">Executive (owner only)</option><option value="researcher">Researcher</option><option value="youth_volunteer">Youth volunteer</option><option value="institutional_partner">Institutional partner</option><option value="funder">Funder</option><option value="learner">Learner</option></select></label>
                   <button className="primary-action" disabled={busyId === "invite"}>{busyId === "invite" ? "Creating invitation…" : "Create invitation"}</button>
                 </form>
                 {invitationLink && <div className="workspace-notice" role="status"><p>Private invitation link (share only with the intended recipient):</p><p><a href={invitationLink}>{invitationLink}</a></p><button className="secondary-action" type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)}>Copy invitation link</button></div>}
@@ -224,7 +293,7 @@ export default function AdministrationPage() {
                       </button>}
                       {item.status === "active" && <form onSubmit={(event) => void updateRoles(event, item)} className="membership-role-assignments">
                         <span>Additional role assignments</span>
-                        {(["admin", "founder", "executive", "employee", "programme_manager", "researcher", "youth_volunteer", "institutional_partner", "learner"] as Membership["role"][]).filter((role) => role !== item.role).map((role) => <label key={role}>
+                        {(["admin", "founder", "executive", "employee", "programme_manager", "researcher", "youth_volunteer", "institutional_partner", "funder", "learner"] as Membership["role"][]).filter((role) => role !== item.role).map((role) => <label key={role}>
                           <input type="checkbox" name="roles" value={role} defaultChecked={item.roles?.includes(role) ?? false} disabled={["admin", "founder", "executive"].includes(role) && administration?.owner_user_id !== membership.user_id} />
                           {role.replaceAll("_", " ")}
                         </label>)}

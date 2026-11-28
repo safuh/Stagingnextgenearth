@@ -5,6 +5,8 @@
 from fastapi import APIRouter
 
 from .auth import router as auth_router
+from .onboarding import router as onboarding_router
+from .oauth import router as oauth_router
 from .employment_applications import router as employment_applications_router
 from .climate import router as climate_router
 from .climate_public import router as climate_public_router
@@ -53,6 +55,8 @@ api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(funding_router)
 api_router.include_router(auth_router)
+api_router.include_router(onboarding_router)
+api_router.include_router(oauth_router)
 api_router.include_router(organizations_router)
 api_router.include_router(organization_people_router)
 api_router.include_router(institutional_partners_router)

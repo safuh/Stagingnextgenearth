@@ -208,3 +208,9 @@ Use the public entry points `/volunteer/apply` and `/employment/apply` from the 
 - On the volunteer page, confirm the programme list loads and includes programmes in `planned` or `active` status. Select a programme and submit an expression of interest. Programme staff must review it; required safeguarding and guardian-consent checks remain separate gates before participation or membership activation.
 - On the employment page, submit an employee-position expression of interest and show the private application reference/status. An authorised organisation administrator reviews it. Approval does not automatically publish the applicant's profile.
 - Demonstrate the loading, error and empty states honestly. Do not use real personal data, and do not claim that an application constitutes an offer, appointment, verified identity or safeguarding clearance.
+
+## Identity and learner demonstration update — 28 November 2026
+
+M172 is merged and deployed to staging. The learner portal has a dedicated sign-in page; the canonical owner/admin has additive learner access; four reserved synthetic `.test` learners demonstrate completed progress across four published curricula. These synthetic records are clearly illustrative and are not programme participants or impact evidence. Public account registration is disabled in production.
+
+M173 adds invitation-first onboarding, email verification, password recovery/change, Google OIDC and account security controls. SMTP and Google OAuth secrets still need to be configured before real invitation delivery and Google sign-in can be demonstrated. See `IDENTITY_OPERATIONS.md`.

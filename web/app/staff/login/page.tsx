@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthenticationContext, login } from "@/lib/api";
 import { resolvePortalDestination } from "@/lib/portal-routing";
@@ -12,6 +12,12 @@ export default function StaffSignInPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("error");
+    if (reason === "google_not_configured") setError("Google sign-in is not configured yet. Use your email and password or contact the platform administrator.");
+    if (reason === "google_signin_failed") setError("Google sign-in could not be completed. Try again or use your password.");
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +65,8 @@ export default function StaffSignInPage() {
               {busy ? "Signing in…" : "Sign in securely"}
             </button>
           </form>
+          <a className="secondary-action" href="/api/session/google/start?portal=staff">Continue with Google</a>
+          <p className="workspace-muted"><Link href="/account/recover">Forgot your password?</Link></p>
           <p className="workspace-muted">
             Have a pending invitation? <Link href="/workspace/accept-invitation">Accept invitation</Link>.
           </p>

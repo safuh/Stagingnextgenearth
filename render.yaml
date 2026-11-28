@@ -32,6 +32,26 @@ services:
         value: staging
       - key: PUBLIC_REGISTRATION_ENABLED
         value: "false"
+      # Staging-only fallback: authorised administrators may copy a one-time
+      # invitation link if transactional SMTP is not yet configured.
+      - key: IDENTITY_MANUAL_INVITATION_LINKS_ENABLED
+        value: "true"
+      # Configure these secrets in the Render dashboard after verifying the sender domain.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_SENDER
+        sync: false
+      # Use the web BFF callback as the exact Google OAuth redirect URI.
+      - key: GOOGLE_OIDC_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OIDC_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OIDC_REDIRECT_URI
+        value: https://nextgen-web-upag.onrender.com/api/session/google/callback
       - key: CORS_ORIGINS
         value: '["https://nextgen-web-upag.onrender.com"]'
       - key: CORS_ALLOW_CREDENTIALS

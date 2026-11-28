@@ -155,3 +155,9 @@ Staging now bootstraps four draft programme intakes alongside the four published
 ## Learner risk review and facilitator interventions — next release
 
 The next learning-operations increment is being implemented on branch `feat/learning-risk-review-m170`. It adds cohort-configurable inactivity, repeated-absence and overdue-assessment signals; explicit `insufficient_data` handling; programme roll-ups; and staff-owned, audited follow-ups. The staff workspace supports assignment, due dates, progress, resolution and cancellation. These are advisory workflow signals only: no automated learner rejection, suspension, grading, eligibility change or notification is triggered. This increment is not yet merged or deployed; do not present it as a live staging capability until its CI and authenticated staging acceptance pass. See [the learner risk and intervention operating guide](learning/LEARNER_RISK_AND_INTERVENTIONS.md).
+
+## Identity and learner experience — staging update
+
+The staging portal now separates public course discovery from dedicated learner sign-in. Administrators can demonstrate learner progress using four synthetic learner journeys across four published curricula. The owner account has additive learner access without losing administrative privileges. Synthetic progress is illustrative only.
+
+Secure onboarding is the next release: invitation-by-email, password setup, verified email, Google OIDC and account recovery. Real email and Google provider credentials remain deployment prerequisites.

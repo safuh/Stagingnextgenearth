@@ -62,8 +62,8 @@ These foundation checks must continue passing as product code is added.
 - [x] Administrator-controlled membership role changes and suspension, with owner and last-admin safeguards.
 - [x] Organisation ownership transfer with atomic owner/admin hand-off and former-owner access retention.
 - [x] Append-only organisation audit events for membership role/status changes and ownership transfers.
-- [ ] Account lifecycle controls, broader security audit coverage and rate limiting/abuse protection.
-- [ ] Rate limiting and abuse protection at the application or edge.
+- [ ] Complete production account lifecycle acceptance, broader security audit coverage and distributed rate limiting/abuse protection. M173 implements the invitation, verification, recovery, email-change, Google OIDC and session-revocation flows; production provider configuration and live acceptance remain open.
+- [ ] Distributed rate limiting and abuse protection at the trusted ingress/API gateway. The current process-local limiter is a first layer only.
 - [x] Initial security tests for cross-organisation access and role escalation.
 
 ## M3 — Programme and project operations
@@ -575,7 +575,7 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 
 ## M172 — Learner portal entry and staging demonstration journeys
 
-**Status: local implementation in progress; not merged or deployed.**
+**Status: merged and deployed to staging on 28 November 2026.**
 
 - [x] Add a dedicated learner sign-in route at `/learners/sign-in`.
 - [x] Keep `/learners` as public course discovery and the authenticated learner home; remove open self-registration from this journey and direct learners to invitation-led onboarding.
@@ -586,10 +586,41 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Add regression coverage for owner dual-role access, four distinct completed journeys, progress and seed idempotency.
 - [x] Update founder demonstration, developer and learner-operations documentation; update Notion learner, developer and organisation operations pages.
 - [x] Focused seed/auth tests passed (4 tests); mypy passed (91 source files); frontend typecheck passed.
-- [ ] Complete remaining backend learning/bootstrap/auth regression suite and full backend test suite.
-- [ ] Complete frontend lint, tests and production build.
-- [ ] Implement invitation-by-email first-use account setup, email verification, password reset, Google OIDC and account linking in the next identity milestone; current membership invitation still requires a registered account.
-- [ ] Push branch, open PR against `feat/admin-workspace-ui-polish-m116`, pass all required CI, merge and verify both Render services on the exact merge SHA.
-- [ ] Run authenticated browser acceptance: owner/admin can enter both staff and learner portals; synthetic learners appear in cohort/course reporting; non-learners are denied; public discovery contains no synthetic identity or draft curriculum.
+- [x] Complete focused backend learning/bootstrap/auth regression suite and required GitHub CI jobs.
+- [x] Complete frontend lint, tests and production build.
+- [x] Push branch, open PR #176, pass all required CI, merge and verify both Render services on merge SHA `0ebc2f8fe67b65b2bab17a97e8cd62292ad271ea`.
+- [ ] Run final authenticated browser acceptance: owner/admin can enter both staff and learner portals; synthetic learners appear in cohort/course reporting; non-learners are denied; public discovery contains no synthetic identity or draft curriculum.
 
 Synthetic `.test` learner identities have random undisclosed password hashes and are intentionally non-loginable. Use the actual owner/admin account for interactive learner portal testing. Never describe seeded progress as real programme outcomes.
+
+
+## M173 — Identity lifecycle and secure onboarding
+
+**Status: implementation, full local backend suite and PostgreSQL/PostGIS migration acceptance complete; CI, production provider configuration and live browser acceptance remain.**
+
+- [x] Persist email-verification state and stable external provider identities.
+- [x] Store only hashed one-time action tokens with expiry, consumption and revocation for invitations, verification, password recovery, email changes and Google OIDC state.
+- [x] Add role-scoped, organisation-specific email invitations, resend/rotation, revocation and acceptance for new and existing accounts.
+- [x] Require the existing password when an invitation targets an existing account; activate only the roles present in the invitation.
+- [x] Add SMTP delivery adapter and deployment configuration inputs without committing provider secrets.
+- [x] Add email verification, password recovery, email change and global session revocation.
+- [x] Add Google OIDC authorization-code flow with state, nonce, PKCE, signature/issuer/audience/expiry and verified-email checks; do not auto-provision tenant access.
+- [x] Add learner/staff sign-in entry points, invitation acceptance and account-security pages.
+- [x] Add a distinct funder membership role for the M174 institutional lifecycle.
+- [x] Add invitation, Google OIDC, email-change, recovery, funder-role and course-enrolment tests.
+- [x] Verify migration upgrade/downgrade/re-upgrade against a disposable PostgreSQL 17/PostGIS 3.5 integration database.
+- [x] Full backend suite: 326 passed, 4 skipped; 15 upstream deprecation warnings only.
+- [ ] Configure SMTP and Google OAuth secrets and complete real-mail/real-Google staging acceptance.
+- [ ] Complete programme-scoped staff/researcher/partner policy enforcement before advertising those scopes.
+
+## M174 — Funder and institutional partner operations
+
+- [ ] Complete prospect, invitation, due-diligence, approval, agreement, grant, deliverable, reporting, renewal and closeout workflows.
+- [ ] Add a least-privilege funder portal and organisation-scoped funder permissions.
+- [ ] Link partner/funder commitments and deliverables to approved programme, research and climate evidence.
+
+## M175 — Research and climate intelligence
+
+- [ ] Complete provider-backed research discovery, governance, ingestion, quality review and reproducible analysis workflows.
+- [ ] Complete regional climate products with explicit units, coverage, baselines, uncertainty, missingness, licensing and provenance.
+- [ ] Publish evidence-backed reports and keep synthetic staging fixtures separate from observed data and funder outcomes.

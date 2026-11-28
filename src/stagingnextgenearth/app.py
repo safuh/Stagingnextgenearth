@@ -30,6 +30,7 @@ from .core.middleware import (
 )
 from .core.security_headers import SecurityHeadersMiddleware
 from .identity import create_sqlalchemy_auth_application
+from .identity.messaging import create_email_sender
 from .scanning import ClamAVScanner
 from .storage import S3ObjectStorage
 
@@ -91,6 +92,7 @@ def create_app(
 
         auth_application_factory = configured_auth_factory
     app.state.auth_application_factory = auth_application_factory
+    app.state.email_sender = create_email_sender(resolved)
 
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(

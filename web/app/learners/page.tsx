@@ -122,6 +122,7 @@ export default function LearnerPortalPage() {
         <Link className="brand" href="/">NextGen For Earth</Link>
         <nav className="learner-top-nav" aria-label="Learner navigation">
           <Link className="secondary-action" href="/">Public website</Link>
+          {authenticated ? <Link className="secondary-action" href="/account/security">Account security</Link> : null}
           {authenticated ? <button className="workspace-signout" type="button" onClick={() => { clearSession(); window.location.assign("/learners"); }}>Sign out</button> : <Link className="secondary-action" href="/learners/sign-in">Learner sign in</Link>}
         </nav>
       </header>
