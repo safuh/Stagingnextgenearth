@@ -118,6 +118,52 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert planned_programme.status_code == 200
 
         base = f"/api/organizations/{org_id}/learning"
+        cohort_response = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "programme_id": programme_id,
+                "code": "CLIMATE-INTAKE-01",
+                "title": "Climate Action Intake 01",
+                "start_date": "2026-11-01",
+                "end_date": "2027-03-31",
+                "capacity": 2,
+            },
+        )
+        assert cohort_response.status_code == 201
+        cohort_id = cohort_response.json()["id"]
+        assert cohort_response.json()["status"] == "draft"
+        invalid_cohort_dates = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "programme_id": programme_id,
+                "code": "BAD-DATES",
+                "title": "Invalid date cohort",
+                "start_date": "2027-04-01",
+                "end_date": "2027-03-01",
+            },
+        )
+        assert invalid_cohort_dates.status_code == 422
+        unknown_programme_cohort = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "programme_id": "00000000-0000-0000-0000-000000000000",
+                "code": "UNKNOWN-PROGRAMME",
+                "title": "Invalid programme cohort",
+            },
+        )
+        assert unknown_programme_cohort.status_code == 404
+        denied_cohort_list = client.get(f"{base}/cohorts", headers=learner_headers)
+        assert denied_cohort_list.status_code == 403
+        opened_cohort = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"status": "open"},
+        )
+        assert opened_cohort.status_code == 200
+        assert opened_cohort.json()["status"] == "open"
         course_response = client.post(
             f"{base}/courses",
             headers=admin_headers,
@@ -263,6 +309,19 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert public_approval.status_code == 200
+        public_cohort_assignment = client.post(
+            f"{base}/courses/{course_id}/enrollments/{public_learner_id}/cohort",
+            headers=admin_headers,
+            json={"cohort_id": cohort_id},
+        )
+        assert public_cohort_assignment.status_code == 200
+        public_my_enrollments = client.get(
+            f"{base}/my-enrollments",
+            headers=public_learner_headers,
+        )
+        assert public_my_enrollments.status_code == 200
+        assert public_my_enrollments.json()[0]["cohort_id"] == cohort_id
+        assert public_my_enrollments.json()[0]["cohort_title"] == "Climate Action Intake 01"
         public_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
             headers=public_learner_headers,
@@ -345,6 +404,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert decision.status_code == 200
+        learner_cohort_assignment = client.post(
+            f"{base}/courses/{course_id}/enrollments/{learner_id}/cohort",
+            headers=admin_headers,
+            json={"cohort_id": cohort_id},
+        )
+        assert learner_cohort_assignment.status_code == 200
+        cohort_roster = client.get(f"{base}/cohorts", headers=admin_headers)
+        assert cohort_roster.status_code == 200
+        assert cohort_roster.json()[0]["assigned_count"] == 2
         promoted_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
             headers=learner_headers,
