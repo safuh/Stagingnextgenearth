@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,9 @@ from stagingnextgenearth.platform.models import (
     LearningAssessmentEvaluation,
     LearningAttendance,
     LearningCertificate,
+    LearningCohort,
+    LearningCohortCourse,
+    LearningCohortMembership,
     LearningCourse,
     LearningEnrollment,
     LearningLesson,
@@ -288,6 +291,59 @@ class LessonCreate(BaseModel):
     position: int = Field(ge=1, le=500)
 
 
+class CohortCreate(BaseModel):
+    name: str = Field(min_length=3, max_length=180)
+    slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str | None = Field(default=None, max_length=5000)
+    programme_id: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    capacity: int | None = Field(default=None, ge=1, le=10000)
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "CohortCreate":
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("Cohort end date cannot precede start date")
+        return self
+
+
+class CohortRead(BaseModel):
+    id: str
+    name: str
+    slug: str
+    description: str | None
+    programme_id: str | None
+    start_date: date | None
+    end_date: date | None
+    capacity: int | None
+    status: str
+    course_count: int
+    member_count: int
+
+
+class CohortUpdate(BaseModel):
+    status: Literal["open", "active", "closed", "archived"]
+
+
+class CohortCourseCreate(BaseModel):
+    course_id: str
+
+
+class CohortMemberCreate(BaseModel):
+    learner_id: str
+
+
+class CohortMemberStatusUpdate(BaseModel):
+    status: Literal["active", "completed", "withdrawn", "suspended"]
+
+
+class CohortMemberRead(BaseModel):
+    membership_id: str
+    display_name: str
+    status: str
+    joined_at: datetime
+
+
 class EnrollmentDecision(BaseModel):
     decision: Literal["approved", "rejected"]
 
@@ -495,6 +551,431 @@ async def list_courses(
         statement = statement.where(LearningCourse.status == "published")
     result = await session.scalars(statement.order_by(LearningCourse.title).limit(200))
     return [CourseRead.model_validate(row) for row in result.all()]
+
+
+@router.post("/cohorts", response_model=CohortRead, status_code=201)
+async def create_cohort(
+    organization_id: str,
+    body: CohortCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    """Create a tenant-scoped learner intake."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    if body.programme_id is not None:
+        programme = await session.scalar(
+            select(Programme.id).where(
+                Programme.id == body.programme_id,
+                Programme.organization_id == organization_id,
+            )
+        )
+        if programme is None:
+            raise HTTPException(404, "Programme not found in this organisation")
+    cohort = LearningCohort(
+        organization_id=organization_id,
+        programme_id=body.programme_id,
+        name=body.name.strip(),
+        slug=body.slug,
+        description=body.description,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        capacity=body.capacity,
+        status="draft",
+        created_by=principal.user_id,
+    )
+    session.add(cohort)
+    try:
+        await session.flush()
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                action="learning.cohort.created",
+                changes={"cohort_id": cohort.id, "name": cohort.name, "slug": cohort.slug},
+            )
+        )
+        await session.commit()
+        await session.refresh(cohort)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Cohort slug already exists") from exc
+    return CohortRead(
+        id=cohort.id,
+        name=cohort.name,
+        slug=cohort.slug,
+        description=cohort.description,
+        programme_id=cohort.programme_id,
+        start_date=cohort.start_date,
+        end_date=cohort.end_date,
+        capacity=cohort.capacity,
+        status=cohort.status,
+        course_count=0,
+        member_count=0,
+    )
+
+
+@router.get("/cohorts", response_model=list[CohortRead])
+async def list_cohorts(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[CohortRead]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    rows = await session.scalars(
+        select(LearningCohort)
+        .where(LearningCohort.organization_id == organization_id)
+        .order_by(LearningCohort.created_at.desc())
+        .limit(200)
+    )
+    output: list[CohortRead] = []
+    for cohort in rows.all():
+        course_count = await session.scalar(
+            select(func.count(LearningCohortCourse.id)).where(
+                LearningCohortCourse.organization_id == organization_id,
+                LearningCohortCourse.cohort_id == cohort.id,
+            )
+        )
+        member_count = await session.scalar(
+            select(func.count(LearningCohortMembership.id)).where(
+                LearningCohortMembership.organization_id == organization_id,
+                LearningCohortMembership.cohort_id == cohort.id,
+                LearningCohortMembership.status == "active",
+            )
+        )
+        output.append(
+            CohortRead(
+                id=cohort.id,
+                name=cohort.name,
+                slug=cohort.slug,
+                description=cohort.description,
+                programme_id=cohort.programme_id,
+                start_date=cohort.start_date,
+                end_date=cohort.end_date,
+                capacity=cohort.capacity,
+                status=cohort.status,
+                course_count=int(course_count or 0),
+                member_count=int(member_count or 0),
+            )
+        )
+    return output
+
+
+@router.patch("/cohorts/{cohort_id}", response_model=CohortRead)
+async def update_cohort(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    allowed = {
+        "draft": {"open"},
+        "open": {"active", "closed"},
+        "active": {"closed"},
+        "closed": {"archived"},
+        "archived": set(),
+    }
+    if body.status not in allowed.get(cohort.status, set()):
+        raise HTTPException(409, f"Invalid cohort transition: {cohort.status} to {body.status}")
+    previous = cohort.status
+    cohort.status = body.status
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            action="learning.cohort.status_changed",
+            changes={
+                "cohort_id": cohort.id,
+                "status": {"before": previous, "after": cohort.status},
+            },
+        )
+    )
+    await session.commit()
+    return await _cohort_read(session, cohort)
+
+
+async def _cohort_read(session: AsyncSession, cohort: LearningCohort) -> CohortRead:
+    course_count = await session.scalar(
+        select(func.count(LearningCohortCourse.id)).where(
+            LearningCohortCourse.organization_id == cohort.organization_id,
+            LearningCohortCourse.cohort_id == cohort.id,
+        )
+    )
+    member_count = await session.scalar(
+        select(func.count(LearningCohortMembership.id)).where(
+            LearningCohortMembership.organization_id == cohort.organization_id,
+            LearningCohortMembership.cohort_id == cohort.id,
+            LearningCohortMembership.status == "active",
+        )
+    )
+    return CohortRead(
+        id=cohort.id,
+        name=cohort.name,
+        slug=cohort.slug,
+        description=cohort.description,
+        programme_id=cohort.programme_id,
+        start_date=cohort.start_date,
+        end_date=cohort.end_date,
+        capacity=cohort.capacity,
+        status=cohort.status,
+        course_count=int(course_count or 0),
+        member_count=int(member_count or 0),
+    )
+
+
+@router.post("/cohorts/{cohort_id}/courses", status_code=201)
+async def link_cohort_course(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortCourseCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, str]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    if cohort.status not in {"draft", "open", "active"}:
+        raise HTTPException(409, "Closed or archived cohorts cannot be changed")
+    course = await session.scalar(
+        select(LearningCourse).where(
+            LearningCourse.id == body.course_id,
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.status == "published",
+        )
+    )
+    if course is None:
+        raise HTTPException(404, "Published course not found in this organisation")
+    link = LearningCohortCourse(
+        organization_id=organization_id,
+        cohort_id=cohort_id,
+        course_id=course.id,
+    )
+    session.add(link)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            action="learning.cohort.course_linked",
+            changes={"cohort_id": cohort_id, "course_id": course.id},
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Course is already linked to this cohort") from exc
+    return {"cohort_id": cohort_id, "course_id": course.id, "status": "linked"}
+
+
+@router.post("/cohorts/{cohort_id}/members", response_model=CohortMemberRead, status_code=201)
+async def add_cohort_member(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortMemberCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortMemberRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort)
+        .where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    if cohort.status not in {"open", "active"}:
+        raise HTTPException(409, "Cohort must be open or active before adding learners")
+    learner_membership = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == body.learner_id,
+            Membership.status == "active",
+        )
+    )
+    if learner_membership is None or "learner" not in await get_membership_roles(
+        session, learner_membership
+    ):
+        raise HTTPException(404, "Active learner membership not found in this organisation")
+    if cohort.capacity is not None:
+        active_count = await session.scalar(
+            select(func.count(LearningCohortMembership.id)).where(
+                LearningCohortMembership.cohort_id == cohort_id,
+                LearningCohortMembership.status == "active",
+            )
+        )
+        if int(active_count or 0) >= cohort.capacity:
+            raise HTTPException(409, "Cohort capacity has been reached")
+    profile = await session.scalar(
+        select(ResearcherProfile).where(
+            ResearcherProfile.user_id == body.learner_id,
+            ResearcherProfile.visibility == "organization",
+        )
+    )
+    row = LearningCohortMembership(
+        organization_id=organization_id,
+        cohort_id=cohort_id,
+        learner_id=body.learner_id,
+        status="active",
+        created_by=principal.user_id,
+    )
+    session.add(row)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=body.learner_id,
+            action="learning.cohort.member_added",
+            changes={"cohort_id": cohort_id, "membership_id": row.id},
+        )
+    )
+    try:
+        await session.commit()
+        await session.refresh(row)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Learner is already a member of this cohort") from exc
+    return CohortMemberRead(
+        membership_id=row.id,
+        display_name=profile.display_name if profile is not None else "Name not shared",
+        status=row.status,
+        joined_at=row.joined_at,
+    )
+
+
+@router.get("/cohorts/{cohort_id}/members", response_model=list[CohortMemberRead])
+async def list_cohort_members(
+    organization_id: str,
+    cohort_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[CohortMemberRead]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort.id).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    rows = await session.scalars(
+        select(LearningCohortMembership)
+        .where(
+            LearningCohortMembership.organization_id == organization_id,
+            LearningCohortMembership.cohort_id == cohort_id,
+        )
+        .order_by(LearningCohortMembership.joined_at.desc())
+        .limit(500)
+    )
+    output: list[CohortMemberRead] = []
+    for row in rows.all():
+        profile = await session.scalar(
+            select(ResearcherProfile).where(
+                ResearcherProfile.user_id == row.learner_id,
+                ResearcherProfile.visibility == "organization",
+            )
+        )
+        output.append(
+            CohortMemberRead(
+                membership_id=row.id,
+                display_name=profile.display_name if profile is not None else "Name not shared",
+                status=row.status,
+                joined_at=row.joined_at,
+            )
+        )
+    return output
+
+
+@router.patch(
+    "/cohorts/{cohort_id}/members/{cohort_membership_id}",
+    response_model=CohortMemberRead,
+)
+async def update_cohort_member_status(
+    organization_id: str,
+    cohort_id: str,
+    cohort_membership_id: str,
+    body: CohortMemberStatusUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortMemberRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    row = await session.scalar(
+        select(LearningCohortMembership).where(
+            LearningCohortMembership.id == cohort_membership_id,
+            LearningCohortMembership.organization_id == organization_id,
+            LearningCohortMembership.cohort_id == cohort_id,
+        )
+    )
+    if row is None:
+        raise HTTPException(404, "Cohort member not found")
+    if row.status == body.status:
+        raise HTTPException(409, "Cohort member already has this status")
+    allowed = {
+        "active": {"completed", "withdrawn", "suspended"},
+        "suspended": {"active", "withdrawn"},
+        "completed": set(),
+        "withdrawn": set(),
+    }
+    if body.status not in allowed.get(row.status, set()):
+        raise HTTPException(409, f"Invalid cohort member transition: {row.status} to {body.status}")
+    previous = row.status
+    row.status = body.status
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=row.learner_id,
+            action="learning.cohort.member_status_changed",
+            changes={
+                "cohort_id": cohort_id,
+                "membership_id": row.id,
+                "status": {"before": previous, "after": row.status},
+            },
+        )
+    )
+    await session.commit()
+    profile = await session.scalar(
+        select(ResearcherProfile).where(
+            ResearcherProfile.user_id == row.learner_id,
+            ResearcherProfile.visibility == "organization",
+        )
+    )
+    return CohortMemberRead(
+        membership_id=row.id,
+        display_name=profile.display_name if profile is not None else "Name not shared",
+        status=row.status,
+        joined_at=row.joined_at,
+    )
 
 
 @router.patch("/courses/{course_id}", response_model=CourseRead)
