@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,7 @@ from stagingnextgenearth.platform.models import (
     LearningEnrollment,
     LearningLesson,
     LearningLessonCompletion,
+    LearningIntervention,
     LearningMentorship,
     LearningModule,
     LearningResource,
@@ -283,6 +284,9 @@ class CohortCreate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     capacity: int | None = Field(default=None, ge=1)
+    inactivity_threshold_days: int = Field(default=14, ge=1, le=90)
+    absence_threshold: int = Field(default=2, ge=1, le=20)
+    overdue_grace_days: int = Field(default=2, ge=0, le=30)
 
     @model_validator(mode="after")
     def validate_dates(self) -> "CohortCreate":
@@ -297,7 +301,25 @@ class CohortUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     capacity: int | None = Field(default=None, ge=1)
+    inactivity_threshold_days: int | None = Field(default=None, ge=1, le=90)
+    absence_threshold: int | None = Field(default=None, ge=1, le=20)
+    overdue_grace_days: int | None = Field(default=None, ge=0, le=30)
     status: Literal["open", "active", "completed", "archived"] | None = None
+
+
+class InterventionCreate(BaseModel):
+    enrollment_id: str
+    assigned_to: str
+    due_date: date | None = None
+    note: str = Field(min_length=3, max_length=3000)
+
+
+class InterventionUpdate(BaseModel):
+    assigned_to: str | None = None
+    due_date: date | None = None
+    note: str | None = Field(default=None, min_length=3, max_length=3000)
+    status: Literal["in_progress", "resolved", "cancelled"] | None = None
+    resolution_note: str | None = Field(default=None, max_length=3000)
 
 
 class CohortAssignment(BaseModel):
@@ -571,6 +593,9 @@ async def list_learning_cohorts(
             "start_date": item.start_date,
             "end_date": item.end_date,
             "capacity": item.capacity,
+            "inactivity_threshold_days": item.inactivity_threshold_days,
+            "absence_threshold": item.absence_threshold,
+            "overdue_grace_days": item.overdue_grace_days,
             "status": item.status,
             "assigned_count": counts.get(item.id, 0),
         }
@@ -607,6 +632,9 @@ async def create_learning_cohort(
         start_date=body.start_date,
         end_date=body.end_date,
         capacity=body.capacity,
+        inactivity_threshold_days=body.inactivity_threshold_days,
+        absence_threshold=body.absence_threshold,
+        overdue_grace_days=body.overdue_grace_days,
         status="draft",
         created_by=principal.user_id,
     )
@@ -640,6 +668,9 @@ async def create_learning_cohort(
         "start_date": cohort.start_date,
         "end_date": cohort.end_date,
         "capacity": cohort.capacity,
+        "inactivity_threshold_days": cohort.inactivity_threshold_days,
+        "absence_threshold": cohort.absence_threshold,
+        "overdue_grace_days": cohort.overdue_grace_days,
         "status": cohort.status,
         "assigned_count": 0,
     }
@@ -735,6 +766,9 @@ async def update_learning_cohort(
         "start_date": cohort.start_date,
         "end_date": cohort.end_date,
         "capacity": cohort.capacity,
+        "inactivity_threshold_days": cohort.inactivity_threshold_days,
+        "absence_threshold": cohort.absence_threshold,
+        "overdue_grace_days": cohort.overdue_grace_days,
         "status": cohort.status,
         "assigned_count": int(assigned_count or 0),
     }
