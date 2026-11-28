@@ -164,6 +164,66 @@ async def list_public_courses(
     return [PublicCourseRead.model_validate(item) for item in rows.all()]
 
 
+@public_router.get(
+    "/public/organizations/{organization_slug}/courses/{course_slug}/curriculum",
+)
+async def get_public_course_curriculum(
+    organization_slug: str,
+    course_slug: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Expose the complete outline and lesson content for published courses only."""
+    course = await session.scalar(
+        select(LearningCourse)
+        .join(Organization, Organization.id == LearningCourse.organization_id)
+        .where(
+            Organization.slug == organization_slug,
+            LearningCourse.slug == course_slug,
+            LearningCourse.status == "published",
+        )
+    )
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Published course not found")
+    modules = await session.scalars(
+        select(LearningModule)
+        .where(LearningModule.course_id == course.id)
+        .order_by(LearningModule.position)
+    )
+    module_rows = modules.all()
+    outline: list[dict[str, object]] = []
+    for module in module_rows:
+        lessons = await session.scalars(
+            select(LearningLesson)
+            .where(LearningLesson.module_id == module.id)
+            .order_by(LearningLesson.position)
+        )
+        outline.append({
+            "id": module.id,
+            "title": module.title,
+            "description": module.description,
+            "position": module.position,
+            "lessons": [
+                {
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "content_type": lesson.content_type,
+                    "content": lesson.content,
+                    "resource_url": lesson.resource_url,
+                    "duration_minutes": lesson.duration_minutes,
+                    "position": lesson.position,
+                }
+                for lesson in lessons.all()
+            ],
+        })
+    return {
+        "course_id": course.id,
+        "slug": course.slug,
+        "title": course.title,
+        "description": course.description,
+        "modules": outline,
+    }
+
+
 class CourseCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
     slug: str = Field(min_length=2, max_length=140, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
