@@ -302,7 +302,7 @@ Learners will be able to:
 Before publishing any course:
 - [ ] Appoint a subject-matter lead and independent reviewer.
 - [ ] Confirm audience, language, reading level and delivery constraints.
-- [ ] Review and approve the 26 substantive pilot lessons and their accessible resources; revise content to reflect local practice and organisational standards.
+- [ ] Review and approve the 86 substantive pilot lessons and their accessible resources; revise content to reflect local practice and organisational standards.
 - [ ] Confirm source citations, image permissions and reuse rights.
 - [ ] Validate outcomes, lesson alignment, quiz answer keys and rubrics.
 - [ ] Complete safeguarding, privacy, accessibility and cultural review.
@@ -310,16 +310,16 @@ Before publishing any course:
 - [ ] Approve course version and record publication decision.
 
 
-## Implemented curriculum pilot content (M121)
+## Implemented curriculum pilot content (M159)
 
-The seed catalogue now contains four pilot tracks aligned to the organisation's programme areas:
+The staging seed catalogue now contains four expanded pilot tracks aligned to the organisation's programme areas:
 
-1. Research Methods and Evidence Practice
-2. Climate and Health Resilience
-3. Youth Climate Stewardship and Community Action
-4. Indigenous and Community Knowledge for Climate Resilience
+1. Research Methods and Evidence Practice — 8 modules, 25 lessons.
+2. Climate and Health Resilience — 6 modules, 19 lessons.
+3. Youth Climate Stewardship and Community Action — 8 modules, 24 lessons.
+4. Indigenous and Community Knowledge for Climate Resilience — 6 modules, 18 lessons.
 
-Each track contains two modules and six core lessons (24 core lessons total); the research and healthcare tracks each include one additional applied lesson, bringing the pilot to 26 lessons. Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
+The complete seeded outline contains 28 ordered modules and 86 substantive lessons. The modules follow the course plans above, with lesson outcomes, core concepts, practical exercises, quality/safeguarding checks and self-assessment prompts. Each course retains a formative quiz; course assessment rubrics and independent subject-matter review remain governance work rather than implied approval. Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
 
 The learner classroom now presents the course overview, module/lesson counts, estimated guided minutes, module-level completion and readable lesson-content panels.
 

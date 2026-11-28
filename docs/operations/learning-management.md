@@ -109,13 +109,16 @@ interface only; all permissions remain enforced by the API.
 
 ## Applying the curriculum pilot seed
 
-The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculum_content.json`. To apply or refresh the demo courses, lessons, official source links and formative quizzes, run:
+The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculum_content.json`: Research Methods (8 modules / 25 lessons), Climate and Health Resilience (6 / 19), Youth Climate Stewardship (8 / 24), and Indigenous and Community Knowledge (6 / 18). The complete staging seed contains 28 ordered modules and 86 lessons, with lesson text, applied exercises, review/safeguarding notes and source links. To apply or refresh the demo courses, lessons, official source links and formative quizzes, run:
 
 ```bash
 python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 ```
 
 The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
+
+
+Published course outlines and lesson content are also available without learner sign-in through `GET /api/public/organizations/{organization_slug}/courses/{course_slug}/curriculum`. This public read model returns only published course content; draft courses and internal learner, assessment-answer and staff records are excluded. The learner discovery page renders the module and lesson outline before application, while completion tracking and classroom actions still require approved enrolment.
 
 The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
 

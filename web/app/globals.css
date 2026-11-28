@@ -2192,6 +2192,16 @@ footer > span { line-height: 1.7; }
 .learner-lesson-card h4 { margin: 8px 0 14px; color: #203f30; font: 500 21px/1.2 "Playfair Display",Georgia,serif; }
 .learner-lesson-content { margin: 0 0 18px; padding: 18px; border-left: 3px solid #a6c875; color: #40564a; background: #f6f8f2; font-size: 11px; line-height: 1.9; white-space: pre-wrap; }
 .learner-lesson-card .primary-action { margin-top: 6px; }
+.public-curriculum-preview { margin: 18px 0; padding: 16px; border: 1px solid rgba(30,62,46,.16); background: #f7f9f4; }
+.public-curriculum-preview > summary { color: #234a36; cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.public-curriculum-module { margin-top: 12px; padding: 14px; border-left: 2px solid #a6c875; background: #fff; }
+.public-curriculum-module > summary { color: #203f30; cursor: pointer; font-size: 12px; font-weight: 700; line-height: 1.6; }
+.public-curriculum-lesson { margin: 14px 0 0; padding: 14px 0 0; border-top: 1px solid rgba(30,62,46,.1); }
+.public-curriculum-lesson .portal-tag { margin: 0 0 6px; }
+.public-curriculum-lesson h4 { margin: 0 0 10px; color: #203f30; font: 500 17px/1.25 "Playfair Display",Georgia,serif; }
+.public-curriculum-lesson .learner-lesson-content { max-height: 420px; overflow: auto; font-size: 12px; }
+.public-curriculum-lesson > a { color: #416b48; font-size: 11px; font-weight: 750; }
+
 @media (max-width: 760px) {
   .learner-course-intro { grid-template-columns: 1fr; padding: 20px; }
   .learner-course-intro-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
