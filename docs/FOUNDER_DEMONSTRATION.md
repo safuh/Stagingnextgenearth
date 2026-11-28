@@ -198,3 +198,13 @@ an explicit, reviewed database lifecycle procedure.
 
 For the separate staging deployment procedure, use
 [`staging-deployment.md`](operations/staging-deployment.md).
+
+
+## Volunteer and employment application walkthrough
+
+Use the public entry points `/volunteer/apply` and `/employment/apply` from the home page. Both resolve the organisation from the shared `NEXT_PUBLIC_ORGANIZATION_SLUG` configuration (staging fallback: `next-gen-for-earth-demo`); do not add page-specific tenant slugs.
+
+- Sign in or create a dedicated demo account before submitting either application.
+- On the volunteer page, confirm the programme list loads and includes programmes in `planned` or `active` status. Select a programme and submit an expression of interest. Programme staff must review it; required safeguarding and guardian-consent checks remain separate gates before participation or membership activation.
+- On the employment page, submit an employee-position expression of interest and show the private application reference/status. An authorised organisation administrator reviews it. Approval does not automatically publish the applicant's profile.
+- Demonstrate the loading, error and empty states honestly. Do not use real personal data, and do not claim that an application constitutes an offer, appointment, verified identity or safeguarding clearance.
