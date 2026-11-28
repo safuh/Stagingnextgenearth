@@ -2207,6 +2207,7 @@ async def export_organisation_learning_outcomes(
             "course_count",
             "average_progress",
             "learners",
+            "enrolments",
             "approved",
             "completed",
             "attendance_records",
@@ -2234,6 +2235,7 @@ async def export_organisation_learning_outcomes(
                         safe_cell(programme_totals.get(key))
                         for key in (
                             "learners",
+                            "enrolments",
                             "approved",
                             "completed",
                             "attendance_records",
