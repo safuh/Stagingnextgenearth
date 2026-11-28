@@ -14,7 +14,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=builder /uv /uvx /bin/
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libexpat1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system app \
+    && adduser --system --ingroup app app
 WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md alembic.ini ./
