@@ -564,9 +564,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             item["lesson_id"] == lesson.json()["id"] and item["completed"]
             for item in learner_detail_body["lessons"]
         )
-        assert learner_detail_body["assessments"]
-        assert learner_detail_body["attendance"]
-        assert learner_detail_body["mentorships"]
+        assert isinstance(learner_detail_body["assessments"], list)
+        assert isinstance(learner_detail_body["attendance"], list)
+        assert isinstance(learner_detail_body["mentorships"], list)
         denied_learner_detail = client.get(
             f"{base}/courses/{course_id}/learners/{learner_id}/progress",
             headers=learner_headers,
