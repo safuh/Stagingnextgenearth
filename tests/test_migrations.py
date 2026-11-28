@@ -294,6 +294,18 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             "reviewed_by",
             "reviewed_at",
         },
+        "learning_cohorts": {
+            "id", "organization_id", "programme_id", "name", "slug", "description",
+            "start_date", "end_date", "capacity", "status", "created_by",
+            "created_at", "updated_at",
+        },
+        "learning_cohort_courses": {
+            "id", "organization_id", "cohort_id", "course_id", "created_at",
+        },
+        "learning_cohort_memberships": {
+            "id", "organization_id", "cohort_id", "learner_id", "status",
+            "joined_at", "created_by",
+        },
         "learning_assessments": {
             "id",
             "course_id",
@@ -446,6 +458,10 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             assert "research.protocol.submitted" in audit_action_constraint
             assert "research.protocol.reviewed" in audit_action_constraint
             assert "research.ethics.review_recorded" in audit_action_constraint
+            assert "learning.cohort.created" in audit_action_constraint
+            assert "learning.cohort.course_linked" in audit_action_constraint
+            assert "learning.cohort.member_added" in audit_action_constraint
+            assert "learning.cohort.status_changed" in audit_action_constraint
 
             geometry_type = await connection.scalar(
                 text(
