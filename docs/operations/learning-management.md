@@ -129,6 +129,16 @@ For bounded batch review, managers can call `POST /courses/{course_id}/enrollmen
 This increment does not replace the cohort/intake model, learner profile and history, bulk invitations, or audited transfer/withdrawal lifecycle; those remain in [issue #143](https://github.com/safuh/Stagingnextgenearth/issues/143).
 
 
+## Learning outcomes metric definitions
+
+Programme and organisation reports distinguish **unique learners** from **course enrolments**. `totals.learners` counts distinct user IDs across the reporting scope; `totals.enrolments` counts course-enrolment records, so a person enrolled in multiple courses contributes once to unique learners and once per course to enrolments. `approved` and `completed` remain enrolment-state counts. Average progress is calculated by first averaging each learner's progress across their enrolments in the reporting scope, then averaging those learner-level values; each person therefore contributes once to the reported mean. Attendance, mentorship and assessment figures are activity/record counts, not unique learner counts. CSV exports include both unique-learner and enrolment denominators.
+
+
+## Learning outcomes metric definitions
+
+Programme and organisation reports distinguish **unique learners** from **course enrolments**. `totals.learners` counts distinct user IDs across the reporting scope; `totals.enrolments` counts course-enrolment records, so a person enrolled in multiple courses contributes once to unique learners and once per course to enrolments. `approved` and `completed` remain enrolment-state counts. Average progress is calculated by first averaging each learner's progress across their enrolments in the reporting scope, then averaging those learner-level values; each person therefore contributes once to the reported mean. Attendance, mentorship and assessment figures are activity/record counts, not unique learner counts. CSV exports include both unique-learner and enrolment denominators.
+
+
 ## Staff learner progress detail
 
 Course managers can inspect an individual learner's activity at `GET /courses/{course_id}/learners/{learner_id}/progress`. The route verifies the organisation/course relationship, requires a learning-management role and returns only the matching course enrolment, lesson completion timestamps, assessment attempts/evaluation outcomes, attendance records and mentee-side mentorship assignments. It does not expose mentor notes or unrelated course history. The learning admin roster provides an on-demand expandable activity view; it fetches details only when a staff member opens a learner row.
