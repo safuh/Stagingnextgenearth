@@ -23,6 +23,10 @@ The objective is practical: reduce fragmented records, make programme delivery e
 7. **Learning and programme delivery (60 sec):** show the four-track pilot catalogue, course structure, 26 substantive lessons, further-reading links, formative quizzes, enrolment/assessment workflow and programme activities. Explain that the content is ready for subject-matter review but is not accredited training.
 8. **Close (25 sec):** return to the leadership proposition: one connected system for research, youth development, climate stewardship, healthier communities and evidence.
 
+## Volunteer and careers access (include in the operational walkthrough)
+
+Show the public application entry points at `/volunteer/apply` and `/employment/apply`. Both use the deployment's shared organisation identity, so applicants are routed to the configured staging organisation rather than a page-specific tenant slug. Sign-in or account creation is required before submission. The volunteer journey selects a planned or active programme and remains subject to programme-team review and safeguarding/consent checks. The careers journey records a private employee-position expression of interest for authorised administrator review; approval does not automatically publish a profile. Do not describe either application as an automatic appointment or clearance.
+
 ## Closing statement
 
 We are not proposing another disconnected website or spreadsheet. We are building the operating layer that connects the organisation's people, programmes, research, learning, partners and evidence—so that its mission can be delivered, governed and measured with greater clarity.
