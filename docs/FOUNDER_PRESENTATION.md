@@ -1,7 +1,7 @@
 # NextGen For Earth — Founder and Partner Presentation
 
 **From a public website to a connected organisational operating platform**  
-**Status snapshot:** 26 November 2026  
+**Status snapshot:** 28 November 2026  
 **Audience:** Founder, board, programme leadership, institutional partners and funders
 
 ## 1. The opportunity
@@ -53,11 +53,11 @@ The public site will not query private observation records directly. Researchers
 
 The first public climate runtime increment now includes a governed release API, versioning and audit events, a public evidence catalogue, release detail pages and methodology notes. The authenticated Climate Studio at `/workspace/research/climate` connects bounded CHIRPS v3 ingestion, provider-run history, sample inspection, batch quality review, release drafting and independent approval/publication. The public interface uses a high-contrast editorial data design; the research studio uses a dark, technical operations interface.
 
-This is a deployable workflow increment, not evidence of live climate coverage. A real provider run must complete, receive independent quality review and be explicitly published before the public hub can show climate values. The hub must remain in its honest no-release state until then. NASA POWER remains point-based in the current adapter; the public area-release path uses bounded-area providers such as CHIRPS.
+The staging hub is populated with two published synthetic demonstration releases: a 72-month rainfall series and a 72-month temperature series, regional comparison values, a public source register and a research-linked field note. The pages prominently disclose that these are deterministic fixtures, not measured climate conditions or scientific findings. This gives the founder demo a complete, interactive public climate experience while real provider access is being validated. The production API excludes the synthetic provider; production releases still require actual provider ingestion, independent quality review and authorised publication. NASA POWER remains point-based in the current adapter; the public area-release path uses bounded-area providers such as CHIRPS.
 
 ## 6. Learning and curriculum — second product priority
 
-The existing demo seed creates three published course shells with ordered modules and lessons. Their current lesson text is placeholder content, not approved instructional material. The next curriculum increment defines four proposed tracks for organisational review:
+The demo seed now publishes four pilot tracks with eight modules and 26 substantive lessons, further-reading links and four formative quizzes. The content remains a subject-matter review pilot rather than accredited or finally approved instructional material:
 
 1. Research Methods and Evidence Practice.
 2. Climate and Health Resilience.
