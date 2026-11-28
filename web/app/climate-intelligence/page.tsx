@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { apiGetRevalidated } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type Release = {
@@ -14,7 +14,7 @@ type Release = {
   license_name: string; attribution: string; citation_url: string | null;
   published_at: string | null;
 };
-type Overview = { organization: string; release_count: number; indicators: string[]; latest_published_at: string | null };
+type Overview = { organization: string; release_count: number; indicators: string[]; latest_published_at: string | null; latest_data_period_end: string | null; latest_source_retrieved_at: string | null };
 type Source = {
   provider_id: string; provider_product: string; data_class: string; license_name: string;
   attribution: string; terms_url: string | null; citation_url: string | null; release_count: number;
@@ -39,6 +39,14 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value));
 }
 
+function formatDateTime(value: string | null): string {
+  if (!value) return "Not yet available";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short",
+  }).format(new Date(value));
+}
+
 export default function ClimateIntelligencePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [releases, setReleases] = useState<Release[]>([]);
@@ -51,16 +59,16 @@ export default function ClimateIntelligencePage() {
   useEffect(() => {
     let active = true;
     Promise.all([
-      apiGet<Overview>(`/public/organizations/${ORGANIZATION_SLUG}/climate/overview`),
-      apiGet<Release[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases?limit=100`),
-      apiGet<Source[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/sources`),
+      apiGetRevalidated<Overview>(`/public/organizations/${ORGANIZATION_SLUG}/climate/overview`),
+      apiGetRevalidated<Release[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases?limit=100`),
+      apiGetRevalidated<Source[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/sources`),
     ]).then(([summary, items, sourceItems]) => {
       if (!active) return;
       setOverview(summary); setReleases(items); setSources(sourceItems);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Climate intelligence is temporarily unavailable.");
     }).finally(() => { if (active) setLoading(false); });
-    apiGet<ClimateInsight[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/insights`)
+    apiGetRevalidated<ClimateInsight[]>(`/public/organizations/${ORGANIZATION_SLUG}/climate/insights`)
       .then((items) => { if (active) setInsights(items); })
       .catch((cause: unknown) => {
         if (active) setInsightError(cause instanceof Error ? cause.message : "Research-linked insights are temporarily unavailable.");
@@ -115,6 +123,13 @@ export default function ClimateIntelligencePage() {
         <div><span>INDICATORS</span><strong>{loading ? "—" : overview?.indicators.length ?? 0}</strong></div>
         <div><span>DATA SOURCES</span><strong>{loading ? "—" : sources.length}</strong></div>
         <div><span>PUBLICATION STANDARD</span><strong>PROVENANCE</strong></div>
+      </section>
+
+      <section className="climate-public-freshness" aria-label="Evidence freshness and time coverage">
+        <div><span>LAST PUBLISHED</span><strong>{loading ? "—" : formatDateTime(overview?.latest_published_at ?? null)}</strong></div>
+        <div><span>SOURCE RETRIEVED</span><strong>{loading ? "—" : formatDateTime(overview?.latest_source_retrieved_at ?? null)}</strong></div>
+        <div><span>DATA PERIOD ENDS</span><strong>{loading ? "—" : overview?.latest_data_period_end ? formatDate(overview.latest_data_period_end) : "Not yet available"}</strong></div>
+        <p>Publication time, provider retrieval time and the period represented by the data are different timestamps. Historical releases are not live conditions.</p>
       </section>
 
       <section className="climate-public-content" id="evidence">
