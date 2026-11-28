@@ -367,7 +367,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert curriculum.status_code == 200
         assert curriculum.json()["title"] == "Community Climate Action"
         assert curriculum.json()["description"] == (
-            "Practical climate literacy and community action."
+            "Updated draft description."
         )
         assert curriculum.json()["modules"][0]["lessons"][0]["title"] == "Local climate risks"
 
