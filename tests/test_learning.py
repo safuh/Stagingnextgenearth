@@ -755,6 +755,12 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert late_approval.status_code == 200
+        full_cohort_assignment = client.post(
+            f"{base}/courses/{course_id}/enrollments/{late_learner_id}/cohort",
+            headers=admin_headers,
+            json={"cohort_id": cohort_id},
+        )
+        assert full_cohort_assignment.status_code == 409
 
         rejected_late = client.post(
             f"{base}/assessments/{overdue.json()['id']}/submissions",
@@ -967,6 +973,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert second_approval.status_code == 200
+        same_learner_second_course_assignment = client.post(
+            f"{base}/courses/{second_course_id}/enrollments/{learner_id}/cohort",
+            headers=admin_headers,
+            json={"cohort_id": cohort_id},
+        )
+        assert same_learner_second_course_assignment.status_code == 200
+        cohort_after_second_course = client.get(f"{base}/cohorts", headers=admin_headers)
+        assert cohort_after_second_course.status_code == 200
+        assert cohort_after_second_course.json()[0]["assigned_count"] == 2
 
         programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
