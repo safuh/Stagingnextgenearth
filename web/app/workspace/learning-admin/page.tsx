@@ -616,12 +616,15 @@ export default function LearningAdminPage() {
       setError("One or more learner references do not match this course roster.");
       return;
     }
-    await action("Bulk attendance recorded for " + learnerIds.length + " learners.", () =>
+    const resolvedLearnerIds = learnerIds.filter(
+      (learnerId): learnerId is string => Boolean(learnerId),
+    );
+    await action("Bulk attendance recorded for " + resolvedLearnerIds.length + " learners.", () =>
       apiPost(base + "/courses/" + courseId + "/attendance/bulk", {
         session_key: data.get("session_key"),
         session_title: data.get("session_title"),
         session_date: data.get("session_date"),
-        learners: learnerIds.map((learner_id) => ({
+        learners: resolvedLearnerIds.map((learner_id) => ({
           learner_id,
           attendance_status: data.get("attendance_status"),
         })),
