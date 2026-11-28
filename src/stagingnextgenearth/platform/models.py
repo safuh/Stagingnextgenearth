@@ -919,6 +919,76 @@ class LearningCourse(Base):
     )
 
 
+class LearningCohort(Base):
+    """A tenant-scoped intake for one published course."""
+
+    __tablename__ = "learning_cohorts"
+    __table_args__ = (
+        UniqueConstraint("course_id", "slug", name="uq_learning_cohort_course_slug"),
+        UniqueConstraint("organization_id", "code", name="uq_learning_cohort_org_code"),
+        CheckConstraint(
+            "status IN ('draft', 'open', 'active', 'completed', 'cancelled', 'archived')",
+            name="ck_learning_cohort_status",
+        ),
+        CheckConstraint("capacity IS NULL OR capacity > 0", name="ck_learning_cohort_capacity"),
+        CheckConstraint(
+            "ends_at IS NULL OR starts_at IS NULL OR ends_at >= starts_at",
+            name="ck_learning_cohort_date_order",
+        ),
+        CheckConstraint(
+            "enrollment_closes_at IS NULL OR enrollment_opens_at IS NULL "
+            "OR enrollment_closes_at >= enrollment_opens_at",
+            name="ck_learning_cohort_enrollment_window",
+        ),
+        Index("ix_learning_cohorts_org_status", "organization_id", "status"),
+        Index("ix_learning_cohorts_course_status", "course_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
+    )
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    slug: Mapped[str] = mapped_column(String(140), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    enrollment_opens_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    enrollment_closes_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    capacity: Mapped[int | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    safeguarding_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    consent_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    retention_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    minor_access_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    readiness_reviewed_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    readiness_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class LearningModule(Base):
     """Ordered course module."""
 
@@ -1002,6 +1072,9 @@ class LearningEnrollment(Base):
     course_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
     )
+    cohort_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="SET NULL"), nullable=True
+    )
     learner_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -1014,6 +1087,44 @@ class LearningEnrollment(Base):
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LearningEnrollmentEvent(Base):
+    """Append-only record of enrolment and cohort lifecycle changes."""
+
+    __tablename__ = "learning_enrollment_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('applied', 'approved', 'rejected', 'transferred')",
+            name="ck_learning_enrollment_event_type",
+        ),
+        Index("ix_learning_enrollment_events_enrollment_created", "enrollment_id", "created_at"),
+        Index("ix_learning_enrollment_events_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    enrollment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    from_cohort_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="SET NULL"), nullable=True
+    )
+    to_cohort_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class LearningAssessment(Base):
