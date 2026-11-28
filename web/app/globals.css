@@ -2188,3 +2188,38 @@ footer > span { line-height: 1.7; }
   .learner-module-card { padding: 16px; }
   .learner-lesson-card { padding: 15px; }
 }
+
+
+
+/* Research intake — source-attributed publication references */
+.imported-publication-section { margin: 28px 0; padding: 26px; border: 1px solid rgba(28, 61, 43, .2); background: linear-gradient(135deg, #f7f9f3 0%, #fff 62%, #f1f5eb 100%); }
+.imported-publication-heading { align-items: flex-end; gap: 24px; }
+.imported-publication-heading h2 { margin: 7px 0 8px; color: #173b2b; font: 500 29px/1.12 "Playfair Display", Georgia, serif; }
+.imported-publication-heading .workspace-muted { max-width: 760px; margin: 0; font-size: 11px; line-height: 1.8; }
+.imported-publication-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 9px; }
+.imported-publication-actions > span { padding: 9px 11px; color: #45634d; background: #e8efdf; font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+.imported-publication-search { display: block; max-width: 520px; margin: 22px 0 16px; color: #53675a; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.imported-publication-search input { width: 100%; margin-top: 8px; padding: 13px 14px; border: 1px solid rgba(34, 68, 47, .2); border-radius: 0; color: #203b2c; background: #fff; font: inherit; font-size: 12px; letter-spacing: normal; text-transform: none; }
+.imported-publication-search input:focus-visible { outline: 2px solid #76994e; outline-offset: 2px; }
+.imported-publication-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.imported-publication-card { display: flex; min-width: 0; flex-direction: column; padding: 19px; border: 1px solid rgba(31, 67, 44, .14); background: rgba(255,255,255,.9); }
+.imported-publication-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #69805e; font-size: 9px; }
+.imported-publication-card-meta .portal-tag { color: #53743f; font-weight: 800; letter-spacing: .1em; }
+.imported-publication-card h3 { margin: 12px 0 8px; color: #1b3d2c; font: 500 20px/1.25 "Playfair Display", Georgia, serif; }
+.imported-publication-authors { margin: 0 0 7px; color: #42594a; font-size: 10px; line-height: 1.6; }
+.imported-publication-details { margin: 0 0 12px; color: #738176; font-size: 9px; line-height: 1.6; overflow-wrap: anywhere; }
+.imported-publication-summary { display: -webkit-box; margin: 0 0 16px; overflow: hidden; color: #526459; font-size: 10px; line-height: 1.75; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+.imported-publication-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(31, 67, 44, .1); color: #829087; font-size: 9px; }
+.imported-publication-card-footer a { color: #2e6846; font-weight: 800; text-decoration: none; }
+.imported-publication-card-footer a:hover { text-decoration: underline; }
+@media (max-width: 820px) {
+  .imported-publication-heading { align-items: flex-start; flex-direction: column; }
+  .imported-publication-actions { justify-content: flex-start; }
+}
+@media (max-width: 620px) {
+  .imported-publication-section { padding: 17px; }
+  .imported-publication-heading h2 { font-size: 25px; }
+  .imported-publication-grid { grid-template-columns: 1fr; }
+  .imported-publication-card { padding: 16px; }
+  .imported-publication-card h3 { font-size: 19px; }
+}
