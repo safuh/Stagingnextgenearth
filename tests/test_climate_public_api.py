@@ -304,6 +304,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert incomplete_licence_review.status_code == 422
 
+        blank_licence_review_note = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=licence_reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "          ",
+            },
+        )
+        assert blank_licence_review_note.status_code == 422
+
         licence_review = client.post(
             f"{org_base}/climate-public-releases/{release_id}/licence-review",
             headers=licence_reviewer,
