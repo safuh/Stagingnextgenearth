@@ -7,7 +7,24 @@ import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
 interface Organization {
   id: string;
   name: string;
+  slug: string;
   country_code: string;
+}
+interface ImportedPublication {
+  id: string;
+  content_type: "publication";
+  slug: string;
+  title: string;
+  summary: string | null;
+  source_url?: string | null;
+  metadata_json?: {
+    authors?: string | string[];
+    publication_date?: string;
+    year?: number | string;
+    publisher?: string;
+    doi?: string;
+    topic?: string;
+  } | null;
 }
 interface Membership {
   user_id: string;
@@ -149,6 +166,10 @@ export default function ResearchWorkspacePage() {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [studies, setStudies] = useState<Study[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [importedPublications, setImportedPublications] = useState<ImportedPublication[]>([]);
+  const [publicationSearch, setPublicationSearch] = useState("");
+  const [publicationLoading, setPublicationLoading] = useState(false);
+  const [publicationError, setPublicationError] = useState("");
   const [evidenceStudyId, setEvidenceStudyId] = useState("");
   const [evidenceLedger, setEvidenceLedger] = useState<EvidenceLedger | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
@@ -214,6 +235,35 @@ export default function ResearchWorkspacePage() {
     });
     return () => { active = false; };
   }, [organizationId]);
+
+
+  const selectedOrganizationSlug = organizations.find((item) => item.id === organizationId)?.slug ?? "";
+
+  useEffect(() => {
+    if (!selectedOrganizationSlug) {
+      setImportedPublications([]);
+      return;
+    }
+    let active = true;
+    setPublicationLoading(true);
+    setPublicationError("");
+    apiGet<ImportedPublication[]>(`/public/organizations/${selectedOrganizationSlug}/content`)
+      .then((items) => {
+        if (active) {
+          setImportedPublications(items.filter((item) => item.content_type === "publication"));
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setPublicationError(cause instanceof Error ? cause.message : "Imported publication references could not be loaded.");
+          setImportedPublications([]);
+        }
+      })
+      .finally(() => {
+        if (active) setPublicationLoading(false);
+      });
+    return () => { active = false; };
+  }, [selectedOrganizationSlug]);
 
 
   useEffect(() => {
@@ -1105,6 +1155,22 @@ export default function ResearchWorkspacePage() {
   if (loading) return <main className="workspace-shell"><p>Loading research workspace…</p></main>;
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
+  const normalizedPublicationSearch = publicationSearch.trim().toLowerCase();
+  const visibleImportedPublications = importedPublications.filter((item) => {
+    const authors = Array.isArray(item.metadata_json?.authors)
+      ? item.metadata_json.authors.join(" ")
+      : item.metadata_json?.authors ?? "";
+    return [
+      item.title,
+      item.summary ?? "",
+      authors,
+      item.metadata_json?.publication_date ?? "",
+      item.metadata_json?.year ?? "",
+      item.metadata_json?.publisher ?? "",
+      item.metadata_json?.doi ?? "",
+      item.metadata_json?.topic ?? "",
+    ].join(" ").toLowerCase().includes(normalizedPublicationSearch);
+  });
   return (
     <main className="workspace-shell">
       <header className="workspace-topbar">
@@ -1328,6 +1394,51 @@ export default function ResearchWorkspacePage() {
                     <p className="workspace-muted">Method: sample-standardized anomaly z-score. Classification remains unclassified; do not interpret this output as SPI or a drought category.</p>
                   </div>}
                 </section>
+                <section className="research-section imported-publication-section">
+                  <div className="section-heading imported-publication-heading">
+                    <div>
+                      <p className="eyebrow">PUBLICATION INTAKE / SOURCE-ATTRIBUTED</p>
+                      <h2>Website-imported research</h2>
+                      <p className="workspace-muted">Published references from the organisation's public research catalogue. These are source records, not automatically organisation-authored studies or independently validated findings.</p>
+                    </div>
+                    <div className="imported-publication-actions">
+                      <span>{importedPublications.length} references</span>
+                      <Link className="secondary-action" href="/research">Public catalogue</Link>
+                      <a className="primary-action" href="#new-study-form">Register a study</a>
+                    </div>
+                  </div>
+                  <label className="imported-publication-search">Search imported references
+                    <input type="search" value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Title, author, year, topic or DOI…" />
+                  </label>
+                  {publicationLoading ? <p className="workspace-muted" role="status">Loading published references for {organizations.find((item) => item.id === organizationId)?.name ?? "this organisation"}…</p>
+                    : publicationError ? <p className="workspace-error" role="alert">{publicationError}</p>
+                    : visibleImportedPublications.length === 0 ? <p className="workspace-muted">{importedPublications.length === 0 ? "No published website references are available for this organisation yet." : "No imported publications match this search."}</p>
+                    : <div className="imported-publication-grid">
+                      {visibleImportedPublications.slice(0, 8).map((item) => {
+                        const authors = Array.isArray(item.metadata_json?.authors)
+                          ? item.metadata_json.authors.join(", ")
+                          : item.metadata_json?.authors;
+                        const dateLabel = item.metadata_json?.publication_date ?? item.metadata_json?.year?.toString();
+                        return (
+                          <article className="imported-publication-card" key={item.id}>
+                            <div className="imported-publication-card-meta">
+                              <span className="portal-tag">WEBSITE IMPORT</span>
+                              {item.metadata_json?.topic && <span>{item.metadata_json.topic}</span>}
+                            </div>
+                            <h3>{item.title}</h3>
+                            {authors && <p className="imported-publication-authors">{authors}</p>}
+                            <p className="imported-publication-details">{[item.metadata_json?.publisher, dateLabel, item.metadata_json?.doi ? `DOI ${item.metadata_json.doi}` : null].filter(Boolean).join(" · ") || "Bibliographic details not supplied"}</p>
+                            {item.summary && <p className="imported-publication-summary">{item.summary}</p>}
+                            <div className="imported-publication-card-footer">
+                              {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Open source record ↗</a> : <span>Source URL not supplied</span>}
+                              <span>Imported reference</span>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>}
+                  {visibleImportedPublications.length > 8 && <p className="workspace-muted">Showing 8 of {visibleImportedPublications.length} matches. Refine your search to narrow the list or open the full public catalogue.</p>}
+                </section>
                 <div className="research-metrics" aria-label="Research dataset summary">
                   <article><span>Studies</span><strong>{studies.length}</strong></article>
                   <article><span>Datasets</span><strong>{datasets.length}</strong></article>
@@ -1335,7 +1446,7 @@ export default function ResearchWorkspacePage() {
                   <article><span>Approved</span><strong>{count(datasets, "approved")}</strong></article>
                 </div>
                 <div className="staff-grid research-authoring-grid">
-                  <section className="staff-card">
+                  <section className="staff-card" id="new-study-form">
                     <p className="eyebrow">RESEARCH DESIGN</p>
                     <h2>Register a study</h2>
                     <p>New studies begin in concept status and are owned by the creating researcher.</p>
