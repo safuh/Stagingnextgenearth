@@ -312,6 +312,8 @@ async def _seed_public_climate_demo(session, org: Organization, actor: str, now:
             ))
         else:
             for key, value in values.items():
+                if key in {"published_by", "published_at"} and getattr(row, key) is not None:
+                    continue
                 setattr(row, key, value)
 
     insight_slug = "demo-climate-seasonality-field-note"
@@ -366,6 +368,8 @@ async def _seed_public_climate_demo(session, org: Organization, actor: str, now:
         ))
     else:
         for key, value in insight_values.items():
+            if key in {"approved_at", "published_at"} and getattr(insight, key) is not None:
+                continue
             setattr(insight, key, value)
 
 
