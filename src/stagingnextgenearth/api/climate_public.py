@@ -48,7 +48,10 @@ def _public_release_filters(organization_id: str) -> tuple[object, ...]:
         ClimatePublicRelease.state == "published",
     ]
     if get_settings().environment is Environment.PRODUCTION:
-        filters.append(ClimatePublicRelease.provider_id != "demo-synthetic")
+        filters.extend([
+            ClimatePublicRelease.provider_id != "demo-synthetic",
+            ClimatePublicRelease.data_class != "synthetic_demo",
+        ])
     return tuple(filters)
 
 
