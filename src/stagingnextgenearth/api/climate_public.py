@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from stagingnextgenearth.core.config import Environment, get_settings
+from stagingnextgenearth.core.config import DeploymentStage, Environment, get_settings
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +47,14 @@ def _public_release_filters(organization_id: str) -> tuple[object, ...]:
         ClimatePublicRelease.organization_id == organization_id,
         ClimatePublicRelease.state == "published",
     ]
-    if get_settings().environment is Environment.PRODUCTION:
+    settings = get_settings()
+    if (
+        settings.deployment_stage is DeploymentStage.PRODUCTION
+        or (
+            settings.environment is Environment.PRODUCTION
+            and not settings.climate_demo_publication_allowed
+        )
+    ):
         filters.extend([
             ClimatePublicRelease.provider_id != "demo-synthetic",
             ClimatePublicRelease.data_class != "synthetic_demo",
