@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -514,15 +515,16 @@ def test_public_climate_release_requires_independent_approval_and_publication(
 
 
 def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> None:
-    from types import SimpleNamespace
-
     from stagingnextgenearth.api import climate_public
 
-    production = SimpleNamespace(
+    database_url = "postgresql+asyncpg://demo:demo@localhost:5432/demo"
+    secret = SecretStr("x" * 48)
+    production = Settings(
         environment=Environment.PRODUCTION,
         deployment_stage=DeploymentStage.PRODUCTION,
         climate_demo_seed_enabled=True,
-        climate_demo_publication_allowed=False,
+        database_url=database_url,
+        jwt_secret_key=secret,
     )
     filters = climate_public._public_release_filters("demo-organisation", production)
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
@@ -530,11 +532,12 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> 
     assert "provider_id != 'demo-synthetic'" in compiled
     assert "data_class != 'synthetic_demo'" in compiled
 
-    staging = SimpleNamespace(
+    staging = Settings(
         environment=Environment.PRODUCTION,
         deployment_stage=DeploymentStage.STAGING,
         climate_demo_seed_enabled=True,
-        climate_demo_publication_allowed=True,
+        database_url=database_url,
+        jwt_secret_key=secret,
     )
     test_filters = climate_public._public_release_filters("demo-organisation", staging)
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
