@@ -157,3 +157,11 @@ Course metadata, module outlines and lesson content can be updated while a cours
 All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
 
 The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
+
+## Cohorts and intakes
+
+A learning cohort is an organisation-owned intake linked to one programme. Cohort codes are unique within an organisation. Course enrolments may be assigned to a cohort only when the course belongs to the same programme and the cohort is open for assignments. Existing enrolments remain unassigned after migration; the new `cohort_id` is nullable and does not rewrite historical records.
+
+Cohort capacity is measured in distinct learners, not enrolment rows. A learner enrolled in multiple courses within the same cohort consumes one cohort place. Assignment and transfer operations lock the cohort row before checking capacity. Each create, update, assignment and unassignment is written to the organisation audit ledger. Cohort listing and management require a programme-management role; learners receive cohort details only through their own enrolment response.
+
+The initial lifecycle supports draft, open, completed and archived operations. Live activation is deliberately blocked until safeguarding, consent, retention and authorised-facilitator readiness controls are implemented and verified. Cohort capacity cannot be reduced below the current distinct assigned-learner count. Programme/organisation tenant checks are applied when creating cohorts and assigning course enrolments.

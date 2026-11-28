@@ -40,9 +40,23 @@ interface Course {
   programme_id: string | null;
   status: string;
 }
+interface Cohort {
+  id: string;
+  programme_id: string;
+  code: string;
+  title: string;
+  start_date: string | null;
+  end_date: string | null;
+  capacity: number | null;
+  status: string;
+  assigned_count: number;
+}
 interface Enrollment {
   id: string;
   learner_id: string;
+  learner_ref: string;
+  cohort_id?: string | null;
+  cohort_title?: string | null;
   status: string;
   progress_percent: number;
   applied_at: string;
@@ -157,6 +171,8 @@ interface CourseReport {
 export default function LearningAdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeChoice[]>([]);
+  const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const [cohortFilter, setCohortFilter] = useState("all");
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<ModuleChoice[]>([]);
   const [curriculum, setCurriculum] = useState<{
@@ -208,11 +224,13 @@ export default function LearningAdminPage() {
       apiGet<Course[]>(`/organizations/${organizationId}/learning/courses?include_drafts=true`),
       apiGet<MemberChoice[]>(`/organizations/${organizationId}/memberships/directory`),
       apiGet<ProgrammeChoice[]>(`/organizations/${organizationId}/programmes`),
+      apiGet<Cohort[]>(`/organizations/${organizationId}/learning/cohorts`),
     ])
-      .then(([items, memberItems, programmeItems]) => {
+      .then(([items, memberItems, programmeItems, cohortItems]) => {
         setCourses(items);
         setMembers(memberItems);
         setProgrammes(programmeItems);
+        setCohorts(cohortItems);
         if (items[0]) setCourseId(items[0].id);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load staff workspace data."));
@@ -308,6 +326,44 @@ export default function LearningAdminPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function createCohort(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    await action("Cohort created as draft.", async () => {
+      const created = await apiPost<Cohort>(base + "/cohorts", {
+        programme_id: data.get("programme_id"),
+        code: data.get("code"),
+        title: data.get("title"),
+        description: data.get("description") || null,
+        start_date: data.get("start_date") || null,
+        end_date: data.get("end_date") || null,
+        capacity: data.get("capacity") ? Number(data.get("capacity")) : null,
+      });
+      setCohorts((current) => [...current, created]);
+    });
+  }
+
+  async function openCohort(cohortId: string) {
+    await action("Cohort opened for learner assignments.", async () => {
+      const updated = await apiPatch<Cohort>(base + `/cohorts/${cohortId}`, {
+        status: "open",
+      });
+      setCohorts((current) => current.map((item) => item.id === cohortId ? updated : item));
+    });
+  }
+
+  async function assignCohort(learnerId: string, cohortId: string) {
+    if (!courseId) return;
+    await action("Learner cohort assignment updated.", async () => {
+      await apiPost(
+        base + `/courses/${courseId}/enrollments/${learnerId}/cohort`,
+        { cohort_id: cohortId || null },
+      );
+      const refreshedCohorts = await apiGet<Cohort[]>(base + "/cohorts");
+      setCohorts(refreshedCohorts);
+    });
   }
 
   async function createCourse(event: FormEvent<HTMLFormElement>) {
@@ -541,24 +597,34 @@ export default function LearningAdminPage() {
   async function recordBulkAttendance(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const learnerIds = String(data.get("learner_ids") ?? "")
+    const learnerRefs = String(data.get("learner_ids") ?? "")
       .split(/[\\n,]+/)
       .map((value) => value.trim())
       .filter(Boolean);
-    if (learnerIds.length === 0) {
-      setError("Enter at least one learner ID.");
+    if (learnerRefs.length === 0) {
+      setError("Enter at least one learner reference.");
       return;
     }
-    if (new Set(learnerIds).size !== learnerIds.length) {
-      setError("Each learner ID must appear only once.");
+    if (new Set(learnerRefs.map((value) => value.toLowerCase())).size !== learnerRefs.length) {
+      setError("Each learner reference must appear only once.");
       return;
     }
-    await action("Bulk attendance recorded for " + learnerIds.length + " learners.", () =>
+    const learnerIds = learnerRefs.map((reference) =>
+      enrollments.find((item) => item.learner_ref.toLowerCase() === reference.toLowerCase())?.learner_id
+    );
+    if (learnerIds.some((learnerId) => !learnerId)) {
+      setError("One or more learner references do not match this course roster.");
+      return;
+    }
+    const resolvedLearnerIds = learnerIds.filter(
+      (learnerId): learnerId is string => Boolean(learnerId),
+    );
+    await action("Bulk attendance recorded for " + resolvedLearnerIds.length + " learners.", () =>
       apiPost(base + "/courses/" + courseId + "/attendance/bulk", {
         session_key: data.get("session_key"),
         session_title: data.get("session_title"),
         session_date: data.get("session_date"),
-        learners: learnerIds.map((learner_id) => ({
+        learners: resolvedLearnerIds.map((learner_id) => ({
           learner_id,
           attendance_status: data.get("attendance_status"),
         })),
@@ -736,6 +802,27 @@ export default function LearningAdminPage() {
             <button className="secondary-action" disabled={busy || !courseId || courses.find((course) => course.id === courseId)?.status === "published"} onClick={() => action("Course published.", () => apiPost(base + `/courses/${courseId}/publish`, {}))}>Publish selected course</button>
           </section>
           <section className="staff-card">
+            <h2>Cohorts and intakes</h2>
+            <form onSubmit={createCohort}>
+              <label>Programme<select name="programme_id" required defaultValue=""><option value="" disabled>Select programme</option>{programmes.map((programme) => <option key={programme.id} value={programme.id}>{programme.title}</option>)}</select></label>
+              <label>Cohort code<input name="code" minLength={2} maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_-]*" required placeholder="e.g. CCA-2027-A" /></label>
+              <label>Cohort name<input name="title" minLength={2} maxLength={180} required placeholder="e.g. Climate Action Intake A" /></label>
+              <label>Description<textarea name="description" maxLength={5000} /></label>
+              <label>Start date<input name="start_date" type="date" /></label>
+              <label>End date<input name="end_date" type="date" /></label>
+              <label>Capacity<input name="capacity" type="number" min="1" max="10000" /></label>
+              <button className="primary-action" disabled={busy || programmes.length === 0}>Create cohort</button>
+            </form>
+            {cohorts.length === 0 ? <p className="workspace-muted">No cohorts created yet.</p> : cohorts.map((cohort) => (
+              <article className="staff-record" key={cohort.id}>
+                <strong>{cohort.title} · {cohort.code}</strong>
+                <small>{cohort.status} · {cohort.assigned_count} assigned{cohort.capacity ? ` / ${cohort.capacity} capacity` : ""}</small>
+                <small>{cohort.start_date ?? "Start date not set"} – {cohort.end_date ?? "End date not set"}</small>
+                {cohort.status === "draft" && <button className="secondary-action" onClick={() => void openCohort(cohort.id)} disabled={busy}>Open for assignments</button>}
+              </article>
+            ))}
+          </section>
+          <section className="staff-card">
             <h2>Learner roster <span>{enrollments.length} enrolments · {enrollments.filter((item) => item.status === "applied").length} pending</span></h2>
             <div className="staff-actions">
               <label>Search learner ID
@@ -745,6 +832,15 @@ export default function LearningAdminPage() {
                   onChange={(event) => setEnrollmentSearch(event.target.value)}
                   placeholder="Filter by learner ID"
                 />
+              </label>
+              <label>Cohort
+                <select value={cohortFilter} onChange={(event) => setCohortFilter(event.target.value)}>
+                  <option value="all">All cohorts</option>
+                  <option value="unassigned">Not assigned</option>
+                  {cohorts.filter((cohort) => cohort.programme_id === courses.find((course) => course.id === courseId)?.programme_id).map((cohort) => (
+                    <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
+                  ))}
+                </select>
               </label>
               <label>Enrolment status
                 <select value={enrollmentStatus} onChange={(event) => setEnrollmentStatus(event.target.value)}>
@@ -763,10 +859,18 @@ export default function LearningAdminPage() {
             </div>
             {enrollments.length === 0 ? <p className="workspace-muted">No learner enrolments yet.</p> : enrollments
               .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
-              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
+              .filter((item) => item.learner_ref.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
               .map((item) => (
                 <article className="staff-record" key={item.id}>
-                  <strong>{item.learner_id}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()}</small>
+                  <strong>{item.learner_ref}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()} · {item.cohort_title ?? "No cohort"}</small>
+                  <label>Assign cohort
+                    <select value={item.cohort_id ?? ""} onChange={(event) => void assignCohort(item.learner_id, event.target.value)} disabled={busy}>
+                      <option value="">Unassigned</option>
+                      {cohorts.filter((cohort) => cohort.programme_id === courses.find((course) => course.id === courseId)?.programme_id && ["open", "active"].includes(cohort.status)).map((cohort) => (
+                        <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="staff-actions">
                     {item.status === "applied" && <><button onClick={() => decide(item.learner_id, "approved")} disabled={busy}>Approve</button><button onClick={() => decide(item.learner_id, "rejected")} disabled={busy}>Reject</button></>}
                     <button className="secondary-action" onClick={() => void toggleLearnerProgress(item.learner_id)} disabled={progressLoadingId === item.learner_id}>
@@ -801,7 +905,7 @@ export default function LearningAdminPage() {
               ))}
             {enrollments.length > 0 && enrollments
               .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
-              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase())).length === 0
+              .filter((item) => item.learner_ref.toLowerCase().includes(enrollmentSearch.trim().toLowerCase())).length === 0
               && <p className="workspace-muted">No enrolments match these filters.</p>}
           </section>
           <section className="staff-card">
@@ -816,7 +920,7 @@ export default function LearningAdminPage() {
             <h3>Submitted work</h3>
             {submissions.length === 0 ? <p className="workspace-muted">No submissions to review.</p> : submissions.map((item) => (
               <article className="staff-record" key={item.id}>
-                <strong>{item.assessment_title}</strong><small>Learner {item.learner_id} · submitted {new Date(item.submitted_at).toLocaleString()}</small>
+                <strong>{item.assessment_title}</strong><small>{enrollments.find((enrollment) => enrollment.learner_id === item.learner_id)?.learner_ref ?? "Learner record"} · submitted {new Date(item.submitted_at).toLocaleString()}</small>
                 <pre>{JSON.stringify(item.submission, null, 2)}</pre>
                 {item.score === null ? <form onSubmit={(event) => evaluate(event, item.id)}>
                   <label>Score (%)<input name="score" type="number" min="0" max="100" required /></label>
@@ -842,7 +946,7 @@ export default function LearningAdminPage() {
                               <strong>{evaluation.score}%</strong>
                               <small>
                                 {new Date(evaluation.evaluated_at).toLocaleString()} ·
-                                reviewer {evaluation.evaluated_by}
+                                reviewer: authorised staff member
                               </small>
                               <p>{evaluation.feedback || "No feedback recorded."}</p>
                               {evaluation.previous_score !== null && (
@@ -864,19 +968,19 @@ export default function LearningAdminPage() {
               <label>Mentor<select name="mentor_id" required defaultValue="">
                 <option value="" disabled>Select an active mentor</option>
                 {members.filter((member) => (member.roles ?? [member.role]).some((role) => ["admin", "founder", "executive", "programme_manager", "researcher"].includes(role))).map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{(member.roles ?? [member.role]).join(", ")} · {member.user_id}</option>
+                  <option key={member.user_id} value={member.user_id}>Mentor {members.filter((candidate) => (candidate.roles ?? [candidate.role]).some((role) => ["admin", "founder", "executive", "programme_manager", "researcher"].includes(role))).findIndex((candidate) => candidate.user_id === member.user_id) + 1}</option>
                 ))}
               </select></label>
               <label>Mentee<select name="mentee_id" required defaultValue="">
                 <option value="" disabled>Select an active mentee</option>
-                {members.map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>
+                {enrollments.filter((item) => ["approved", "completed"].includes(item.status)).map((item) => (
+                  <option key={item.learner_id} value={item.learner_id}>{item.learner_ref} · {item.status}</option>
                 ))}
               </select></label>
               <label>Notes<textarea name="notes" /></label>
               <button className="primary-action" disabled={busy || !courseId}>Assign mentor</button>
             </form>
-            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>{item.mentor_id} → {item.mentee_id}</strong><small>{item.status} · {item.notes || "No notes"}</small>{item.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => closeMentorship(item.id, "completed")}>Complete</button><button disabled={busy} onClick={() => closeMentorship(item.id, "ended")}>End assignment</button></div>}</article>)}
+            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>Mentor assigned → {enrollments.find((enrollment) => enrollment.learner_id === item.mentee_id)?.learner_ref ?? "Learner record"}</strong><small>{item.status} · {item.notes || "No notes"}</small>{item.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => closeMentorship(item.id, "completed")}>Complete</button><button disabled={busy} onClick={() => closeMentorship(item.id, "ended")}>End assignment</button></div>}</article>)}
           </section>
           <section className="staff-card">
             <h2>Attendance</h2>
@@ -888,19 +992,19 @@ export default function LearningAdminPage() {
               <label>Enrolled learner<select name="learner_id" required defaultValue="">
                 <option value="" disabled>Select a learner</option>
                 {enrollments.filter((item) => ["approved", "completed"].includes(item.status)).map((item) => (
-                  <option key={item.learner_id} value={item.learner_id}>{item.learner_id} · {item.status}</option>
+                  <option key={item.learner_id} value={item.learner_id}>{item.learner_ref} · {item.status}</option>
                 ))}
               </select></label>
               <label>Status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record attendance</button>
             </form>
-            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {item.learner_id} · {item.attendance_status}</small></article>)}            <h3>Workshop roll call</h3>
-            <p className="workspace-muted">Record one session for multiple approved learners. Enter one learner ID per line or separate IDs with commas.</p>
+            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {enrollments.find((enrollment) => enrollment.learner_id === item.learner_id)?.learner_ref ?? "Learner record"} · {item.attendance_status}</small></article>)}            <h3>Workshop roll call</h3>
+            <p className="workspace-muted">Record one session for multiple approved learners. Enter learner references from the roster, one per line or separated by commas.</p>
             <form onSubmit={recordBulkAttendance}>
               <label>Session key<input name="session_key" required /></label>
               <label>Session title<input name="session_title" required /></label>
               <label>Date<input name="session_date" type="date" required /></label>
-              <label>Learner IDs<textarea name="learner_ids" rows={6} placeholder="Paste learner IDs, one per line" required /></label>
+              <label>Learner references<textarea name="learner_ids" rows={6} placeholder="Paste learner references, one per line" required /></label>
               <label>Attendance status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record workshop roll call</button>
             </form>
