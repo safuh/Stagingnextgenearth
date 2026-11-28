@@ -92,3 +92,15 @@ Before presenting, complete the human browser checks below. A successful deploym
 - [ ] Confirm the UI labels each item as a website listing and does not claim organisational authorship or link it to a study.
 - [ ] Use **Create a new research study** to create a concept study; verify it appears in the study registry and remains subject to proposal/protocol/ethics governance.
 - [ ] Verify loading, empty and API-error states do not show fabricated publication records.
+
+
+## Publication catalogue metadata and filter acceptance (M137)
+
+- [ ] Confirm the selected organisation's public CMS catalogue contains the 12 published website publication records (or reconcile against the current public website count).
+- [ ] Confirm each card shows the website-sourced author string, journal/venue, year and topic where the source provides them.
+- [ ] Search by title, author surname, journal name and DOI; each search must return the expected source listing.
+- [ ] Filter by publication year and research topic, including combinations with text search.
+- [ ] Confirm DOI/source links open the exact external source represented by each card.
+- [ ] Confirm the CMS source label remains visible and the records are not described as organisation-authored or linked to an organisation-owned study.
+- [ ] Re-run the demo seed and confirm it updates metadata idempotently without creating duplicate publication entries.
+- [ ] Create a separate concept study and verify the imported publication remains a source-catalogue record rather than being silently attached to that study.
