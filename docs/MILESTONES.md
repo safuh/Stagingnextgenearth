@@ -462,3 +462,31 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Frontend typecheck, lint, unit/build checks and CI pass.
 - [ ] Deploy the merged commit to Render staging.
 - [ ] Complete authenticated partner browser acceptance with both successful and unavailable programme reports.
+
+
+## M144 — Curriculum draft authoring controls (implementation in review)
+
+- [x] Add tenant-scoped course metadata editing for draft courses.
+- [x] Add module title, description and ordering edits while the parent course is draft.
+- [x] Add lesson content, resource, duration and ordering edits while the parent course is draft.
+- [x] Reject edits to published or archived curriculum to protect currently delivered content.
+- [x] Reject empty patches, null required fields and duplicate ordering positions.
+- [x] Add lifecycle regression coverage and operational API documentation.
+- [ ] Full CI matrix passes.
+- [ ] Merge and deploy to Render staging.
+- [ ] Complete authenticated browser acceptance; the current admin UI still needs editing controls.
+
+## M143 — Learner roster and cohort operations (planned)
+
+- [ ] Tenant-scoped cohort/intake model and course assignments.
+- [ ] Searchable learner roster and learner detail with privacy-safe identity fields.
+- [ ] Bulk enrolment/invitations with idempotent, row-level outcomes.
+- [ ] Audited learner lifecycle and cohort transfers/withdrawals.
+- [ ] Staff UI and tenant/safeguarding acceptance.
+
+## M145 — Cohort-aware learning progress and outcomes (planned)
+
+- [ ] Cohort and learner progression timelines.
+- [ ] Unique-learner deduplication and metric definitions.
+- [ ] Transparent at-risk indicators and intervention tracking.
+- [ ] Reconciled, filter-aware exports and dashboard acceptance.
