@@ -250,6 +250,10 @@ The content is a pilot for organisational review, not accreditation or a substit
 
 ## M122 — research portfolio source library
 
-The authenticated research workspace now includes a distinct public website publication library. It reads published CMS publication entries for the selected organisation, exposes source/DOI links and supports search across available title, summary, slug and topic fields. It clearly distinguishes public website listings from organisation-owned research studies and study-linked publication records. A direct anchor takes the researcher to the existing concept-study registration form.
+The authenticated research workspace includes a distinct public website publication library. It reads only published CMS publication entries for the selected organisation, separates website listings from organisation-owned studies, exposes source/DOI links and links to the existing concept-study registration form. The code is present on the staging branch; authenticated browser acceptance remains outstanding.
 
-The code increment is in branch `feat/research-publication-portfolio-m122` and is pending CI/merge/deployment. Do not describe it as live until the merge commit is deployed and the workspace has been visually checked in staging.
+## M137 — publication metadata and discovery filters
+
+The idempotent demo seed now enriches the 12 source-attributed website publication records with the authors and journal strings already present in the public catalogue, DOI names, source-listed year and topic. The public API continues to expose only published CMS entries and its metadata allow-list. The authenticated research workspace searches title, summary, author, journal, DOI, year and topic, and provides year/topic filters. These are imported website references—not claims of organisational authorship, peer-review verification or linkage to a registered study.
+
+The migration-free seed update refreshes existing demo rows as well as creating missing rows. Verify the exact organisation seed target, public catalogue count and researcher browser journey after deployment; do not mark this milestone live until CI, Render deployment and authenticated visual acceptance are complete.
