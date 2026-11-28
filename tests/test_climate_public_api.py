@@ -194,6 +194,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         public_list = client.get("/api/public/organizations/nextgen-climate/climate/releases")
         assert public_list.status_code == 200
         assert public_list.json() == []
+        empty_etag = public_list.headers["ETag"]
+        assert empty_etag.startswith('"') and empty_etag.endswith('"')
+        assert public_list.headers["Cache-Control"] == (
+            "public, max-age=300, stale-while-revalidate=60"
+        )
+        not_modified = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases",
+            headers={"If-None-Match": empty_etag},
+        )
+        assert not_modified.status_code == 304
+        assert not_modified.content == b""
+        assert not_modified.headers["ETag"] == empty_etag
+        assert not_modified.headers["Cache-Control"] == public_list.headers["Cache-Control"]
 
         submitted = client.post(
             f"{org_base}/climate-public-releases/{release_id}/submit",
@@ -225,6 +238,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert published.status_code == 200
         assert published.json()["state"] == "published"
+
+        published_list = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases"
+        )
+        assert published_list.status_code == 200
+        assert published_list.headers["ETag"] != empty_etag
+        overview = client.get(
+            "/api/public/organizations/nextgen-climate/climate/overview"
+        )
+        assert overview.status_code == 200
+        assert overview.json()["latest_published_at"] is not None
+        assert overview.json()["latest_source_retrieved_at"].startswith("2026-01-01T00:01:00")
+        assert overview.json()["latest_data_period_end"].startswith("2025-12-01")
 
         public_detail = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/kilifi-monthly-rainfall"
