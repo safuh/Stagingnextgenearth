@@ -147,12 +147,13 @@ Run the richer idempotent catalogue seed against the same demo database after
 the organisation exists:
 
 ```bash
+export DEPLOYMENT_STAGE=staging
 export CLIMATE_DEMO_SEED_ENABLED=true
 uv run python scripts/seed_nextgen_demo.py \
   --organization-slug next-gen-for-earth-demo
 ```
 
-Set `CLIMATE_DEMO_SEED_ENABLED=true` only in the dedicated non-production demo environment. The second command inserts website-sourced people, partner prospects, CMS
+Set `DEPLOYMENT_STAGE=staging` and `CLIMATE_DEMO_SEED_ENABLED=true` only in the dedicated staging service. Keep `ENVIRONMENT=production` there when production-grade security headers, disabled interactive API docs and production settings validation are required. A production deployment stage always blocks synthetic fixtures. The second command inserts website-sourced people, partner prospects, CMS
 records, programmes and four published pilot courses. In non-production
 environments it also publishes two explicitly synthetic climate releases
 (rainfall and temperature, 72 monthly points each) plus a research-linked demo
