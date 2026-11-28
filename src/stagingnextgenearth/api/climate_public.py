@@ -777,6 +777,7 @@ async def public_climate_insights(
 )
 async def public_climate_sources(
     organization_slug: str,
+    request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ClimateSourceRead]:
