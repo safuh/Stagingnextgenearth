@@ -2,6 +2,7 @@
 """Tests for governed public climate releases and anonymous publication boundaries."""
 
 import asyncio
+import json
 import sqlite3
 from pathlib import Path
 from uuid import uuid4
