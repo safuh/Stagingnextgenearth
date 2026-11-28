@@ -330,7 +330,7 @@ class CohortCourseCreate(BaseModel):
 
 
 class CohortMemberCreate(BaseModel):
-    learner_identifier: str = Field(min_length=3, max_length=320)
+    learner_id: str
 
 
 class CohortMemberStatusUpdate(BaseModel):
@@ -814,15 +814,10 @@ async def add_cohort_member(
         raise HTTPException(404, "Cohort not found")
     if cohort.status not in {"open", "active"}:
         raise HTTPException(409, "Cohort must be open or active before adding learners")
-    learner = await session.scalar(
-        select(User).where(User.identifier == body.learner_identifier.strip().lower())
-    )
-    if learner is None:
-        raise HTTPException(404, "Learner account not found")
     learner_membership = await session.scalar(
         select(Membership).where(
             Membership.organization_id == organization_id,
-            Membership.user_id == learner.id,
+            Membership.user_id == body.learner_id,
             Membership.status == "active",
         )
     )
@@ -841,14 +836,14 @@ async def add_cohort_member(
             raise HTTPException(409, "Cohort capacity has been reached")
     profile = await session.scalar(
         select(ResearcherProfile).where(
-            ResearcherProfile.user_id == learner.id,
+            ResearcherProfile.user_id == body.learner_id,
             ResearcherProfile.visibility == "organization",
         )
     )
     row = LearningCohortMembership(
         organization_id=organization_id,
         cohort_id=cohort_id,
-        learner_id=learner.id,
+        learner_id=body.learner_id,
         status="active",
         created_by=principal.user_id,
     )
@@ -857,7 +852,7 @@ async def add_cohort_member(
         OrganizationAuditEvent(
             organization_id=organization_id,
             actor_user_id=principal.user_id,
-            subject_user_id=learner.id,
+            subject_user_id=body.learner_id,
             action="learning.cohort.member_added",
             changes={"cohort_id": cohort_id, "membership_id": row.id},
         )
