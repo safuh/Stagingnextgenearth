@@ -1954,12 +1954,31 @@ async def programme_outcomes(
         )
         for course in courses
     ]
-    learner_count = sum(int(report["learners"]) for report in course_reports)
-    weighted_progress = sum(
-        float(report["average_progress"]) * int(report["learners"]) for report in course_reports
+    programme_course_ids = [course.id for course in courses]
+    enrollment_rows = await session.scalars(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id.in_(programme_course_ids)
+        )
+    )
+    enrolments = enrollment_rows.all()
+    progress_by_learner: dict[str, list[int]] = {}
+    for enrolment in enrolments:
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(
+            enrolment.progress_percent
+        )
+    learner_count = len(progress_by_learner)
+    learner_average_progress = [
+        sum(progress_values) / len(progress_values)
+        for progress_values in progress_by_learner.values()
+    ]
+    average_progress = (
+        round(sum(learner_average_progress) / learner_count, 1)
+        if learner_count
+        else 0.0
     )
     totals = {
         "learners": learner_count,
+        "enrolments": len(enrolments),
         "approved": sum(int(report["approved"]) for report in course_reports),
         "completed": sum(int(report["completed"]) for report in course_reports),
         "attendance_records": sum(int(report["attendance_records"]) for report in course_reports),
@@ -1980,7 +1999,7 @@ async def programme_outcomes(
         "programme_id": programme.id,
         "programme_title": programme.title,
         "course_count": len(courses),
-        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
+        "average_progress": average_progress,
         "totals": totals,
         "courses": [
             {
@@ -1988,6 +2007,7 @@ async def programme_outcomes(
                 "title": course.title,
                 "status": course.status,
                 **report,
+                "enrolments": int(report["learners"]),
             }
             for course, report in zip(courses, course_reports, strict=True)
         ],
@@ -2030,7 +2050,7 @@ async def export_programme_outcomes(
             "course_id",
             "course_title",
             "status",
-            "learners",
+            "enrolments",
             "approved",
             "completed",
             "average_progress",
@@ -2055,7 +2075,7 @@ async def export_programme_outcomes(
                         *[
                             safe_cell(course.get(key))
                             for key in (
-                                "learners",
+                                "enrolments",
                                 "approved",
                                 "completed",
                                 "average_progress",
@@ -2154,7 +2174,7 @@ async def organisation_learning_outcomes(
         for programme in programme_rows.all()
     ]
     metric_keys = (
-        "learners",
+        "enrolments",
         "approved",
         "completed",
         "attendance_records",
@@ -2166,15 +2186,38 @@ async def organisation_learning_outcomes(
         "pending_evaluations",
     )
     totals = {key: sum(int(report["totals"][key]) for report in reports) for key in metric_keys}
-    learner_count = totals["learners"]
-    weighted_progress = sum(
-        float(report["average_progress"]) * int(report["totals"]["learners"]) for report in reports
+    organisation_course_ids = [
+        str(course["course_id"])
+        for programme in reports
+        for course in cast(list[dict[str, object]], programme["courses"])
+    ]
+    enrolment_rows = await session.scalars(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id.in_(organisation_course_ids)
+        )
+    )
+    enrolments = enrolment_rows.all()
+    progress_by_learner: dict[str, list[int]] = {}
+    for enrolment in enrolments:
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(
+            enrolment.progress_percent
+        )
+    learner_count = len(progress_by_learner)
+    totals["learners"] = learner_count
+    learner_average_progress = [
+        sum(progress_values) / len(progress_values)
+        for progress_values in progress_by_learner.values()
+    ]
+    average_progress = (
+        round(sum(learner_average_progress) / learner_count, 1)
+        if learner_count
+        else 0.0
     )
     return {
         "organization_id": organization_id,
         "programmes_total": len(reports),
         "courses_total": sum(int(report["course_count"]) for report in reports),
-        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
+        "average_progress": average_progress,
         "totals": totals,
         "programmes": [
             {
@@ -2222,6 +2265,7 @@ async def export_organisation_learning_outcomes(
             "course_count",
             "average_progress",
             "learners",
+            "enrolments",
             "approved",
             "completed",
             "attendance_records",
@@ -2249,6 +2293,7 @@ async def export_organisation_learning_outcomes(
                         safe_cell(programme_totals.get(key))
                         for key in (
                             "learners",
+                            "enrolments",
                             "approved",
                             "completed",
                             "attendance_records",
