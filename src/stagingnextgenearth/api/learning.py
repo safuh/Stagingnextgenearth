@@ -443,6 +443,8 @@ async def update_course(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one course field must be supplied")
+    if any(changes.get(field) is None for field in ("title", "slug", "description", "delivery_mode") if field in changes):
+        raise HTTPException(422, "Required course fields cannot be null")
     if "programme_id" in changes and changes["programme_id"] is not None:
         programme_exists = await session.scalar(
             select(Programme.id).where(
@@ -490,6 +492,8 @@ async def update_module(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one module field must be supplied")
+    if any(changes.get(field) is None for field in ("title", "position") if field in changes):
+        raise HTTPException(422, "Module title and position cannot be null")
     if "title" in changes and changes["title"] is not None:
         changes["title"] = changes["title"].strip()
     for field, value in changes.items():
@@ -536,6 +540,8 @@ async def update_lesson(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one lesson field must be supplied")
+    if any(changes.get(field) is None for field in ("title", "content_type", "position") if field in changes):
+        raise HTTPException(422, "Lesson title, content type and position cannot be null")
     if "title" in changes and changes["title"] is not None:
         changes["title"] = changes["title"].strip()
     for field, value in changes.items():
