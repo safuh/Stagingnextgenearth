@@ -854,7 +854,10 @@ async def list_cohort_members(
     return output
 
 
-@router.patch("/cohorts/{cohort_id}/members/{cohort_membership_id}", response_model=CohortMemberRead)
+@router.patch(
+    "/cohorts/{cohort_id}/members/{cohort_membership_id}",
+    response_model=CohortMemberRead,
+)
 async def update_cohort_member_status(
     organization_id: str,
     cohort_id: str,
