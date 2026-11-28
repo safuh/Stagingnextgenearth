@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
+import {
+  filterResearchPublications,
+  researchPublicationFilterOptions,
+} from "@/lib/research-publications";
 
 interface Organization {
   id: string;
@@ -1158,26 +1162,12 @@ export default function ResearchWorkspacePage() {
   if (loading) return <main className="workspace-shell"><p>Loading research workspace…</p></main>;
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
-  const normalizedPublicationSearch = publicationSearch.trim().toLowerCase();
-  const getPublicationYear = (item: PublicResearchPublication): string => {
-    const value = item.metadata_json?.year ?? item.metadata_json?.publication_date;
-    return typeof value === "number" ? String(value) : typeof value === "string" ? value.slice(0, 4) : "";
-  };
-  const publicationYears = Array.from(new Set(publicPublications.map(getPublicationYear).filter(Boolean))).sort().reverse();
-  const publicationTopics = Array.from(new Set(
-    publicPublications.map((item) => item.metadata_json?.topic).filter((value): value is string => typeof value === "string" && value.length > 0),
-  )).sort();
-  const visiblePublications = publicPublications.filter((item) => {
-    const authors = item.metadata_json?.authors;
-    const authorText = typeof authors === "string" ? authors : Array.isArray(authors) ? authors.join(" ") : "";
-    const searchText = [
-      item.title, item.summary, item.slug, item.metadata_json?.topic,
-      item.metadata_json?.publisher, item.metadata_json?.doi, authorText,
-      getPublicationYear(item),
-    ].filter((value): value is string => typeof value === "string").join(" ").toLowerCase();
-    return searchText.includes(normalizedPublicationSearch)
-      && (!publicationYear || getPublicationYear(item) === publicationYear)
-      && (!publicationTopic || item.metadata_json?.topic === publicationTopic);
+  const { years: publicationYears, topics: publicationTopics } =
+    researchPublicationFilterOptions(publicPublications);
+  const visiblePublications = filterResearchPublications(publicPublications, {
+    search: publicationSearch,
+    year: publicationYear,
+    topic: publicationTopic,
   });
   return (
     <main className="workspace-shell">
