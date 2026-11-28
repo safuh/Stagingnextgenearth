@@ -118,6 +118,7 @@ interface ProgrammeOutcomes {
   average_progress: number;
   totals: {
     learners: number;
+    enrolments: number;
     approved: number;
     completed: number;
     attendance_records: number;
@@ -619,8 +620,9 @@ export default function LearningAdminPage() {
             <>
               <div className="staff-grid">
                 <article><strong>{programmeOutcomes.course_count}</strong><span>Courses</span></article>
-                <article><strong>{programmeOutcomes.totals.learners}</strong><span>Enrolments</span></article>
-                <article><strong>{programmeOutcomes.totals.completed}</strong><span>Completions</span></article>
+                <article><strong>{programmeOutcomes.totals.learners}</strong><span>Unique learners</span></article>
+                <article><strong>{programmeOutcomes.totals.enrolments}</strong><span>Course enrolments</span></article>
+                <article><strong>{programmeOutcomes.totals.completed}</strong><span>Completed enrolments</span></article>
                 <article><strong>{programmeOutcomes.average_progress}%</strong><span>Average progress</span></article>
                 <article><strong>{programmeOutcomes.totals.attendance_sessions}</strong><span>Workshop sessions</span></article>
                 <article><strong>{programmeOutcomes.totals.active_mentorships}/{programmeOutcomes.totals.mentorship_assignments}</strong><span>Active mentorships</span></article>
@@ -630,7 +632,7 @@ export default function LearningAdminPage() {
               {programmeOutcomes.courses.map((course) => (
                 <article className="staff-record" key={course.course_id}>
                   <strong>{course.title}</strong>
-                  <small>{course.status} · {course.learners} learners · {course.completed} completed · {course.average_progress}% average progress · {course.pending_evaluations} pending evaluations</small>
+                  <small>{course.status} · {course.learners} enrolments · {course.completed} completed · {course.average_progress}% average progress · {course.pending_evaluations} pending evaluations</small>
                 </article>
               ))}
             </>
@@ -641,9 +643,9 @@ export default function LearningAdminPage() {
             <p className="eyebrow">COURSE PERFORMANCE</p>
             <h2 id="course-report-heading">Delivery overview</h2>
             <div className="staff-grid">
-              <article><strong>{report.learners}</strong><span>Applicants / learners</span></article>
+              <article><strong>{report.learners}</strong><span>Applicants / enrolments</span></article>
               <article><strong>{report.approved}</strong><span>Approved enrolments</span></article>
-              <article><strong>{report.completed}</strong><span>Completed learners</span></article>
+              <article><strong>{report.completed}</strong><span>Completed enrolments</span></article>
               <article><strong>{report.average_progress}%</strong><span>Average progress</span></article>
               <article><strong>{report.attendance_sessions}</strong><span>Recorded sessions</span></article>
               <article><strong>{report.attendance_records}</strong><span>Attendance records</span></article>
