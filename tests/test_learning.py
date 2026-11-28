@@ -155,6 +155,42 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             },
         )
         assert unknown_programme_cohort.status_code == 404
+        other_organisation = client.post(
+            "/api/organizations",
+            headers=admin_headers,
+            json={"name": "Other Learning Lab", "slug": "other-learning-lab"},
+        )
+        assert other_organisation.status_code == 201
+        other_programme = client.post(
+            f"/api/organizations/{other_organisation.json()['id']}/programmes",
+            headers=admin_headers,
+            json={
+                "title": "Other Programme",
+                "slug": "other-programme",
+                "summary": "A separate tenant programme.",
+            },
+        )
+        assert other_programme.status_code == 201
+        cross_tenant_cohort = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "programme_id": other_programme.json()["id"],
+                "code": "CROSS-TENANT",
+                "title": "Must not be created",
+            },
+        )
+        assert cross_tenant_cohort.status_code == 404
+        duplicate_cohort_code = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "programme_id": programme_id,
+                "code": "CLIMATE-INTAKE-01",
+                "title": "Duplicate code",
+            },
+        )
+        assert duplicate_cohort_code.status_code == 409
         denied_cohort_list = client.get(f"{base}/cohorts", headers=learner_headers)
         assert denied_cohort_list.status_code == 403
         opened_cohort = client.patch(
@@ -380,6 +416,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert pending_enrollments.status_code == 200
         assert pending_enrollments.json()[0]["status"] == "applied"
+        assert pending_enrollments.json()[0]["learner_ref"].startswith("Learner-")
+        assert pending_enrollments.json()[0]["learner_ref"] != pending_enrollments.json()[0]["learner_id"]
         learner_enrollment_access = client.get(
             f"{base}/courses/{course_id}/enrollments",
             headers=learner_headers,
@@ -982,6 +1020,24 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         cohort_after_second_course = client.get(f"{base}/cohorts", headers=admin_headers)
         assert cohort_after_second_course.status_code == 200
         assert cohort_after_second_course.json()[0]["assigned_count"] == 2
+        capacity_reduction = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"capacity": 1},
+        )
+        assert capacity_reduction.status_code == 409
+        active_cohort = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"status": "active"},
+        )
+        assert active_cohort.status_code == 200
+        invalid_cohort_transition = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"status": "open"},
+        )
+        assert invalid_cohort_transition.status_code == 409
 
         programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
