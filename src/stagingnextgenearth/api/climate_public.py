@@ -11,6 +11,7 @@ from stagingnextgenearth.core.config import DeploymentStage, Environment, Settin
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from stagingnextgenearth.platform.climate_public import (
     ClimatePublicRelease,
@@ -43,9 +44,9 @@ _DATA_CLASSES = {
 
 def _public_release_filters(
     organization_id: str, settings: Settings
-) -> tuple[object, ...]:
+) -> tuple[ColumnElement[bool], ...]:
     """Keep synthetic fixtures out of production public responses, even if copied."""
-    filters: list[object] = [
+    filters: list[ColumnElement[bool]] = [
         ClimatePublicRelease.organization_id == organization_id,
         ClimatePublicRelease.state == "published",
     ]
