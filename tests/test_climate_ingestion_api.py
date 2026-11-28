@@ -164,7 +164,16 @@ async def test_chirps_guard_enforces_persisted_cooldown_between_runs(
 
 
 @pytest.mark.asyncio
-async def test_chirps_guard_enforces_provider_block_cooldown() -> None:
+@pytest.mark.parametrize(
+    "error_summary",
+    [
+        "ClimateProviderUnavailable: climate provider stream failed",
+        "ConnectTimeout: climate provider stream failed",
+    ],
+)
+async def test_chirps_guard_enforces_provider_block_cooldown(
+    error_summary: str,
+) -> None:
     class FakeSession:
         bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
 
@@ -177,7 +186,7 @@ async def test_chirps_guard_enforces_provider_block_cooldown() -> None:
                 return True
             return SimpleNamespace(
                 finished_at=datetime.now(UTC) - timedelta(hours=1),
-                error_summary="ClimateProviderUnavailable: climate provider stream failed",
+                error_summary=error_summary,
             )
 
     session = FakeSession()

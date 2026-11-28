@@ -83,9 +83,11 @@ async def _provider_ingestion_guard(
         .limit(1)
     )
     if last_run is not None and last_run.finished_at is not None:
-        provider_blocked = bool(
-            last_run.error_summary
-            and last_run.error_summary.startswith("ClimateProviderUnavailable:")
+        error_type = (last_run.error_summary or "").split(":", 1)[0]
+        # Older deployed versions recorded the raw httpx timeout class before the
+        # provider-specific unavailable exception was introduced.
+        provider_blocked = (
+            error_type == "ClimateProviderUnavailable" or error_type.endswith("Timeout")
         )
         cooldown = timedelta(
             seconds=(
