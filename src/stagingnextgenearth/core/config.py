@@ -13,6 +13,12 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+class DeploymentStage(StrEnum):
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+
 class Settings(BaseSettings):
     """Runtime configuration with explicit development/test/production profiles.
 
@@ -32,6 +38,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Stagingnextgenearth", min_length=1)
     app_version: str = "0.1.0"
     environment: Environment = Environment.DEVELOPMENT
+    deployment_stage: DeploymentStage = DeploymentStage.DEVELOPMENT
     climate_demo_seed_enabled: bool = False
     debug: bool = False
     api_prefix: str = "/api"
@@ -77,6 +84,17 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = Field(
         default_factory=lambda: ["Authorization", "Content-Type", "X-Request-ID"]
     )
+
+    @property
+    def climate_demo_publication_allowed(self) -> bool:
+        """Allow fixtures only in an explicitly enabled staging or local demo stage."""
+        return self.climate_demo_seed_enabled and (
+            self.deployment_stage is DeploymentStage.STAGING
+            or (
+                self.deployment_stage is DeploymentStage.DEVELOPMENT
+                and self.environment is not Environment.PRODUCTION
+            )
+        )
 
     @field_validator("database_url", mode="before")
     @classmethod
