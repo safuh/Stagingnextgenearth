@@ -124,7 +124,7 @@ A batch review is an explicit reviewer decision over every pending observation i
 
 ## 8. Curriculum and learning rules
 
-The default staging demo seed contains four published pilot tracks, eight modules and 26 substantive lessons, with four formative quizzes and official further-reading links. The material is a subject-matter review pilot, not accredited training, clinical guidance or ethics approval.
+The default staging demo seed contains four published pilot tracks, 28 modules and 86 substantive lessons, with four formative quizzes and four private staff authoring drafts and official further-reading links. The material is a subject-matter review pilot, not accredited training, clinical guidance or ethics approval.
 
 Use `docs/learning/NEXTGEN_CURRICULUM_BLUEPRINT.md` as the proposed initial content design:
 - Research Methods and Evidence Practice.

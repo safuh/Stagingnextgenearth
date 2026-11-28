@@ -312,6 +312,15 @@ Before publishing any course:
 
 ## Implemented curriculum pilot content (M159)
 
+The staging bootstrap now provisions two deliberately separate representations of the pilot curriculum:
+
+- **Learner catalogue:** four published pathways, 28 modules and 86 lessons, exposed through the public curriculum API.
+- **Staff authoring workspace:** four separate draft copies, also containing 28 modules and 86 lessons plus their assessment configurations. These are editable without changing the published learner versions.
+
+The draft copies use the `-authoring-draft` slug suffix and are visible only through authenticated staff course-management APIs. The public course list and curriculum endpoints must never expose draft courses. The administration workspace selects a draft on first load so the operator lands in an editable state.
+
+The bootstrap is create-only for existing course trees: existing published course content and existing staff-edited draft copies are not overwritten on subsequent application starts. This preserves staff work across Render restarts and deployments. Future curriculum updates should use an explicit version/review workflow rather than mutating published records or silently reconciling the seed JSON.
+
 The staging seed catalogue now contains four expanded pilot tracks aligned to the organisation's programme areas:
 
 1. Research Methods and Evidence Practice — 8 modules, 25 lessons.
@@ -319,10 +328,16 @@ The staging seed catalogue now contains four expanded pilot tracks aligned to th
 3. Youth Climate Stewardship and Community Action — 8 modules, 24 lessons.
 4. Indigenous and Community Knowledge for Climate Resilience — 6 modules, 18 lessons.
 
-The complete seeded outline contains 28 ordered modules and 86 substantive lessons. The modules follow the course plans above, with lesson outcomes, core concepts, practical exercises, quality/safeguarding checks and self-assessment prompts. Each course retains a formative quiz; course assessment rubrics and independent subject-matter review remain governance work rather than implied approval. Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation updates existing demo lessons and creates or updates the formative quiz records idempotently.
+The complete seeded outline contains 28 ordered modules and 86 substantive lessons. The modules follow the course plans above, with lesson outcomes, core concepts, practical exercises, quality/safeguarding checks and self-assessment prompts. Each course retains a formative quiz; course assessment rubrics and independent subject-matter review remain governance work rather than implied approval. Lesson bodies include a learning outcome, core concepts, applied practice and a self-check. Four formative quizzes provide four questions per track with a 70% pass mark. Lessons link to official source material from WHO, IPCC, UNICEF, FAO, UNESCO and the United Nations. The seed operation creates the published course trees and draft authoring copies when they do not already exist. It does not overwrite existing course, module, lesson or assessment content on subsequent application starts; staff-authored revisions are preserved.
 
 The learner classroom now presents the course overview, module/lesson counts, estimated guided minutes, module-level completion and readable lesson-content panels.
 
 **Release boundary:** these are substantive pilot learning materials prepared for organisational subject-matter review. They are not accredited qualifications, clinical protocols, ethics approval or substitutes for locally approved safeguarding procedures. Community knowledge modules explicitly require community authority and permission; restricted knowledge must not be collected or published by default. The pilot content must be reviewed by the appropriate research, clinical, safeguarding and community leads before formal cohort delivery.
 
 The updated seed file is `scripts/data/nextgen_curriculum_content.json`. The Render API container startup invokes the seed script for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes that catalogue automatically. For a different organisation slug, an authorised operator must run `python scripts/seed_nextgen_demo.py --organization-slug <organisation-slug>` in the deployed application environment.
+
+## Staging seed and staff authoring copies
+
+The staging catalogue has four published learner pathways containing **28 ordered modules and 86 substantive lessons**. The demo bootstrap also creates one private draft copy for each pathway (`-authoring-draft`) so staff can edit the full module, lesson and formative-assessment structure without changing learner-facing published content. The four drafts are staff-only and are excluded from public discovery.
+
+Seed behaviour is intentionally non-destructive: it creates a published pathway or authoring draft only when the corresponding course is absent. It does not reconcile existing course titles, modules, lesson text, order, resources or assessments on reruns. This protects staff-authored work. Treat content updates as explicit authoring and review/version operations, not as a seed refresh.

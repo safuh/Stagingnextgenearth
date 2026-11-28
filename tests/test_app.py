@@ -114,6 +114,8 @@ def test_production_disables_interactive_api_documentation() -> None:
         environment=Environment.PRODUCTION,
         database_url="postgresql+asyncpg://app:secret@localhost:5432/app",
         jwt_secret_key="a" * 48,
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     app = create_app(settings)
     assert app.docs_url is None
@@ -128,6 +130,7 @@ def test_production_requires_https_public_base_url() -> None:
             database_url="postgresql+asyncpg://app:secret@localhost:5432/app",
             jwt_secret_key="a" * 48,
             public_base_url="http://nextgenforearth.org",
+            debug=False,
         )
 
 

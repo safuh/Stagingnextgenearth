@@ -115,7 +115,7 @@ The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculu
 python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 ```
 
-The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
+The Render API container startup invokes this idempotent bootstrap for the default demo organisation `next-gen-for-earth-demo`. It creates a published pilot course only when that course is absent, then creates one private `-authoring-draft` copy per track only when the draft is absent. Each draft includes the full ordered module/lesson content and formative quiz configuration. Existing published and draft courses are deliberately left untouched on reruns: staff-authored titles, lesson text, ordering and assessment changes are preserved. This is a bootstrap, not a content-refresh mechanism. Apply future curriculum changes through the governed authoring/version workflow; do not use the seed to overwrite staff work. For another organisation slug, run the command explicitly only after confirming ownership, purpose and approval.
 
 
 Published course outlines and lesson content are also available without learner sign-in through `GET /api/public/organizations/{organization_slug}/courses/{course_slug}/curriculum`. This public read model returns only published course content; draft courses and internal learner, assessment-answer and staff records are excluded. The learner discovery page renders the module and lesson outline before application, while completion tracking and classroom actions still require approved enrolment.
@@ -158,6 +158,24 @@ All three operations require a course-management role and verify that the target
 
 The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
 
+## Seeded learner-facing curriculum and editable authoring copies
+
+The staging bootstrap publishes four complete pilot pathways to the learner catalogue:
+
+| Pathway | Modules | Lessons |
+|---|---:|---:|
+| Research Methods and Evidence Practice | 8 | 25 |
+| Climate and Health Resilience | 6 | 19 |
+| Youth Climate Stewardship and Community Action | 8 | 24 |
+| Indigenous and Community Knowledge for Climate Resilience | 6 | 18 |
+| **Published total** | **28** | **86** |
+
+The same four pathways are also bootstrapped as staff-only draft authoring copies using the `-authoring-draft` slug suffix. These drafts contain their own modules, lessons, resources and formative assessment configuration. They appear in the learning administration course selector and are the starting point for course, module and lesson editing.
+
+The learner portal and public curriculum endpoint expose published courses only. Staff draft edits do not change published learner content. The authoring drafts are created once; later application starts must not overwrite staff changes. The seed routine therefore skips existing published course trees and existing authoring drafts rather than reconciling them from the JSON seed. Treat changes to already-seeded content as a governed authoring/review activity, not a routine deploy-time overwrite.
+
+After a staging deploy, verify the public API returns 28 modules and 86 lessons across the four published pathways, and verify the staff course selector contains four published courses plus four editable drafts. The admin page should open on a draft by default.
+
 ## Cohorts and intakes
 
 A learning cohort is an organisation-owned intake linked to one programme. Cohort codes are unique within an organisation. Course enrolments may be assigned to a cohort only when the course belongs to the same programme and the cohort is open for assignments. Existing enrolments remain unassigned after migration; the new `cohort_id` is nullable and does not rewrite historical records.
@@ -165,3 +183,8 @@ A learning cohort is an organisation-owned intake linked to one programme. Cohor
 Cohort capacity is measured in distinct learners, not enrolment rows. A learner enrolled in multiple courses within the same cohort consumes one cohort place. Assignment and transfer operations lock the cohort row before checking capacity. Each create, update, assignment and unassignment is written to the organisation audit ledger. Cohort listing and management require a programme-management role; learners receive cohort details only through their own enrolment response.
 
 The initial lifecycle supports draft, open, completed and archived operations. Live activation is deliberately blocked until safeguarding, consent, retention and authorised-facilitator readiness controls are implemented and verified. Cohort capacity cannot be reduced below the current distinct assigned-learner count. Programme/organisation tenant checks are applied when creating cohorts and assigning course enrolments.
+
+
+### Staging cohort walkthrough fixtures
+
+The demo bootstrap also creates four draft 2027 intake records, one for each programme, with a capacity of 24 and a proposed 12 January–31 March 2027 window. They are deliberately left in `draft` status: they support staff onboarding and cohort configuration demonstrations but do not imply safeguarding readiness, admissions, learner consent or live delivery. Existing cohorts are never overwritten by the seed. Staff can review the programme association and explicitly open a cohort for assignments when the required operational checks are complete.

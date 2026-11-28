@@ -5,7 +5,7 @@ import argparse
 import asyncio
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from sqlalchemy import select
@@ -17,8 +17,9 @@ from stagingnextgenearth.platform.climate_public import (
     ClimatePublicReleaseEvent,
 )
 from stagingnextgenearth.platform.models import (
-    InstitutionalPartner, LearningAssessment, LearningCourse, LearningLesson, LearningModule,
-    Organization, OrganizationPerson, Programme, PublicContentEntry,
+    InstitutionalPartner, LearningAssessment, LearningCohort, LearningCourse,
+    LearningLesson, LearningModule, Organization, OrganizationPerson, Programme,
+    PublicContentEntry,
 )
 
 SOURCE = "https://nextgenforearth.org/"
@@ -664,12 +665,9 @@ async def seed(slug: str) -> None:
                 session.add(course)
                 await session.flush()
             else:
-                course.title = course_spec["title"]
-                course.description = course_spec["description"]
-                course.category = course_spec["category"]
-                course.status = "published"
-                if programme is not None:
-                    course.programme_id = programme.id
+                # A demo seed is a bootstrap, not a content deployment mechanism.
+                # Existing published courses may have staff edits; never overwrite them.
+                continue
 
             for module_position, module_spec in enumerate(course_spec["modules"], start=1):
                 module = await session.scalar(select(LearningModule).where(
@@ -733,6 +731,106 @@ async def seed(slug: str) -> None:
                 assessment.instructions = assessment_spec["instructions"]
                 assessment.configuration = configuration
                 assessment.pass_mark = assessment_spec["pass_mark"]
+        # Create one draft intake per programme so staff can walk through cohort
+        # setup without accidentally activating a real delivery group.
+        for course_spec in course_specs:
+            programme = await session.scalar(select(Programme).where(
+                Programme.organization_id == org.id,
+                Programme.slug == course_spec["programme_slug"],
+            ))
+            if programme is None:
+                continue
+            cohort_code = f"DEMO-{course_spec['slug'].upper()}"[:80]
+            cohort = await session.scalar(select(LearningCohort).where(
+                LearningCohort.organization_id == org.id,
+                LearningCohort.code == cohort_code,
+            ))
+            if cohort is None:
+                session.add(LearningCohort(
+                    organization_id=org.id,
+                    programme_id=programme.id,
+                    code=cohort_code,
+                    title=f"2027 pilot intake — {course_spec['title']}",
+                    description=(
+                        "Staging demonstration intake for staff onboarding and "
+                        "cohort-management walkthroughs. Draft only; no learner "
+                        "admissions or live delivery are implied."
+                    ),
+                    start_date=date(2027, 1, 12),
+                    end_date=date(2027, 3, 31),
+                    capacity=24,
+                    status="draft",
+                    created_by=actor,
+                ))
+
+        # Create a complete, staff-editable draft copy beside each published
+        # learner-facing course. Drafts are created once and are never reconciled
+        # on subsequent seed runs, so staff edits are preserved.
+        for course_spec in course_specs:
+            programme = await session.scalar(select(Programme).where(
+                Programme.organization_id == org.id,
+                Programme.slug == course_spec["programme_slug"],
+            ))
+            draft_slug = f"{course_spec['slug']}-authoring-draft"
+            draft_course = await session.scalar(select(LearningCourse).where(
+                LearningCourse.organization_id == org.id,
+                LearningCourse.slug == draft_slug,
+            ))
+            if draft_course is not None:
+                continue
+
+            draft_course = LearningCourse(
+                organization_id=org.id,
+                programme_id=programme.id if programme else None,
+                title=f"{course_spec['title']} — Authoring Draft",
+                slug=draft_slug,
+                description=(
+                    f"{course_spec['description']}\n\n"
+                    "STAFF AUTHORING COPY: This private draft mirrors the published "
+                    "pilot pathway for curriculum editing, review and learner-preview "
+                    "preparation. Changes here do not alter the published learner course."
+                ),
+                category=course_spec["category"],
+                delivery_mode="blended",
+                status="draft",
+                created_by=actor,
+            )
+            session.add(draft_course)
+            await session.flush()
+
+            for module_position, module_spec in enumerate(course_spec["modules"], start=1):
+                draft_module = LearningModule(
+                    course_id=draft_course.id,
+                    title=module_spec["title"],
+                    description=module_spec["description"],
+                    position=module_position,
+                )
+                session.add(draft_module)
+                await session.flush()
+                for lesson_position, lesson_spec in enumerate(
+                    module_spec["lessons"], start=1
+                ):
+                    session.add(LearningLesson(
+                        module_id=draft_module.id,
+                        title=lesson_spec["title"],
+                        content_type="text",
+                        content=lesson_spec["content"],
+                        resource_url=lesson_spec.get("resource_url"),
+                        duration_minutes=lesson_spec["duration_minutes"],
+                        position=lesson_position,
+                    ))
+
+            assessment_spec = course_spec["assessment"]
+            session.add(LearningAssessment(
+                course_id=draft_course.id,
+                title=f"{assessment_spec['title']} — Authoring Draft",
+                assessment_type="quiz",
+                instructions=assessment_spec["instructions"],
+                configuration={"questions": assessment_spec["questions"]},
+                pass_mark=assessment_spec["pass_mark"],
+                created_by=actor,
+            ))
+
         climate_demo_seeded = settings.climate_demo_publication_allowed
         if climate_demo_seeded:
             await _seed_public_climate_demo(session, org, actor, now)
@@ -746,7 +844,8 @@ async def seed(slug: str) -> None:
             f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, "
             f"{len(CONTENT) + len(PUBLICATIONS) + len(STORY) + 1 + (1 if climate_demo_seeded else 0)} "
             f"CMS entries including {len(PUBLICATIONS)} publications, four programmes, "
-            f"{len(course_specs)} published learning courses, and {climate_demo_status}."
+            f"{len(course_specs)} learning pathway records and "
+            f"{len(course_specs)} staff authoring-draft records, and {climate_demo_status}."
         )
     await engine.dispose()
 

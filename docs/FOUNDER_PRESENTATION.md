@@ -57,7 +57,7 @@ The staging hub is populated with two published synthetic demonstration releases
 
 ## 6. Learning and curriculum — second product priority
 
-The demo seed now publishes four pilot tracks with eight modules and 26 substantive lessons, further-reading links and four formative quizzes. The content remains a subject-matter review pilot rather than accredited or finally approved instructional material:
+The demo seed now publishes four pilot tracks with 28 modules and 86 substantive lessons, further-reading links and four formative quizzes. The content remains a subject-matter review pilot rather than accredited or finally approved instructional material:
 
 1. Research Methods and Evidence Practice.
 2. Climate and Health Resilience.
@@ -115,21 +115,21 @@ This creates a traceable path from provider evidence to research context without
 
 ## Learning and capacity-building — pilot content update
 
-The learning workspace now has four substantive pilot tracks covering research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge. The demo seed catalogue contains 26 lessons with learning outcomes, applied exercises, self-checks and official further reading, plus four formative quizzes. The learner classroom shows course scope, guided learning time and module completion.
+The learning workspace now has four substantive pilot tracks covering research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge. The demo seed catalogue contains 86 lessons across 28 modules with learning outcomes, applied exercises, self-checks and official further reading, plus four formative quizzes. The learner classroom shows course scope, guided learning time and module completion.
 
 Position this as a pilot curriculum prepared for review—not as an accredited qualification. Before cohort delivery, obtain research, clinical, safeguarding and community-lead review as appropriate. The default staging demo organisation is refreshed by the API container's idempotent seed command; other organisation slugs require an explicit seed operation.
 
 
 ## Latest staging release — learning curriculum pilot
 
-**Release:** 26 November 2026 · commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`
+**Release:** 28 November 2026 · staging commit `c379b20`
 
-The four-track learning curriculum pilot is merged and deployed to the staging web and API services. The merged commit passed all six CI jobs: web, operations scripts, geospatial, and Python 3.11, 3.12 and 3.13. Render reports both services live. The API health check returned HTTP 200 in current service logs, and public course and climate-intelligence endpoints returned HTTP 200.
+The expanded four-track learning curriculum pilot (28 modules and 86 lessons) is live on staging commit `c379b20`; both API and web services are deployed. The merged commit passed all six CI jobs: web, operations scripts, geospatial, and Python 3.11, 3.12 and 3.13. Render reports both services live. The API health check returned HTTP 200 in current service logs, and public course and climate-intelligence endpoints returned HTTP 200.
 
 - Staging website: https://nextgen-web-upag.onrender.com
 - API health: https://nextgen-api-au53.onrender.com/api/health
 
-The release includes 26 source-linked pilot lessons and four formative quizzes. It is a pilot curriculum pending organisational review, not accreditation. Infrastructure and API health are verified; a human browser-based visual and learner-flow acceptance pass remains part of the live demo checklist.
+The live catalogue includes 86 source-linked pilot lessons across 28 modules, four formative quizzes and four private authoring drafts. It is a pilot curriculum pending organisational review, not accreditation. Infrastructure and API health are verified; a human browser-based visual and learner-flow acceptance pass remains part of the live demo checklist.
 
 
 ## Research workspace — public evidence library and study creation
@@ -144,3 +144,8 @@ This increment is pending CI and staging verification. Demonstrate it only after
 The public site exposes two separate application entry points: `/volunteer/apply` for volunteer and ambassador expressions of interest, and `/employment/apply` for employee-position expressions of interest. Both pages resolve the organisation through the shared public organisation configuration (the staging fallback is `next-gen-for-earth-demo`), rather than maintaining independent tenant slugs.
 
 Applicants must sign in or create a portal account before submitting. Volunteer applicants select a currently planned or active programme; programme teams review each submission, and safeguarding/consent requirements remain a separate approval gate before participation or membership activation. Employment applications remain private and pending until an authorised organisation administrator reviews them; approval does not automatically publish a person's profile. These are application workflows, not automatic recruitment, appointment or volunteer clearance.
+
+
+## Learner onboarding and cohort walkthrough
+
+Staging now bootstraps four draft programme intakes alongside the four published learner pathways and four staff-editable curriculum drafts. The intake records are deliberately draft-only; use them to demonstrate cohort configuration and programme linkage, not to imply that safeguarding, consent or live-delivery readiness has been approved.

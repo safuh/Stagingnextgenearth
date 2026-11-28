@@ -231,7 +231,8 @@ export default function LearningAdminPage() {
         setMembers(memberItems);
         setProgrammes(programmeItems);
         setCohorts(cohortItems);
-        if (items[0]) setCourseId(items[0].id);
+        const initialCourse = items.find((course) => course.status === "draft") ?? items[0];
+        if (initialCourse) setCourseId(initialCourse.id);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load staff workspace data."));
   }, [organizationId]);
@@ -544,7 +545,6 @@ export default function LearningAdminPage() {
       }
       await refreshReports();
       const succeeded = results.filter((item) => item.ok).length;
-      const failed = results.length - succeeded;
       const failures = results
         .filter((item) => !item.ok)
         .map((item) => `${item.learner_id}: ${item.detail || "not processed"}`)
@@ -660,7 +660,15 @@ export default function LearningAdminPage() {
       <section className="workspace-content">
         <p className="eyebrow">PROGRAMME OPERATIONS</p>
         <h1 className="workspace-title">Learning <em>management.</em></h1>
-        <p className="workspace-muted">Course publishing, learner applications, assessment review, mentorship and attendance.</p>
+        <p className="workspace-muted">Curriculum authoring, learner applications, cohort delivery, assessment review, mentorship and attendance.</p>
+        <div className="staff-grid" aria-label="Curriculum catalogue summary">
+          <article><strong>{courses.filter((course) => course.status === "published").length}</strong><span>Published learner pathways</span></article>
+          <article><strong>{courses.filter((course) => course.status === "draft").length}</strong><span>Editable curriculum drafts</span></article>
+          <article><strong>{cohorts.length}</strong><span>Programme intakes</span></article>
+          <article><strong>{curriculum?.modules.length ?? 0}</strong><span>Modules in selected course</span></article>
+          <article><strong>{curriculum?.modules.reduce((total, module) => total + (module.lessons?.length ?? 0), 0) ?? 0}</strong><span>Lessons in selected course</span></article>
+        </div>
+        <p className="workspace-muted">Published pathways power the learner portal. Separate staff-only draft copies provide a complete editable starting point; draft changes do not alter the published course.</p>
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {courses.length > 0 && (
@@ -742,6 +750,7 @@ export default function LearningAdminPage() {
           </section>
           <section className="staff-card">
             <h2>Edit draft course</h2>
+            <p className="workspace-muted">Select one of the seeded authoring drafts or create a new draft. Course, module and lesson edits are saved to the draft only; published learner content remains unchanged.</p>
             {courses.find((course) => course.id === courseId)?.status !== "draft" ? (
               <p className="workspace-muted">Select a draft course to edit. Published courses are read-only.</p>
             ) : (
