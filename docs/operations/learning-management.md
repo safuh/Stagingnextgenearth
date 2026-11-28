@@ -142,3 +142,16 @@ Programme and organisation reports distinguish **unique learners** from **course
 ## Staff learner progress detail
 
 Course managers can inspect an individual learner's activity at `GET /courses/{course_id}/learners/{learner_id}/progress`. The route verifies the organisation/course relationship, requires a learning-management role and returns only the matching course enrolment, lesson completion timestamps, assessment attempts/evaluation outcomes, attendance records and mentee-side mentorship assignments. It does not expose mentor notes or unrelated course history. The learning admin roster provides an on-demand expandable activity view; it fetches details only when a staff member opens a learner row.
+
+
+## Draft curriculum editing
+
+Course metadata, module outlines and lesson content can be updated while a course is in the `draft` state:
+
+- `PATCH /courses/{course_id}` updates course metadata. A supplied `programme_id: null` detaches the course from its programme.
+- `PATCH /courses/{course_id}/modules/{module_id}` updates a module title, description or position.
+- `PATCH /courses/{course_id}/lessons/{lesson_id}` updates lesson content, resource URL, duration, title, type or position.
+
+All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
+
+The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
