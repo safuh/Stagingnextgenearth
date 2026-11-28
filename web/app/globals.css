@@ -2288,11 +2288,23 @@ footer > span { line-height: 1.7; }
   font-weight: 700;
   line-height: 1.55;
 }
+.research-publication-publisher {
+  margin: 0 0 .45rem;
+  color: #31563d;
+  font-size: .78rem;
+  font-weight: 700;
+}
 .research-publication-summary {
   margin: 0 0 1rem;
   color: var(--muted, #68746b);
   font-size: .78rem;
   line-height: 1.7;
+}
+.research-publication-doi {
+  margin: 0 0 .75rem;
+  color: var(--muted, #68746b);
+  font-size: .68rem;
+  overflow-wrap: anywhere;
 }
 .research-publication-meta {
   display: flex;
