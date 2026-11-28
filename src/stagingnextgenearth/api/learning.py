@@ -623,7 +623,7 @@ async def update_learning_cohort(
         )
     allowed = {
         "draft": {"open", "archived"},
-        "open": {"active", "archived"},
+        "open": {"completed", "archived"},
         "active": {"completed", "archived"},
         "completed": {"archived"},
         "archived": set(),
