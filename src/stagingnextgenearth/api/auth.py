@@ -121,6 +121,13 @@ async def register(
     body: CredentialsRequest,
     session: Annotated[AsyncSession, Depends(_session)],
 ) -> RegistrationResponseModel:
+    if not request.app.state.settings.public_registration_allowed:
+        await session.close()
+        raise BackboneError(
+            "registration_invitation_required",
+            "Account creation is invitation-only. Use an authorised onboarding link.",
+            status.HTTP_403_FORBIDDEN,
+        )
     try:
         result = await _application(request, session).register(
             RegistrationRequest(identifier=body.identifier, password=body.password)

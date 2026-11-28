@@ -2676,3 +2676,18 @@ footer > span { line-height: 1.7; }
   .organisation-next-actions > a, .organisation-empty-actions > a { text-align: center; justify-content: center; }
   .organisation-slug-input > span { padding: 0 .5rem; font-size: .64rem; }
 }
+
+.learner-auth-content { max-width: 920px; }
+.learner-auth-intro { max-width: 680px; line-height: 1.9; margin: -14px 0 30px; }
+.learner-auth-card { max-width: 620px; margin: 0 0 24px; padding: 34px; }
+.learner-auth-card h2 { font-size: 34px; margin: 10px 0 22px; }
+.learner-auth-card .eyebrow { margin: 0; }
+.learner-auth-card form { display: grid; gap: 11px; }
+.learner-auth-card form label { margin-top: 8px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.learner-auth-card form input { height: 48px; width: 100%; border: 1px solid var(--line); padding: 0 13px; background: #fcfdfb; color: var(--ink); }
+.learner-auth-card form input:focus { outline: 2px solid rgba(118,152,77,.3); border-color: #76984d; }
+.learner-auth-card form .primary-action { margin-top: 10px; }
+.learner-access-card { display: grid; justify-items: start; gap: 12px; }
+.learner-access-card h2 { margin: 0; }
+.learner-access-card .primary-action { margin-top: 6px; }
+@media (max-width: 640px) { .learner-auth-card { padding: 23px; } .learner-auth-card h2 { font-size: 28px; } }

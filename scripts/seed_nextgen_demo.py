@@ -5,20 +5,24 @@ import argparse
 import asyncio
 import json
 import re
+import secrets
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from stagingnextgenearth.auth.passwords import PasswordHasher
 from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.climate_public import (
     ClimatePublicRelease,
     ClimatePublicReleaseEvent,
 )
 from stagingnextgenearth.platform.models import (
-    InstitutionalPartner, LearningAssessment, LearningCohort, LearningCourse,
-    LearningLesson, LearningModule, Organization, OrganizationPerson, Programme,
+    InstitutionalPartner, LearningAssessment, LearningAssessmentAttempt, LearningCohort,
+    LearningCourse, LearningEnrollment, LearningLesson, LearningLessonCompletion,
+    LearningModule, Membership, MembershipRole, Organization, OrganizationPerson, Programme,
     PublicContentEntry,
 )
 
@@ -388,6 +392,176 @@ async def _seed_public_climate_demo(session, org: Organization, actor: str, now:
             if key in {"approved_at", "published_at"} and getattr(insight, key) is not None:
                 continue
             setattr(insight, key, value)
+
+
+async def _seed_learning_demo_accounts(session, org: Organization, actor: str, now: datetime) -> None:
+    """Create staging-only learner identities and distinct, completed curriculum journeys.
+
+    Synthetic accounts use reserved .test addresses and random undisclosed password
+    hashes. They are for staff reporting and demonstration only; the real owner account
+    also receives a learner role and an approved, in-progress enrolment.
+    """
+    specifications = [
+        ("demo.learner.research@demo.nextgenforearth.test", "early-career-researchers"),
+        ("demo.learner.health@demo.nextgenforearth.test", "healthcare-workers"),
+        ("demo.learner.youth@demo.nextgenforearth.test", "youth-climate-stewards"),
+        ("demo.learner.community@demo.nextgenforearth.test", "indigenous-community-knowledge"),
+    ]
+    courses = await session.scalars(
+        select(LearningCourse).where(
+            LearningCourse.organization_id == org.id,
+            LearningCourse.status == "published",
+        )
+    )
+    courses_by_slug = {course.slug: course for course in courses.all()}
+
+    owner_membership = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == org.id, Membership.user_id == actor
+        )
+    )
+    if owner_membership is None:
+        owner_membership = Membership(
+            organization_id=org.id, user_id=actor, role="admin", status="active"
+        )
+        session.add(owner_membership)
+        await session.flush()
+        session.add(MembershipRole(membership_id=owner_membership.id, role="admin"))
+    learner_role = await session.scalar(
+        select(MembershipRole.id).where(
+            MembershipRole.membership_id == owner_membership.id,
+            MembershipRole.role == "learner",
+        )
+    )
+    if learner_role is None:
+        session.add(MembershipRole(membership_id=owner_membership.id, role="learner"))
+
+    owner_course = courses_by_slug.get("early-career-researchers")
+    if owner_course is not None:
+        owner_enrollment = await session.scalar(
+            select(LearningEnrollment).where(
+                LearningEnrollment.course_id == owner_course.id,
+                LearningEnrollment.learner_id == actor,
+            )
+        )
+        if owner_enrollment is None:
+            owner_enrollment = LearningEnrollment(
+                course_id=owner_course.id,
+                learner_id=actor,
+                status="approved",
+                progress_percent=20,
+                reviewed_by=actor,
+                reviewed_at=now,
+            )
+            session.add(owner_enrollment)
+            await session.flush()
+            owner_lessons = await session.scalars(
+                select(LearningLesson)
+                .join(LearningModule, LearningModule.id == LearningLesson.module_id)
+                .where(LearningModule.course_id == owner_course.id)
+                .order_by(LearningModule.position, LearningLesson.position)
+                .limit(5)
+            )
+            for lesson in owner_lessons.all():
+                session.add(
+                    LearningLessonCompletion(
+                        enrollment_id=owner_enrollment.id, lesson_id=lesson.id
+                    )
+                )
+
+    hasher = PasswordHasher()
+    for identifier, course_slug in specifications:
+        course = courses_by_slug.get(course_slug)
+        if course is None:
+            continue
+        user = await session.scalar(select(User).where(User.identifier == identifier))
+        if user is None:
+            user = User(
+                identifier=identifier,
+                password_hash=hasher.hash(secrets.token_urlsafe(48)),
+            )
+            session.add(user)
+            await session.flush()
+
+        membership = await session.scalar(
+            select(Membership).where(
+                Membership.organization_id == org.id, Membership.user_id == user.id
+            )
+        )
+        if membership is None:
+            membership = Membership(
+                organization_id=org.id, user_id=user.id, role="learner", status="active"
+            )
+            session.add(membership)
+            await session.flush()
+            session.add(MembershipRole(membership_id=membership.id, role="learner"))
+        else:
+            role_exists = await session.scalar(
+                select(MembershipRole.id).where(
+                    MembershipRole.membership_id == membership.id,
+                    MembershipRole.role == "learner",
+                )
+            )
+            if role_exists is None:
+                session.add(MembershipRole(membership_id=membership.id, role="learner"))
+
+        enrollment = await session.scalar(
+            select(LearningEnrollment).where(
+                LearningEnrollment.course_id == course.id,
+                LearningEnrollment.learner_id == user.id,
+            )
+        )
+        if enrollment is None:
+            enrollment = LearningEnrollment(
+                course_id=course.id, learner_id=user.id, status="completed",
+                progress_percent=100, reviewed_by=actor, reviewed_at=now,
+            )
+            session.add(enrollment)
+            await session.flush()
+
+        lessons = await session.scalars(
+            select(LearningLesson)
+            .join(LearningModule, LearningModule.id == LearningLesson.module_id)
+            .where(LearningModule.course_id == course.id)
+        )
+        for lesson in lessons.all():
+            completed = await session.scalar(
+                select(LearningLessonCompletion.id).where(
+                    LearningLessonCompletion.enrollment_id == enrollment.id,
+                    LearningLessonCompletion.lesson_id == lesson.id,
+                )
+            )
+            if completed is None:
+                session.add(
+                    LearningLessonCompletion(
+                        enrollment_id=enrollment.id, lesson_id=lesson.id
+                    )
+                )
+
+        assessment = await session.scalar(
+            select(LearningAssessment).where(
+                LearningAssessment.course_id == course.id,
+                LearningAssessment.assessment_type == "quiz",
+            ).order_by(LearningAssessment.id)
+        )
+        if assessment is not None:
+            attempt = await session.scalar(
+                select(LearningAssessmentAttempt).where(
+                    LearningAssessmentAttempt.assessment_id == assessment.id,
+                    LearningAssessmentAttempt.learner_id == user.id,
+                )
+            )
+            if attempt is None:
+                session.add(
+                    LearningAssessmentAttempt(
+                        assessment_id=assessment.id, learner_id=user.id,
+                        submission={"demo_fixture": True, "source": "synthetic_staging_demo"},
+                        score=86,
+                        feedback="Synthetic demonstration result only; not a real learner assessment.",
+                        evaluated_by=actor, evaluated_at=now,
+                    )
+                )
+
 
 
 async def seed(slug: str) -> None:
@@ -831,6 +1005,10 @@ async def seed(slug: str) -> None:
                 created_by=actor,
             ))
 
+        learning_demo_seeded = bool(getattr(settings, "learning_demo_seed_allowed", False))
+        if learning_demo_seeded:
+            await _seed_learning_demo_accounts(session, org, actor, now)
+
         climate_demo_seeded = settings.climate_demo_publication_allowed
         if climate_demo_seeded:
             await _seed_public_climate_demo(session, org, actor, now)
@@ -840,12 +1018,18 @@ async def seed(slug: str) -> None:
             if climate_demo_seeded
             else "no synthetic climate fixtures (demo flag disabled or production)"
         )
+        learner_demo_status = (
+            "owner learner access and four synthetic completed learner journeys"
+            if learning_demo_seeded
+            else "no synthetic learner identities (demo flag disabled or production)"
+        )
         print(
             f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, "
             f"{len(CONTENT) + len(PUBLICATIONS) + len(STORY) + 1 + (1 if climate_demo_seeded else 0)} "
             f"CMS entries including {len(PUBLICATIONS)} publications, four programmes, "
             f"{len(course_specs)} learning pathway records and "
-            f"{len(course_specs)} staff authoring-draft records, and {climate_demo_status}."
+            f"{len(course_specs)} staff authoring-draft records, {learner_demo_status}, "
+            f"and {climate_demo_status}."
         )
     await engine.dispose()
 

@@ -12,14 +12,12 @@ Demonstrate one coherent organisational platform: a public website backed by gov
    - Explain that public sections are projections of approved portal records; review drafts and unverified partner candidates remain private.
 
 2. **Learner journey (4 min)**
-   - Open `/learners`.
-   - Optionally pre-create learner demo identities from the bootstrap manifest using a dedicated password environment variable per account.
-   - The bootstrap submits applications to published courses but deliberately does not approve them or grant learner memberships.
-   - Register a new learner account with a unique test email.
-   - Apply to a published course.
-   - Show the learner's own application status.
-   - In the course administration workspace, approve the application and demonstrate that an active learner membership is created.
-   - Sign in as the learner and show the protected curriculum, lessons, assessments, progress and certificate verification when configured.
+   - Open `/learners` to show the published four-course catalogue and public curriculum previews.
+   - Open `/learners/sign-in` for the dedicated learner authentication surface. Learner access is invitation-led; there is no open self-registration.
+   - Sign in using the canonical owner/admin account, which also has an additive learner role and an approved in-progress Research Methods enrolment in the staging demo seed.
+   - Show the learner's own classroom, lessons, assessment, progress and certificate verification when configured.
+   - In Learning Administration, show four separate synthetic `.test` learner identities, each with a completed 100% journey in a different published curriculum, lesson completion records and a synthetic assessment result. These are non-loginable reporting fixtures, not real participants or impact evidence.
+   - Demonstrate that a staff-only account without learner access cannot enter the learner classroom.
 
 3. **Staff and partner onboarding (4 min)**
    - Register an identity at `/staff/register`.
@@ -59,6 +57,8 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 - Production public climate APIs exclude the synthetic demo provider, and production seeding must not create these fixtures.
 - If a real provider integration is unavailable, state that it is not currently returning live data; do not fabricate a provider result.
 - Do not use production learner records for a demonstration.
+- Synthetic `.test` demo learners are staging-only, have random undisclosed password hashes and cannot sign in; use the owner/admin account for interactive learner portal acceptance.
+- Do not send real invitations until the email delivery provider, sender domain, expiring token lifecycle and first-use password setup workflow are configured.
 
 ## Go-live acceptance checklist
 

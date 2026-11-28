@@ -20,8 +20,12 @@ from stagingnextgenearth.platform.models import (
     LearningAssessment,
     LearningCohort,
     LearningCourse,
+    LearningEnrollment,
     LearningLesson,
+    LearningLessonCompletion,
     LearningModule,
+    Membership,
+    MembershipRole,
     Organization,
     OrganizationPerson,
     Programme,
@@ -36,6 +40,8 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     settings = Settings(
         environment=Environment.TEST,
         climate_demo_seed_enabled=True,
+        learning_demo_seed_enabled=True,
+        deployment_stage=DeploymentStage.STAGING,
         database_url=url,
         jwt_secret_key=SecretStr("test-only-signing-secret-that-is-long-enough"),
     )
@@ -77,6 +83,33 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             lessons = list((await session.scalars(select(LearningLesson))).all())
             assessments = list((await session.scalars(select(LearningAssessment))).all())
             user_count = int(await session.scalar(select(func.count(User.id))) or 0)
+            enrollments = list((await session.scalars(select(LearningEnrollment))).all())
+            demo_user_ids = set((await session.scalars(
+                select(User.id).where(User.identifier.like("%@demo.nextgenforearth.test"))
+            )).all())
+            demo_enrollments = [
+                item for item in enrollments if item.learner_id in demo_user_ids
+            ]
+            completions = list((await session.scalars(select(LearningLessonCompletion))).all())
+            owner = await session.scalar(
+                select(User).where(User.identifier == "founder-demo@example.test")
+            )
+            owner_membership = None
+            if owner is not None:
+                owner_membership = await session.scalar(
+                    select(Membership).where(
+                        Membership.organization_id == "founder-demo-org",
+                        Membership.user_id == owner.id,
+                    )
+                )
+            owner_learner_role = False
+            if owner_membership is not None:
+                owner_learner_role = await session.scalar(
+                    select(MembershipRole.id).where(
+                        MembershipRole.membership_id == owner_membership.id,
+                        MembershipRole.role == "learner",
+                    )
+                ) is not None
             return {
                 "people": len(people),
                 "people_with_images": sum(bool(item.profile_image_url) for item in people),
@@ -233,6 +266,18 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                     for item in courses if item.slug.endswith("-authoring-draft")
                 ),
                 "users": user_count,
+                "demo_enrollments": len(demo_enrollments),
+                "demo_enrollments_completed": all(
+                    item.status == "completed" and item.progress_percent == 100
+                    for item in demo_enrollments
+                ),
+                "demo_lesson_completions": len(completions),
+                "owner_learner_role": owner_learner_role,
+                "owner_enrollment_in_progress": any(
+                    item.learner_id == (owner.id if owner else None)
+                    and item.status == "approved" and item.progress_percent == 20
+                    for item in enrollments
+                ),
                 "people_public_verified": all(
                     item.visibility == "public" and item.review_state == "verified"
                     and item.status == "active" for item in people
@@ -366,7 +411,12 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert str(first["draft_lesson_content"]).startswith(
         "Staff-authored draft lesson; preserve this revision."
     )
-    assert first["users"] == 1
+    assert first["users"] == 5
+    assert first["demo_enrollments"] == 4
+    assert first["demo_enrollments_completed"] is True
+    assert first["demo_lesson_completions"] == 91
+    assert first["owner_learner_role"] is True
+    assert first["owner_enrollment_in_progress"] is True
     assert first["people_public_verified"] is True
     assert first["partners_public_unverified"] is True
     assert first["content_published"] is True

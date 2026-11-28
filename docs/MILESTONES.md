@@ -572,3 +572,24 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Both Render services are live on the merge SHA; API logs confirm migration 0069 and successful startup.
 - [x] Live smoke checks pass for `/workspace/organisations/new`, workspace, administration, research and public routes.
 - [ ] Authenticated browser acceptance for first/second tenant creation, invitation acceptance, organisation context and cross-tenant denial.
+
+## M172 — Learner portal entry and staging demonstration journeys
+
+**Status: local implementation in progress; not merged or deployed.**
+
+- [x] Add a dedicated learner sign-in route at `/learners/sign-in`.
+- [x] Keep `/learners` as public course discovery and the authenticated learner home; remove open self-registration from this journey and direct learners to invitation-led onboarding.
+- [x] Add a staging-only seed gate requiring `LEARNING_DEMO_SEED_ENABLED=true` and `DEPLOYMENT_STAGE=staging` (or explicitly enabled non-production local development).
+- [x] Grant the canonical organisation owner/admin a secondary learner role without replacing the primary admin role; create an approved in-progress Research Methods enrolment when none exists.
+- [x] Create four reserved `.test` synthetic learner identities with completed progress in four different published curricula, all lesson completion records and explicitly synthetic assessment feedback.
+- [x] Make demo account, membership, enrolment, completion and assessment seeding idempotent; never use real personal identities or reusable passwords for synthetic accounts.
+- [x] Add regression coverage for owner dual-role access, four distinct completed journeys, progress and seed idempotency.
+- [x] Update founder demonstration, developer and learner-operations documentation; update Notion learner, developer and organisation operations pages.
+- [x] Focused seed/auth tests passed (4 tests); mypy passed (91 source files); frontend typecheck passed.
+- [ ] Complete remaining backend learning/bootstrap/auth regression suite and full backend test suite.
+- [ ] Complete frontend lint, tests and production build.
+- [ ] Implement invitation-by-email first-use account setup, email verification, password reset, Google OIDC and account linking in the next identity milestone; current membership invitation still requires a registered account.
+- [ ] Push branch, open PR against `feat/admin-workspace-ui-polish-m116`, pass all required CI, merge and verify both Render services on the exact merge SHA.
+- [ ] Run authenticated browser acceptance: owner/admin can enter both staff and learner portals; synthetic learners appear in cohort/course reporting; non-learners are denied; public discovery contains no synthetic identity or draft curriculum.
+
+Synthetic `.test` learner identities have random undisclosed password hashes and are intentionally non-loginable. Use the actual owner/admin account for interactive learner portal testing. Never describe seeded progress as real programme outcomes.

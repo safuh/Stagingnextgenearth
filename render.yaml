@@ -26,6 +26,12 @@ services:
         generateValue: true
       - key: PUBLIC_BASE_URL
         value: https://nextgen-web-upag.onrender.com
+      - key: LEARNING_DEMO_SEED_ENABLED
+        value: "true"
+      - key: DEPLOYMENT_STAGE
+        value: staging
+      - key: PUBLIC_REGISTRATION_ENABLED
+        value: "false"
       - key: CORS_ORIGINS
         value: '["https://nextgen-web-upag.onrender.com"]'
       - key: CORS_ALLOW_CREDENTIALS

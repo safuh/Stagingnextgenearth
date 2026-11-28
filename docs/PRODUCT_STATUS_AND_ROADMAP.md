@@ -1,7 +1,7 @@
 # NextGen For Earth — Product Status, Priorities and Acceptance Roadmap
 
-**Working baseline:** `feat/organisation-onboarding-m171`
-**Roadmap branch:** `feat/organisation-onboarding-m171`
+**Working baseline:** `feat/curriculum-version-governance-m172`
+**Roadmap branch:** `feat/curriculum-version-governance-m172`
 **Review date:** 28 November 2026
 
 This document is the product-facing source of truth for what the repository currently implements, what is only seeded or demonstrated, and what remains to be accepted. A checked item means the implementation and its acceptance evidence have been verified; code presence or a successful build alone is not sufficient.
@@ -28,6 +28,16 @@ The feature branch already contains substantial backend and portal foundations:
 - FastAPI, PostgreSQL/PostGIS, Next.js, Docker and Render deployment architecture.
 
 Repository documentation and tests establish implementation intent and local/CI coverage. They do not establish that every workflow is currently configured, populated or accepted on the live staging deployment.
+
+## Current local milestone — learner portal and demonstration identities (M172)
+
+The local M172 branch adds a dedicated learner sign-in route at `/learners/sign-in`; `/learners` is retained for public course discovery and the authenticated learner home. Open learner self-registration is removed from this journey in favour of role-specific invitations. The API now rejects public registration by default in production (with an explicit environment override for controlled operations); development/test registration remains available, and the bootstrap utility can authenticate and reuse an existing owner account. The canonical owner/admin receives an additive learner role and an approved in-progress Research Methods enrolment in staging. Four reserved `.test` synthetic identities complete four different published curricula so learner rosters, progress and reporting can be demonstrated. These synthetic accounts use random undisclosed password hashes and are not loginable; they are not real participants or impact evidence.
+
+The seed is gated by `LEARNING_DEMO_SEED_ENABLED=true` and `DEPLOYMENT_STAGE=staging`; production must never seed these identities. Focused seed/auth tests and backend type checking have passed locally; frontend checks and full acceptance remain in progress. This is not yet merged or deployed.
+
+## Identity and account lifecycle — outstanding production work
+
+Current password authentication, refresh rotation and password-change controls are not a complete identity lifecycle. Existing organisation membership invitations require an already registered user. The next identity milestone must implement: Google OpenID Connect with backend token verification and stable subject linking; verified-email state; one-time expiring and revocable invitation/password-setup links; role/scope assignment before activation; password reset and change; session revocation; delivery retries and audit history. Public registration must not assign tenant roles. Real email invitations must remain disabled until an email provider, sender domain and operational delivery configuration are supplied.
 
 ## Important distinction: seeded versus production-quality content
 

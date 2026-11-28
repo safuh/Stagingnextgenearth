@@ -57,7 +57,7 @@ The staging hub is populated with two published synthetic demonstration releases
 
 ## 6. Learning and curriculum — second product priority
 
-The demo seed now publishes four pilot tracks with 28 modules and 86 substantive lessons, further-reading links and four formative quizzes. The content remains a subject-matter review pilot rather than accredited or finally approved instructional material:
+The demo seed now publishes four pilot tracks with 28 modules and 86 substantive lessons, further-reading links and four formative quizzes. A separate M172 local implementation adds a dedicated `/learners/sign-in` surface, an additive learner role for the canonical owner/admin, and four synthetic reporting identities that each complete a different published curriculum. The `.test` identities are non-loginable staging fixtures, not actual participants or outcome evidence. The changes are not yet merged or deployed. The content remains a subject-matter review pilot rather than accredited or finally approved instructional material:
 
 1. Research Methods and Evidence Practice.
 2. Climate and Health Resilience.
@@ -75,6 +75,7 @@ Each curriculum is designed around measurable outcomes, lesson plans, practical 
 - Complete end-to-end learner assessment, progress and certificate acceptance; verify certificate wording does not imply accreditation.
 - Build leadership impact reporting that distinguishes inputs, activities, outputs, outcomes and long-term impact.
 - Complete partner/funder reporting, evidence exports and grant reporting.
+- Replace existing-account-only membership invitations with one-time email onboarding links, verified-email/password setup, password reset and Google OIDC; configure the email delivery provider and sender domain before enabling real invitations.
 - Complete browser end-to-end tests, security/privacy/safeguarding review, observability, alerting, backup automation and restore drills.
 
 ## 8. Evidence and integrity
