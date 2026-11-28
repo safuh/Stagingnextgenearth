@@ -934,6 +934,18 @@ class LearningCohort(Base):
             name="ck_learning_cohort_capacity",
         ),
         CheckConstraint(
+            "inactivity_threshold_days BETWEEN 1 AND 90",
+            name="ck_learning_cohort_inactivity_threshold",
+        ),
+        CheckConstraint(
+            "absence_threshold BETWEEN 1 AND 10",
+            name="ck_learning_cohort_absence_threshold",
+        ),
+        CheckConstraint(
+            "absence_window_days BETWEEN 7 AND 90",
+            name="ck_learning_cohort_absence_window",
+        ),
+        CheckConstraint(
             "start_date IS NULL OR end_date IS NULL OR start_date <= end_date",
             name="ck_learning_cohort_dates",
         ),
@@ -954,6 +966,15 @@ class LearningCohort(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     capacity: Mapped[int | None] = mapped_column(nullable=True)
+    inactivity_threshold_days: Mapped[int] = mapped_column(
+        nullable=False, default=14, server_default="14"
+    )
+    absence_threshold: Mapped[int] = mapped_column(
+        nullable=False, default=2, server_default="2"
+    )
+    absence_window_days: Mapped[int] = mapped_column(
+        nullable=False, default=30, server_default="30"
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
@@ -1215,6 +1236,65 @@ class LearningAttendance(Base):
     )
 
 
+class LearningIntervention(Base):
+    """Staff-only, auditable follow-up action for a learner in a cohort."""
+
+    __tablename__ = "learning_interventions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'resolved', 'cancelled')",
+            name="ck_learning_intervention_status",
+        ),
+        Index(
+            "ix_learning_interventions_org_cohort_status",
+            "organization_id",
+            "cohort_id",
+            "status",
+        ),
+        Index(
+            "ix_learning_interventions_owner_status",
+            "owner_user_id",
+            "status",
+            "due_at",
+        ),
+        Index("ix_learning_interventions_learner", "learner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    cohort_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="CASCADE"), nullable=False
+    )
+    learner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    enrollment_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(180), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class LearningResource(Base):
     """Course or lesson resource metadata; private file access stays in storage grants."""
 
@@ -1284,7 +1364,8 @@ class OrganizationAuditEvent(Base):
             "'research.protocol.submitted', 'research.protocol.reviewed', "
             "'research.ethics.review_recorded', 'learning.cohort.created', "
             "'learning.cohort.updated', 'learning.enrollment.cohort_assigned', "
-            "'learning.enrollment.cohort_unassigned')",
+            "'learning.enrollment.cohort_unassigned', 'learning.intervention.created', "
+            "'learning.intervention.updated', 'learning.intervention.resolved')",
             name="ck_organization_audit_event_action",
         ),
         Index(
