@@ -510,3 +510,18 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI matrix passes.
 - [ ] Merge and deploy to Render staging.
 - [ ] Complete authenticated browser acceptance.
+
+## M155 — Cohort and intake foundation (implementation in review)
+
+- [x] Add tenant-scoped cohort, course-link and learner-membership persistence models.
+- [x] Add Alembic migration with lifecycle constraints, unique constraints and indexes.
+- [x] Add programme-linked cohort creation and management APIs.
+- [x] Add published-course linking and active learner admission with capacity checks.
+- [x] Add audited cohort and membership lifecycle transitions.
+- [x] Return privacy-safe cohort rosters using only organisation-visible display names.
+- [x] Add staff workspace controls for cohort creation, course linking and learner lifecycle.
+- [x] Add API and migration regression coverage.
+- [ ] Full CI matrix passes.
+- [ ] Merge and deploy to Render staging.
+- [ ] Complete authenticated browser acceptance and safeguarding checks.
+- [ ] Bulk invitations, cohort transfers, roster export and course-enrolment propagation remain follow-up work.
