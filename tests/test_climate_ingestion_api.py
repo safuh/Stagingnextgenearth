@@ -188,7 +188,6 @@ async def test_chirps_guard_rejects_a_concurrent_run() -> None:
     assert exc.value.status_code == 409
 
 
-
 @pytest.mark.asyncio
 async def test_chirps_provider_block_response_includes_retry_after(
     monkeypatch: pytest.MonkeyPatch,
