@@ -692,6 +692,13 @@ async def assign_enrollment_cohort(
     course = await _course(session, organization_id, course_id)
     enrollment = await _enrollment(session, course_id, learner_id)
     previous_cohort_id = enrollment.cohort_id
+    if body.cohort_id == previous_cohort_id:
+        return {
+            "enrollment_id": enrollment.id,
+            "learner_id": enrollment.learner_id,
+            "course_id": enrollment.course_id,
+            "cohort_id": enrollment.cohort_id,
+        }
     if enrollment.status not in {"applied", "approved"}:
         raise HTTPException(409, "Only pending or approved enrolments can change cohort")
     if body.cohort_id is None:
