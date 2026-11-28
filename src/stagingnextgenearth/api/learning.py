@@ -607,7 +607,8 @@ async def update_learning_cohort(
     end_date = changes.get("end_date", cohort.end_date)
     if start_date and end_date and start_date > end_date:
         raise HTTPException(422, "Cohort start date must not be after its end date")
-    next_status = changes.get("status", cohort.status)
+    previous_status = cohort.status
+    next_status = changes.get("status", previous_status)
     allowed = {
         "draft": {"open", "archived"},
         "open": {"active", "archived"},
@@ -638,7 +639,7 @@ async def update_learning_cohort(
             changes={
                 "cohort_id": cohort.id,
                 "fields": sorted(changes),
-                "status": {"before": cohort.status, "after": next_status},
+                "status": {"before": previous_status, "after": next_status},
             },
         )
     )
@@ -1018,8 +1019,14 @@ async def my_enrollments(
 ) -> list[dict[str, object]]:
     """Return only the authenticated learner's application and course status."""
     rows = await session.execute(
-        select(LearningEnrollment, LearningCourse.title, LearningCourse.slug)
+        select(
+            LearningEnrollment,
+            LearningCourse.title,
+            LearningCourse.slug,
+            LearningCohort.title,
+        )
         .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .outerjoin(LearningCohort, LearningCohort.id == LearningEnrollment.cohort_id)
         .where(
             LearningCourse.organization_id == organization_id,
             LearningEnrollment.learner_id == principal.user_id,
@@ -1033,11 +1040,13 @@ async def my_enrollments(
             "course_id": enrollment.course_id,
             "course_title": title,
             "course_slug": slug,
+            "cohort_id": enrollment.cohort_id,
+            "cohort_title": cohort_title,
             "status": enrollment.status,
             "progress_percent": enrollment.progress_percent,
             "applied_at": enrollment.applied_at,
         }
-        for enrollment, title, slug in rows.all()
+        for enrollment, title, slug, cohort_title in rows.all()
     ]
 
 
@@ -1052,8 +1061,9 @@ async def list_course_enrollments(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Enrollment reporting permission required")
     await _course(session, organization_id, course_id)
-    rows = await session.scalars(
-        select(LearningEnrollment)
+    rows = await session.execute(
+        select(LearningEnrollment, LearningCohort.title)
+        .outerjoin(LearningCohort, LearningCohort.id == LearningEnrollment.cohort_id)
         .where(LearningEnrollment.course_id == course_id)
         .order_by(LearningEnrollment.applied_at.desc())
         .limit(500)
@@ -1062,12 +1072,14 @@ async def list_course_enrollments(
         {
             "id": row.id,
             "learner_id": row.learner_id,
+            "cohort_id": row.cohort_id,
+            "cohort_title": cohort_title,
             "status": row.status,
             "progress_percent": row.progress_percent,
             "applied_at": row.applied_at,
             "reviewed_at": row.reviewed_at,
         }
-        for row in rows.all()
+        for row, cohort_title in rows.all()
     ]
 
 
