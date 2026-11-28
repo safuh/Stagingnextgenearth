@@ -1090,8 +1090,14 @@ async def my_enrollments(
 ) -> list[dict[str, object]]:
     """Return only the authenticated learner's application and course status."""
     rows = await session.execute(
-        select(LearningEnrollment, LearningCourse.title, LearningCourse.slug)
+        select(
+            LearningEnrollment,
+            LearningCourse.title,
+            LearningCourse.slug,
+            LearningCohort.title,
+        )
         .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .outerjoin(LearningCohort, LearningCohort.id == LearningEnrollment.cohort_id)
         .where(
             LearningCourse.organization_id == organization_id,
             LearningEnrollment.learner_id == principal.user_id,
@@ -1105,11 +1111,13 @@ async def my_enrollments(
             "course_id": enrollment.course_id,
             "course_title": title,
             "course_slug": slug,
+            "cohort_id": enrollment.cohort_id,
+            "cohort_title": cohort_title,
             "status": enrollment.status,
             "progress_percent": enrollment.progress_percent,
             "applied_at": enrollment.applied_at,
         }
-        for enrollment, title, slug in rows.all()
+        for enrollment, title, slug, cohort_title in rows.all()
     ]
 
 
@@ -1296,6 +1304,42 @@ async def bulk_decide_enrollments(
         "failed": sum(not bool(item["ok"]) for item in results),
         "results": results,
     }
+
+
+@router.get("/enrollments/{enrollment_id}/events")
+async def list_enrollment_events(
+    organization_id: str,
+    enrollment_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Enrollment history permission required")
+    rows = await session.scalars(
+        select(LearningEnrollmentEvent)
+        .join(LearningEnrollment, LearningEnrollment.id == LearningEnrollmentEvent.enrollment_id)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningEnrollment.id == enrollment_id,
+            LearningCourse.organization_id == organization_id,
+        )
+        .order_by(LearningEnrollmentEvent.created_at, LearningEnrollmentEvent.id)
+        .limit(500)
+    )
+    return [
+        {
+            "id": event.id,
+            "event_type": event.event_type,
+            "from_status": event.from_status,
+            "to_status": event.to_status,
+            "from_cohort_id": event.from_cohort_id,
+            "to_cohort_id": event.to_cohort_id,
+            "reason": event.reason,
+            "actor_user_id": event.actor_user_id,
+            "created_at": event.created_at,
+        }
+        for event in rows.all()
+    ]
 
 
 @router.get("/courses/{course_id}/assessments")
