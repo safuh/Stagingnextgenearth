@@ -122,7 +122,7 @@ The tracks are labelled pilot content and require subject-matter review before c
 
 ## Learner roster and bulk enrolment decisions
 
-The staff learning workspace exposes a course-scoped roster with enrolment status, progress and application date. Staff can filter by learner ID and lifecycle status. The current identity model does not provide a reviewed display-name field, so the roster uses internal learner IDs rather than exposing account identifiers or unapproved profile data.
+The staff learning workspace exposes a course-scoped roster with enrolment status, progress and application date. Staff can filter by learner ID and lifecycle status. The current identity model does not provide a reviewed display-name field, so the roster temporarily uses learner account IDs. This is an operational identifier, not a privacy-safe learner profile; reviewed display names and role-filtered learner detail remain outstanding.
 
 For bounded batch review, managers can call `POST /courses/{course_id}/enrollments/bulk-decision` with 1–100 unique learner IDs and an `approved` or `rejected` decision. The response contains a result for every learner, including successful transitions and individual conflict/not-found details. Each decision is committed independently, so one invalid or already-decided application does not roll back successful decisions in the same batch. The endpoint requires a course-management role and validates the course within the organisation. The workspace splits larger selections into batches of at most 100 and displays partial failures.
 
