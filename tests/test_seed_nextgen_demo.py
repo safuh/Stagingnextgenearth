@@ -87,10 +87,16 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                         and isinstance((item.metadata_json or {}).get("publisher"), str)
                         and isinstance((item.metadata_json or {}).get("year"), int)
                         and (item.metadata_json or {}).get("year_provenance")
-                        == "Seed catalogue year; verify against the DOI landing page before treating as canonical."
+                        == (
+                            "Seed catalogue year; verify against the DOI landing page "
+                            "before treating as canonical."
+                        )
                         and isinstance((item.metadata_json or {}).get("editorial_topic"), str)
                         and (item.metadata_json or {}).get("editorial_topic_provenance")
-                        == "Editorial discovery tag assigned by the demo seed; not a source-reported keyword."
+                        == (
+                            "Editorial discovery tag assigned by the demo seed; "
+                            "not a source-reported keyword."
+                        )
                         and (item.metadata_json or {}).get("doi")
                         == (item.source_url or "").removeprefix("https://doi.org/")
                         for item in publications
