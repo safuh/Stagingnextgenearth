@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from scripts import seed_nextgen_demo
-from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.config import DeploymentStage, Environment, Settings
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.climate_public import (
@@ -199,7 +199,9 @@ def test_production_seed_does_not_publish_synthetic_climate_fixtures(
     settings = SimpleNamespace(
         database_url=url,
         environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
         climate_demo_seed_enabled=True,
+        climate_demo_publication_allowed=False,
     )
     monkeypatch.setattr(seed_nextgen_demo, "get_settings", lambda: settings)
     engine = create_async_engine(url)
