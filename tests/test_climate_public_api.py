@@ -318,6 +318,9 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert licence_review.status_code == 200
         assert licence_review.json()["licence_reviewed_by"] == licence_reviewer_id
         assert licence_review.json()["licence_reviewed_at"] is not None
+        assert licence_review.json()["licence_review_note"] == (
+            "CC-BY terms, provider conditions, attribution and DOI citation checked."
+        )
         connection = sqlite3.connect(tmp_path / "public-climate.db")
         audit_event = connection.execute(
             """SELECT actor_user_id, note FROM climate_public_release_events
@@ -341,6 +344,9 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert listed_review.status_code == 200
         assert listed_review.json()[0]["licence_reviewed_by"] == licence_reviewer_id
+        assert listed_review.json()[0]["licence_review_note"] == (
+            "CC-BY terms, provider conditions, attribution and DOI citation checked."
+        )
 
         licence_reviewer_cannot_approve = client.post(
             f"{org_base}/climate-public-releases/{release_id}/approve",
@@ -436,6 +442,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert "source_ingestion_run_id" not in public_detail.json()
         assert "licence_reviewed_by" not in public_detail.json()
         assert "licence_reviewed_at" not in public_detail.json()
+        assert "licence_review_note" not in public_detail.json()
 
         overview = client.get(
             "/api/public/organizations/nextgen-climate/climate/overview"
