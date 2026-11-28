@@ -229,6 +229,7 @@ _PUBLIC_METADATA_KEYS = {
     "authors",
     "publication_date",
     "year",
+    "year_provenance",
     "publisher",
     "doi",
     "editorial_topic",
