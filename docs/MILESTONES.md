@@ -498,3 +498,14 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI matrix passes.
 - [ ] Merge and deploy to Render staging.
 - [ ] Complete authenticated browser acceptance.
+
+## M145 — Deduplicated learning progress and outcomes (implementation in review)
+
+- [x] Distinguish unique learners from course-enrolment counts in programme and organisation outcomes.
+- [x] Calculate average progress with one equal-weight contribution per learner across the reporting scope.
+- [x] Label programme dashboards with separate unique learner and enrolment metrics.
+- [x] Include both denominators in programme and portfolio CSV exports.
+- [x] Document metric definitions and add API/export regression assertions.
+- [ ] Full CI passes and merge.
+- [ ] Deploy to staging and verify authenticated dashboard and exports.
+- [ ] Add cohort-aware timelines, transparent at-risk rules and facilitator interventions (later increment).
