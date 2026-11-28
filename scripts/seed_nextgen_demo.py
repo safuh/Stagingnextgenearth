@@ -583,7 +583,10 @@ async def seed(slug: str) -> None:
                 "authors": summary_parts[0],
                 "publisher": summary_parts[1] if len(summary_parts) > 1 else None,
                 "year": year,
-                "topic": topic,
+                "editorial_topic": topic,
+                "editorial_topic_provenance": (
+                    "Editorial discovery tag assigned by the demo seed; not a source-reported keyword."
+                ),
                 "doi": doi.removeprefix("https://doi.org/"),
             }
             if entry is None:
