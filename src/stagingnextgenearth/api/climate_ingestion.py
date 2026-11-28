@@ -293,7 +293,10 @@ async def run_climate_ingestion(
             await session.rollback()
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
-            "Climate provider ingestion failed. Refresh the ingestion ledger for the recorded failure details.",
+            (
+                "Climate provider ingestion failed. Refresh the ingestion ledger "
+                "for the recorded failure details."
+            ),
         ) from exc
     await session.commit()
     await session.refresh(run)
