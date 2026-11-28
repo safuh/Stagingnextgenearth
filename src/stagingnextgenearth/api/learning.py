@@ -4,12 +4,12 @@ import csv
 import hashlib
 import io
 import secrets
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,7 @@ from stagingnextgenearth.platform.models import (
     LearningCohort,
     LearningCourse,
     LearningEnrollment,
+    LearningIntervention,
     LearningLesson,
     LearningLessonCompletion,
     LearningMentorship,
@@ -197,24 +198,26 @@ async def get_public_course_curriculum(
             .where(LearningLesson.module_id == module.id)
             .order_by(LearningLesson.position)
         )
-        outline.append({
-            "id": module.id,
-            "title": module.title,
-            "description": module.description,
-            "position": module.position,
-            "lessons": [
-                {
-                    "id": lesson.id,
-                    "title": lesson.title,
-                    "content_type": lesson.content_type,
-                    "content": lesson.content,
-                    "resource_url": lesson.resource_url,
-                    "duration_minutes": lesson.duration_minutes,
-                    "position": lesson.position,
-                }
-                for lesson in lessons.all()
-            ],
-        })
+        outline.append(
+            {
+                "id": module.id,
+                "title": module.title,
+                "description": module.description,
+                "position": module.position,
+                "lessons": [
+                    {
+                        "id": lesson.id,
+                        "title": lesson.title,
+                        "content_type": lesson.content_type,
+                        "content": lesson.content,
+                        "resource_url": lesson.resource_url,
+                        "duration_minutes": lesson.duration_minutes,
+                        "position": lesson.position,
+                    }
+                    for lesson in lessons.all()
+                ],
+            }
+        )
     return {
         "course_id": course.id,
         "slug": course.slug,
@@ -283,6 +286,10 @@ class CohortCreate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     capacity: int | None = Field(default=None, ge=1)
+    inactivity_threshold_days: int = Field(default=14, ge=1, le=90)
+    absence_threshold: int = Field(default=2, ge=1, le=20)
+    absence_window_days: int = Field(default=30, ge=7, le=90)
+    overdue_grace_days: int = Field(default=2, ge=0, le=30)
 
     @model_validator(mode="after")
     def validate_dates(self) -> "CohortCreate":
@@ -297,7 +304,35 @@ class CohortUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     capacity: int | None = Field(default=None, ge=1)
+    inactivity_threshold_days: int | None = Field(default=None, ge=1, le=90)
+    absence_threshold: int | None = Field(default=None, ge=1, le=20)
+    absence_window_days: int | None = Field(default=None, ge=7, le=90)
+    overdue_grace_days: int | None = Field(default=None, ge=0, le=30)
     status: Literal["open", "active", "completed", "archived"] | None = None
+
+
+class InterventionCreate(BaseModel):
+    enrollment_id: str
+    assigned_to: str
+    due_date: date | None = None
+    note: str = Field(
+        min_length=3,
+        max_length=3000,
+        description="Operational follow-up only; no health, disability or safeguarding details.",
+    )
+
+
+class InterventionUpdate(BaseModel):
+    assigned_to: str | None = None
+    due_date: date | None = None
+    note: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=3000,
+        description="Operational follow-up only; no health, disability or safeguarding details.",
+    )
+    status: Literal["in_progress", "resolved", "cancelled"] | None = None
+    resolution_note: str | None = Field(default=None, max_length=3000)
 
 
 class CohortAssignment(BaseModel):
@@ -538,9 +573,7 @@ async def list_learning_cohorts(
     """List cohorts in the current organisation with assigned-enrolment counts."""
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Cohort management permission required")
-    statement = select(LearningCohort).where(
-        LearningCohort.organization_id == organization_id
-    )
+    statement = select(LearningCohort).where(LearningCohort.organization_id == organization_id)
     if programme_id:
         statement = statement.where(LearningCohort.programme_id == programme_id)
     rows = await session.scalars(
@@ -571,6 +604,10 @@ async def list_learning_cohorts(
             "start_date": item.start_date,
             "end_date": item.end_date,
             "capacity": item.capacity,
+            "inactivity_threshold_days": item.inactivity_threshold_days,
+            "absence_threshold": item.absence_threshold,
+            "absence_window_days": item.absence_window_days,
+            "overdue_grace_days": item.overdue_grace_days,
             "status": item.status,
             "assigned_count": counts.get(item.id, 0),
         }
@@ -607,6 +644,10 @@ async def create_learning_cohort(
         start_date=body.start_date,
         end_date=body.end_date,
         capacity=body.capacity,
+        inactivity_threshold_days=body.inactivity_threshold_days,
+        absence_threshold=body.absence_threshold,
+        absence_window_days=body.absence_window_days,
+        overdue_grace_days=body.overdue_grace_days,
         status="draft",
         created_by=principal.user_id,
     )
@@ -640,6 +681,10 @@ async def create_learning_cohort(
         "start_date": cohort.start_date,
         "end_date": cohort.end_date,
         "capacity": cohort.capacity,
+        "inactivity_threshold_days": cohort.inactivity_threshold_days,
+        "absence_threshold": cohort.absence_threshold,
+        "absence_window_days": cohort.absence_window_days,
+        "overdue_grace_days": cohort.overdue_grace_days,
         "status": cohort.status,
         "assigned_count": 0,
     }
@@ -673,6 +718,23 @@ async def update_learning_cohort(
         raise HTTPException(422, "Cohort title cannot be blank")
     if "status" in changes and changes["status"] is None:
         raise HTTPException(422, "Cohort status cannot be null")
+    threshold_fields = {
+        "inactivity_threshold_days",
+        "absence_threshold",
+        "absence_window_days",
+        "overdue_grace_days",
+    }
+    null_threshold_fields = sorted(
+        field for field in threshold_fields if field in changes and changes[field] is None
+    )
+    if null_threshold_fields:
+        raise HTTPException(
+            422,
+            f"Risk threshold fields cannot be null: {', '.join(null_threshold_fields)}",
+        )
+    previous_thresholds = {
+        field: getattr(cohort, field) for field in threshold_fields if field in changes
+    }
     start_date = changes.get("start_date", cohort.start_date)
     end_date = changes.get("end_date", cohort.end_date)
     if start_date and end_date and start_date > end_date:
@@ -715,6 +777,10 @@ async def update_learning_cohort(
                 "cohort_id": cohort.id,
                 "fields": sorted(changes),
                 "status": {"before": previous_status, "after": next_status},
+                "risk_thresholds": {
+                    field: {"before": previous_thresholds[field], "after": changes[field]}
+                    for field in sorted(previous_thresholds)
+                },
             },
         )
     )
@@ -735,6 +801,10 @@ async def update_learning_cohort(
         "start_date": cohort.start_date,
         "end_date": cohort.end_date,
         "capacity": cohort.capacity,
+        "inactivity_threshold_days": cohort.inactivity_threshold_days,
+        "absence_threshold": cohort.absence_threshold,
+        "absence_window_days": cohort.absence_window_days,
+        "overdue_grace_days": cohort.overdue_grace_days,
         "status": cohort.status,
         "assigned_count": int(assigned_count or 0),
     }
@@ -854,9 +924,7 @@ async def update_course(
     if not changes:
         raise HTTPException(422, "At least one course field must be supplied")
     required_fields = ("title", "slug", "description", "delivery_mode")
-    if any(
-        changes.get(field) is None for field in required_fields if field in changes
-    ):
+    if any(changes.get(field) is None for field in required_fields if field in changes):
         raise HTTPException(422, "Required course fields cannot be null")
     if "programme_id" in changes and changes["programme_id"] is not None:
         programme_exists = await session.scalar(
@@ -954,9 +1022,7 @@ async def update_lesson(
     if not changes:
         raise HTTPException(422, "At least one lesson field must be supplied")
     required_fields = ("title", "content_type", "position")
-    if any(
-        changes.get(field) is None for field in required_fields if field in changes
-    ):
+    if any(changes.get(field) is None for field in required_fields if field in changes):
         raise HTTPException(422, "Lesson title, content type and position cannot be null")
     if "title" in changes and changes["title"] is not None:
         changes["title"] = changes["title"].strip()
@@ -1293,9 +1359,7 @@ async def bulk_decide_enrollments(
                 membership,
                 session,
             )
-            results.append(
-                {"learner_id": learner_id, "status": result["status"], "ok": True}
-            )
+            results.append({"learner_id": learner_id, "status": result["status"], "ok": True})
         except HTTPException as exc:
             results.append(
                 {
@@ -2542,25 +2606,19 @@ async def programme_outcomes(
     ]
     programme_course_ids = [course.id for course in courses]
     enrollment_rows = await session.scalars(
-        select(LearningEnrollment).where(
-            LearningEnrollment.course_id.in_(programme_course_ids)
-        )
+        select(LearningEnrollment).where(LearningEnrollment.course_id.in_(programme_course_ids))
     )
     enrolments = enrollment_rows.all()
     progress_by_learner: dict[str, list[int]] = {}
     for enrolment in enrolments:
-        progress_by_learner.setdefault(enrolment.learner_id, []).append(
-            enrolment.progress_percent
-        )
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(enrolment.progress_percent)
     learner_count = len(progress_by_learner)
     learner_average_progress = [
         sum(progress_values) / len(progress_values)
         for progress_values in progress_by_learner.values()
     ]
     average_progress = (
-        round(sum(learner_average_progress) / learner_count, 1)
-        if learner_count
-        else 0.0
+        round(sum(learner_average_progress) / learner_count, 1) if learner_count else 0.0
     )
     totals = {
         "learners": learner_count,
@@ -2716,9 +2774,7 @@ async def learner_course_progress_detail(
         .join(LearningLesson, LearningLesson.module_id == LearningModule.id)
         .outerjoin(
             LearningLessonCompletion,
-            (
-                LearningLessonCompletion.lesson_id == LearningLesson.id
-            )
+            (LearningLessonCompletion.lesson_id == LearningLesson.id)
             & (LearningLessonCompletion.enrollment_id == enrollment.id),
         )
         .where(LearningModule.course_id == course_id)
@@ -2736,9 +2792,7 @@ async def learner_course_progress_detail(
         )
         .outerjoin(
             LearningAssessmentAttempt,
-            (
-                LearningAssessmentAttempt.assessment_id == LearningAssessment.id
-            )
+            (LearningAssessmentAttempt.assessment_id == LearningAssessment.id)
             & (LearningAssessmentAttempt.learner_id == learner_id),
         )
         .where(LearningAssessment.course_id == course_id)
@@ -2915,16 +2969,12 @@ async def organisation_learning_outcomes(
         for course in cast(list[dict[str, object]], programme["courses"])
     ]
     enrolment_rows = await session.scalars(
-        select(LearningEnrollment).where(
-            LearningEnrollment.course_id.in_(organisation_course_ids)
-        )
+        select(LearningEnrollment).where(LearningEnrollment.course_id.in_(organisation_course_ids))
     )
     enrolments = enrolment_rows.all()
     progress_by_learner: dict[str, list[int]] = {}
     for enrolment in enrolments:
-        progress_by_learner.setdefault(enrolment.learner_id, []).append(
-            enrolment.progress_percent
-        )
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(enrolment.progress_percent)
     learner_count = len(progress_by_learner)
     totals["learners"] = learner_count
     learner_average_progress = [
@@ -2932,9 +2982,7 @@ async def organisation_learning_outcomes(
         for progress_values in progress_by_learner.values()
     ]
     average_progress = (
-        round(sum(learner_average_progress) / learner_count, 1)
-        if learner_count
-        else 0.0
+        round(sum(learner_average_progress) / learner_count, 1) if learner_count else 0.0
     )
     return {
         "organization_id": organization_id,
@@ -3037,3 +3085,686 @@ async def export_organisation_learning_outcomes(
             "Content-Disposition": 'attachment; filename="organisation-learning-outcomes.csv"'
         },
     )
+
+
+def _learning_utc(value: datetime) -> datetime:
+    """Normalise database datetimes before comparing SQLite and PostgreSQL values."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _learner_reference(learner_id: str) -> str:
+    """Return a stable privacy-safe staff reference instead of an account identifier."""
+    return f"Learner-{hashlib.sha256(learner_id.encode()).hexdigest()[:16].upper()}"
+
+
+def _intervention_read(item: LearningIntervention, learner_id: str) -> dict[str, object]:
+    """Staff-only representation; never used by learner-facing endpoints."""
+    return {
+        "id": item.id,
+        "cohort_id": item.cohort_id,
+        "enrollment_id": item.enrollment_id,
+        "learner_ref": _learner_reference(learner_id),
+        "assigned_to": item.assigned_to,
+        "due_date": item.due_date,
+        "note": item.note,
+        "status": item.status,
+        "resolution_note": item.resolution_note,
+        "resolved_at": item.resolved_at,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
+
+
+async def _cohort_risk_review(
+    session: AsyncSession,
+    organization_id: str,
+    cohort: LearningCohort,
+) -> dict[str, object]:
+    """Compute deterministic, explainable signals without treating missing data as risk."""
+    now = datetime.now(UTC)
+    attendance_cutoff = now.date() - timedelta(days=cohort.absence_window_days - 1)
+    enrollments_result = await session.scalars(
+        select(LearningEnrollment)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningEnrollment.cohort_id == cohort.id,
+            LearningEnrollment.status == "approved",
+            LearningCourse.organization_id == organization_id,
+        )
+        .order_by(LearningEnrollment.applied_at, LearningEnrollment.id)
+        .limit(500)
+    )
+    enrollments = enrollments_result.all()
+    enrollment_ids = [item.id for item in enrollments]
+    course_ids = sorted({item.course_id for item in enrollments})
+    learner_ids = sorted({item.learner_id for item in enrollments})
+
+    lesson_activity: dict[str, datetime] = {}
+    assessment_activity: dict[tuple[str, str], datetime] = {}
+    attended_activity: dict[tuple[str, str], date] = {}
+    attendance_counts: dict[tuple[str, str], tuple[int, int]] = {}
+    due_assessments: dict[str, list[LearningAssessment]] = {}
+    attempts_by_assessment_learner: dict[tuple[str, str], datetime] = {}
+
+    if enrollment_ids:
+        lesson_rows = await session.execute(
+            select(
+                LearningLessonCompletion.enrollment_id,
+                func.max(LearningLessonCompletion.completed_at),
+            )
+            .where(LearningLessonCompletion.enrollment_id.in_(enrollment_ids))
+            .group_by(LearningLessonCompletion.enrollment_id)
+        )
+        lesson_activity = {
+            str(enrollment_id): _learning_utc(last_completed)
+            for enrollment_id, last_completed in lesson_rows.all()
+            if last_completed is not None
+        }
+
+    if course_ids and learner_ids:
+        assessment_activity_rows = await session.execute(
+            select(
+                LearningAssessment.course_id,
+                LearningAssessmentAttempt.learner_id,
+                func.max(LearningAssessmentAttempt.submitted_at),
+            )
+            .join(
+                LearningAssessmentAttempt,
+                LearningAssessmentAttempt.assessment_id == LearningAssessment.id,
+            )
+            .where(
+                LearningAssessment.course_id.in_(course_ids),
+                LearningAssessmentAttempt.learner_id.in_(learner_ids),
+            )
+            .group_by(LearningAssessment.course_id, LearningAssessmentAttempt.learner_id)
+        )
+        assessment_activity = {
+            (str(course_id), str(learner_id)): _learning_utc(last_submitted)
+            for course_id, learner_id, last_submitted in assessment_activity_rows.all()
+            if last_submitted is not None
+        }
+
+        attended_rows = await session.execute(
+            select(
+                LearningAttendance.course_id,
+                LearningAttendance.learner_id,
+                func.max(LearningAttendance.session_date),
+            )
+            .where(
+                LearningAttendance.course_id.in_(course_ids),
+                LearningAttendance.learner_id.in_(learner_ids),
+                LearningAttendance.attendance_status.in_({"present", "late"}),
+                LearningAttendance.session_date <= now.date(),
+            )
+            .group_by(LearningAttendance.course_id, LearningAttendance.learner_id)
+        )
+        attended_activity = {
+            (str(course_id), str(learner_id)): last_attended
+            for course_id, learner_id, last_attended in attended_rows.all()
+            if last_attended is not None
+        }
+
+        attendance_rows = await session.execute(
+            select(
+                LearningAttendance.course_id,
+                LearningAttendance.learner_id,
+                func.count(LearningAttendance.id),
+                func.sum(case((LearningAttendance.attendance_status == "absent", 1), else_=0)),
+            )
+            .where(
+                LearningAttendance.course_id.in_(course_ids),
+                LearningAttendance.learner_id.in_(learner_ids),
+                LearningAttendance.session_date >= attendance_cutoff,
+                LearningAttendance.session_date <= now.date(),
+                LearningAttendance.attendance_status.in_({"present", "late", "absent"}),
+            )
+            .group_by(LearningAttendance.course_id, LearningAttendance.learner_id)
+        )
+        for course_id, learner_id, total, absences in attendance_rows.all():
+            key = (str(course_id), str(learner_id))
+            attendance_counts[key] = (int(total or 0), int(absences or 0))
+
+        assessment_result = await session.scalars(
+            select(LearningAssessment).where(
+                LearningAssessment.course_id.in_(course_ids),
+                LearningAssessment.due_at.is_not(None),
+            )
+        )
+        for assessment in assessment_result.all():
+            due_assessments.setdefault(assessment.course_id, []).append(assessment)
+        assessment_ids = [item.id for items in due_assessments.values() for item in items]
+        if assessment_ids:
+            attempt_rows = await session.execute(
+                select(
+                    LearningAssessmentAttempt.assessment_id,
+                    LearningAssessmentAttempt.learner_id,
+                    func.max(LearningAssessmentAttempt.submitted_at),
+                )
+                .where(
+                    LearningAssessmentAttempt.assessment_id.in_(assessment_ids),
+                    LearningAssessmentAttempt.learner_id.in_(learner_ids),
+                )
+                .group_by(
+                    LearningAssessmentAttempt.assessment_id,
+                    LearningAssessmentAttempt.learner_id,
+                )
+            )
+            attempts_by_assessment_learner = {
+                (str(assessment_id), str(learner_id)): _learning_utc(last_submitted)
+                for assessment_id, learner_id, last_submitted in attempt_rows.all()
+                if last_submitted is not None
+            }
+
+    learner_reviews: list[dict[str, object]] = []
+    for enrollment in enrollments:
+        key = (enrollment.course_id, enrollment.learner_id)
+        last_activity_candidates = [
+            lesson_activity.get(enrollment.id),
+            assessment_activity.get(key),
+        ]
+        attended_on = attended_activity.get(key)
+        if attended_on is not None:
+            last_activity_candidates.append(
+                datetime.combine(attended_on, datetime.min.time(), tzinfo=UTC)
+            )
+        last_activity = max(
+            (value for value in last_activity_candidates if value is not None),
+            default=None,
+        )
+        if last_activity is None:
+            inactivity_flag: dict[str, object] = {
+                "state": "insufficient_data",
+                "reason_code": "no_recorded_learner_activity",
+                "threshold_days": cohort.inactivity_threshold_days,
+                "last_activity_at": None,
+            }
+        else:
+            days_inactive = max(0, (now.date() - last_activity.date()).days)
+            inactivity_flag = {
+                "state": (
+                    "at_risk" if days_inactive >= cohort.inactivity_threshold_days else "clear"
+                ),
+                "reason_code": (
+                    "inactive_over_threshold"
+                    if days_inactive >= cohort.inactivity_threshold_days
+                    else None
+                ),
+                "threshold_days": cohort.inactivity_threshold_days,
+                "days_since_activity": days_inactive,
+                "last_activity_at": last_activity,
+            }
+
+        total_attendance, absence_count = attendance_counts.get(key, (0, 0))
+        if total_attendance == 0:
+            attendance_flag: dict[str, object] = {
+                "state": "insufficient_data",
+                "reason_code": "no_attendance_records_in_window",
+                "absence_count": 0,
+                "threshold": cohort.absence_threshold,
+                "window_days": cohort.absence_window_days,
+            }
+        else:
+            attendance_flag = {
+                "state": "at_risk" if absence_count >= cohort.absence_threshold else "clear",
+                "reason_code": (
+                    "repeated_absences" if absence_count >= cohort.absence_threshold else None
+                ),
+                "absence_count": absence_count,
+                "attendance_records": total_attendance,
+                "threshold": cohort.absence_threshold,
+                "window_days": cohort.absence_window_days,
+            }
+
+        assessments = due_assessments.get(enrollment.course_id, [])
+        overdue_items: list[dict[str, object]] = []
+        for assessment in assessments:
+            due_at = _learning_utc(assessment.due_at) if assessment.due_at else None
+            if due_at is None or due_at + timedelta(days=cohort.overdue_grace_days) >= now:
+                continue
+            if (assessment.id, enrollment.learner_id) not in attempts_by_assessment_learner:
+                overdue_items.append(
+                    {
+                        "assessment_id": assessment.id,
+                        "title": assessment.title,
+                        "due_at": due_at,
+                    }
+                )
+        if not assessments:
+            assessment_flag: dict[str, object] = {
+                "state": "insufficient_data",
+                "reason_code": "no_assessments_with_due_dates",
+                "overdue_count": 0,
+                "grace_days": cohort.overdue_grace_days,
+            }
+        else:
+            assessment_flag = {
+                "state": "at_risk" if overdue_items else "clear",
+                "reason_code": "overdue_assessments" if overdue_items else None,
+                "overdue_count": len(overdue_items),
+                "items": overdue_items,
+                "grace_days": cohort.overdue_grace_days,
+            }
+
+        flags = {
+            "inactivity": inactivity_flag,
+            "attendance": attendance_flag,
+            "assessments": assessment_flag,
+        }
+        states = [str(item["state"]) for item in flags.values()]
+        risk_state = (
+            "at_risk"
+            if "at_risk" in states
+            else "insufficient_data"
+            if "insufficient_data" in states
+            else "clear"
+        )
+        reasons = [
+            str(item["reason_code"])
+            for item in flags.values()
+            if item.get("state") == "at_risk" and item.get("reason_code")
+        ]
+        learner_reviews.append(
+            {
+                "enrollment_id": enrollment.id,
+                "learner_ref": _learner_reference(enrollment.learner_id),
+                "course_id": enrollment.course_id,
+                "risk_state": risk_state,
+                "reason_codes": reasons,
+                "flags": flags,
+            }
+        )
+
+    open_interventions = int(
+        await session.scalar(
+            select(func.count(LearningIntervention.id)).where(
+                LearningIntervention.organization_id == organization_id,
+                LearningIntervention.cohort_id == cohort.id,
+                LearningIntervention.status.in_({"open", "in_progress"}),
+            )
+        )
+        or 0
+    )
+    overdue_interventions = int(
+        await session.scalar(
+            select(func.count(LearningIntervention.id)).where(
+                LearningIntervention.organization_id == organization_id,
+                LearningIntervention.cohort_id == cohort.id,
+                LearningIntervention.status.in_({"open", "in_progress"}),
+                LearningIntervention.due_date.is_not(None),
+                LearningIntervention.due_date < now.date(),
+            )
+        )
+        or 0
+    )
+    risk_by_enrollment = {
+        str(item["enrollment_id"]): str(item["risk_state"]) for item in learner_reviews
+    }
+    at_risk_enrolments = [item for item in learner_reviews if item["risk_state"] == "at_risk"]
+    insufficient_enrolments = [
+        item for item in learner_reviews if item["risk_state"] == "insufficient_data"
+    ]
+    clear_enrolments = [item for item in learner_reviews if item["risk_state"] == "clear"]
+    unique_learner_counts = {
+        state: len(
+            {
+                enrollment.learner_id
+                for enrollment in enrollments
+                if risk_by_enrollment.get(enrollment.id) == state
+            }
+        )
+        for state in ("at_risk", "insufficient_data", "clear")
+    }
+    return {
+        "cohort_id": cohort.id,
+        "cohort_title": cohort.title,
+        "thresholds": {
+            "inactivity_threshold_days": cohort.inactivity_threshold_days,
+            "absence_threshold": cohort.absence_threshold,
+            "absence_window_days": cohort.absence_window_days,
+            "overdue_grace_days": cohort.overdue_grace_days,
+        },
+        "summary": {
+            "enrolments_reviewed": len(learner_reviews),
+            "unique_learners": len({item.learner_id for item in enrollments}),
+            "at_risk_enrolments": len(at_risk_enrolments),
+            "insufficient_data_enrolments": len(insufficient_enrolments),
+            "clear_enrolments": len(clear_enrolments),
+            "at_risk_learners": unique_learner_counts["at_risk"],
+            "insufficient_data_learners": unique_learner_counts["insufficient_data"],
+            "clear_learners": unique_learner_counts["clear"],
+            "open_interventions": open_interventions,
+            "overdue_interventions": overdue_interventions,
+        },
+        "learners": learner_reviews,
+    }
+
+
+@router.get("/cohorts/{cohort_id}/risk-review")
+async def cohort_learning_risk_review(
+    organization_id: str,
+    cohort_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return advisory cohort signals for authorised programme staff only."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Learner risk review permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    return await _cohort_risk_review(session, organization_id, cohort)
+
+
+@router.get("/programmes/{programme_id}/risk-review")
+async def programme_learning_risk_review(
+    organization_id: str,
+    programme_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Aggregate cohort-level advisory signals without exposing learner private notes."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Programme learner risk review permission required")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.id == programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(404, "Programme not found")
+    cohort_rows = await session.scalars(
+        select(LearningCohort)
+        .where(
+            LearningCohort.organization_id == organization_id,
+            LearningCohort.programme_id == programme_id,
+        )
+        .order_by(LearningCohort.start_date, LearningCohort.title)
+        .limit(100)
+    )
+    cohorts = cohort_rows.all()
+    cohort_reviews = [
+        await _cohort_risk_review(session, organization_id, cohort) for cohort in cohorts
+    ]
+    all_enrolment_reviews = [
+        learner
+        for review in cohort_reviews
+        for learner in cast(list[dict[str, object]], review["learners"])
+    ]
+    at_risk_rows = [item for item in all_enrolment_reviews if item["risk_state"] == "at_risk"]
+    insufficient_rows = [
+        item for item in all_enrolment_reviews if item["risk_state"] == "insufficient_data"
+    ]
+    clear_rows = [item for item in all_enrolment_reviews if item["risk_state"] == "clear"]
+    enrollment_rows: list[LearningEnrollment] = []
+    if cohorts:
+        enrollment_result = await session.scalars(
+            select(LearningEnrollment).where(
+                LearningEnrollment.cohort_id.in_([cohort.id for cohort in cohorts]),
+                LearningEnrollment.status == "approved",
+            )
+        )
+        enrollment_rows = list(enrollment_result.all())
+    learner_by_enrollment = {item.id: item.learner_id for item in enrollment_rows}
+
+    def unique_learners(rows: list[dict[str, object]]) -> int:
+        return len(
+            {
+                learner_by_enrollment[str(item["enrollment_id"])]
+                for item in rows
+                if str(item["enrollment_id"]) in learner_by_enrollment
+            }
+        )
+
+    summary_keys = ("open_interventions", "overdue_interventions")
+    totals: dict[str, int] = {}
+    for key in summary_keys:
+        totals[key] = sum(
+            cast(int, cast(dict[str, object], review["summary"])[key]) for review in cohort_reviews
+        )
+    totals.update(
+        {
+            "enrolments_reviewed": len(all_enrolment_reviews),
+            "unique_learners": len(set(learner_by_enrollment.values())),
+            "at_risk_enrolments": len(at_risk_rows),
+            "insufficient_data_enrolments": len(insufficient_rows),
+            "clear_enrolments": len(clear_rows),
+            "at_risk_learners": unique_learners(at_risk_rows),
+            "insufficient_data_learners": unique_learners(insufficient_rows),
+            "clear_learners": unique_learners(clear_rows),
+        }
+    )
+    return {
+        "programme_id": programme.id,
+        "programme_title": programme.title,
+        "summary": totals,
+        "cohorts": [
+            {key: review[key] for key in ("cohort_id", "cohort_title", "thresholds", "summary")}
+            for review in cohort_reviews
+        ],
+    }
+
+
+@router.get("/cohorts/{cohort_id}/interventions")
+async def list_cohort_learning_interventions(
+    organization_id: str,
+    cohort_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, object]]:
+    """List staff-only intervention notes for one tenant-scoped cohort."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Intervention management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    rows = await session.execute(
+        select(LearningIntervention, LearningEnrollment.learner_id)
+        .join(LearningEnrollment, LearningEnrollment.id == LearningIntervention.enrollment_id)
+        .where(
+            LearningIntervention.organization_id == organization_id,
+            LearningIntervention.cohort_id == cohort_id,
+        )
+        .order_by(
+            LearningIntervention.status,
+            LearningIntervention.due_date,
+            LearningIntervention.created_at.desc(),
+        )
+        .limit(500)
+    )
+    return [_intervention_read(item, learner_id) for item, learner_id in rows.all()]
+
+
+@router.post("/cohorts/{cohort_id}/interventions", status_code=201)
+async def create_cohort_learning_intervention(
+    organization_id: str,
+    cohort_id: str,
+    body: InterventionCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Intervention management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    enrollment = await session.scalar(
+        select(LearningEnrollment)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningEnrollment.id == body.enrollment_id,
+            LearningEnrollment.cohort_id == cohort_id,
+            LearningEnrollment.status == "approved",
+            LearningCourse.organization_id == organization_id,
+        )
+    )
+    if enrollment is None:
+        raise HTTPException(404, "Approved learner enrolment not found in this cohort")
+    assignee = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == organization_id,
+            Membership.user_id == body.assigned_to,
+            Membership.status == "active",
+        )
+    )
+    if assignee is None or not await membership_has_any_role(session, assignee, _MANAGE):
+        raise HTTPException(422, "Owner must be an active programme manager or administrator")
+    note = body.note.strip()
+    if not note:
+        raise HTTPException(422, "Intervention note cannot be blank")
+    intervention = LearningIntervention(
+        organization_id=organization_id,
+        cohort_id=cohort_id,
+        enrollment_id=enrollment.id,
+        assigned_to=body.assigned_to,
+        created_by=principal.user_id,
+        due_date=body.due_date,
+        note=note,
+        status="open",
+    )
+    session.add(intervention)
+    await session.flush()
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=enrollment.learner_id,
+            action="learning.intervention.created",
+            changes={
+                "intervention_id": intervention.id,
+                "cohort_id": cohort_id,
+                "enrollment_id": enrollment.id,
+                "assigned_to": body.assigned_to,
+                "due_date": body.due_date.isoformat() if body.due_date else None,
+                "status": "open",
+                "note_recorded": True,
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(intervention)
+    return _intervention_read(intervention, enrollment.learner_id)
+
+
+@router.patch("/interventions/{intervention_id}")
+async def update_learning_intervention(
+    organization_id: str,
+    intervention_id: str,
+    body: InterventionUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Intervention management permission required")
+    intervention = await session.scalar(
+        select(LearningIntervention)
+        .where(
+            LearningIntervention.id == intervention_id,
+            LearningIntervention.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    if intervention is None:
+        raise HTTPException(404, "Intervention not found")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one intervention field must be supplied")
+    if intervention.status in {"resolved", "cancelled"}:
+        raise HTTPException(409, "Resolved or cancelled interventions are immutable")
+    if "status" in changes and changes["status"] is None:
+        raise HTTPException(422, "Intervention status cannot be null")
+    previous_status = intervention.status
+    if previous_status in {"resolved", "cancelled"}:
+        raise HTTPException(409, "Terminal interventions cannot be edited")
+    next_status = changes.get("status", previous_status)
+    allowed_transitions = {
+        "open": {"in_progress", "resolved", "cancelled"},
+        "in_progress": {"resolved", "cancelled"},
+        "resolved": set(),
+        "cancelled": set(),
+    }
+    if next_status != previous_status and next_status not in allowed_transitions[previous_status]:
+        raise HTTPException(409, "Invalid intervention status transition")
+    if "assigned_to" in changes:
+        if not changes["assigned_to"]:
+            raise HTTPException(422, "Interventions must remain assigned to an active staff owner")
+        assignee = await session.scalar(
+            select(Membership).where(
+                Membership.organization_id == organization_id,
+                Membership.user_id == changes["assigned_to"],
+                Membership.status == "active",
+            )
+        )
+        if assignee is None or not await membership_has_any_role(session, assignee, _MANAGE):
+            raise HTTPException(422, "Owner must be an active programme manager or administrator")
+    if "note" in changes:
+        if changes["note"] is None or not changes["note"].strip():
+            raise HTTPException(422, "Intervention note cannot be blank")
+        changes["note"] = changes["note"].strip()
+    if "resolution_note" in changes and changes["resolution_note"] is not None:
+        changes["resolution_note"] = changes["resolution_note"].strip() or None
+    enrollment = await session.scalar(
+        select(LearningEnrollment).where(
+            LearningEnrollment.id == intervention.enrollment_id,
+            LearningEnrollment.cohort_id == intervention.cohort_id,
+        )
+    )
+    if enrollment is None:
+        raise HTTPException(404, "Intervention enrolment not found")
+    if next_status == "resolved" and next_status != previous_status:
+        resolution_note = changes.get("resolution_note")
+        if not isinstance(resolution_note, str) or not resolution_note.strip():
+            raise HTTPException(422, "A resolution note is required when resolving an intervention")
+        changes["resolution_note"] = resolution_note.strip()
+        intervention.resolved_at = datetime.now(UTC)
+    if next_status != "resolved" and changes.get("resolution_note"):
+        raise HTTPException(409, "Resolution notes are only valid when resolving an intervention")
+    for field, value in changes.items():
+        if field != "status":
+            setattr(intervention, field, value)
+    intervention.status = next_status
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            subject_user_id=enrollment.learner_id,
+            action=(
+                "learning.intervention.resolved"
+                if next_status == "resolved"
+                else "learning.intervention.cancelled"
+                if next_status == "cancelled"
+                else "learning.intervention.updated"
+            ),
+            changes={
+                "intervention_id": intervention.id,
+                "fields": sorted(changes),
+                "status": {"before": previous_status, "after": next_status},
+                "assigned_to": intervention.assigned_to,
+                "due_date": intervention.due_date.isoformat() if intervention.due_date else None,
+                "note_changed": "note" in changes,
+                "resolution_note_changed": "resolution_note" in changes,
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(intervention)
+    return _intervention_read(intervention, enrollment.learner_id)

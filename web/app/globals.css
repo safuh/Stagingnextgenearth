@@ -2428,3 +2428,13 @@ footer > span { line-height: 1.7; }
     width: fit-content;
   }
 }
+
+
+/* Learning risk review and facilitator intervention states. */
+.status-at_risk { background: #fff0ed; color: #963f32; border: 1px solid #efc9c1; }
+.status-insufficient_data { background: #f1f3f4; color: #5c6870; border: 1px solid #dce2e5; }
+.status-clear { background: #edf5ed; color: #3f704b; border: 1px solid #cfe2d1; }
+.status-open { background: #fff6e8; color: #85612c; border: 1px solid #ead8b6; }
+.status-in_progress { background: #edf3fa; color: #395c84; border: 1px solid #cddbed; }
+.status-resolved { background: #edf5ed; color: #3f704b; border: 1px solid #cfe2d1; }
+.status-cancelled { background: #f1f3f4; color: #5c6870; border: 1px solid #dce2e5; }

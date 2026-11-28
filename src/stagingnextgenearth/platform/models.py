@@ -937,6 +937,22 @@ class LearningCohort(Base):
             "start_date IS NULL OR end_date IS NULL OR start_date <= end_date",
             name="ck_learning_cohort_dates",
         ),
+        CheckConstraint(
+            "inactivity_threshold_days BETWEEN 1 AND 90",
+            name="ck_learning_cohort_inactivity_threshold",
+        ),
+        CheckConstraint(
+            "absence_threshold BETWEEN 1 AND 20",
+            name="ck_learning_cohort_absence_threshold",
+        ),
+        CheckConstraint(
+            "absence_window_days BETWEEN 7 AND 90",
+            name="ck_learning_cohort_absence_window",
+        ),
+        CheckConstraint(
+            "overdue_grace_days BETWEEN 0 AND 30",
+            name="ck_learning_cohort_overdue_grace_days",
+        ),
         Index("ix_learning_cohorts_org_status", "organization_id", "status"),
         Index("ix_learning_cohorts_programme", "programme_id", "status"),
     )
@@ -954,10 +970,66 @@ class LearningCohort(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     capacity: Mapped[int | None] = mapped_column(nullable=True)
+    inactivity_threshold_days: Mapped[int] = mapped_column(
+        nullable=False, default=14, server_default="14"
+    )
+    absence_threshold: Mapped[int] = mapped_column(
+        nullable=False, default=2, server_default="2"
+    )
+    absence_window_days: Mapped[int] = mapped_column(
+        nullable=False, default=30, server_default="30"
+    )
+    overdue_grace_days: Mapped[int] = mapped_column(
+        nullable=False, default=2, server_default="2"
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LearningIntervention(Base):
+    """Staff-owned follow-up action linked to a cohort enrolment."""
+
+    __tablename__ = "learning_interventions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'resolved', 'cancelled')",
+            name="ck_learning_intervention_status",
+        ),
+        CheckConstraint("length(note) > 0", name="ck_learning_intervention_note"),
+        Index("ix_learning_interventions_org_status_due", "organization_id", "status", "due_date"),
+        Index("ix_learning_interventions_cohort_status", "cohort_id", "status"),
+        Index("ix_learning_interventions_enrollment", "enrollment_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    cohort_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="CASCADE"), nullable=False
+    )
+    enrollment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_enrollments.id", ondelete="CASCADE"), nullable=False
+    )
+    assigned_to: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -1284,7 +1356,8 @@ class OrganizationAuditEvent(Base):
             "'research.protocol.submitted', 'research.protocol.reviewed', "
             "'research.ethics.review_recorded', 'learning.cohort.created', "
             "'learning.cohort.updated', 'learning.enrollment.cohort_assigned', "
-            "'learning.enrollment.cohort_unassigned')",
+            "'learning.enrollment.cohort_unassigned', 'learning.intervention.created', "
+            "'learning.intervention.updated', 'learning.intervention.resolved', 'learning.intervention.cancelled')",
             name="ck_organization_audit_event_action",
         ),
         Index(

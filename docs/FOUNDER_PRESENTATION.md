@@ -124,7 +124,7 @@ Position this as a pilot curriculum prepared for review—not as an accredited q
 
 **Release:** 28 November 2026 · staging commit `c379b20`
 
-The expanded four-track learning curriculum pilot (28 modules and 86 lessons) is live on staging commit `c379b20`; both API and web services are deployed. The merged commit passed all six CI jobs: web, operations scripts, geospatial, and Python 3.11, 3.12 and 3.13. Render reports both services live. The API health check returned HTTP 200 in current service logs, and public course and climate-intelligence endpoints returned HTTP 200.
+The expanded four-track learning curriculum pilot (28 modules and 86 lessons) is live on staging commit `ceaa2293`; both API and web services are deployed. The merged commit passed all six CI jobs: web, operations scripts, geospatial, and Python 3.11, 3.12 and 3.13. Render reports both services live. The API health check returned HTTP 200 in current service logs, and public course and climate-intelligence endpoints returned HTTP 200.
 
 - Staging website: https://nextgen-web-upag.onrender.com
 - API health: https://nextgen-api-au53.onrender.com/api/health
@@ -149,3 +149,8 @@ Applicants must sign in or create a portal account before submitting. Volunteer 
 ## Learner onboarding and cohort walkthrough
 
 Staging now bootstraps four draft programme intakes alongside the four published learner pathways and four staff-editable curriculum drafts. The intake records are deliberately draft-only; use them to demonstrate cohort configuration and programme linkage, not to imply that safeguarding, consent or live-delivery readiness has been approved.
+
+
+## Learner risk review and facilitator interventions — next release
+
+The next learning-operations increment is being implemented on branch `feat/learning-risk-review-m170`. It adds cohort-configurable inactivity, repeated-absence and overdue-assessment signals; explicit `insufficient_data` handling; programme roll-ups; and staff-owned, audited follow-ups. The staff workspace supports assignment, due dates, progress, resolution and cancellation. These are advisory workflow signals only: no automated learner rejection, suspension, grading, eligibility change or notification is triggered. This increment is not yet merged or deployed; do not present it as a live staging capability until its CI and authenticated staging acceptance pass. See [the learner risk and intervention operating guide](learning/LEARNER_RISK_AND_INTERVENTIONS.md).
