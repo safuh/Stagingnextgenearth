@@ -709,7 +709,7 @@ async def seed(slug: str) -> None:
         )
         print(
             f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, "
-            f"{len(CONTENT) + len(PUBLICATIONS) + len(STORY) + (1 if climate_demo_seeded else 0)} "
+            f"{len(CONTENT) + len(PUBLICATIONS) + len(STORY) + 1 + (1 if climate_demo_seeded else 0)} "
             f"CMS entries including {len(PUBLICATIONS)} publications, four programmes, "
             f"{len(course_specs)} published learning courses, and {climate_demo_status}."
         )
