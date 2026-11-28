@@ -48,8 +48,10 @@ about one request per second or less per public IP. The API therefore spaces
 daily raster requests by at least 1.1 seconds, serializes CHIRPS ingestion
 across API instances with a PostgreSQL advisory lock, and enforces a persisted
 cooldown from the latest CHIRPS run completion time. A new one-day ingestion
-cannot bypass the interval by creating a fresh provider instance. Do not start
-overlapping or repeated provider runs.
+cannot bypass the interval by creating a fresh provider instance. After a
+provider timeout or 403/429 rate-limit response, the persisted failed-run
+record enforces a three-hour minimum cooldown and returns HTTP 503 with a
+Retry-After header. Do not start overlapping or repeated provider runs.
 
 HTTP 403/429 responses and request timeouts are treated as provider
 unavailability, not transient errors to hammer with retries. The workspace

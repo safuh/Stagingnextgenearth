@@ -43,6 +43,7 @@ _INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
 logger = logging.getLogger(__name__)
 _CHIRPS_ADVISORY_LOCK_KEY = 0x434849525053
 _CHIRPS_REQUEST_INTERVAL_SECONDS = 1.1
+_CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS = 3 * 60 * 60
 
 
 @asynccontextmanager
@@ -72,19 +73,38 @@ async def _provider_ingestion_guard(
     # Persisted run completion times carry the cooldown across new provider instances
     # and Render API instances. A run's finished_at is written before the route commits
     # and releases this transaction-scoped advisory lock.
-    last_finished_at = await session.scalar(
-        select(func.max(ClimateIngestionRun.finished_at)).where(
+    last_run = await session.scalar(
+        select(ClimateIngestionRun)
+        .where(
             ClimateIngestionRun.provider_id == provider_id,
             ClimateIngestionRun.finished_at.is_not(None),
         )
+        .order_by(ClimateIngestionRun.finished_at.desc())
+        .limit(1)
     )
-    if last_finished_at is not None:
-        wait_seconds = (
-            last_finished_at
-            + timedelta(seconds=_CHIRPS_REQUEST_INTERVAL_SECONDS)
-            - datetime.now(UTC)
-        ).total_seconds()
+    if last_run is not None and last_run.finished_at is not None:
+        provider_blocked = bool(
+            last_run.error_summary
+            and last_run.error_summary.startswith("ClimateProviderUnavailable:")
+        )
+        cooldown = timedelta(
+            seconds=(
+                _CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS
+                if provider_blocked
+                else _CHIRPS_REQUEST_INTERVAL_SECONDS
+            )
+        )
+        retry_at = last_run.finished_at + cooldown
+        wait_seconds = (retry_at - datetime.now(UTC)).total_seconds()
         if wait_seconds > 0:
+            if provider_blocked:
+                retry_at_text = retry_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "CHIRPS provider cooldown is active after a timeout or rate-limit "
+                    f"response. Do not retry before {retry_at_text}.",
+                    headers={"Retry-After": str(max(1, int(wait_seconds) + 1))},
+                )
             await asyncio.sleep(wait_seconds)
     # The transaction-scoped lock is released by the route's commit or rollback.
 

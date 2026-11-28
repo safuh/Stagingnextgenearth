@@ -139,17 +139,21 @@ async def test_chirps_guard_enforces_persisted_cooldown_between_runs(
     class FakeSession:
         bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
 
-        def __init__(self) -> None:
+        def __init__(self, last_run: object) -> None:
             self.calls = 0
+            self.last_run = last_run
 
         async def scalar(self, statement: object, params: object | None = None) -> object:
             self.calls += 1
-            if self.calls == 1:
-                return True
-            return datetime.now(UTC) - timedelta(milliseconds=100)
+            return True if self.calls == 1 else self.last_run
 
     monkeypatch.setattr(climate_ingestion_api.asyncio, "sleep", fake_sleep)
-    session = FakeSession()
+    session = FakeSession(
+        SimpleNamespace(
+            finished_at=datetime.now(UTC) - timedelta(milliseconds=100),
+            error_summary=None,
+        )
+    )
 
     async with _provider_ingestion_guard(session, "chirps-v3"):
         pass
@@ -157,3 +161,30 @@ async def test_chirps_guard_enforces_persisted_cooldown_between_runs(
     assert session.calls == 2
     assert len(delays) == 1
     assert 0.8 <= delays[0] <= 1.1
+
+
+@pytest.mark.asyncio
+async def test_chirps_guard_enforces_provider_block_cooldown() -> None:
+    class FakeSession:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def scalar(self, statement: object, params: object | None = None) -> object:
+            self.calls += 1
+            if self.calls == 1:
+                return True
+            return SimpleNamespace(
+                finished_at=datetime.now(UTC) - timedelta(hours=1),
+                error_summary="ClimateProviderUnavailable: climate provider stream failed",
+            )
+
+    session = FakeSession()
+    with pytest.raises(HTTPException) as exc:
+        async with _provider_ingestion_guard(session, "chirps-v3"):
+            pytest.fail("provider-block cooldown should reject a new ingestion")
+
+    assert exc.value.status_code == 503
+    assert int(exc.value.headers["Retry-After"]) > 0
+    assert session.calls == 2
