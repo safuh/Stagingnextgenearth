@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { expectedRequestOrigin, isSameOriginMutation, parseTokenPair, safeApiPath, type TokenPair } from "@/lib/session-policy";
+import { isPublicClimateRead } from "@/lib/public-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -51,12 +52,15 @@ async function sendUpstream(
   path: string,
   accessToken: string | undefined,
   body: ArrayBuffer | undefined,
+  forwardConditional: boolean,
 ): Promise<Response> {
   const headers = new Headers();
   const accept = request.headers.get("accept");
   const contentType = request.headers.get("content-type");
   if (accept) headers.set("Accept", accept);
   if (contentType) headers.set("Content-Type", contentType);
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (forwardConditional && ifNoneMatch) headers.set("If-None-Match", ifNoneMatch);
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
@@ -117,14 +121,15 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
-  let upstream = await sendUpstream(request, path, accessToken, body);
+  const publicClimateRead = isPublicClimateRead(request.method, path);
+  let upstream = await sendUpstream(request, path, accessToken, body, publicClimateRead);
   let rotated: Tokens | null = null;
 
   if (upstream.status === 401 && refreshToken) {
     rotated = await rotateRefreshToken(refreshToken);
     if (rotated) {
       accessToken = rotated.access_token;
-      upstream = await sendUpstream(request, path, accessToken, body);
+      upstream = await sendUpstream(request, path, accessToken, body, publicClimateRead);
     }
   }
 
@@ -133,10 +138,17 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const disposition = upstream.headers.get("content-disposition");
   if (upstreamContentType) responseHeaders.set("content-type", upstreamContentType);
   if (disposition) responseHeaders.set("content-disposition", disposition);
-  responseHeaders.set("Cache-Control", "no-store");
+  if (publicClimateRead) {
+    const etag = upstream.headers.get("etag");
+    const cacheControl = upstream.headers.get("cache-control");
+    if (etag) responseHeaders.set("ETag", etag);
+    if (cacheControl) responseHeaders.set("Cache-Control", cacheControl);
+  } else {
+    responseHeaders.set("Cache-Control", "no-store");
+  }
 
   const response = new NextResponse(
-    upstream.status === 204 ? null : upstream.body,
+    upstream.status === 204 || upstream.status === 304 ? null : upstream.body,
     { status: upstream.status, headers: responseHeaders },
   );
   if (rotated) applyTokens(response, rotated);
