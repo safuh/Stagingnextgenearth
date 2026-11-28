@@ -9,6 +9,7 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateBoundingBox,
     ClimatePoint,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 from stagingnextgenearth.providers import chirps
 from stagingnextgenearth.providers.chirps import (
@@ -177,6 +178,89 @@ async def test_chirps_retries_transient_transport_failure(
 
     assert attempts == 2
     assert len(values) == 1
+
+
+@pytest.mark.asyncio
+async def test_chirps_spaces_daily_downloads_to_one_request_per_second(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[str] = []
+    delays: list[float] = []
+
+    async def no_sleep(delay: float) -> None:
+        delays.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(str(request.url))
+        return httpx.Response(200, content=b"test-geotiff")
+
+    monkeypatch.setattr(chirps.asyncio, "sleep", no_sleep)
+    monkeypatch.setattr(
+        chirps,
+        "_decode_geotiff",
+        lambda content, point, area, max_cells: [(-1.25, 36.75, 1.0)],
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = CHIRPSProvider(client=client, request_interval_seconds=1.1)
+        values = [
+            item
+            async for item in provider.fetch(
+                _request(
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 3, tzinfo=UTC),
+                    point=ClimatePoint(latitude=-1.26, longitude=36.76),
+                )
+            )
+        ]
+
+    assert len(captured) == 2
+    assert len(values) == 2
+    assert any(delay >= 1.0 for delay in delays)
+
+
+@pytest.mark.asyncio
+async def test_chirps_stops_after_connect_timeout_without_retrying() -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ConnectTimeout("connection timed out", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = CHIRPSProvider(client=client, max_retries=4)
+        with pytest.raises(ClimateProviderUnavailable, match="rate-limiting"):
+            await anext(
+                provider.fetch(
+                    _request(point=ClimatePoint(latitude=-1.26, longitude=36.76))
+                )
+            )
+
+    assert attempts == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [403, 429])
+async def test_chirps_stops_on_provider_rate_limit_without_retrying(
+    status_code: int,
+) -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(status_code)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = CHIRPSProvider(client=client, max_retries=4)
+        with pytest.raises(ClimateProviderUnavailable, match="rate-limiting"):
+            await anext(
+                provider.fetch(
+                    _request(point=ClimatePoint(latitude=-1.26, longitude=36.76))
+                )
+            )
+
+    assert attempts == 1
 
 
 async def _no_sleep() -> None:
