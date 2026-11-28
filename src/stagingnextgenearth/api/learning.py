@@ -741,10 +741,12 @@ async def add_cohort_member(
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Cohort management permission required")
     cohort = await session.scalar(
-        select(LearningCohort).where(
+        select(LearningCohort)
+        .where(
             LearningCohort.id == cohort_id,
             LearningCohort.organization_id == organization_id,
         )
+        .with_for_update()
     )
     if cohort is None:
         raise HTTPException(404, "Cohort not found")
@@ -875,6 +877,14 @@ async def update_cohort_member_status(
         raise HTTPException(404, "Cohort member not found")
     if row.status == body.status:
         raise HTTPException(409, "Cohort member already has this status")
+    allowed = {
+        "active": {"completed", "withdrawn", "suspended"},
+        "suspended": {"active", "withdrawn"},
+        "completed": set(),
+        "withdrawn": set(),
+    }
+    if body.status not in allowed.get(row.status, set()):
+        raise HTTPException(409, f"Invalid cohort member transition: {row.status} to {body.status}")
     previous = row.status
     row.status = body.status
     session.add(
