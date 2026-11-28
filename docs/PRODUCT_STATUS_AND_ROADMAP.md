@@ -1,8 +1,8 @@
 # NextGen For Earth — Product Status, Priorities and Acceptance Roadmap
 
-**Working baseline:** `feat/admin-workspace-ui-polish-m116`  
-**Roadmap branch:** `feat/research-curriculum-product-blueprint-m117`  
-**Review date:** 26 November 2026
+**Working baseline:** `feat/staging-climate-demo-publication-m123`  
+**Roadmap branch:** `feat/staging-climate-demo-publication-m123`  
+**Review date:** 28 November 2026
 
 This document is the product-facing source of truth for what the repository currently implements, what is only seeded or demonstrated, and what remains to be accepted. A checked item means the implementation and its acceptance evidence have been verified; code presence or a successful build alone is not sufficient.
 
@@ -31,12 +31,7 @@ Repository documentation and tests establish implementation intent and local/CI 
 
 ## Important distinction: seeded versus production-quality content
 
-The idempotent demo seed currently creates three published learning courses:
-1. Early Career Researchers
-2. Healthcare Workers
-3. Youth Climate Stewards
-
-It creates ordered modules and lessons, but lesson bodies are explicitly generic demo placeholders asking operators to add approved learning resources, facilitator notes and assessments. The seed does not yet provide a complete instructional curriculum. Indigenous Knowledge Transfer is a programme pillar but is not yet represented as a seeded course.
+The idempotent demo seed creates four published pilot courses: Early Career Researchers, Healthcare Workers, Youth Climate Stewards, and Indigenous Community Knowledge. The current pilot contains eight ordered modules and 26 substantive lessons with further-reading links, four formative quizzes and learner progress support. It is a subject-matter review pilot, not accredited training or a final approved curriculum.
 
 The seed also imports website-listed people, partners, programmes, publications and impact claims. These are source-attributed records, not proof of current employment, signed partner agreements, audited impact or scientific validation. Review and correct these records with organisational owners before using them as authoritative evidence.
 
@@ -88,11 +83,13 @@ Climate intelligence must be available from the public website, not only the aut
 - Public route: `/climate-intelligence`, with insight detail and methodology pages.
 - Public API: anonymous, read-only, bounded endpoints for overview, published releases, time series, regional summaries, insights and public provider/source metadata.
 - Public data is served only through an explicit `ClimatePublicRelease` publication workflow. Existing `ClimateObservation.quality_status='verified'` means quality reviewed; it does not grant permission for public disclosure.
-- A different authorised reviewer must approve a candidate release before publication. Public API must never return pending, rejected, synthetic, restricted, participant-level or unapproved data.
+- Real provider-backed releases must pass the independent reviewer and publisher workflow before publication. Verified observations alone do not imply publication permission.
+- Staging may publish a small, deterministic synthetic fixture catalogue only when the explicit `CLIMATE_DEMO_SEED_ENABLED=true` flag is set in the dedicated staging service. These releases use the dedicated `demo-synthetic` provider and `synthetic_demo` data class, carry prominent non-observation notices and are excluded from production public API responses.
+- Production seeding skips synthetic climate fixtures. Production APIs exclude the synthetic provider even if staging data is accidentally copied.
 - Release records preserve provider/product/version, data class, unit, geography, period, baseline, method, coverage, missing-data policy, uncertainty, licence, citation, retrieval time and source lineage.
 - Homepage navigation and feature card link to the public climate hub. No "live" wording unless provider latency has been measured and disclosed.
 
-The detailed public data model, API contract, release workflow, security requirements, implementation sequence and definition of done are in [PUBLIC_CLIMATE_INTELLIGENCE.md](PUBLIC_CLIMATE_INTELLIGENCE.md). This is a specification only until the model, routes, frontend and tests are implemented.
+The model, anonymous read API, authenticated release workflow, public catalogue, detail charts, methodology surface, source register and research-linked insight route are implemented. The staging demo seed publishes two labelled synthetic releases and a linked field note so the complete experience can be demonstrated before provider credentials and independent review are available. Real provider-backed publication remains a separate acceptance gate.
 
 ## Priority 2 — Curriculum and learning content
 

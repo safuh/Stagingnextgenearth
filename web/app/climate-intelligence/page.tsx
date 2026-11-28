@@ -32,6 +32,7 @@ const dataClassLabels: Record<string, string> = {
   reanalysis: "Reanalysis",
   forecast: "Forecast",
   projection: "Climate projection",
+  synthetic_demo: "Synthetic demonstration dataset",
 };
 
 function formatDate(value: string): string {
@@ -90,7 +91,7 @@ export default function ClimateIntelligencePage() {
             <a className="climate-public-primary" href="#evidence">Explore evidence <span>↓</span></a>
             <Link className="climate-public-secondary" href="/climate-intelligence/methodology">How we work ↗</Link>
           </div>
-          <div className="climate-public-proof"><span className="climate-public-proof-dot" /> GOVERNED DATA / PUBLIC BY REVIEW</div>
+          <div className="climate-public-proof"><span className="climate-public-proof-dot" /> PROVENANCE / METHODS / LIMITATIONS</div>
         </div>
         <div className="climate-signal-art" aria-label="Abstract climate data signal visualisation" role="img">
           <div className="climate-signal-grid" />
@@ -104,17 +105,22 @@ export default function ClimateIntelligencePage() {
         </div>
       </section>
 
+      {releases.some((release) => release.provider_id === "demo-synthetic") && (
+        <aside className="climate-public-demo-banner" role="note">
+          <div><strong>STAGING DEMONSTRATION · SYNTHETIC DATA</strong><p>The published rainfall and temperature series on this page are deterministic illustrative fixtures created to demonstrate the product. They are not observations, forecasts, provider data or scientific findings. Do not use them for decisions.</p></div>
+        </aside>
+      )}
       <section className="climate-public-metrics" aria-label="Climate catalogue summary">
         <div><span>PUBLIC RELEASES</span><strong>{loading ? "—" : overview?.release_count ?? 0}</strong></div>
         <div><span>INDICATORS</span><strong>{loading ? "—" : overview?.indicators.length ?? 0}</strong></div>
         <div><span>DATA SOURCES</span><strong>{loading ? "—" : sources.length}</strong></div>
-        <div><span>PUBLICATION STANDARD</span><strong>REVIEWED</strong></div>
+        <div><span>PUBLICATION STANDARD</span><strong>PROVENANCE</strong></div>
       </section>
 
       <section className="climate-public-content" id="evidence">
         <div className="climate-public-section-head">
           <div><p className="climate-public-kicker">THE EVIDENCE CATALOGUE / 01</p><h2>Signals worth<br /><em>looking closer at.</em></h2></div>
-          <p>Every published release carries its own provenance, classification, temporal coverage, method and limitations. No public value is generated from demo fixtures.</p>
+          <p>Each release carries its provenance, classification, temporal coverage, method and limitations. Synthetic staging fixtures are visibly separated from provider-backed evidence.</p>
         </div>
 
         {error && <div className="climate-public-state climate-public-error" role="alert">{error}<p>The public catalogue could not be retrieved. Try again later.</p></div>}
@@ -130,7 +136,7 @@ export default function ClimateIntelligencePage() {
           <div className="climate-public-release-grid">
             {releases.map((release, index) => (
               <article className="climate-public-release-card" key={release.id}>
-                <div className="climate-public-card-top"><span>{String(index + 1).padStart(2, "0")} / EVIDENCE RELEASE</span><span>V{release.version}</span></div>
+                <div className="climate-public-card-top"><span>{String(index + 1).padStart(2, "0")} / EVIDENCE RELEASE</span><span>{release.provider_id === "demo-synthetic" ? "SYNTHETIC DEMO" : `V${release.version}`}</span></div>
                 <p className="climate-public-data-class">{dataClassLabels[release.data_class] ?? release.data_class}</p>
                 <h3>{release.title}</h3>
                 <p className="climate-public-card-summary">{release.summary}</p>

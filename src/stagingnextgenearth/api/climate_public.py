@@ -6,6 +6,8 @@ import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+
+from stagingnextgenearth.core.config import Environment, get_settings
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,8 +36,23 @@ router = APIRouter(tags=["public-climate"])
 _RELEASE_ROLES = {"admin", "founder", "executive", "researcher"}
 _REVIEW_ROLES = {"admin", "founder", "executive", "programme_manager"}
 _DATA_CLASSES = {
-    "station_observation", "satellite_estimate", "reanalysis", "forecast", "projection"
+    "station_observation", "satellite_estimate", "reanalysis", "forecast", "projection",
+    "synthetic_demo",
 }
+
+
+def _public_release_filters(organization_id: str) -> tuple[object, ...]:
+    """Keep synthetic fixtures out of production public responses, even if copied."""
+    filters: list[object] = [
+        ClimatePublicRelease.organization_id == organization_id,
+        ClimatePublicRelease.state == "published",
+    ]
+    if get_settings().environment is Environment.PRODUCTION:
+        filters.extend([
+            ClimatePublicRelease.provider_id != "demo-synthetic",
+            ClimatePublicRelease.data_class != "synthetic_demo",
+        ])
+    return tuple(filters)
 
 
 class ClimateSeriesPoint(BaseModel):
@@ -169,7 +186,7 @@ class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
     created_by: str
     reviewed_by: str | None
     published_by: str | None
-    source_ingestion_run_id: str
+    source_ingestion_run_id: str | None
 
 
 class ClimateReleaseAction(BaseModel):
@@ -556,10 +573,7 @@ async def list_public_releases(
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
-    statement = select(ClimatePublicRelease).where(
-        ClimatePublicRelease.organization_id == org.id,
-        ClimatePublicRelease.state == "published",
-    )
+    statement = select(ClimatePublicRelease).where(*_public_release_filters(org.id))
     if indicator:
         statement = statement.where(ClimatePublicRelease.indicator == indicator)
     if data_class:
@@ -587,9 +601,8 @@ async def get_public_release(
     if org is None:
         raise HTTPException(404, "Climate release not found")
     row = await session.scalar(select(ClimatePublicRelease).where(
-        ClimatePublicRelease.organization_id == org.id,
+        *_public_release_filters(org.id),
         ClimatePublicRelease.slug == release_slug,
-        ClimatePublicRelease.state == "published",
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
@@ -611,9 +624,8 @@ async def get_public_release_series(
     if org is None:
         raise HTTPException(404, "Climate release not found")
     row = await session.scalar(select(ClimatePublicRelease).where(
-        ClimatePublicRelease.organization_id == org.id,
+        *_public_release_filters(org.id),
         ClimatePublicRelease.slug == release_slug,
-        ClimatePublicRelease.state == "published",
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
@@ -638,16 +650,33 @@ async def public_climate_overview(
     if org is None:
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(ClimatePublicRelease).where(
-        ClimatePublicRelease.organization_id == org.id,
-        ClimatePublicRelease.state == "published",
+        *_public_release_filters(org.id),
     ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
     releases = rows.all()
     response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    source_run_ids = [
+        row.source_ingestion_run_id for row in releases if row.source_ingestion_run_id
+    ]
+    latest_source_retrieved_at = None
+    if source_run_ids:
+        latest_source_retrieved_at = await session.scalar(
+            select(func.max(ClimateIngestionRun.finished_at)).where(
+                ClimateIngestionRun.organization_id == org.id,
+                ClimateIngestionRun.id.in_(source_run_ids),
+            )
+        )
+    latest_data_period_end = max(
+        (row.period_end for row in releases), default=None
+    )
     return {
         "organization": org.name,
         "release_count": len(releases),
         "indicators": sorted({row.indicator for row in releases}),
         "latest_published_at": releases[0].published_at.isoformat() if releases and releases[0].published_at else None,
+        "latest_data_period_end": latest_data_period_end.isoformat() if latest_data_period_end else None,
+        "latest_source_retrieved_at": (
+            latest_source_retrieved_at.isoformat() if latest_source_retrieved_at else None
+        ),
     }
 
 
@@ -690,9 +719,8 @@ async def public_climate_insights(
             continue
         release_exists = await session.scalar(
             select(ClimatePublicRelease.id).where(
-                ClimatePublicRelease.organization_id == org.id,
+                *_public_release_filters(org.id),
                 ClimatePublicRelease.slug == release_slug,
-                ClimatePublicRelease.state == "published",
             ).limit(1)
         )
         publication = await session.scalar(
@@ -746,8 +774,7 @@ async def public_climate_sources(
     if org is None:
         raise HTTPException(404, "Organisation not found")
     rows = await session.scalars(select(ClimatePublicRelease).where(
-        ClimatePublicRelease.organization_id == org.id,
-        ClimatePublicRelease.state == "published",
+        *_public_release_filters(org.id),
     ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
     sources: dict[tuple[str, str, str], ClimateSourceRead] = {}
     for row in rows.all():

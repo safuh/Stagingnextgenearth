@@ -83,20 +83,25 @@ export default function ClimateReleasePage() {
       ) : data ? (
         <>
           <section className="climate-detail-hero">
-            <p className="climate-public-kicker">PUBLISHED CLIMATE EVIDENCE / VERSION {data.release.version}</p>
+            <p className="climate-public-kicker">{data.release.provider_id === "demo-synthetic" ? "PUBLISHED STAGING DEMO / SYNTHETIC DATA" : `PUBLISHED CLIMATE EVIDENCE / VERSION ${data.release.version}`}</p>
             <h1>{data.release.title}</h1>
             <p>{data.release.summary}</p>
             <p className="climate-public-proof"><span className="climate-public-proof-dot" /> PUBLISHED {data.release.published_at ? formatDate(data.release.published_at) : "DATE NOT REPORTED"} · {data.release.data_class.replace(/_/g, " ").toUpperCase()}</p>
           </section>
+          {data.release.provider_id === "demo-synthetic" && (
+            <aside className="climate-public-demo-banner" role="note">
+              <div><strong>SYNTHETIC DEMONSTRATION — NOT CLIMATE OBSERVATIONS</strong><p>This series is generated fixture data for staging UX demonstration. It has no provider provenance, observational uncertainty, or scientific validity. The linked research context does not validate or analyse these values.</p></div>
+            </aside>
+          )}
           <section className="climate-detail-content">
             <div className="climate-detail-main">
               <section className="climate-detail-panel">
-                <p className="climate-public-kicker">OBSERVED SIGNAL / 01</p>
+                <p className="climate-public-kicker">{data.release.provider_id === "demo-synthetic" ? "ILLUSTRATIVE SIGNAL / 01" : "OBSERVED SIGNAL / 01"}</p>
                 <h2>{data.release.indicator} <small>{data.release.unit}</small></h2>
                 <ClimateSeriesChart points={data.series} unit={data.release.unit} />
                 <div className="climate-detail-table-wrap">
                   <table className="climate-detail-table">
-                    <caption>Released observations · no missing-value imputation</caption>
+                    <caption>{data.release.provider_id === "demo-synthetic" ? "Synthetic demonstration values · not observations" : "Released observations · no missing-value imputation"}</caption>
                     <thead><tr><th scope="col">Timestamp</th><th scope="col">Value ({data.release.unit})</th></tr></thead>
                     <tbody>{data.series.map((point) => <tr key={point.observed_at}><td>{formatDate(point.observed_at)}</td><td>{point.value.toLocaleString("en-GB", { maximumFractionDigits: 3 })}</td></tr>)}</tbody>
                   </table>
