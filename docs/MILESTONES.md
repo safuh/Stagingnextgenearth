@@ -472,5 +472,5 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Batch large rosters into requests of at most 100 learners.
 - [ ] Add cohort/intake data model, assignment and transfers.
 - [ ] Add learner detail/history and reviewed privacy-safe display identity.
-- [ ] Add regression tests for partial success, duplicate IDs and role boundaries.
+- [x] Add regression tests for partial success, duplicate IDs and role boundaries.
 - [ ] Full CI, merge, staging deployment and authenticated browser acceptance.
