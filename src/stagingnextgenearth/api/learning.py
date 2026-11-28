@@ -616,6 +616,11 @@ async def update_learning_cohort(
         raise HTTPException(422, "Cohort start date must not be after its end date")
     previous_status = cohort.status
     next_status = changes.get("status", previous_status)
+    if next_status == "active" and previous_status != "active":
+        raise HTTPException(
+            409,
+            "Cohort activation is gated until safeguarding and consent readiness is verified",
+        )
     allowed = {
         "draft": {"open", "archived"},
         "open": {"active", "archived"},
