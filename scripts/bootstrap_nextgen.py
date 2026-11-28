@@ -62,7 +62,9 @@ class Api:
                 expected=(201,),
             )
         except ApiError as exc:
-            if "HTTP 409" not in str(exc):
+            # Production closes public registration. An existing bootstrap owner
+            # can still be reused by authenticating; new identities must use invites.
+            if "HTTP 409" not in str(exc) and "HTTP 403" not in str(exc):
                 raise
         result = self.request(
             "POST", "/auth/login",

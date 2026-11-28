@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from scripts.bootstrap_nextgen import ApiError, provision_learners, provision_staff
+from scripts.bootstrap_nextgen import Api, ApiError, provision_learners, provision_staff
 
 
 class FakeApi:
@@ -200,3 +200,24 @@ def test_provision_staff_does_not_accept_an_invitation_with_a_different_role(
             ],
         )
     assert not any(call[1].endswith("/accept") for call in api.calls)
+
+
+def test_bootstrap_reuses_existing_owner_when_public_registration_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = Api("https://example.test/api")
+    calls: list[str] = []
+
+    def request(method: str, path: str, body=None, expected=(200,)):
+        calls.append(path)
+        if path == "/auth/register":
+            raise ApiError("POST /auth/register: HTTP 403: invitation-only")
+        if path == "/auth/login":
+            return {"access_token": "access", "subject": "owner-user"}
+        raise AssertionError(f"Unexpected request: {method} {path}")
+
+    monkeypatch.setattr(api, "request", request)
+    api.register_or_reuse("owner@example.org", "existing-owner-password")
+    assert calls == ["/auth/register", "/auth/login"]
+    assert api.token == "access"
+    assert api.request_subject == "owner-user"

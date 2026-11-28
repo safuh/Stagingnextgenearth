@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPost, clearSession, getAuthenticationContext, login, register, restoreSession } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { apiGet, apiPost, clearSession, getAuthenticationContext, restoreSession } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
-import { resolvePortalDestination } from "@/lib/portal-routing";
 
 type Course = {
   id: string;
@@ -38,9 +37,6 @@ type CurriculumPreview = {
 };
 
 export default function LearnerPortalPage() {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [creating, setCreating] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [curriculumPreviews, setCurriculumPreviews] = useState<Record<string, CurriculumPreview>>({});
@@ -84,8 +80,16 @@ export default function LearnerPortalPage() {
       });
     restoreSession().then(async (session) => {
       if (!active || !session) return;
-      setAuthenticated(true);
       try {
+        const context = await getAuthenticationContext();
+        const hasLearnerAccess = context.memberships.some(
+          (membership) => membership.status === "active" && membership.roles.includes("learner"),
+        );
+        if (!hasLearnerAccess) {
+          if (active) setError("This account does not have learner access. Use the staff or partner portal, or ask an administrator for a learner invitation.");
+          return;
+        }
+        if (active) setAuthenticated(true);
         await loadLearnerData();
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "Unable to load learner data.");
@@ -93,35 +97,6 @@ export default function LearnerPortalPage() {
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
-
-  async function submitAccess(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      if (creating) await register(identifier.trim(), password);
-      await login(identifier.trim(), password);
-      const context = await getAuthenticationContext();
-      const destination = resolvePortalDestination(context.memberships);
-      if (destination === "/workspace") {
-        window.location.assign(destination);
-        return;
-      }
-      if (destination === "/workspace/accept-invitation") {
-        window.location.assign(destination);
-        return;
-      }
-      setAuthenticated(true);
-      setPassword("");
-      if (creating) setNotice("Your learner account is ready. You can now apply to a published course.");
-      await loadLearnerData();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to complete account access.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function apply(course: Course) {
     setBusy(true);
@@ -147,13 +122,13 @@ export default function LearnerPortalPage() {
         <Link className="brand" href="/">NextGen For Earth</Link>
         <nav className="learner-top-nav" aria-label="Learner navigation">
           <Link className="secondary-action" href="/">Public website</Link>
-          {authenticated ? <button className="workspace-signout" type="button" onClick={() => { clearSession(); window.location.assign("/learners"); }}>Sign out</button> : <Link className="secondary-action" href="/#access">Staff & partner sign in</Link>}
+          {authenticated ? <button className="workspace-signout" type="button" onClick={() => { clearSession(); window.location.assign("/learners"); }}>Sign out</button> : <Link className="secondary-action" href="/learners/sign-in">Learner sign in</Link>}
         </nav>
       </header>
       <section className="workspace-content">
         <p className="eyebrow">LEARNING COMMUNITY</p>
         <h1 className="workspace-title">Learn. Apply.<br /><em>Make a difference.</em></h1>
-        <p className="workspace-muted">Create a learner account to apply for published courses. Course teams review applications before learning access is activated. A learner account does not grant staff or administrative permissions.</p>
+        <p className="workspace-muted">Explore published climate learning pathways. Learner accounts are issued through role-specific invitations from an authorised programme team; course access follows the enrolment and role assigned to your invitation.</p>
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
 
@@ -191,25 +166,17 @@ export default function LearnerPortalPage() {
                         ))}
                       </details>
                     )}
-                    <Link className="primary-action" href="#learner-access">Sign in or register to apply</Link>
+                    <Link className="primary-action" href="/learners/sign-in">Sign in to continue</Link>
                   </article>
                 ))}
               </div>
             )}
           </section>
-          <section className="staff-card" id="learner-access">
-            <h2>{creating ? "Create your learner account" : "Learner sign in"}</h2>
-            <form onSubmit={submitAccess}>
-              <label htmlFor="learner-email">Email address</label>
-              <input id="learner-email" type="email" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
-              <label htmlFor="learner-password">Password</label>
-              <input id="learner-password" type="password" autoComplete={creating ? "new-password" : "current-password"} minLength={creating ? 12 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required />
-              <button className="primary-action" disabled={busy}>{busy ? "Please wait…" : creating ? "Create learner account" : "Sign in"}</button>
-            </form>
-            <button className="text-link" type="button" onClick={() => { setCreating((value) => !value); setError(""); setPassword(""); }}>
-              {creating ? "Already registered? Sign in" : "New learner? Create an account"}
-            </button>
-            <p className="workspace-muted">Use an email address you control. Never share your password. Do not enter sensitive personal information in course applications.</p>
+          <section className="staff-card learner-access-card">
+            <p className="eyebrow">LEARNER ACCESS</p>
+            <h2>Continue your learning journey</h2>
+            <p className="workspace-muted">Learner accounts are created through secure, role-specific invitations from an authorised programme team. Existing learners can sign in to their classroom.</p>
+            <Link className="primary-action" href="/learners/sign-in">Open learner sign in</Link>
           </section>
           </>
         ) : (

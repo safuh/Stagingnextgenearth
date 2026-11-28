@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     environment: Environment = Environment.DEVELOPMENT
     deployment_stage: DeploymentStage = DeploymentStage.DEVELOPMENT
     climate_demo_seed_enabled: bool = False
+    learning_demo_seed_enabled: bool = False
+    public_registration_enabled: bool | None = None
     debug: bool = False
     api_prefix: str = "/api"
     public_base_url: AnyHttpUrl = AnyHttpUrl("https://nextgenforearth.org")
@@ -84,6 +86,24 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = Field(
         default_factory=lambda: ["Authorization", "Content-Type", "X-Request-ID"]
     )
+
+    @property
+    def public_registration_allowed(self) -> bool:
+        """Keep open registration available in development, but closed in production."""
+        if self.public_registration_enabled is not None:
+            return self.public_registration_enabled
+        return self.environment is not Environment.PRODUCTION
+
+    @property
+    def learning_demo_seed_allowed(self) -> bool:
+        """Allow synthetic learner fixtures only in local or explicitly enabled staging."""
+        return self.learning_demo_seed_enabled and (
+            self.deployment_stage is DeploymentStage.STAGING
+            or (
+                self.deployment_stage is DeploymentStage.DEVELOPMENT
+                and self.environment is not Environment.PRODUCTION
+            )
+        )
 
     @property
     def climate_demo_publication_allowed(self) -> bool:

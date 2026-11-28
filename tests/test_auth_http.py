@@ -226,3 +226,16 @@ def test_login_is_rate_limited_per_client_and_endpoint() -> None:
     assert blocked.json()["error"]["code"] == "authentication_rate_limited"
     assert int(blocked.headers["Retry-After"]) >= 1
     assert blocked.headers["Cache-Control"] == "no-store"
+
+
+def test_public_registration_can_be_disabled_for_invitation_only_deployments(
+    client: TestClient,
+) -> None:
+    client.app.state.settings.public_registration_enabled = False
+    response = client.post(
+        "/api/auth/register",
+        json={"identifier": "invite-only@example.org", "password": "correct-password"},
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "registration_invitation_required"
+    assert "invitation-only" in response.json()["error"]["message"]

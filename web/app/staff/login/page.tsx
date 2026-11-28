@@ -63,8 +63,7 @@ export default function StaffSignInPage() {
             Have a pending invitation? <Link href="/workspace/accept-invitation">Accept invitation</Link>.
           </p>
           <p className="workspace-muted">
-            New employee or partner? <Link href="/staff/register">Create an account identity</Link>,
-            then ask an organisation administrator to invite that exact email address.
+            New employee or partner? Account creation is invitation-only. Ask an organisation administrator to arrange your approved onboarding; new-user email invitations are being completed.
           </p>
           <p className="workspace-muted">
             Applying for training? Use the separate <Link href="/learners">learner portal</Link>.
