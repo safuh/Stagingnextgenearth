@@ -1896,12 +1896,33 @@ async def programme_outcomes(
         )
         for course in courses
     ]
-    learner_count = sum(int(report["learners"]) for report in course_reports)
-    weighted_progress = sum(
-        float(report["average_progress"]) * int(report["learners"]) for report in course_reports
+    enrollment_rows = await session.scalars(
+        select(LearningEnrollment)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningCourse.organization_id == organization_id,
+            LearningCourse.programme_id == programme_id,
+        )
+    )
+    enrolments = enrollment_rows.all()
+    progress_by_learner: dict[str, list[int]] = {}
+    for enrolment in enrolments:
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(
+            enrolment.progress_percent
+        )
+    learner_count = len(progress_by_learner)
+    learner_average_progress = [
+        sum(progress_values) / len(progress_values)
+        for progress_values in progress_by_learner.values()
+    ]
+    average_progress = (
+        round(sum(learner_average_progress) / learner_count, 1)
+        if learner_count
+        else 0.0
     )
     totals = {
         "learners": learner_count,
+        "enrolments": len(enrolments),
         "approved": sum(int(report["approved"]) for report in course_reports),
         "completed": sum(int(report["completed"]) for report in course_reports),
         "attendance_records": sum(int(report["attendance_records"]) for report in course_reports),
@@ -1922,7 +1943,7 @@ async def programme_outcomes(
         "programme_id": programme.id,
         "programme_title": programme.title,
         "course_count": len(courses),
-        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
+        "average_progress": average_progress,
         "totals": totals,
         "courses": [
             {
@@ -2096,7 +2117,7 @@ async def organisation_learning_outcomes(
         for programme in programme_rows.all()
     ]
     metric_keys = (
-        "learners",
+        "enrolments",
         "approved",
         "completed",
         "attendance_records",
@@ -2108,15 +2129,37 @@ async def organisation_learning_outcomes(
         "pending_evaluations",
     )
     totals = {key: sum(int(report["totals"][key]) for report in reports) for key in metric_keys}
-    learner_count = totals["learners"]
-    weighted_progress = sum(
-        float(report["average_progress"]) * int(report["totals"]["learners"]) for report in reports
+    course_rows = await session.scalars(
+        select(LearningCourse.id).where(LearningCourse.organization_id == organization_id)
+    )
+    organisation_course_ids = list(course_rows.all())
+    enrolment_rows = await session.scalars(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id.in_(organisation_course_ids)
+        )
+    )
+    enrolments = enrolment_rows.all()
+    progress_by_learner: dict[str, list[int]] = {}
+    for enrolment in enrolments:
+        progress_by_learner.setdefault(enrolment.learner_id, []).append(
+            enrolment.progress_percent
+        )
+    learner_count = len(progress_by_learner)
+    totals["learners"] = learner_count
+    learner_average_progress = [
+        sum(progress_values) / len(progress_values)
+        for progress_values in progress_by_learner.values()
+    ]
+    average_progress = (
+        round(sum(learner_average_progress) / learner_count, 1)
+        if learner_count
+        else 0.0
     )
     return {
         "organization_id": organization_id,
         "programmes_total": len(reports),
         "courses_total": sum(int(report["course_count"]) for report in reports),
-        "average_progress": round(weighted_progress / learner_count, 1) if learner_count else 0.0,
+        "average_progress": average_progress,
         "totals": totals,
         "programmes": [
             {
