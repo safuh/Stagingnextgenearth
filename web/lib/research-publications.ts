@@ -8,7 +8,8 @@ export interface ResearchPublicationRecord {
     year?: number | string;
     publisher?: string;
     doi?: string;
-    topic?: string;
+    editorial_topic?: string;
+    editorial_topic_provenance?: string;
   } | null;
 }
 
@@ -35,7 +36,7 @@ export function researchPublicationFilterOptions(items: ResearchPublicationRecor
     years: Array.from(new Set(items.map(researchPublicationYear).filter(Boolean))).sort().reverse(),
     topics: Array.from(new Set(
       items
-        .map((item) => item.metadata_json?.topic)
+        .map((item) => item.metadata_json?.editorial_topic)
         .filter((value): value is string => typeof value === "string" && value.length > 0),
     )).sort(),
   };
@@ -57,7 +58,7 @@ export function filterResearchPublications<T extends ResearchPublicationRecord>(
       item.title,
       item.summary,
       item.slug,
-      item.metadata_json?.topic,
+      item.metadata_json?.editorial_topic,
       item.metadata_json?.publisher,
       item.metadata_json?.doi,
       authorText,
@@ -68,6 +69,6 @@ export function filterResearchPublications<T extends ResearchPublicationRecord>(
       .toLowerCase();
     return searchText.includes(query)
       && (!filters.year || researchPublicationYear(item) === filters.year)
-      && (!filters.topic || item.metadata_json?.topic === filters.topic);
+      && (!filters.topic || item.metadata_json?.editorial_topic === filters.topic);
   });
 }
