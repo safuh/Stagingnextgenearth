@@ -12,6 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.core.config import get_settings
+from stagingnextgenearth.platform.climate_public import (
+    ClimatePublicRelease,
+    ClimatePublicReleaseEvent,
+)
 from stagingnextgenearth.platform.models import (
     InstitutionalPartner, LearningAssessment, LearningCourse, LearningLesson, LearningModule,
     Organization, OrganizationPerson, Programme, PublicContentEntry,
@@ -178,6 +182,191 @@ PUBLICATIONS = [
 ("community-codesign-heat-exposure-kilifi","Community co-design workshop on reducing heat exposure impacts on pregnant and postpartum women and newborns in Kilifi, Kenya","Lusambili A et al. · Frontiers in Public Health · 11, 1146048","https://doi.org/10.3389/fpubh.2023.1146048"),
 ("dehydration-pregnant-women-newborns-rural-kenya","Awareness and interventions to reduce dehydration in pregnant women and newborns in rural Kenya","Lusambili A, Nakstad B · African Journal of Primary Health Care & Family Medicine · 15(1), e1–e3","https://doi.org/10.4102/phcfm.v15i1.3991"),
 ]
+
+
+def _synthetic_climate_series(indicator: str) -> list[dict[str, object]]:
+    """Return deterministic monthly demo values; never represent them as observations."""
+    import math
+
+    points: list[dict[str, object]] = []
+    for index in range(72):
+        year, month = 2020 + index // 12, index % 12 + 1
+        observed_at = datetime(year, month, 15, tzinfo=UTC)
+        seasonal = math.cos(2 * math.pi * (month - 4) / 6)
+        if indicator == "precipitation":
+            value = 78 + 54 * seasonal + 7 * math.sin(index * 0.47)
+        else:
+            value = 24.2 + 3.1 * math.sin(2 * math.pi * (month - 2) / 12)
+            value += 0.25 * math.sin(index * 0.31)
+        points.append({"observed_at": observed_at.isoformat(), "value": round(value, 2)})
+    return points
+
+
+async def _seed_public_climate_demo(session, org: Organization, actor: str, now: datetime) -> None:
+    """Publish clearly labelled synthetic climate fixtures for the staging product demo."""
+    synthetic_notice = (
+        "SYNTHETIC STAGING DEMONSTRATION ONLY. Values are deterministic illustrative "
+        "fixtures, not measurements, forecasts, provider retrievals, or scientific findings. "
+        "Do not use for operational, policy, health, agricultural, or investment decisions."
+    )
+    region_names = ["Nairobi", "Kisumu", "Mombasa", "Garissa", "Kitui", "Kisii"]
+    specifications = [
+        {
+            "slug": "demo-kenya-monthly-rainfall",
+            "title": "Kenya rainfall rhythms — illustrative monthly series",
+            "summary": (
+                "A six-year synthetic monthly precipitation series used to demonstrate "
+                "regional comparison, time-series inspection and provenance in the public "
+                "climate intelligence experience."
+            ),
+            "indicator": "precipitation",
+            "unit": "mm/month",
+            "series": _synthetic_climate_series("precipitation"),
+            "regions": [
+                {"region": name, "value": round(64 + index * 7.5, 1), "coverage_pct": None}
+                for index, name in enumerate(region_names)
+            ],
+            "uncertainty": (
+                "Not estimated. Synthetic values have no observational uncertainty model."
+            ),
+        },
+        {
+            "slug": "demo-kenya-monthly-temperature",
+            "title": "Kenya near-surface temperature — illustrative monthly series",
+            "summary": (
+                "A six-year synthetic monthly 2 m air-temperature series used to demonstrate "
+                "indicator comparison, regional summaries and release-level metadata."
+            ),
+            "indicator": "air_temperature_2m",
+            "unit": "°C",
+            "series": _synthetic_climate_series("temperature"),
+            "regions": [
+                {"region": name, "value": round(21.8 + index * 0.55, 2), "coverage_pct": None}
+                for index, name in enumerate(region_names)
+            ],
+            "uncertainty": (
+                "Not estimated. Synthetic values have no observational uncertainty model."
+            ),
+        },
+    ]
+    for spec in specifications:
+        row = await session.scalar(select(ClimatePublicRelease).where(
+            ClimatePublicRelease.organization_id == org.id,
+            ClimatePublicRelease.slug == spec["slug"],
+            ClimatePublicRelease.version == 1,
+        ))
+        values = {
+            "title": spec["title"],
+            "summary": spec["summary"],
+            "state": "published",
+            "indicator": spec["indicator"],
+            "unit": spec["unit"],
+            "provider_id": "demo-synthetic",
+            "provider_product": "NextGen synthetic climate demonstration fixture",
+            "provider_version": "demo-v1",
+            "data_class": "synthetic_demo",
+            "geography_label": "Kenya — illustrative demonstration regions",
+            "geography_resolution": "Synthetic regional monthly series; no spatial observations",
+            "period_start": datetime(2020, 1, 15, tzinfo=UTC),
+            "period_end": datetime(2025, 12, 15, tzinfo=UTC),
+            "baseline": "Synthetic demonstration series; not a climate normal",
+            "aggregation_method": (
+                "Deterministic mathematical fixture generated for interface demonstration; "
+                "no provider data, spatial extraction, or measured observations."
+            ),
+            "coverage_pct": None,
+            "missingness_pct": None,
+            "uncertainty_summary": spec["uncertainty"],
+            "limitations": synthetic_notice,
+            "license_name": "Synthetic demonstration content",
+            "attribution": (
+                "NextGen For Earth staging demo. Generated synthetic values; no external "
+                "climate provider or observational source."
+            ),
+            "terms_url": None,
+            "citation_url": None,
+            "source_ingestion_run_id": None,
+            "series_json": spec["series"],
+            "regions_json": spec["regions"],
+            "published_by": actor,
+            "published_at": now,
+        }
+        if row is None:
+            row = ClimatePublicRelease(
+                organization_id=org.id,
+                slug=spec["slug"],
+                version=1,
+                created_by=actor,
+                **values,
+            )
+            session.add(row)
+            await session.flush()
+            session.add(ClimatePublicReleaseEvent(
+                organization_id=org.id,
+                release_id=row.id,
+                actor_user_id=actor,
+                action="demo_seeded_published",
+                from_state=None,
+                to_state="published",
+                note=synthetic_notice,
+            ))
+        else:
+            for key, value in values.items():
+                setattr(row, key, value)
+
+    insight_slug = "demo-climate-seasonality-field-note"
+    insight_metadata = {
+        "release_slug": "demo-kenya-monthly-rainfall",
+        "publication_slug": "seniors-climate-seasonality-busia-kilifi",
+        "region": "Kenya — illustrative demonstration regions",
+        "indicator": "Monthly precipitation",
+        "evidence_note": (
+            "SYNTHETIC DEMO: this chart is generated fixture data. The linked SENIORS "
+            "publication is a separate published research output; it did not generate, "
+            "validate, or analyse these synthetic values."
+        ),
+    }
+    insight = await session.scalar(select(PublicContentEntry).where(
+        PublicContentEntry.organization_id == org.id,
+        PublicContentEntry.content_type == "climate_insight",
+        PublicContentEntry.slug == insight_slug,
+    ))
+    insight_values = {
+        "title": "From climate signal to research question",
+        "summary": (
+            "A product demonstration of how a public climate series can be connected to "
+            "a separately published research output without implying that one validates "
+            "or explains the other."
+        ),
+        "body": (
+            "This field note demonstrates evidence navigation across a synthetic monthly "
+            "rainfall series and a published study concerning climate seasonality and the "
+            "health of older adults in rural Busia and Kilifi. The series shown here is "
+            "generated solely for staging UX demonstration. It is not sourced from the "
+            "study, does not reproduce its findings, and supports no empirical association "
+            "or causal conclusion. Open the release for its complete synthetic-data notice "
+            "and inspect the DOI-linked publication for the actual research record."
+        ),
+        "metadata_json": insight_metadata,
+        "publication_state": "published",
+        "source_url": "https://doi.org/10.1136/bmjopen-2025-103956",
+        "source_label": "Synthetic staging demonstration linked to a public research listing",
+        "approved_by": actor,
+        "approved_at": now,
+        "published_at": now,
+        "updated_by": actor,
+    }
+    if insight is None:
+        session.add(PublicContentEntry(
+            organization_id=org.id,
+            content_type="climate_insight",
+            slug=insight_slug,
+            created_by=actor,
+            **insight_values,
+        ))
+    else:
+        for key, value in insight_values.items():
+            setattr(insight, key, value)
 
 
 async def seed(slug: str) -> None:
@@ -506,8 +695,9 @@ async def seed(slug: str) -> None:
                 assessment.instructions = assessment_spec["instructions"]
                 assessment.configuration = configuration
                 assessment.pass_mark = assessment_spec["pass_mark"]
+        await _seed_public_climate_demo(session, org, actor, now)
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY)} CMS entries including {len(PUBLICATIONS)} publications, four programmes and {len(course_specs)} published learning courses with substantive pilot lesson content pending subject-matter review.")
+        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY) + 2} CMS entries including {len(PUBLICATIONS)} publications and one climate insight, four programmes, {len(course_specs)} published learning courses, and two published synthetic climate demo releases.")
     await engine.dispose()
 
 if __name__ == "__main__":
