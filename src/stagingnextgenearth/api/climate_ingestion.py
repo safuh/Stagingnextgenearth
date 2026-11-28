@@ -46,6 +46,44 @@ _CHIRPS_REQUEST_INTERVAL_SECONDS = 1.1
 _CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS = 3 * 60 * 60
 
 
+async def _last_finished_provider_run(
+    session: AsyncSession, provider_id: str
+) -> ClimateIngestionRun | None:
+    return await session.scalar(
+        select(ClimateIngestionRun)
+        .where(
+            ClimateIngestionRun.provider_id == provider_id,
+            ClimateIngestionRun.finished_at.is_not(None),
+        )
+        .order_by(ClimateIngestionRun.finished_at.desc())
+        .limit(1)
+    )
+
+
+def _is_provider_blocked(last_run: ClimateIngestionRun | None) -> bool:
+    if last_run is None:
+        return False
+    error_type = (last_run.error_summary or "").split(":", 1)[0]
+    # Older deployments recorded the raw httpx timeout class before the
+    # provider-specific unavailable exception was introduced.
+    return error_type == "ClimateProviderUnavailable" or error_type.endswith("Timeout")
+
+
+def _provider_cooldown_details(
+    last_run: ClimateIngestionRun | None,
+) -> tuple[datetime | None, int]:
+    if last_run is None or last_run.finished_at is None or not _is_provider_blocked(last_run):
+        return None, 0
+    finished_at = last_run.finished_at
+    if finished_at.tzinfo is None or finished_at.utcoffset() is None:
+        finished_at = finished_at.replace(tzinfo=UTC)
+    retry_at = finished_at + timedelta(seconds=_CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS)
+    wait_seconds = (retry_at - datetime.now(UTC)).total_seconds()
+    if wait_seconds <= 0:
+        return None, 0
+    return retry_at, max(1, int(wait_seconds) + 1)
+
+
 @asynccontextmanager
 async def _provider_ingestion_guard(
     session: AsyncSession, provider_id: str
@@ -73,22 +111,12 @@ async def _provider_ingestion_guard(
     # Persisted run completion times carry the cooldown across new provider instances
     # and Render API instances. A run's finished_at is written before the route commits
     # and releases this transaction-scoped advisory lock.
-    last_run = await session.scalar(
-        select(ClimateIngestionRun)
-        .where(
-            ClimateIngestionRun.provider_id == provider_id,
-            ClimateIngestionRun.finished_at.is_not(None),
-        )
-        .order_by(ClimateIngestionRun.finished_at.desc())
-        .limit(1)
-    )
+    last_run = await _last_finished_provider_run(session, provider_id)
     if last_run is not None and last_run.finished_at is not None:
-        error_type = (last_run.error_summary or "").split(":", 1)[0]
-        # Older deployed versions recorded the raw httpx timeout class before the
-        # provider-specific unavailable exception was introduced.
-        provider_blocked = (
-            error_type == "ClimateProviderUnavailable" or error_type.endswith("Timeout")
-        )
+        provider_blocked = _is_provider_blocked(last_run)
+        finished_at = last_run.finished_at
+        if finished_at.tzinfo is None or finished_at.utcoffset() is None:
+            finished_at = finished_at.replace(tzinfo=UTC)
         cooldown = timedelta(
             seconds=(
                 _CHIRPS_PROVIDER_BLOCK_COOLDOWN_SECONDS
@@ -96,7 +124,7 @@ async def _provider_ingestion_guard(
                 else _CHIRPS_REQUEST_INTERVAL_SECONDS
             )
         )
-        retry_at = last_run.finished_at + cooldown
+        retry_at = finished_at + cooldown
         wait_seconds = (retry_at - datetime.now(UTC)).total_seconds()
         if wait_seconds > 0:
             if provider_blocked:
@@ -137,6 +165,16 @@ class ClimateIngestionCreate(BaseModel):
         return self
 
 
+class ClimateProviderCooldownRead(BaseModel):
+    """Persisted CHIRPS provider cooldown visible to authorised workspace members."""
+
+    provider_id: Literal["chirps-v3"]
+    active: bool
+    retry_after_seconds: int = 0
+    retry_at: datetime | None = None
+    reason: Literal["provider_block"] | None = None
+
+
 class ClimateIngestionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -157,6 +195,33 @@ class ClimateIngestionRead(BaseModel):
     pending_observations: int = 0
     verified_observations: int = 0
     rejected_observations: int = 0
+
+
+@router.get("/cooldown", response_model=ClimateProviderCooldownRead)
+async def get_climate_provider_cooldown(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    provider_id: Literal["chirps-v3"] = Query(default="chirps-v3"),
+) -> ClimateProviderCooldownRead:
+    """Read the global CHIRPS safety cooldown without contacting the provider."""
+    if not await membership_has_any_role(
+        session, membership, _INGEST_ROLES | {"programme_manager"}
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Climate ingestion access is not permitted",
+        )
+    last_run = await _last_finished_provider_run(session, provider_id)
+    retry_at, retry_after_seconds = _provider_cooldown_details(last_run)
+    active = retry_after_seconds > 0
+    return ClimateProviderCooldownRead(
+        provider_id=provider_id,
+        active=active,
+        retry_after_seconds=retry_after_seconds,
+        retry_at=retry_at if active else None,
+        reason="provider_block" if active else None,
+    )
 
 
 @router.get("", response_model=list[ClimateIngestionRead])
