@@ -451,3 +451,14 @@ These foundation checks must continue passing as product code is added.
 - [ ] Run an authenticated browser acceptance pass for enrolment, classroom content, quiz submission, progress and certificate wording.
 
 The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The default Render demo seed runs at API startup and overwrites its managed demo lesson and quiz content from the versioned JSON catalogue; it is not a production content-authoring workflow.
+
+
+## M140 — Institutional-partner reporting resilience (implementation in review)
+
+- [x] Isolate per-programme reporting failures so one unavailable report does not hide successful programme reports.
+- [x] Distinguish report loading, unavailable and empty states in the partner workspace.
+- [x] Describe the cross-period aggregate as a sum of reported cohort counts, not unique participants.
+- [x] Preserve server-side institutional-partner authorization and the minimum cohort disclosure threshold.
+- [ ] Frontend typecheck, lint, unit/build checks and CI pass.
+- [ ] Deploy the merged commit to Render staging.
+- [ ] Complete authenticated partner browser acceptance with both successful and unavailable programme reports.
