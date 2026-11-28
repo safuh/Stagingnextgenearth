@@ -135,6 +135,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const responseHeaders = new Headers();
   const upstreamContentType = upstream.headers.get("content-type");
+  const retryAfter = upstream.headers.get("retry-after");
+  if (retryAfter) responseHeaders.set("Retry-After", retryAfter);
   const disposition = upstream.headers.get("content-disposition");
   if (upstreamContentType) responseHeaders.set("content-type", upstreamContentType);
   if (disposition) responseHeaders.set("content-disposition", disposition);
