@@ -72,6 +72,9 @@ def test_public_climate_release_requires_independent_approval_and_publication(
     with TestClient(app) as client:
         author = _auth(client, "climate-author@example.org")
         reviewer = _auth(client, "climate-reviewer@example.org")
+        licence_reviewer = _auth(client, "climate-licence-reviewer@example.org")
+        release_reviewer = _auth(client, "climate-release-reviewer@example.org")
+        publisher = _auth(client, "climate-publisher@example.org")
         organisation = client.post(
             "/api/organizations",
             headers=author,
@@ -92,6 +95,18 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         reviewer_id = connection.execute(
             "SELECT id FROM users WHERE identifier = ?",
             ("climate-reviewer@example.org",),
+        ).fetchone()[0]
+        licence_reviewer_id = connection.execute(
+            "SELECT id FROM users WHERE identifier = ?",
+            ("climate-licence-reviewer@example.org",),
+        ).fetchone()[0]
+        release_reviewer_id = connection.execute(
+            "SELECT id FROM users WHERE identifier = ?",
+            ("climate-release-reviewer@example.org",),
+        ).fetchone()[0]
+        publisher_id = connection.execute(
+            "SELECT id FROM users WHERE identifier = ?",
+            ("climate-publisher@example.org",),
         ).fetchone()[0]
         connection.execute(
             """INSERT INTO climate_ingestion_runs (
@@ -151,6 +166,29 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={"roles": ["programme_manager", "executive"]},
         )
         assert reviewer_roles.status_code == 200
+
+        for identifier, credentials in (
+            ("climate-licence-reviewer@example.org", licence_reviewer),
+            ("climate-release-reviewer@example.org", release_reviewer),
+            ("climate-publisher@example.org", publisher),
+        ):
+            invited = client.post(
+                f"{org_base}/memberships",
+                headers=author,
+                json={"identifier": identifier, "role": "programme_manager"},
+            )
+            assert invited.status_code == 201
+            accepted = client.post(
+                f"{org_base}/memberships/{invited.json()['id']}/accept",
+                headers=credentials,
+            )
+            assert accepted.status_code == 200
+            assigned = client.patch(
+                f"{org_base}/memberships/{invited.json()['id']}/roles",
+                headers=author,
+                json={"roles": ["programme_manager"]},
+            )
+            assert assigned.status_code == 200
 
         run_ledger = client.get(f"{org_base}/climate-ingestion", headers=author)
         assert run_ledger.status_code == 200
@@ -223,21 +261,99 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert self_approval.status_code == 403
 
-        approved = client.post(
+        approval_without_licence_review = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/approve",
+            headers=release_reviewer,
+            json={"note": "Attempt before licence review."},
+        )
+        assert approval_without_licence_review.status_code == 409
+
+        quality_reviewer_cannot_review_licence = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "The same person cannot perform both review gates.",
+            },
+        )
+        assert quality_reviewer_cannot_review_licence.status_code == 403
+
+        incomplete_licence_review = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=licence_reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": False,
+                "citation_confirmed": True,
+                "note": "Attribution has not been confirmed.",
+            },
+        )
+        assert incomplete_licence_review.status_code == 422
+
+        licence_review = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=licence_reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "CC-BY terms, provider conditions, attribution and DOI citation checked.",
+            },
+        )
+        assert licence_review.status_code == 200
+        assert licence_review.json()["licence_reviewed_by"] == licence_reviewer_id
+        assert licence_review.json()["licence_reviewed_at"] is not None
+
+        licence_reviewer_cannot_approve = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/approve",
+            headers=licence_reviewer,
+            json={"note": "A licence reviewer cannot approve the same release."},
+        )
+        assert licence_reviewer_cannot_approve.status_code == 403
+
+        quality_reviewer_cannot_approve = client.post(
             f"{org_base}/climate-public-releases/{release_id}/approve",
             headers=reviewer,
-            json={"note": "Provider, licence and aggregation checked."},
+            json={"note": "A quality reviewer cannot approve the release."},
+        )
+        assert quality_reviewer_cannot_approve.status_code == 403
+
+        approved = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/approve",
+            headers=release_reviewer,
+            json={"note": "Provider provenance, licence review and aggregation checked."},
         )
         assert approved.status_code == 200
         assert approved.json()["state"] == "approved"
+        assert approved.json()["licence_reviewed_by"] == licence_reviewer_id
+
+        release_reviewer_cannot_publish = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/publish",
+            headers=release_reviewer,
+            json={"note": "The release approver cannot publish the same release."},
+        )
+        assert release_reviewer_cannot_publish.status_code == 403
+
+        licence_reviewer_cannot_publish = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/publish",
+            headers=licence_reviewer,
+            json={"note": "The licence reviewer cannot publish the same release."},
+        )
+        assert licence_reviewer_cannot_publish.status_code == 403
 
         published = client.post(
             f"{org_base}/climate-public-releases/{release_id}/publish",
-            headers=reviewer,
-            json={"note": "Approved release published."},
+            headers=publisher,
+            json={"note": "Independent publication decision and public release approved."},
         )
         assert published.status_code == 200
         assert published.json()["state"] == "published"
+        assert published.json()["published_by"] == publisher_id
 
         published_list = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases"
