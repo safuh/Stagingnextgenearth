@@ -513,38 +513,30 @@ def test_public_climate_release_requires_independent_approval_and_publication(
 
 
 
-def test_production_public_climate_filter_excludes_synthetic_demo_provider(monkeypatch) -> None:
+def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> None:
     from types import SimpleNamespace
 
     from stagingnextgenearth.api import climate_public
 
-    monkeypatch.setattr(
-        climate_public,
-        "get_settings",
-        lambda: SimpleNamespace(
-            environment=Environment.PRODUCTION,
-            deployment_stage=DeploymentStage.PRODUCTION,
-            climate_demo_seed_enabled=True,
-            climate_demo_publication_allowed=False,
-        ),
+    production = SimpleNamespace(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
+        climate_demo_seed_enabled=True,
+        climate_demo_publication_allowed=False,
     )
-    filters = climate_public._public_release_filters("demo-organisation")
+    filters = climate_public._public_release_filters("demo-organisation", production)
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
     compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" in compiled
     assert "data_class != 'synthetic_demo'" in compiled
 
-    monkeypatch.setattr(
-        climate_public,
-        "get_settings",
-        lambda: SimpleNamespace(
-            environment=Environment.PRODUCTION,
-            deployment_stage=DeploymentStage.STAGING,
-            climate_demo_seed_enabled=True,
-            climate_demo_publication_allowed=True,
-        ),
+    staging = SimpleNamespace(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=True,
+        climate_demo_publication_allowed=True,
     )
-    test_filters = climate_public._public_release_filters("demo-organisation")
+    test_filters = climate_public._public_release_filters("demo-organisation", staging)
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
     test_compiled = str(test_statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" not in test_compiled
