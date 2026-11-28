@@ -6,12 +6,16 @@ def test_public_metadata_only_exposes_approved_presentation_fields() -> None:
         "display_value": "12",
         "authors": ["A. Researcher"],
         "year": 2025,
-        "year_provenance": "Seed catalogue year; verify against the DOI landing page before treating as canonical.",
+        "year_provenance": (
+            "Seed catalogue year; verify against the DOI landing page before treating as canonical."
+        ),
         "publisher": "Example Journal",
         "doi": "https://doi.org/10.0000/example",
         "topic": "Legacy topic should not be public",
         "editorial_topic": "Climate and health",
-        "editorial_topic_provenance": "Editorial discovery tag assigned by the demo seed; not a source-reported keyword.",
+        "editorial_topic_provenance": (
+            "Editorial discovery tag assigned by the demo seed; not a source-reported keyword."
+        ),
         "release_slug": "kilifi-monthly-rainfall",
         "publication_slug": "heat-maternal-health-kilifi",
         "region": "Kilifi County, Kenya",
