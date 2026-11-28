@@ -18,7 +18,7 @@ The objective is practical: reduce fragmented records, make programme delivery e
 2. **Founder workspace (60 sec):** show organisation overview, people/roles, partner verification and audit controls.
 3. **Research library (90 sec):** open a website-imported publication, show its source provenance, preview external scholarly metadata and create a new study in concept status.
 4. **Research governance (60 sec):** show proposal/protocol/ethics gates, dataset submission/review and analysis provenance. Do not imply a concept is approved or active.
-5. **Climate intelligence (75 sec):** open the redesigned public Climate Intelligence hub and methodology. If a genuine provider-backed release has been approved and published, inspect its data class, unit, geography, period, method, licence and limitations. Then enter the authenticated Climate Studio: run bounded CHIRPS ingestion, inspect the sample, record independent batch quality review, draft a versioned release and demonstrate the approval/publication queue. If the provider is not configured or no release exists, show the honest no-data state; never fabricate public values.
+5. **Climate intelligence (75 sec):** open the populated public Climate Intelligence hub. Inspect the published synthetic rainfall and temperature series, regional comparison values, source register, methodology and linked research field note. State clearly that the series are deterministic staging fixtures—not observations, forecasts, provider data or scientific findings. Open the authenticated Climate Studio and demonstrate the separate real-provider workflow: bounded CHIRPS ingestion, sample inspection, independent batch quality review, release drafting and approval/publication queue. Never conflate the synthetic public showcase with live provider acceptance.
 6. **Field-data loop (45 sec):** demonstrate the synthetic ODK simulator only when no live Central test endpoint is configured. Label all fixture records Synthetic demo and show duplicate suppression and pending review.
 7. **Learning and programme delivery (60 sec):** show the proposed curriculum catalogue, course structure, enrolment/assessment workflow and programme activities. Clearly distinguish placeholder lessons from approved instructional content.
 8. **Close (25 sec):** return to the leadership proposition: one connected system for research, youth development, climate stewardship, healthier communities and evidence.
@@ -32,7 +32,8 @@ We are not proposing another disconnected website or spreadsheet. We are buildin
 - Use dedicated staging/demo accounts and synthetic learner identities.
 - Label imported website records, external provider data and synthetic fixtures.
 - Public climate visuals must use published releases only; a verified observation is not automatically public.
-- Verify both a recent successful provider ingestion and an approved published public climate release before showing public climate values.
+- The staging synthetic climate showcase must carry its visible disclaimer on the catalogue and each detail page. Do not present it as live climate evidence.
+- Before claiming live provider-backed climate intelligence, verify a successful provider ingestion, independent review and approved published release.
 - Do not describe ODK simulator activity as a live Central connection.
 - Do not present website-reported impact figures as independently audited.
 - Do not present unverified partner prospects as signed partnerships.
@@ -42,7 +43,7 @@ We are not proposing another disconnected website or spreadsheet. We are buildin
 
 ## Research-linked climate evidence
 
-The public climate hub now includes a research-context layer. A CMS climate insight must reference both a published provider-backed climate release and a separately published research publication; it is not visible publicly until both are available. This lets the organisation connect climate context with its research portfolio while preserving provenance and avoiding unsupported causal claims.
+The public climate hub now includes a research-context layer. A CMS climate insight must reference both a published climate release and a separately published research publication. In staging, the seeded field note explicitly identifies its synthetic release and states that the linked SENIORS publication is independent context, not validation or analysis of the fixture values. This demonstrates the evidence-navigation experience without implying causation or empirical findings.
 
 
 ## Learning capacity
