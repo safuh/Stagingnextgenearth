@@ -9,10 +9,21 @@ interface MemberChoice {
   role: string;
   roles: string[];
 }
+interface LessonChoice {
+  id: string;
+  title: string;
+  content_type: "text" | "video" | "document" | "link" | "workshop";
+  content: string | null;
+  resource_url: string | null;
+  duration_minutes: number | null;
+  position: number;
+}
 interface ModuleChoice {
   id: string;
   title: string;
+  description?: string | null;
   position: number;
+  lessons?: LessonChoice[];
 }
 interface ProgrammeChoice {
   id: string;
@@ -24,6 +35,8 @@ interface Course {
   title: string;
   slug: string;
   description: string;
+  category?: string | null;
+  delivery_mode?: "online" | "in_person" | "blended";
   programme_id: string | null;
   status: string;
 }
@@ -116,6 +129,11 @@ export default function LearningAdminPage() {
   const [programmes, setProgrammes] = useState<ProgrammeChoice[]>([]);
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<ModuleChoice[]>([]);
+  const [curriculum, setCurriculum] = useState<{
+    title: string;
+    description: string;
+    modules: ModuleChoice[];
+  } | null>(null);
   const [members, setMembers] = useState<MemberChoice[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -184,10 +202,19 @@ export default function LearningAdminPage() {
     if (!courseId || !organizationId) return;
     setError("");
     refreshReports().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Staff permissions are required to view learning operations."));
-    apiGet<{ modules: ModuleChoice[] }>(
+    apiGet<{
+      title: string;
+      description: string;
+      modules: ModuleChoice[];
+    }>(
       `/organizations/${organizationId}/learning/courses/${courseId}/curriculum`,
-    ).then((outline) => setModules(outline.modules))
-      .catch(() => setModules([]));
+    ).then((outline) => {
+      setCurriculum(outline);
+      setModules(outline.modules);
+    }).catch(() => {
+      setCurriculum(null);
+      setModules([]);
+    });
   }, [courseId, organizationId, refreshReports]);
 
   async function exportProgrammeOutcomes() {
@@ -259,6 +286,64 @@ export default function LearningAdminPage() {
       const next = [...courses, created];
       setCourses(next);
       setCourseId(created.id);
+    });
+  }
+
+  async function updateCourse(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!courseId) return;
+    const data = new FormData(event.currentTarget);
+    await action("Draft course details updated.", async () => {
+      const updated = await apiPatch<Course>(base + `/courses/${courseId}`, {
+        title: data.get("title"),
+        slug: data.get("slug"),
+        description: data.get("description"),
+        category: data.get("category") || null,
+        programme_id: data.get("programme_id") || null,
+        delivery_mode: data.get("delivery_mode"),
+      });
+      setCourses((current) => current.map((item) => item.id === updated.id ? updated : item));
+    });
+  }
+
+  async function updateModule(moduleId: string, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    await action("Draft module updated.", async () => {
+      const updated = await apiPatch<ModuleChoice>(
+        base + `/courses/${courseId}/modules/${moduleId}`,
+        {
+          title: data.get("title"),
+          description: data.get("description") || null,
+          position: Number(data.get("position")),
+        },
+      );
+      setModules((current) => current.map((item) => item.id === moduleId ? updated : item)
+        .sort((a, b) => a.position - b.position));
+    });
+  }
+
+  async function updateLesson(
+    moduleId: string,
+    lessonId: string,
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    await action("Draft lesson updated.", async () => {
+      await apiPatch<LessonChoice>(
+        base + `/courses/${courseId}/lessons/${lessonId}`,
+        {
+          title: data.get("title"),
+          content_type: data.get("content_type"),
+          content: data.get("content") || null,
+          resource_url: data.get("resource_url") || null,
+          duration_minutes: data.get("duration_minutes")
+            ? Number(data.get("duration_minutes"))
+            : null,
+          position: Number(data.get("position")),
+        },
+      );
     });
   }
 
@@ -472,6 +557,45 @@ export default function LearningAdminPage() {
               <label>Delivery<select name="delivery_mode"><option value="blended">Blended</option><option value="online">Online</option><option value="in_person">In person</option></select></label>
               <button className="primary-action" disabled={busy}>Create draft</button>
             </form>
+          </section>
+          <section className="staff-card">
+            <h2>Edit draft course</h2>
+            {courses.find((course) => course.id === courseId)?.status !== "draft" ? (
+              <p className="workspace-muted">Select a draft course to edit. Published courses are read-only.</p>
+            ) : (
+              <form onSubmit={updateCourse}>
+                <label>Title<input name="title" minLength={3} maxLength={240} defaultValue={courses.find((course) => course.id === courseId)?.title ?? ""} required /></label>
+                <label>Slug<input name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={courses.find((course) => course.id === courseId)?.slug ?? ""} required /></label>
+                <label>Description<textarea name="description" maxLength={12000} defaultValue={courses.find((course) => course.id === courseId)?.description ?? ""} required /></label>
+                <label>Category<input name="category" maxLength={100} defaultValue={courses.find((course) => course.id === courseId)?.category ?? ""} /></label>
+                <label>Programme<select name="programme_id" defaultValue={courses.find((course) => course.id === courseId)?.programme_id ?? ""}><option value="">Standalone course</option>{programmes.map((programme) => <option key={programme.id} value={programme.id}>{programme.title}</option>)}</select></label>
+                <label>Delivery<select name="delivery_mode" defaultValue={courses.find((course) => course.id === courseId)?.delivery_mode ?? "blended"}><option value="blended">Blended</option><option value="online">Online</option><option value="in_person">In person</option></select></label>
+                <button className="primary-action" disabled={busy}>Save course changes</button>
+              </form>
+            )}
+            {curriculum?.modules.map((module) => (
+              <article className="staff-record" key={module.id}>
+                <h3>Module {module.position}: {module.title}</h3>
+                <form onSubmit={(event) => updateModule(module.id, event)}>
+                  <label>Module title<input name="title" minLength={2} defaultValue={module.title} required /></label>
+                  <label>Description<textarea name="description" defaultValue={module.description ?? ""} /></label>
+                  <label>Position<input name="position" type="number" min="1" max="500" defaultValue={module.position} required /></label>
+                  <button className="secondary-action" disabled={busy || courses.find((course) => course.id === courseId)?.status !== "draft"}>Save module</button>
+                </form>
+                {module.lessons?.map((lesson) => (
+                  <form key={lesson.id} onSubmit={(event) => updateLesson(module.id, lesson.id, event)}>
+                    <h4>Lesson {lesson.position}: {lesson.title}</h4>
+                    <label>Title<input name="title" minLength={2} defaultValue={lesson.title} required /></label>
+                    <label>Type<select name="content_type" defaultValue={lesson.content_type}><option value="text">Text</option><option value="video">Video</option><option value="document">Document</option><option value="link">Link</option><option value="workshop">Workshop</option></select></label>
+                    <label>Content<textarea name="content" defaultValue={lesson.content ?? ""} /></label>
+                    <label>Resource URL<input name="resource_url" type="url" defaultValue={lesson.resource_url ?? ""} /></label>
+                    <label>Duration (minutes)<input name="duration_minutes" type="number" min="1" max="1440" defaultValue={lesson.duration_minutes ?? ""} /></label>
+                    <label>Position<input name="position" type="number" min="1" max="500" defaultValue={lesson.position} required /></label>
+                    <button className="secondary-action" disabled={busy || courses.find((course) => course.id === courseId)?.status !== "draft"}>Save lesson</button>
+                  </form>
+                ))}
+              </article>
+            ))}
           </section>
           <section className="staff-card">
             <h2>Build curriculum</h2>
