@@ -184,6 +184,22 @@ PUBLICATIONS = [
 ]
 
 
+PUBLICATION_CONTEXT = {
+    "aware-but-unprepared-healthcare-workers-africa": (2026, "Climate & Health"),
+    "youth-inclusive-climate-health-research": (2025, "Youth & Climate"),
+    "seniors-climate-seasonality-busia-kilifi": (2025, "Kenya Field Study"),
+    "ten-new-insights-climate-science-2024": (2025, "Climate Science"),
+    "extreme-heat-pregnant-women-infants-kilifi": (2025, "Maternal Health"),
+    "heat-weather-warnings-pregnant-postpartum-kilifi": (2024, "Maternal Health"),
+    "art-adherence-barriers-nairobi": (2025, "Youth Health"),
+    "art-adherence-young-adults-kibera": (2026, "Youth Health"),
+    "too-hot-to-thrive-postpartum-kilifi": (2024, "Maternal Health"),
+    "mothers-get-really-exhausted-pregnancy-heat": (2023, "Maternal Health"),
+    "community-codesign-heat-exposure-kilifi": (2023, "Community Engagement"),
+    "dehydration-pregnant-women-newborns-rural-kenya": (2023, "Kenya Field Study"),
+}
+
+
 def _synthetic_climate_series(indicator: str) -> list[dict[str, object]]:
     """Return deterministic monthly demo values; never represent them as observations."""
     import math
@@ -559,9 +575,16 @@ async def seed(slug: str) -> None:
                 PublicContentEntry.content_type == "publication",
                 PublicContentEntry.slug == item_slug,
             ))
+            summary_parts = [part.strip() for part in summary.split(" · ")]
+            year, topic = PUBLICATION_CONTEXT[item_slug]
             publication_metadata = {
                 "source_status": "listed on the organisation's public website",
                 "source_capture": SOURCE,
+                "authors": summary_parts[0],
+                "publisher": summary_parts[1] if len(summary_parts) > 1 else None,
+                "year": year,
+                "topic": topic,
+                "doi": doi.removeprefix("https://doi.org/"),
             }
             if entry is None:
                 entry = PublicContentEntry(
