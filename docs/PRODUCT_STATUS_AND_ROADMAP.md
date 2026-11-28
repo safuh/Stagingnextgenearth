@@ -82,7 +82,7 @@ Climate intelligence must be available from the public website, not only the aut
 
 - Public route: `/climate-intelligence`, with insight detail and methodology pages.
 - Public API: anonymous, read-only, bounded endpoints for overview, published releases, time series, regional summaries, insights and public provider/source metadata.
-- Public data is served only through an explicit `ClimatePublicRelease` publication workflow. Existing `ClimateObservation.quality_status='verified'` means quality reviewed; it does not grant permission for public disclosure.
+- Real provider-backed public data is served only through an explicit `ClimatePublicRelease` publication workflow. Existing `ClimateObservation.quality_status='verified'` means quality reviewed; it does not grant permission for public disclosure. The opt-in staging fixture catalogue is a separate, prominently labelled demonstration exception.
 - Real provider-backed releases must pass the independent reviewer and publisher workflow before publication. Verified observations alone do not imply publication permission.
 - Staging may publish a small, deterministic synthetic fixture catalogue only when `DEPLOYMENT_STAGE=staging` and the explicit `CLIMATE_DEMO_SEED_ENABLED=true` flag are both set in the dedicated staging service. The runtime security profile may remain `ENVIRONMENT=production`. These releases use the dedicated `demo-synthetic` provider and `synthetic_demo` data class, carry prominent non-observation notices and are excluded from production public API responses.
 - A `DEPLOYMENT_STAGE=production` deployment always skips synthetic climate fixtures and production APIs exclude the synthetic provider even if staging data is accidentally copied.
