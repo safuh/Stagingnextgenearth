@@ -55,8 +55,14 @@ export default function PartnerWorkspacePage() {
         }
       }));
       if (active) {
-        setReports(Object.fromEntries(results.flatMap((item) => "report" in item ? [[item.programmeId, item.report]] : [])));
-        setReportErrors(Object.fromEntries(results.flatMap((item) => "error" in item ? [[item.programmeId, item.error]] : [])));
+        const successful = results.filter(
+          (item): item is { programmeId: string; report: PartnerReport } => "report" in item,
+        );
+        const failed = results.filter(
+          (item): item is { programmeId: string; error: string } => "error" in item,
+        );
+        setReports(Object.fromEntries(successful.map(({ programmeId, report }) => [programmeId, report])));
+        setReportErrors(Object.fromEntries(failed.map(({ programmeId, error: message }) => [programmeId, message])));
         setReportsLoading(false);
       }
     }).catch((cause: unknown) => {
