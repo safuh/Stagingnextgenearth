@@ -39,7 +39,7 @@ export default function VolunteerApplyPage() {
     )
       .then((items) => {
         if (!active) return;
-        const openProgrammes = items.filter((item) => item.status === "active");
+        const openProgrammes = items.filter((item) => ["planned", "active"].includes(item.status));
         setProgrammes(openProgrammes);
         setSelected(openProgrammes[0]?.id ?? "");
         setError("");
