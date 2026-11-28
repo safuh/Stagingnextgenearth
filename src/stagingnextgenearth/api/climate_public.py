@@ -226,6 +226,7 @@ class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
     source_ingestion_run_id: str | None
     licence_reviewed_by: str | None = None
     licence_reviewed_at: datetime | None = None
+    licence_review_note: str | None = None
 
 
 class ClimateReleaseAction(BaseModel):
@@ -338,10 +339,19 @@ def _workspace_read(
     row: ClimatePublicRelease,
     licence_event: ClimatePublicReleaseEvent | None = None,
 ) -> ClimateReleaseWorkspaceRead:
+    review_note = None
+    if licence_event is not None and licence_event.note:
+        try:
+            payload = json.loads(licence_event.note)
+        except (TypeError, ValueError):
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("review_note"), str):
+            review_note = payload["review_note"]
     return ClimateReleaseWorkspaceRead.model_validate(row).model_copy(
         update={
             "licence_reviewed_by": licence_event.actor_user_id if licence_event else None,
             "licence_reviewed_at": licence_event.created_at if licence_event else None,
+            "licence_review_note": review_note,
         }
     )
 
