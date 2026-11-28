@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from stagingnextgenearth.core.config import get_settings
 from stagingnextgenearth.core.database import Base
-from stagingnextgenearth.identity import RefreshToken, ResearcherProfile, User  # noqa: F401
+from stagingnextgenearth.identity import (  # noqa: F401
+    ExternalIdentity,  # noqa: F401
+    IdentityActionToken,  # noqa: F401
+    RefreshToken,  # noqa: F401
+    ResearcherProfile,  # noqa: F401
+    User,  # noqa: F401
+)
 from stagingnextgenearth.platform import (  # noqa: F401
     ClimateIngestionRun,
     ClimateObservation,

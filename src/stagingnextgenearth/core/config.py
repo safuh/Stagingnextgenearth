@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     refresh_token_days: int = Field(default=14, ge=1, le=90)
     auth_rate_limit_requests: int = Field(default=30, ge=1, le=10000)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_sender: str | None = None
+    smtp_starttls: bool = True
+    smtp_timeout_seconds: float = Field(default=15, gt=0, le=120)
+    google_oidc_client_id: str | None = None
+    google_oidc_client_secret: SecretStr | None = None
+    google_oidc_redirect_uri: AnyHttpUrl | None = None
+    identity_action_token_minutes: int = Field(default=30, ge=5, le=1440)
+    identity_manual_invitation_links_enabled: bool = False
     public_climate_rate_limit_requests: int = Field(default=60, ge=1, le=10000)
     public_climate_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
     log_level: str = "INFO"
@@ -141,6 +153,23 @@ class Settings(BaseSettings):
                 raise ValueError("production PUBLIC_BASE_URL must use HTTPS")
             if self.jwt_secret_key is None or len(self.jwt_secret_key.get_secret_value()) < 32:
                 raise ValueError("production requires JWT_SECRET_KEY with at least 32 characters")
+        if (
+            self.identity_manual_invitation_links_enabled
+            and self.deployment_stage != DeploymentStage.STAGING
+        ):
+            raise ValueError("Manual invitation links may only be enabled in staging")
+        smtp_required = (self.smtp_password, self.smtp_sender)
+        if self.smtp_host and any(value is None for value in smtp_required):
+            raise ValueError("SMTP_PASSWORD and SMTP_SENDER are required with SMTP_HOST")
+        if (
+            any(value is not None for value in (self.smtp_username, *smtp_required))
+            and not self.smtp_host
+        ):
+            raise ValueError("SMTP_HOST is required when SMTP credentials or sender are configured")
+        if (self.google_oidc_client_id is None) != (self.google_oidc_client_secret is None):
+            raise ValueError("Google OIDC client ID and secret must be configured together")
+        if self.google_oidc_client_id and self.google_oidc_redirect_uri is None:
+            raise ValueError("GOOGLE_OIDC_REDIRECT_URI is required when Google OIDC is enabled")
         if self.object_storage_enabled and not self.object_storage_bucket:
             raise ValueError("OBJECT_STORAGE_BUCKET is required when object storage is enabled")
         if self.object_storage_enabled and (

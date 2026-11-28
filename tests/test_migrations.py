@@ -20,7 +20,36 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     subprocess.run([*command, "upgrade", "head"], check=True, env=env)
 
     expected_columns = {
-        "users": {"id", "identifier", "password_hash", "password_changed_at", "created_at"},
+        "users": {
+            "id",
+            "identifier",
+            "password_hash",
+            "password_changed_at",
+            "email_verified_at",
+            "created_at",
+        },
+        "identity_action_tokens": {
+            "id",
+            "purpose",
+            "token_hash",
+            "user_id",
+            "organization_id",
+            "email",
+            "payload",
+            "expires_at",
+            "consumed_at",
+            "revoked_at",
+            "created_by_user_id",
+            "created_at",
+        },
+        "external_identities": {
+            "id",
+            "user_id",
+            "provider",
+            "provider_subject",
+            "email",
+            "created_at",
+        },
         "refresh_tokens": {"token_id", "subject", "expires_at", "revoked"},
         "organizations": {"id", "name", "slug", "owner_user_id"},
         "organization_memberships": {"id", "organization_id", "user_id", "role", "status"},
@@ -416,6 +445,15 @@ async def test_alembic_upgrade_and_downgrade() -> None:
                 actual = {row[0] for row in result}
                 assert required <= actual, f"{table_name} is missing {required - actual}"
 
+            identity_token_constraint = await connection.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'ck_identity_action_token_purpose'"
+                )
+            )
+            assert identity_token_constraint is not None
+            assert "google_oidc_state" in identity_token_constraint
+
             learner_role_constraint = await connection.scalar(
                 text(
                     "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
@@ -424,6 +462,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             )
             assert learner_role_constraint is not None
             assert "'learner'" in learner_role_constraint
+            assert "'funder'" in learner_role_constraint
 
             role_assignment_constraint = await connection.scalar(
                 text(
@@ -433,6 +472,7 @@ async def test_alembic_upgrade_and_downgrade() -> None:
             )
             assert role_assignment_constraint is not None
             assert "'researcher'" in role_assignment_constraint
+            assert "'funder'" in role_assignment_constraint
 
             audit_action_constraint = await connection.scalar(
                 text(

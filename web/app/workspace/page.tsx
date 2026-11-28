@@ -16,7 +16,7 @@ interface MyMembership {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "learner";
+  role: "admin" | "founder" | "executive" | "employee" | "programme_manager" | "researcher" | "youth_volunteer" | "institutional_partner" | "funder" | "learner";
   status: string;
   roles?: MyMembership["role"][];
 }
@@ -275,7 +275,8 @@ export default function WorkspacePage() {
         <div className="workspace-topbar-actions">
           <Link className="secondary-action" href="/workspace/organisations/new">Create organisation</Link>
           <Link className="secondary-action" href="/workspace/security">Account security</Link>
-          <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
+          <Link className="workspace-signout" href="/account/security">Account security</Link>
+        <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
         </div>
       </header>
       <section className="workspace-content">

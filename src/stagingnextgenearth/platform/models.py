@@ -79,7 +79,7 @@ class Membership(Base):
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
         CheckConstraint(
             "role IN ('admin', 'founder', 'executive', 'programme_manager', 'researcher', "
-            "'youth_volunteer', 'employee', 'institutional_partner', 'learner')",
+            "'youth_volunteer', 'employee', 'institutional_partner', 'funder', 'learner')",
             name="ck_membership_role",
         ),
         CheckConstraint(
@@ -118,7 +118,7 @@ class MembershipRole(Base):
         CheckConstraint(
             "role IN ('admin', 'founder', 'executive', 'programme_manager', "
             "'researcher', 'youth_volunteer', 'employee', "
-            "'institutional_partner', 'learner')",
+            "'institutional_partner', 'funder', 'learner')",
             name="ck_membership_role_assignment",
         ),
         Index("ix_membership_roles_membership_role", "membership_id", "role"),

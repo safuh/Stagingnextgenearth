@@ -64,8 +64,17 @@ class AuthenticationRateLimitMiddleware(BaseHTTPMiddleware):
             "/auth/register",
             "/auth/refresh",
             "/auth/logout",
+            "/auth/invitations/accept",
+            "/auth/password-reset/request",
+            "/auth/password-reset/confirm",
+            "/auth/email-verification/request",
+            "/auth/email-verification/confirm",
+            "/auth/email-change/request",
+            "/auth/email-change/confirm",
+            "/auth/sessions/revoke-all",
         }
     )
+    _AUTH_GET_SUFFIXES = frozenset({"/auth/google/start", "/auth/google/callback"})
     _MAX_TRACKED_CLIENTS = 20_000
 
     def __init__(
@@ -79,6 +88,7 @@ class AuthenticationRateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)  # type: ignore[arg-type]
         self.requests = requests
         self.window_seconds = window_seconds
+        self.api_prefix = api_prefix
         self.auth_paths = frozenset(
             f"{api_prefix.rstrip('/')}{suffix}" for suffix in self._AUTH_SUFFIXES
         )
@@ -89,7 +99,11 @@ class AuthenticationRateLimitMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        if request.method != "POST" or request.url.path not in self.auth_paths:
+        protected_post = request.method == "POST" and request.url.path in self.auth_paths
+        protected_get = request.method == "GET" and request.url.path in {
+            f"{self.api_prefix.rstrip('/')}{suffix}" for suffix in self._AUTH_GET_SUFFIXES
+        }
+        if not (protected_post or protected_get):
             return await call_next(request)
 
         client_host = request.client.host if request.client is not None else "unknown"
@@ -135,6 +149,7 @@ class PublicClimateRateLimitMiddleware(BaseHTTPMiddleware):
     deployments must also enforce a shared limit at their trusted ingress.
     """
 
+    _AUTH_GET_SUFFIXES = frozenset({"/auth/google/start", "/auth/google/callback"})
     _MAX_TRACKED_CLIENTS = 20_000
 
     def __init__(

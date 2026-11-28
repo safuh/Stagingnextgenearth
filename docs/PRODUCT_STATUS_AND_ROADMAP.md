@@ -1,7 +1,7 @@
 # NextGen For Earth — Product Status, Priorities and Acceptance Roadmap
 
-**Working baseline:** `feat/curriculum-version-governance-m172`
-**Roadmap branch:** `feat/curriculum-version-governance-m172`
+**Working baseline:** `feat/identity-lifecycle-m173`
+**Roadmap branch:** `feat/identity-lifecycle-m173`
 **Review date:** 28 November 2026
 
 This document is the product-facing source of truth for what the repository currently implements, what is only seeded or demonstrated, and what remains to be accepted. A checked item means the implementation and its acceptance evidence have been verified; code presence or a successful build alone is not sufficient.
@@ -29,15 +29,15 @@ The feature branch already contains substantial backend and portal foundations:
 
 Repository documentation and tests establish implementation intent and local/CI coverage. They do not establish that every workflow is currently configured, populated or accepted on the live staging deployment.
 
-## Current local milestone — learner portal and demonstration identities (M172)
+## M172 — Learner portal and staging demonstration journeys (merged and deployed)
 
-The local M172 branch adds a dedicated learner sign-in route at `/learners/sign-in`; `/learners` is retained for public course discovery and the authenticated learner home. Open learner self-registration is removed from this journey in favour of role-specific invitations. The API now rejects public registration by default in production (with an explicit environment override for controlled operations); development/test registration remains available, and the bootstrap utility can authenticate and reuse an existing owner account. The canonical owner/admin receives an additive learner role and an approved in-progress Research Methods enrolment in staging. Four reserved `.test` synthetic identities complete four different published curricula so learner rosters, progress and reporting can be demonstrated. These synthetic accounts use random undisclosed password hashes and are not loginable; they are not real participants or impact evidence.
+M172 merged through [PR #176](https://github.com/safuh/Stagingnextgenearth/pull/176) at `0ebc2f8fe67b65b2bab17a97e8cd62292ad271ea` and is live on both staging Render services. The dedicated `/learners/sign-in` route, invitation-only staff registration notice and staging learner demo seed are deployed. API health and public registration denial were verified; startup logs confirmed owner learner access and four synthetic completed learner journeys. Final authenticated owner login and staff roster/report inspection remain manual acceptance items. Synthetic learners are not real participants or impact evidence.
 
-The seed is gated by `LEARNING_DEMO_SEED_ENABLED=true` and `DEPLOYMENT_STAGE=staging`; production must never seed these identities. Focused seed/auth tests and backend type checking have passed locally; frontend checks and full acceptance remain in progress. This is not yet merged or deployed.
+## M173 — Identity and account lifecycle
 
-## Identity and account lifecycle — outstanding production work
+The `feat/identity-lifecycle-m173` implementation adds one-time hashed tokens; SMTP delivery boundary; new/existing account invitation acceptance; resend/rotation and revocation; email verification and email changes; password recovery; global session revocation; Google OIDC with state, nonce, PKCE and verified-email checks; separate learner/staff Google sign-in; account security UI; and a distinct funder membership role. Learner invitations can be scoped to a published course and matching cohort, creating an approved enrolment. Staff/researcher programme scopes are deliberately rejected until the relevant API policy enforcement is complete.
 
-Current password authentication, refresh rotation and password-change controls are not a complete identity lifecycle. Existing organisation membership invitations require an already registered user. The next identity milestone must implement: Google OpenID Connect with backend token verification and stable subject linking; verified-email state; one-time expiring and revocable invitation/password-setup links; role/scope assignment before activation; password reset and change; session revocation; delivery retries and audit history. Public registration must not assign tenant roles. Real email invitations must remain disabled until an email provider, sender domain and operational delivery configuration are supplied.
+The full backend suite passed locally (326 passed, 4 skipped); Ruff and mypy passed; frontend typecheck, 22 tests, lint and production Next.js build passed. The PostgreSQL 17/PostGIS 3.5 migration upgrade/downgrade/re-upgrade test also passed. The disposable PostgreSQL 17/PostGIS 3.5 migration integration test passed locally (upgrade, schema assertions, downgrade and re-upgrade). Production email delivery and Google sign-in still require provider credentials and live acceptance. Production email delivery and Google sign-in are not active until SMTP and Google OAuth secrets are configured in Render and validated against controlled accounts. See [IDENTITY_OPERATIONS.md](IDENTITY_OPERATIONS.md) for deployment and acceptance instructions.
 
 ## Important distinction: seeded versus production-quality content
 
@@ -282,3 +282,9 @@ Local integration coverage now exercises the no-data state, current activity, re
 - M171 self-service organisation onboarding is merged and deployed as `ef67959a7b3f12cb26bbefd413f02fd0348feaa8`. It adds `/workspace/organisations/new`, first-run setup, organisation-context selection and atomic `organization.created` audit history. Migration `0069_organization_creation_audit` is applied on staging.
 - M171 checks: all six CI jobs passed; local focused organisation creation/duplicate-slug/audit and whitespace-name tests passed; Ruff, mypy, frontend typecheck/lint, 22 frontend unit tests and production build passed. API and web are live on the merge SHA; route smoke tests passed. Authenticated browser acceptance remains open.
 - Remaining operational acceptance includes authenticated tenant creation, invitations, researcher study creation, cross-tenant isolation, curriculum draft governance, learner outcome tracking and provider-backed climate release review.
+
+## Next delivery milestones
+
+- **M173 — Identity and secure onboarding:** implementation branch `feat/identity-lifecycle-m173`; provider configuration and live acceptance remain open. See [IDENTITY_OPERATIONS.md](IDENTITY_OPERATIONS.md).
+- **M174 — Funder and institutional partner lifecycle:** [GitHub issue #174](https://github.com/safuh/Stagingnextgenearth/issues/174).
+- **M175 — Research integrations and climate intelligence:** [GitHub issue #175](https://github.com/safuh/Stagingnextgenearth/issues/175).

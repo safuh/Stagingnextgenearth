@@ -22,7 +22,7 @@ from ..auth import (
     TokenError,
 )
 from ..core.errors import BackboneError
-from ..identity.models import User
+from ..identity.models import ExternalIdentity, User
 from ..identity.refresh_tokens import RefreshToken
 from ..platform.models import Membership, Organization
 from .dependencies import (
@@ -60,6 +60,7 @@ class AuthenticationContextResponse(BaseModel):
 
     user_id: str
     identifier: str
+    email_verified: bool
     memberships: list[PortalMembershipContext]
 
 
@@ -213,7 +214,10 @@ async def get_authentication_context(
             )
         )
     return AuthenticationContextResponse(
-        user_id=user.id, identifier=user.identifier, memberships=memberships
+        user_id=user.id,
+        identifier=user.identifier,
+        email_verified=user.email_verified_at is not None,
+        memberships=memberships,
     )
 
 
@@ -310,3 +314,56 @@ async def logout(
     finally:
         await session.close()
     return Response(status_code=204)
+
+
+class IdentityConnectionsResponse(BaseModel):
+    """External identity providers linked to the current account."""
+
+    providers: list[str]
+
+
+@router.get("/connections", response_model=IdentityConnectionsResponse)
+async def identity_connections(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> IdentityConnectionsResponse:
+    providers = await session.scalars(
+        select(ExternalIdentity.provider)
+        .where(ExternalIdentity.user_id == principal.user_id)
+        .order_by(ExternalIdentity.provider)
+    )
+    return IdentityConnectionsResponse(providers=list(providers.all()))
+
+
+@router.post("/sessions/revoke-all", response_model=PasswordChangeResponse)
+async def revoke_all_sessions(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PasswordChangeResponse:
+    """Invalidate refresh tokens and all previously issued access tokens."""
+    user = await session.get(User, principal.user_id, with_for_update=True)
+    if user is None:
+        raise BackboneError("account_unavailable", "Account is unavailable", 401)
+    user.password_changed_at = datetime.now(UTC)
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.subject == principal.user_id,
+                RefreshToken.revoked.is_(False),
+            )
+            .values(revoked=True)
+        ),
+    )
+    await session.commit()
+    _audit_logger.info(
+        "identity_audit",
+        audit_action="session_revoke_all",
+        audit_outcome="success",
+        subject=principal.user_id,
+    )
+    return PasswordChangeResponse(
+        message="All sessions have been revoked. Sign in again.",
+        revoked_refresh_sessions=max(int(result.rowcount or 0), 0),
+    )

@@ -21,6 +21,7 @@ export interface AuthenticationMembership {
 export interface AuthenticationContext {
   user_id: string;
   identifier: string;
+  email_verified: boolean;
   memberships: AuthenticationMembership[];
 }
 

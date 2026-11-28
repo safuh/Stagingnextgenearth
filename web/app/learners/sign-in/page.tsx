@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthenticationContext, login } from "@/lib/api";
 
@@ -11,6 +11,12 @@ export default function LearnerSignInPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("error");
+    if (reason === "google_not_configured") setError("Google sign-in is not configured yet. Use your email and password or contact the platform administrator.");
+    if (reason === "google_signin_failed") setError("Google sign-in could not be completed. Try again or use your password.");
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,6 +68,8 @@ export default function LearnerSignInPage() {
             <input id="learner-signin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             <button className="primary-action" disabled={busy}>{busy ? "Signing in…" : "Continue to learning"}</button>
           </form>
+          <a className="secondary-action" href="/api/session/google/start?portal=learner">Continue with Google</a>
+          <p className="workspace-muted"><Link href="/account/recover">Forgot your password?</Link></p>
           <p className="workspace-muted">New to a programme? Your coordinator will email you a secure invitation link to create your password and activate your assigned learner access. There is no open self-registration.</p>
         </section>
         <p className="workspace-muted"><Link href="/learners">Browse published learning pathways</Link> · <Link href="/">Return to NextGen For Earth</Link></p>
