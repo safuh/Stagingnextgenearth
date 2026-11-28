@@ -432,3 +432,22 @@ These foundation checks must continue passing as product code is added.
 - [x] Preserve source-deletion evidence and mark it as requiring reviewer reconciliation; never silently delete the NextGen observation.
 - [x] Add regression coverage for revised source records, verified-record preservation and deletion metadata extraction.
 - [ ] Complete full CI and validate lifecycle metadata against the locally running ODK Central stack; Central version and actual form behaviour remain external acceptance checks.
+
+
+## M121 — Substantive four-track learning curriculum pilot (implemented and deployed; organisational review pending)
+
+- [x] Add four pilot tracks: research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge governance.
+- [x] Add eight modules and 26 substantive lessons, including one additional applied lesson in each of the research and healthcare tracks.
+- [x] Include learning outcomes, core concepts, applied practice, self-checks and official further-reading links.
+- [x] Add four formative quizzes with four questions each and a 70% pass mark.
+- [x] Update the idempotent demo seed to refresh managed course, module, lesson, source-link and quiz content.
+- [x] Improve the learner classroom with course overview, lesson counts, guided minutes, module completion and responsive lesson cards.
+- [x] Add seed idempotency/content assertions and learner curriculum API coverage.
+- [x] Update the founder presentation, short pitch, seven-minute demo runbook, curriculum blueprint, product status and agent guidance.
+- [x] Python 3.11/3.12/3.13 quality, web, geospatial and operations/container CI passed on PR #119.
+- [x] Merge PR #119; Render web and API deployments both report `live` at merge commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`.
+- [x] Render API startup log confirms the four-course curriculum seed completed; API health checks return HTTP 200.
+- [ ] Complete subject-matter, clinical, research, safeguarding, accessibility and community-lead review before live cohort delivery.
+- [ ] Run an authenticated browser acceptance pass for enrolment, classroom content, quiz submission, progress and certificate wording.
+
+The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The default Render demo seed runs at API startup and overwrites its managed demo lesson and quiz content from the versioned JSON catalogue; it is not a production content-authoring workflow.
