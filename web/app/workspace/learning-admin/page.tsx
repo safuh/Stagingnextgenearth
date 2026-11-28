@@ -235,24 +235,26 @@ export default function LearningAdminPage() {
     setReport(courseReport);
   }, [courseId, organizationId]);
 
+  const refreshCurriculum = useCallback(async (id = courseId) => {
+    if (!organizationId || !id) return;
+    const outline = await apiGet<{
+      title: string;
+      description: string;
+      modules: ModuleChoice[];
+    }>(`/organizations/${organizationId}/learning/courses/${id}/curriculum`);
+    setCurriculum(outline);
+    setModules(outline.modules);
+  }, [courseId, organizationId]);
+
   useEffect(() => {
     if (!courseId || !organizationId) return;
     setError("");
     refreshReports().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Staff permissions are required to view learning operations."));
-    apiGet<{
-      title: string;
-      description: string;
-      modules: ModuleChoice[];
-    }>(
-      `/organizations/${organizationId}/learning/courses/${courseId}/curriculum`,
-    ).then((outline) => {
-      setCurriculum(outline);
-      setModules(outline.modules);
-    }).catch(() => {
+    refreshCurriculum().catch(() => {
       setCurriculum(null);
       setModules([]);
     });
-  }, [courseId, organizationId, refreshReports]);
+  }, [courseId, organizationId, refreshReports, refreshCurriculum]);
 
   async function exportProgrammeOutcomes() {
     if (!organizationId || !selectedProgrammeId) return;
@@ -413,6 +415,7 @@ export default function LearningAdminPage() {
         },
       );
       setModules((current) => [...current, created].sort((a, b) => a.position - b.position));
+      await refreshCurriculum();
     });
     event.currentTarget.reset();
   }
@@ -429,6 +432,7 @@ export default function LearningAdminPage() {
         duration_minutes: data.get("duration_minutes") ? Number(data.get("duration_minutes")) : null,
         position: Number(data.get("position")),
       });
+      await refreshCurriculum();
     });
     event.currentTarget.reset();
   }
@@ -675,7 +679,7 @@ export default function LearningAdminPage() {
             {courses.find((course) => course.id === courseId)?.status !== "draft" ? (
               <p className="workspace-muted">Select a draft course to edit. Published courses are read-only.</p>
             ) : (
-              <form onSubmit={updateCourse}>
+              <form key={courseId} onSubmit={updateCourse}>
                 <label>Title<input name="title" minLength={3} maxLength={240} defaultValue={courses.find((course) => course.id === courseId)?.title ?? ""} required /></label>
                 <label>Slug<input name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={courses.find((course) => course.id === courseId)?.slug ?? ""} required /></label>
                 <label>Description<textarea name="description" maxLength={12000} defaultValue={courses.find((course) => course.id === courseId)?.description ?? ""} required /></label>
