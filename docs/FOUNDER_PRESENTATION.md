@@ -39,7 +39,7 @@ The research workspace is being developed as an end-to-end evidence workflow:
 
 **Discover → create study → plan → protocol and ethics review → collect/register data → quality review → analyse → publish → report.**
 
-The demo will begin with research and publication records imported from the public website. External scholarly metadata can enrich those records through OpenAlex, with explicit field selection and provenance. Researchers will also be able to create new studies and retain them as concepts until the required governance gates are met.
+The demo begins with the 12 source-attributed publication listings already shown on the public website. The research workspace preserves each listing's author string, journal/venue, source-listed year, topic and DOI, with search plus year/topic filters. These imported references remain distinct from organisation-owned study records. External scholarly metadata can enrich them through OpenAlex with explicit field selection and provenance. Researchers can create new studies and retain them as concepts until the required governance gates are met.
 
 Climate intelligence is not limited to manually entered observations. The current architecture includes NASA POWER and CHIRPS v3 adapters, with ERA5 requiring deployment configuration. The proposed next provider layer includes World Bank climate projections, ICPAC regional products and NASA GPM precipitation. Every chart and map must identify source, unit, period, geography, coverage, quality state and limitations.
 
