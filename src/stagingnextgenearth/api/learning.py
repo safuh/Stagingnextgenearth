@@ -1949,6 +1949,7 @@ async def programme_outcomes(
                 "title": course.title,
                 "status": course.status,
                 **report,
+                "enrolments": int(report["learners"]),
             }
             for course, report in zip(courses, course_reports, strict=True)
         ],
