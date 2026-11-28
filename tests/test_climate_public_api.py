@@ -194,6 +194,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         public_list = client.get("/api/public/organizations/nextgen-climate/climate/releases")
         assert public_list.status_code == 200
         assert public_list.json() == []
+        empty_etag = public_list.headers["ETag"]
+        assert empty_etag.startswith('"') and empty_etag.endswith('"')
+        assert public_list.headers["Cache-Control"] == (
+            "public, max-age=300, stale-while-revalidate=60"
+        )
+        not_modified = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases",
+            headers={"If-None-Match": empty_etag},
+        )
+        assert not_modified.status_code == 304
+        assert not_modified.content == b""
+        assert not_modified.headers["ETag"] == empty_etag
+        assert not_modified.headers["Cache-Control"] == public_list.headers["Cache-Control"]
 
         submitted = client.post(
             f"{org_base}/climate-public-releases/{release_id}/submit",
@@ -226,6 +239,19 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert published.status_code == 200
         assert published.json()["state"] == "published"
 
+        published_list = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases"
+        )
+        assert published_list.status_code == 200
+        assert published_list.headers["ETag"] != empty_etag
+        overview = client.get(
+            "/api/public/organizations/nextgen-climate/climate/overview"
+        )
+        assert overview.status_code == 200
+        assert overview.json()["latest_published_at"] is not None
+        assert overview.json()["latest_source_retrieved_at"].startswith("2026-01-01T00:01:00")
+        assert overview.json()["latest_data_period_end"].startswith("2025-12-01")
+
         public_detail = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/kilifi-monthly-rainfall"
         )
@@ -244,6 +270,47 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert overview.json()["release_count"] == 1
         assert overview.json()["latest_data_period_end"].startswith("2025-12-01")
         assert overview.json()["latest_source_retrieved_at"].startswith("2026-01-01T00:01:00")
+
+        # An older-published release may still cover a later data period. The
+        # overview must aggregate across the complete public catalogue rather
+        # than only the latest 100 publications.
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        release_cursor = connection.execute(
+            "SELECT * FROM climate_public_releases LIMIT 1"
+        )
+        release_columns = [column[0] for column in release_cursor.description]
+        published_release = dict(zip(release_columns, release_cursor.fetchone(), strict=True))
+        insert_sql = (
+            f"INSERT INTO climate_public_releases ({', '.join(release_columns)}) "
+            f"VALUES ({', '.join('?' for _ in release_columns)})"
+        )
+        for index in range(101):
+            older_release = dict(published_release)
+            older_release["id"] = str(uuid4())
+            older_release["slug"] = f"overview-aggregate-{index}"
+            older_release["version"] = 1
+            older_release["title"] = f"Older publication {index}"
+            older_release["published_at"] = "2025-01-01T00:00:00+00:00"
+            older_release["period_end"] = (
+                "2030-01-01T00:00:00+00:00" if index == 100
+                else "2024-01-01T00:00:00+00:00"
+            )
+            connection.execute(
+                insert_sql,
+                [older_release[column] for column in release_columns],
+            )
+        connection.commit()
+        complete_overview = client.get(
+            "/api/public/organizations/nextgen-climate/climate/overview"
+        )
+        assert complete_overview.status_code == 200
+        assert complete_overview.json()["release_count"] == 102
+        assert complete_overview.json()["latest_data_period_end"].startswith("2030-01-01")
+        connection.execute(
+            "DELETE FROM climate_public_releases WHERE slug LIKE 'overview-aggregate-%'"
+        )
+        connection.commit()
+        connection.close()
 
         public_series = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"

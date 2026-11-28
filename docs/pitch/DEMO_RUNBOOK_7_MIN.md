@@ -9,9 +9,9 @@
 | 00:40–01:30 | Founder/admin | Show organisation overview, roles, people directory, partner verification and governance/audit controls. |
 | 01:30–02:40 | Research library | Open a website-imported publication, show source provenance, preview external scholarly metadata and create a new study saved as concept. |
 | 02:40–03:30 | Research governance | Show proposal/protocol/ethics gates, dataset registration, submission/review and analysis provenance. Do not imply a concept is approved. |
-| 03:30–04:40 | Climate intelligence | Open the public editorial climate hub and methodology. If a real release is published, inspect its time series and provenance. Then open the authenticated Climate Studio: inspect provider-run history, sample observations, independent quality review and release governance. Never use fixture values as public climate evidence. |
+| 03:30–04:40 | Climate intelligence | Open the populated staging public climate hub and methodology. Inspect the synthetic rainfall and temperature series, source register, regional comparisons and linked research field note. Read the visible synthetic-data disclaimer aloud; these are deterministic demo fixtures, not observations, forecasts or scientific findings. Point out publication time, source retrieval time and represented data-period end as separate timestamps. Then open the authenticated Climate Studio to show the distinct provider-ingestion, quality-review and release-governance workflow. |
 | 04:40–05:20 | Field data | If live Central is unavailable, demonstrate the synthetic ODK simulator. Label every fixture Synthetic demo; show mapping, pagination, duplicate suppression and pending review. |
-| 05:20–06:20 | Learning | Show the four proposed curriculum tracks and course authoring/enrolment/assessment path. Explicitly distinguish draft blueprint and placeholder lessons from approved content. |
+| 05:20–06:20 | Learning | Show the four published pilot tracks, eight modules, 26 substantive lessons and four formative quizzes. Explain that the curriculum is subject to subject-matter, clinical, safeguarding, accessibility and community review; it is not accredited training. |
 | 06:20–07:00 | Leadership / close | Show available organisational indicators, distinguish operational counts from verified outcomes, and close on one connected operating platform. |
 
 ## Pre-demo checks
@@ -22,23 +22,23 @@
 - [ ] Use synthetic learner/staff accounts; never expose real credentials or private invitations.
 - [ ] Verify the research publication being shown and its source URL.
 - [ ] Confirm OpenAlex preview/import availability before promising a live lookup.
-- [ ] Confirm a recent successful CHIRPS/other area-provider ingestion and an independently reviewed, approved and published release before showing public climate values.
+- [ ] For the staging showcase, verify the public synthetic-data disclaimer is visible on the hub and release detail pages. Only show provider-backed climate values as evidence after successful ingestion, independent review and approved publication.
 - [ ] Confirm Climate Studio is accessible to the demo account at `/workspace/research/climate`; verify role permissions for ingestion, quality review and release publication.
 - [ ] Verify the requested bounding box, dates, source licence, observation counts and sample values before approving a provider run.
-- [ ] Verify the public release time series and full provenance page; confirm it contains no internal run IDs, raw coordinates or review notes.
+- [ ] Verify the public release time series and full provenance page; confirm it contains no internal run IDs, raw coordinates or review notes. Check publication, source retrieval and represented period-end timestamps separately.
 - [ ] Verify that public climate endpoints return published releases only and that pending/restricted/synthetic records are excluded.
 - [ ] If ERA5 is not configured, show it as planned/configuration-required.
 - [ ] If ODK Central is not connected, use only the local simulator and label all records synthetic.
-- [ ] Confirm courses/lessons shown are reviewed; if not, label them draft/placeholder.
+- [ ] Confirm the four-track pilot content is presented as substantive but pending organisational review—not as accredited or finally approved training.
 - [ ] Never call website-reported metrics audited impact.
 - [ ] Keep API docs and the operations runbook available in a separate tab.
 
 ## Fallback language
 
-- **No public climate release:** “The public Climate Intelligence hub and authenticated Climate Studio are available, but this environment does not yet have an approved provider-backed release. We keep the public catalogue empty until a real source has passed independent quality and publication review.”
+- **Synthetic staging climate showcase:** “These published rainfall and temperature series are deterministic synthetic fixtures for demonstrating the public product. They are not measured conditions, forecasts, provider data or scientific findings. Production publication remains gated on real provider ingestion, independent quality review and authorised approval.”
 - **Provider unavailable:** “The adapter is part of the platform design; this environment is not currently returning a live provider result. We are showing the recorded provider status rather than simulated climate values.”
 - **No ODK Central endpoint:** “This is a deterministic synthetic protocol demonstration of the sync workflow, not a live ODK Central connection.”
-- **Curriculum not approved:** “These are proposed curriculum structures for subject-matter review. The existing seeded lesson text is not final instructional content.”
+- **Curriculum review pending:** “The four-track, 26-lesson pilot is substantively authored and seeded in staging, but it remains subject to subject-matter, clinical, safeguarding, accessibility and community review. It is not accredited training.”
 - **Impact not verified:** “These figures are currently reported on the organisation's website. The platform is being designed to attach reporting periods, methods and evidence before leadership treats them as verified outcomes.”
 
 ## Extended demonstration

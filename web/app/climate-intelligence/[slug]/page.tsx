@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { apiGetRevalidated } from "@/lib/api";
 import { ORGANIZATION_SLUG } from "@/lib/organization";
 
 type Release = {
@@ -61,7 +61,7 @@ export default function ClimateReleasePage() {
 
   useEffect(() => {
     let active = true;
-    apiGet<Series>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases/${encodeURIComponent(params.slug)}/series`)
+    apiGetRevalidated<Series>(`/public/organizations/${ORGANIZATION_SLUG}/climate/releases/${encodeURIComponent(params.slug)}/series`)
       .then((result) => { if (active) setData(result); })
       .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "This climate release is unavailable."); })
       .finally(() => { if (active) setLoading(false); });
