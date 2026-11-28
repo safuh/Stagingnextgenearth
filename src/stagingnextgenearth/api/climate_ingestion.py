@@ -108,6 +108,7 @@ async def _provider_ingestion_guard(
                     headers={"Retry-After": str(max(1, int(wait_seconds) + 1))},
                 )
             await asyncio.sleep(wait_seconds)
+    yield
     # The transaction-scoped lock is released by the route's commit or rollback.
 
 

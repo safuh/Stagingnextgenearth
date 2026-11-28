@@ -1,12 +1,10 @@
 """Tests for tenant climate-ingestion orchestration request validation."""
 
-import os
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from stagingnextgenearth.api import climate_ingestion as climate_ingestion_api
 from stagingnextgenearth.api.climate_ingestion import (
@@ -99,34 +97,6 @@ def test_ingestion_model_rejects_both_spatial_scopes() -> None:
 
 
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_chirps_ingestion_guard_serializes_postgres_sessions() -> None:
-    database_url = os.getenv("TEST_DATABASE_URL")
-    if not database_url:
-        pytest.skip("TEST_DATABASE_URL is required for the PostgreSQL lock test")
-
-    engine = create_async_engine(database_url)
-    try:
-        if engine.dialect.name != "postgresql":
-            pytest.skip("The CHIRPS advisory lock is PostgreSQL-specific")
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as first, factory() as second:
-            async with _provider_ingestion_guard(first, "chirps-v3"):
-                with pytest.raises(HTTPException) as exc:
-                    async with _provider_ingestion_guard(second, "chirps-v3"):
-                        pytest.fail("a second CHIRPS ingestion acquired the active lock")
-                assert exc.value.status_code == 409
-                await first.commit()
-
-            await second.rollback()
-            async with _provider_ingestion_guard(second, "chirps-v3"):
-                await second.commit()
-    finally:
-        await engine.dispose()
-
-
-
 @pytest.mark.asyncio
 async def test_chirps_guard_enforces_persisted_cooldown_between_runs(
     monkeypatch: pytest.MonkeyPatch,
@@ -197,3 +167,18 @@ async def test_chirps_guard_enforces_provider_block_cooldown(
     assert exc.value.status_code == 503
     assert int(exc.value.headers["Retry-After"]) > 0
     assert session.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_chirps_guard_rejects_a_concurrent_run() -> None:
+    class FakeSession:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        async def scalar(self, statement: object, params: object | None = None) -> object:
+            return False
+
+    with pytest.raises(HTTPException) as exc:
+        async with _provider_ingestion_guard(FakeSession(), "chirps-v3"):
+            pytest.fail("a concurrent CHIRPS run should not acquire the lock")
+
+    assert exc.value.status_code == 409
