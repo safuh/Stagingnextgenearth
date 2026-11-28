@@ -16,6 +16,8 @@ export default function PartnerWorkspacePage() {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [reports, setReports] = useState<Record<string, PartnerReport>>({});
+  const [reportErrors, setReportErrors] = useState<Record<string, string>>({});
+  const [reportsLoading, setReportsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -29,7 +31,7 @@ export default function PartnerWorkspacePage() {
   useEffect(() => {
     if (!organizationId) return;
     let active = true;
-    setMembership(null); setProgrammes([]); setReports({}); setError("");
+    setMembership(null); setProgrammes([]); setReports({}); setReportErrors({}); setReportsLoading(false); setError("");
     Promise.all([
       apiGet<Membership>("/organizations/" + organizationId + "/memberships/me"),
       apiGet<Programme[]>("/organizations/" + organizationId + "/programmes"),
@@ -39,11 +41,24 @@ export default function PartnerWorkspacePage() {
         setError("This portal is available to active institutional-partner members."); return;
       }
       setMembership(member); setProgrammes(items);
+      if (items.length === 0) return;
+      setReportsLoading(true);
       const results = await Promise.all(items.map(async (programme) => {
-        const report = await apiGet<PartnerReport>("/organizations/" + organizationId + "/programmes/" + programme.id + "/partner-reporting");
-        return [programme.id, report] as const;
+        try {
+          const report = await apiGet<PartnerReport>("/organizations/" + organizationId + "/programmes/" + programme.id + "/partner-reporting");
+          return { programmeId: programme.id, report };
+        } catch (cause) {
+          return {
+            programmeId: programme.id,
+            error: cause instanceof Error ? cause.message : "Unable to load this programme report.",
+          };
+        }
       }));
-      if (active) setReports(Object.fromEntries(results));
+      if (active) {
+        setReports(Object.fromEntries(results.flatMap((item) => "report" in item ? [[item.programmeId, item.report]] : [])));
+        setReportErrors(Object.fromEntries(results.flatMap((item) => "error" in item ? [[item.programmeId, item.error]] : [])));
+        setReportsLoading(false);
+      }
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Unable to load partner reporting.");
     });
@@ -52,7 +67,7 @@ export default function PartnerWorkspacePage() {
 
   if (loading) return <main className="workspace-shell"><p>Loading partner workspace…</p></main>;
   const reportList = Object.values(reports);
-  const participationTotal = reportList.flatMap((report) => report.participation).reduce((sum, row) => sum + row.participant_count, 0);
+  const reportedCohortCountSum = reportList.flatMap((report) => report.participation).reduce((sum, row) => sum + row.participant_count, 0);
   const indicatorCount = reportList.reduce((sum, report) => sum + report.indicators.length, 0);
   const cohortCount = reportList.reduce((sum, report) => sum + report.participation.length, 0);
 
@@ -77,7 +92,7 @@ export default function PartnerWorkspacePage() {
         <div className="research-metrics" aria-label="Partner reporting summary">
           <article><span>Programmes</span><strong>{programmes.length}</strong></article>
           <article><span>Reported indicators</span><strong>{indicatorCount}</strong></article>
-          <article><span>Aggregate participants</span><strong>{participationTotal.toLocaleString()}</strong></article>
+          <article><span>Reported cohort-count sum</span><strong>{reportedCohortCountSum.toLocaleString()}</strong><p>Counts across reporting periods; not unique people.</p></article>
           <article><span>Eligible cohort reports</span><strong>{cohortCount}</strong></article>
         </div>
         <section className="research-section"><div className="section-heading"><div><p className="eyebrow">DELIVERY & OUTCOMES</p><h2>Programme reporting</h2></div></div>
@@ -85,16 +100,17 @@ export default function PartnerWorkspacePage() {
             <div className="research-record-grid">{programmes.map((programme) => {
               const report = reports[programme.id];
               return <article className="research-record" key={programme.id}>
-                <div className="research-record-top"><span className="status-chip">{programme.status}</span><span>{report ? report.participation.length : 0} eligible cohort reports</span></div>
+                <div className="research-record-top"><span className="status-chip">{programme.status}</span><span>{reportErrors[programme.id] ? "Report unavailable" : reportsLoading ? "Loading report…" : `${report ? report.participation.length : 0} eligible cohort reports`}</span></div>
                 <h3>{programme.title}</h3><p>{programme.summary || "No programme summary has been published."}</p>
+                {reportErrors[programme.id] && <p className="workspace-error" role="status">Programme report unavailable: {reportErrors[programme.id]}</p>}
                 <h4>Indicators</h4>
-                {!report || report.indicators.length === 0 ? <p>No indicators have been reported.</p> : report.indicators.map((row) => <div className="partner-indicator" key={row.title}>
+                {reportsLoading && !report && !reportErrors[programme.id] ? <p className="workspace-muted">Loading indicator and participation data…</p> : !reportErrors[programme.id] && (!report || report.indicators.length === 0) ? <p>No indicators have been reported.</p> : report?.indicators.map((row) => <div className="partner-indicator" key={row.title}>
                   <strong>{row.title}</strong>
                   <span>{row.latest_value !== null ? row.latest_value.toLocaleString() + " " + row.unit + " · " + row.period_start + " to " + row.period_end : "No measurement reported"}</span>
                   {row.target_value !== null && <small>Target: {row.target_value.toLocaleString()} {row.unit}{row.progress_percent !== null ? " · " + row.progress_percent + "% progress" : ""}</small>}
                 </div>)}
                 <h4>Aggregate participation</h4>
-                {!report || report.participation.length === 0 ? <p>No cohort totals meet the minimum reporting threshold.</p> :
+                {reportErrors[programme.id] ? null : reportsLoading && !report ? <p className="workspace-muted">Participation report is loading…</p> : !report || report.participation.length === 0 ? <p>No cohort totals meet the minimum reporting threshold.</p> :
                   <div className="partner-participation">{report.participation.map((row, index) => <div key={row.participant_group + row.period_start + index}>
                     <strong>{row.participant_group.replace(/_/g, " ")}</strong><span>{row.participant_count.toLocaleString()}</span><small>{row.period_start} to {row.period_end}</small>
                   </div>)}</div>}
