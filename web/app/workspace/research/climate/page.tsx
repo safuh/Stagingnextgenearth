@@ -6,6 +6,13 @@ import { ApiRequestError, apiGet, apiPost, hasSession } from "@/lib/api";
 
 type Organisation = { id: string; name: string; country_code: string };
 type Membership = { user_id: string; role: string; roles?: string[]; status: string };
+type ProviderCooldown = {
+  provider_id: "chirps-v3";
+  active: boolean;
+  retry_after_seconds: number;
+  retry_at: string | null;
+  reason: "provider_block" | null;
+};
 type IngestionRun = {
   id: string; provider_id: string; source_name: string; licence: string | null;
   requested_start: string; requested_end: string; requested_area: Record<string, number | string> | null;
@@ -131,17 +138,19 @@ export default function ClimateResearchStudioPage() {
   const selectedReleaseRun = publishableRuns.find((run) => run.id === selectedRunId) ?? publishableRuns[0] ?? null;
 
   const loadWorkspace = useCallback(async (orgId: string) => {
-    const [member, runItems, qualitySummary, releaseItems] = await Promise.all([
+    const [member, runItems, qualitySummary, releaseItems, cooldown] = await Promise.all([
       apiGet<Membership>(`/organizations/${orgId}/memberships/me`),
       apiGet<IngestionRun[]>(`/organizations/${orgId}/climate-ingestion?limit=50`),
       apiGet<QualitySummary>(`/organizations/${orgId}/climate-observations/quality-summary`),
       apiGet<Release[]>(`/organizations/${orgId}/climate-public-releases?limit=100`),
+      apiGet<ProviderCooldown>(`/organizations/${orgId}/climate-ingestion/cooldown?provider_id=chirps-v3`),
     ]);
     if (member.status !== "active") throw new Error("An active organisation membership is required.");
     setMembership(member);
     setRuns(runItems);
     setQuality(qualitySummary);
     setReleases(releaseItems);
+    setRetryUntil(cooldown.active ? Date.now() + cooldown.retry_after_seconds * 1000 : null);
     const eligible = runItems.find((run) => run.status === "completed" && run.records_inserted > 0);
     setSelectedRunId((current) => current && runItems.some((run) => run.id === current) ? current : eligible?.id ?? "");
   }, []);
@@ -172,13 +181,15 @@ export default function ClimateResearchStudioPage() {
       apiGet<IngestionRun[]>(`/organizations/${organisationId}/climate-ingestion?limit=50`),
       apiGet<QualitySummary>(`/organizations/${organisationId}/climate-observations/quality-summary`),
       apiGet<Release[]>(`/organizations/${organisationId}/climate-public-releases?limit=100`),
-    ]).then(([member, runItems, qualitySummary, releaseItems]) => {
+      apiGet<ProviderCooldown>(`/organizations/${organisationId}/climate-ingestion/cooldown?provider_id=chirps-v3`),
+    ]).then(([member, runItems, qualitySummary, releaseItems, cooldown]) => {
       if (!active) return;
       if (member.status !== "active") throw new Error("An active organisation membership is required.");
       setMembership(member);
       setRuns(runItems);
       setQuality(qualitySummary);
       setReleases(releaseItems);
+      setRetryUntil(cooldown.active ? Date.now() + cooldown.retry_after_seconds * 1000 : null);
       const eligible = runItems.find((run) => run.status === "completed" && run.records_inserted > 0);
       setSelectedRunId(eligible?.id ?? "");
     }).catch((cause: unknown) => {
@@ -395,7 +406,7 @@ export default function ClimateResearchStudioPage() {
           {error && <p className="climate-alert climate-alert-error" role="alert">{error}</p>}
           {retrySeconds > 0 && (
             <p className="climate-alert climate-alert-error" role="status" aria-live="polite">
-              CHIRPS safety cooldown active. New ingestion is disabled for {formatDuration(retrySeconds)}; the API enforces this limit across sessions.
+              CHIRPS safety cooldown active. New ingestion is disabled for {formatDuration(retrySeconds)}; the API enforces this limit across organisations and sessions.
             </p>
           )}
           {notice && <p className="climate-alert climate-alert-success" role="status">{notice}</p>}
