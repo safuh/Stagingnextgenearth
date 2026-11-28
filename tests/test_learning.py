@@ -152,11 +152,51 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert lesson.status_code == 201
 
+        # Draft curriculum remains editable before publication.
+        course_update = client.patch(
+            f"{base}/courses/{course_id}",
+            headers=admin_headers,
+            json={"description": "Updated draft description."},
+        )
+        assert course_update.status_code == 200
+        assert course_update.json()["description"] == "Updated draft description."
+        module_update = client.patch(
+            f"{base}/courses/{course_id}/modules/{module.json()['id']}",
+            headers=admin_headers,
+            json={"title": "Climate foundations and local risk"},
+        )
+        assert module_update.status_code == 200
+        assert module_update.json()["title"] == "Climate foundations and local risk"
+        lesson_update = client.patch(
+            f"{base}/courses/{course_id}/lessons/{lesson.json()['id']}",
+            headers=admin_headers,
+            json={
+                "title": "Assessing local climate risks",
+                "duration_minutes": 35,
+            },
+        )
+        assert lesson_update.status_code == 200
+        assert lesson_update.json()["title"] == "Assessing local climate risks"
+        assert lesson_update.json()["duration_minutes"] == 35
+
+
         published = client.post(
             f"{base}/courses/{course_id}/publish",
             headers=admin_headers,
         )
         assert published.status_code == 200
+        immutable_course_update = client.patch(
+            f"{base}/courses/{course_id}",
+            headers=admin_headers,
+            json={"description": "This must not mutate published content."},
+        )
+        assert immutable_course_update.status_code == 409
+        immutable_lesson_update = client.patch(
+            f"{base}/courses/{course_id}/lessons/{lesson.json()['id']}",
+            headers=admin_headers,
+            json={"title": "This must not mutate published content."},
+        )
+        assert immutable_lesson_update.status_code == 409
 
         # Staff membership alone must not grant access to learner curriculum.
         employee_headers = _register(client, "learning-employee@example.org")
@@ -327,10 +367,12 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         curriculum = client.get(f"{base}/courses/{course_id}/curriculum", headers=learner_headers)
         assert curriculum.status_code == 200
         assert curriculum.json()["title"] == "Community Climate Action"
-        assert curriculum.json()["description"] == (
-            "Practical climate literacy and community action."
+        assert curriculum.json()["description"] == "Updated draft description."
+        assert curriculum.json()["modules"][0]["title"] == "Climate foundations and local risk"
+        assert (
+            curriculum.json()["modules"][0]["lessons"][0]["title"]
+            == "Assessing local climate risks"
         )
-        assert curriculum.json()["modules"][0]["lessons"][0]["title"] == "Local climate risks"
 
         resources = client.get(f"{base}/courses/{course_id}/resources", headers=learner_headers)
         assert resources.status_code == 200
