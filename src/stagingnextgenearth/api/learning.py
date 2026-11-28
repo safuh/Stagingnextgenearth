@@ -2078,6 +2078,143 @@ async def export_programme_outcomes(
     )
 
 
+@router.get("/courses/{course_id}/learners/{learner_id}/progress")
+async def learner_course_progress_detail(
+    organization_id: str,
+    course_id: str,
+    learner_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Return a tenant-scoped staff view of one learner's course activity."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Learner progress permission required")
+    await _course(session, organization_id, course_id)
+    enrollment = await session.scalar(
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id == course_id,
+            LearningEnrollment.learner_id == learner_id,
+        )
+    )
+    if enrollment is None:
+        raise HTTPException(404, "Learner enrolment not found")
+    lesson_rows = await session.execute(
+        select(
+            LearningModule.id,
+            LearningModule.title,
+            LearningLesson.id,
+            LearningLesson.title,
+            LearningLesson.position,
+            LearningLessonCompletion.completed_at,
+        )
+        .join(LearningLesson, LearningLesson.module_id == LearningModule.id)
+        .outerjoin(
+            LearningLessonCompletion,
+            (
+                LearningLessonCompletion.lesson_id == LearningLesson.id
+            )
+            & (LearningLessonCompletion.enrollment_id == enrollment.id),
+        )
+        .where(LearningModule.course_id == course_id)
+        .order_by(LearningModule.position, LearningLesson.position)
+    )
+    assessment_rows = await session.execute(
+        select(
+            LearningAssessment.id,
+            LearningAssessment.title,
+            LearningAssessmentAttempt.id,
+            LearningAssessmentAttempt.score,
+            LearningAssessmentAttempt.feedback,
+            LearningAssessmentAttempt.submitted_at,
+            LearningAssessmentAttempt.evaluated_at,
+        )
+        .outerjoin(
+            LearningAssessmentAttempt,
+            (
+                LearningAssessmentAttempt.assessment_id == LearningAssessment.id
+            )
+            & (LearningAssessmentAttempt.learner_id == learner_id),
+        )
+        .where(LearningAssessment.course_id == course_id)
+        .order_by(LearningAssessment.title, LearningAssessmentAttempt.submitted_at)
+    )
+    attendance_rows = await session.scalars(
+        select(LearningAttendance)
+        .where(
+            LearningAttendance.course_id == course_id,
+            LearningAttendance.learner_id == learner_id,
+        )
+        .order_by(LearningAttendance.session_date.desc())
+        .limit(200)
+    )
+    mentorship_rows = await session.scalars(
+        select(LearningMentorship)
+        .where(
+            LearningMentorship.course_id == course_id,
+            LearningMentorship.mentee_id == learner_id,
+        )
+        .order_by(LearningMentorship.created_at.desc())
+        .limit(100)
+    )
+    lessons = [
+        {
+            "module_id": row[0],
+            "module_title": row[1],
+            "lesson_id": row[2],
+            "lesson_title": row[3],
+            "position": row[4],
+            "completed_at": row[5],
+            "completed": row[5] is not None,
+        }
+        for row in lesson_rows.all()
+    ]
+    assessments = [
+        {
+            "assessment_id": row[0],
+            "assessment_title": row[1],
+            "attempt_id": row[2],
+            "score": row[3],
+            "feedback": row[4],
+            "submitted_at": row[5],
+            "evaluated_at": row[6],
+        }
+        for row in assessment_rows.all()
+    ]
+    attendance = [
+        {
+            "session_key": item.session_key,
+            "session_title": item.session_title,
+            "session_date": item.session_date,
+            "attendance_status": item.attendance_status,
+        }
+        for item in attendance_rows.all()
+    ]
+    mentorships = [
+        {
+            "id": item.id,
+            "mentor_id": item.mentor_id,
+            "status": item.status,
+            "created_at": item.created_at,
+        }
+        for item in mentorship_rows.all()
+    ]
+    return {
+        "course_id": course_id,
+        "learner_id": learner_id,
+        "enrollment": {
+            "id": enrollment.id,
+            "status": enrollment.status,
+            "progress_percent": enrollment.progress_percent,
+            "applied_at": enrollment.applied_at,
+            "reviewed_at": enrollment.reviewed_at,
+        },
+        "lessons": lessons,
+        "assessments": assessments,
+        "attendance": attendance,
+        "mentorships": mentorships,
+    }
+
+
 @router.get("/courses/{course_id}/progress")
 async def course_progress(
     organization_id: str,
