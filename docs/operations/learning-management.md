@@ -127,3 +127,16 @@ The staff learning workspace exposes a course-scoped roster with enrolment statu
 For bounded batch review, managers can call `POST /courses/{course_id}/enrollments/bulk-decision` with 1–100 unique learner IDs and an `approved` or `rejected` decision. The response contains a result for every learner, including successful transitions and individual conflict/not-found details. Each decision is committed independently, so one invalid or already-decided application does not roll back successful decisions in the same batch. The endpoint requires a course-management role and validates the course within the organisation. The workspace splits larger selections into batches of at most 100 and displays partial failures.
 
 This increment does not replace the cohort/intake model, learner profile and history, bulk invitations, or audited transfer/withdrawal lifecycle; those remain in [issue #143](https://github.com/safuh/Stagingnextgenearth/issues/143).
+
+
+## Draft curriculum editing
+
+Course metadata, module outlines and lesson content can be updated while a course is in the `draft` state:
+
+- `PATCH /courses/{course_id}` updates course metadata. A supplied `programme_id: null` detaches the course from its programme.
+- `PATCH /courses/{course_id}/modules/{module_id}` updates a module title, description or position.
+- `PATCH /courses/{course_id}/lessons/{lesson_id}` updates lesson content, resource URL, duration, title, type or position.
+
+All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
+
+The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
