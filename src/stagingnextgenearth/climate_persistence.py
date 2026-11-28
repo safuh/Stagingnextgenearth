@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 from stagingnextgenearth.climate_quality import normalize_climate_value
 from stagingnextgenearth.platform.models import ClimateIngestionRun, ClimateObservation
@@ -129,7 +130,16 @@ async def persist_provider_measurements(
         run.records_inserted = 0
         run.records_skipped = skipped
         run.status = "failed"
-        run.error_summary = f"{type(exc).__name__}: climate provider stream failed"[:2000]
+        # Provider-unavailable messages are authored by our adapters and contain
+        # bounded operational detail (for example, an upstream timeout or rate
+        # limit). Preserve that detail for the ingestion ledger. Other exception
+        # messages may contain untrusted provider payloads or internal paths, so
+        # keep those deliberately generic.
+        if isinstance(exc, ClimateProviderUnavailable):
+            failure_detail = str(exc).strip() or "provider is temporarily unavailable"
+        else:
+            failure_detail = "climate provider stream failed"
+        run.error_summary = f"{type(exc).__name__}: {failure_detail}"[:2000]
         run.finished_at = datetime.now(UTC)
         await session.flush()
         raise

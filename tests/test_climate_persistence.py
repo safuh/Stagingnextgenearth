@@ -13,6 +13,7 @@ from stagingnextgenearth.climate_ingestion import (
     ClimateMeasurement,
     ClimatePoint,
     ClimateProviderRequest,
+    ClimateProviderUnavailable,
 )
 from stagingnextgenearth.climate_persistence import persist_provider_measurements
 from stagingnextgenearth.core.database import Base
@@ -157,6 +158,41 @@ async def test_failed_provider_stream_rolls_back_partial_observations() -> None:
         assert runs[0].records_received == 1
         assert runs[0].records_inserted == 0
         assert "upstream failure details" not in (runs[0].error_summary or "")
+    finally:
+        await session.close()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_provider_unavailable_failure_keeps_safe_operational_detail() -> None:
+    engine, session, user, organization, request = await _database()
+
+    async def unavailable_stream() -> AsyncIterator[ClimateMeasurement]:
+        raise ClimateProviderUnavailable(
+            "CHIRPS denied the request (HTTP 429). Stop retries and wait several hours."
+        )
+        yield  # pragma: no cover - make this an async generator
+
+    try:
+        with pytest.raises(ClimateProviderUnavailable, match="HTTP 429"):
+            await persist_provider_measurements(
+                session,
+                organization_id=organization.id,
+                actor_user_id=user.id,
+                provider_id="chirps-v3",
+                source_name="CHIRPS v3",
+                licence="CC-BY-4.0",
+                request=request,
+                measurements=unavailable_stream(),
+            )
+        await session.commit()
+        run = await session.scalar(select(ClimateIngestionRun))
+        assert run is not None
+        assert run.status == "failed"
+        assert run.error_summary == (
+            "ClimateProviderUnavailable: CHIRPS denied the request (HTTP 429). "
+            "Stop retries and wait several hours."
+        )
     finally:
         await session.close()
         await engine.dispose()
