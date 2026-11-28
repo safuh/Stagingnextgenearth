@@ -370,7 +370,10 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert curriculum.json()["description"] == (
             "Practical climate literacy and community action."
         )
-        assert curriculum.json()["modules"][0]["lessons"][0]["title"] == "Assessing local climate risks"
+        assert (
+            curriculum.json()["modules"][0]["lessons"][0]["title"]
+            == "Assessing local climate risks"
+        )
 
         resources = client.get(f"{base}/courses/{course_id}/resources", headers=learner_headers)
         assert resources.status_code == 200
