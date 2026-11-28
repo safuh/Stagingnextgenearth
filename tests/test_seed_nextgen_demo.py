@@ -245,3 +245,38 @@ def test_production_seed_does_not_publish_synthetic_climate_fixtures(
     assert insights == 0
 
 
+
+def test_climate_demo_publication_requires_explicit_staging_or_local_opt_in() -> None:
+    local = Settings(
+        environment=Environment.DEVELOPMENT,
+        deployment_stage=DeploymentStage.DEVELOPMENT,
+        climate_demo_seed_enabled=True,
+    )
+    staging = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=True,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+    production = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
+        climate_demo_seed_enabled=True,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+    disabled = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=False,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+
+    assert local.climate_demo_publication_allowed is True
+    assert staging.climate_demo_publication_allowed is True
+    assert production.climate_demo_publication_allowed is False
+    assert disabled.climate_demo_publication_allowed is False
+
+
