@@ -330,6 +330,18 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert licence_review.status_code == 200
         assert licence_review.json()["licence_reviewed_by"] == licence_reviewer_id
+        duplicate_licence_review = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/licence-review",
+            headers=licence_reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "Duplicate review must not create another audit event.",
+            },
+        )
+        assert duplicate_licence_review.status_code == 409
         assert licence_review.json()["licence_reviewed_at"] is not None
         assert licence_review.json()["licence_review_note"] == (
             "CC-BY terms, provider conditions, attribution and DOI citation checked."
