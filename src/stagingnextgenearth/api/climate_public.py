@@ -2,10 +2,13 @@
 """Governed public climate release lifecycle and anonymous read API."""
 
 from datetime import UTC, datetime
+import hashlib
+import json
 import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.encoders import jsonable_encoder
 
 from stagingnextgenearth.core.config import DeploymentStage, Settings
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
@@ -40,6 +43,34 @@ _DATA_CLASSES = {
     "station_observation", "satellite_estimate", "reanalysis", "forecast", "projection",
     "synthetic_demo",
 }
+
+
+_PUBLIC_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=60"
+
+
+def _public_cache_response(
+    request: Request,
+    response: Response,
+    payload: object,
+) -> Response | None:
+    """Attach a representation-specific ETag and honour conditional GET requests."""
+    encoded = json.dumps(
+        jsonable_encoder(payload),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    etag = f'"{hashlib.sha256(encoded.encode("utf-8")).hexdigest()}"'
+    headers = {"ETag": etag, "Cache-Control": _PUBLIC_CACHE_CONTROL}
+    response.headers.update(headers)
+    candidates = {
+        value.strip().removeprefix("W/")
+        for value in request.headers.get("if-none-match", "").split(",")
+        if value.strip()
+    }
+    if "*" in candidates or etag in candidates:
+        return Response(status_code=304, headers=headers)
+    return None
 
 
 def _public_release_filters(
@@ -576,7 +607,7 @@ async def list_public_releases(
     indicator: str | None = Query(default=None, min_length=2, max_length=100),
     data_class: str | None = Query(default=None, max_length=32),
     limit: int = Query(default=50, ge=1, le=100),
-) -> list[ClimateReleaseSummary]:
+) -> list[ClimateReleaseSummary] | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
@@ -590,8 +621,11 @@ async def list_public_releases(
     rows = await session.scalars(
         statement.order_by(ClimatePublicRelease.published_at.desc()).limit(limit)
     )
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return [_summary(row) for row in rows.all()]
+    result = [_summary(row) for row in rows.all()]
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -604,7 +638,7 @@ async def get_public_release(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseDetail:
+) -> ClimateReleaseDetail | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Climate release not found")
@@ -614,8 +648,11 @@ async def get_public_release(
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return ClimateReleaseDetail.model_validate(row)
+    result = ClimateReleaseDetail.model_validate(row)
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -628,7 +665,7 @@ async def get_public_release_series(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> ClimateReleaseSeries:
+) -> ClimateReleaseSeries | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Climate release not found")
@@ -638,12 +675,15 @@ async def get_public_release_series(
     ).order_by(ClimatePublicRelease.version.desc()).limit(1))
     if row is None:
         raise HTTPException(404, "Climate release not found")
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return ClimateReleaseSeries(
+    result = ClimateReleaseSeries(
         release=ClimateReleaseDetail.model_validate(row),
         series=[ClimateSeriesPoint.model_validate(point) for point in row.series_json],
         regions=[ClimateRegionValue.model_validate(region) for region in row.regions_json],
     )
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 @router.get(
@@ -655,7 +695,7 @@ async def public_climate_overview(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> dict[str, object]:
+) -> dict[str, object] | Response:
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
@@ -663,7 +703,6 @@ async def public_climate_overview(
         *_public_release_filters(org.id, request.app.state.settings),
     ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
     releases = rows.all()
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
     source_run_ids = [
         row.source_ingestion_run_id for row in releases if row.source_ingestion_run_id
     ]
@@ -678,7 +717,7 @@ async def public_climate_overview(
     latest_data_period_end = max(
         (row.period_end for row in releases), default=None
     )
-    return {
+    result: dict[str, object] = {
         "organization": org.name,
         "release_count": len(releases),
         "indicators": sorted({row.indicator for row in releases}),
@@ -688,6 +727,10 @@ async def public_climate_overview(
             latest_source_retrieved_at.isoformat() if latest_source_retrieved_at else None
         ),
     }
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
 
 
 
@@ -701,7 +744,7 @@ async def public_climate_insights(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[ClimateInsightRead]:
+) -> list[ClimateInsightRead] | Response:
     """Return editorial insights only when both linked evidence and publication are public."""
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
@@ -767,7 +810,9 @@ async def public_climate_insights(
             publication_url=publication_url,
             published_at=entry.published_at,
         ))
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
     return result
 
 
@@ -780,7 +825,7 @@ async def public_climate_sources(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[ClimateSourceRead]:
+) -> list[ClimateSourceRead] | Response:
     """Return a public-safe catalogue of sources used by published releases."""
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
@@ -807,5 +852,8 @@ async def public_climate_sources(
             sources[key] = source.model_copy(
                 update={"release_count": source.release_count + 1}
             )
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
-    return list(sources.values())
+    result = list(sources.values())
+    cached = _public_cache_response(request, response, result)
+    if cached is not None:
+        return cached
+    return result
