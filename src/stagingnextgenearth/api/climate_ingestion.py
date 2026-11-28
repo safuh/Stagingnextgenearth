@@ -57,22 +57,17 @@ async def _provider_ingestion_guard(
         yield
         return
 
-    async with engine.connect() as connection:
-        acquired = await connection.scalar(
-            text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
-            {"lock_key": _CHIRPS_ADVISORY_LOCK_KEY},
+    acquired = await session.scalar(
+        text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+        {"lock_key": _CHIRPS_ADVISORY_LOCK_KEY},
+    )
+    if not acquired:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A CHIRPS ingestion is already running. Wait for it to finish before "
+            "starting another request.",
         )
-        if not acquired:
-            await connection.rollback()
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "A CHIRPS ingestion is already running. Wait for it to finish before "
-                "starting another request.",
-            )
-        try:
-            yield
-        finally:
-            await connection.rollback()
+    # The transaction-scoped lock is released by the route's commit or rollback.
 
 
 class ClimateIngestionCreate(BaseModel):
