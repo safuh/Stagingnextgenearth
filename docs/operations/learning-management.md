@@ -118,3 +118,16 @@ python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
 
 The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
+
+
+## Draft curriculum editing
+
+Course metadata, module outlines and lesson content can be updated while a course is in the `draft` state:
+
+- `PATCH /courses/{course_id}` updates course metadata. A supplied `programme_id: null` detaches the course from its programme.
+- `PATCH /courses/{course_id}/modules/{module_id}` updates a module title, description or position.
+- `PATCH /courses/{course_id}/lessons/{lesson_id}` updates lesson content, resource URL, duration, title, type or position.
+
+All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
+
+This is the first authoring-lifecycle increment, not the complete version-governance workflow. Immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain tracked in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
