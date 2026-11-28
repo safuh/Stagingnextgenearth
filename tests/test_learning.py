@@ -355,6 +355,115 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert decision.status_code == 200
+
+        cohort = client.post(
+            f"{base}/cohorts",
+            headers=admin_headers,
+            json={
+                "name": "Climate Action Intake 2027",
+                "slug": "climate-action-intake-2027",
+                "description": "First supervised learner intake.",
+                "programme_id": programme_id,
+                "start_date": "2027-01-15",
+                "end_date": "2027-06-30",
+                "capacity": 1,
+            },
+        )
+        assert cohort.status_code == 201
+        cohort_id = cohort.json()["id"]
+        denied_cohort_create = client.post(
+            f"{base}/cohorts",
+            headers=learner_headers,
+            json={"name": "Unauthorised intake", "slug": "unauthorised-intake"},
+        )
+        assert denied_cohort_create.status_code == 403
+        assert cohort.json()["status"] == "draft"
+        assert cohort.json()["member_count"] == 0
+        early_member = client.post(
+            f"{base}/cohorts/{cohort_id}/members",
+            headers=admin_headers,
+            json={"learner_id": learner_id},
+        )
+        assert early_member.status_code == 409
+        opened_cohort = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"status": "open"},
+        )
+        assert opened_cohort.status_code == 200
+        assert opened_cohort.json()["status"] == "open"
+        linked_course = client.post(
+            f"{base}/cohorts/{cohort_id}/courses",
+            headers=admin_headers,
+            json={"course_id": course_id},
+        )
+        assert linked_course.status_code == 201
+        cohort_member = client.post(
+            f"{base}/cohorts/{cohort_id}/members",
+            headers=admin_headers,
+            json={"learner_id": learner_id},
+        )
+        assert cohort_member.status_code == 201
+        assert cohort_member.json()["display_name"] == "Name not shared"
+        assert "learner_id" not in cohort_member.json()
+        duplicate_cohort_member = client.post(
+            f"{base}/cohorts/{cohort_id}/members",
+            headers=admin_headers,
+            json={"learner_id": learner_id},
+        )
+        assert duplicate_cohort_member.status_code == 409
+        cohort_members = client.get(
+            f"{base}/cohorts/{cohort_id}/members",
+            headers=admin_headers,
+        )
+        assert cohort_members.status_code == 200
+        assert len(cohort_members.json()) == 1
+        assert "learner_id" not in cohort_members.json()[0]
+        cohort_list = client.get(f"{base}/cohorts", headers=admin_headers)
+        assert cohort_list.status_code == 200
+        assert cohort_list.json()[0]["course_count"] == 1
+        assert cohort_list.json()[0]["member_count"] == 1
+        invalid_cohort_transition = client.patch(
+            f"{base}/cohorts/{cohort_id}",
+            headers=admin_headers,
+            json={"status": "archived"},
+        )
+        assert invalid_cohort_transition.status_code == 409
+        withdrawn = client.patch(
+            f"{base}/cohorts/{cohort_id}/members/{cohort_member.json()['membership_id']}",
+            headers=admin_headers,
+            json={"status": "withdrawn"},
+        )
+        assert withdrawn.status_code == 200
+        assert withdrawn.json()["status"] == "withdrawn"
+        invalid_member_reactivation = client.patch(
+            f"{base}/cohorts/{cohort_id}/members/{cohort_member.json()['membership_id']}",
+            headers=admin_headers,
+            json={"status": "active"},
+        )
+        assert invalid_member_reactivation.status_code == 409
+        cohort_audit = client.get(
+            f"/api/organizations/{org_id}/audit-events",
+            headers=admin_headers,
+        )
+        assert cohort_audit.status_code == 200
+        assert any(
+            event["action"] == "learning.cohort.created"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.member_added"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.status_changed"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.member_status_changed"
+            for event in cohort_audit.json()
+        )
+
         promoted_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
             headers=learner_headers,
