@@ -31,7 +31,7 @@ Repository documentation and tests establish implementation intent and local/CI 
 
 ## Important distinction: seeded versus production-quality content
 
-The idempotent staging demo seed creates four published pilot courses: Research Methods and Evidence Practice, Climate and Health Resilience, Youth Climate Stewardship and Community Action, and Indigenous and Community Knowledge for Climate Resilience. The pilot contains eight ordered modules and 26 substantive lessons with further-reading links, four formative quizzes and learner progress support. It is a subject-matter review pilot, not accredited training or a final approved curriculum.
+The idempotent staging demo seed creates four published pilot courses: Research Methods and Evidence Practice, Climate and Health Resilience, Youth Climate Stewardship and Community Action, and Indigenous and Community Knowledge for Climate Resilience. The pilot contains 28 ordered modules and 86 substantive lessons with further-reading links, four formative quizzes and learner progress support. Four private, staff-editable authoring drafts mirror the published tracks without changing learner-facing content. It is a subject-matter review pilot, not accredited training or a final approved curriculum.
 
 The seed also imports website-listed people, partners, programmes, publications and impact claims. These are source-attributed records, not proof of current employment, signed partner agreements, audited impact or scientific validation. Review and correct these records with organisational owners before using them as authoritative evidence.
 
@@ -226,12 +226,12 @@ This is a code milestone, not evidence that any editorial insight has been autho
 
 ## Learning curriculum pilot content — implementation increment
 
-- Four published pilot tracks now have 26 substantive lessons across eight modules.
+- Four published pilot tracks now have 86 substantive lessons across 28 modules. Four private authoring drafts are created once for staff curriculum work.
 - Lesson content includes learning outcomes, explanatory material, applied practice and self-checks.
 - Four automated formative quizzes are seeded (four questions per course; 70% pass mark).
 - Lesson source links point to official WHO, IPCC, UNICEF, FAO, UNESCO and UN materials.
 - Learner classroom includes course overview, module completion and improved lesson-reading layout.
-- Seed script updates existing lesson records and quiz definitions idempotently.
+- Seed script bootstraps published pilot courses only when absent, creates one private authoring draft per track when absent, and preserves all existing staff-authored published and draft content on reruns.
 
 The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The Render API container startup runs the idempotent seed for the default demo organisation `next-gen-for-earth-demo`; other organisation slugs require an explicit seed command.
 
@@ -239,7 +239,7 @@ The content is a pilot for organisational review, not accreditation or a substit
 ## M121 — substantive learning curriculum pilot: deployed
 
 - Merged to staging on 26 November 2026: commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`.
-- Four pilot tracks, eight modules, 26 lessons and four formative quizzes are included in the versioned seed catalogue.
+- Four published pilot tracks, 28 modules, 86 lessons and four formative quizzes are included in the versioned seed catalogue, alongside four private authoring drafts.
 - All six CI jobs passed on the merged commit.
 - Render reports the web and API deployments live. API health checks and public course/climate catalogue requests have returned HTTP 200.
 - Staging: https://nextgen-web-upag.onrender.com

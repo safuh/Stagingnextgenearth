@@ -450,7 +450,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Complete subject-matter, clinical, research, safeguarding, accessibility and community-lead review before live cohort delivery.
 - [ ] Run an authenticated browser acceptance pass for enrolment, classroom content, quiz submission, progress and certificate wording.
 
-The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The default Render demo seed runs at API startup and overwrites its managed demo lesson and quiz content from the versioned JSON catalogue; it is not a production content-authoring workflow.
+The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The original M121 seed refreshed managed demo lesson and quiz content. M168 replaces that behaviour with a non-destructive bootstrap: create missing published courses and private authoring drafts only, preserving existing staff-authored course, module, lesson and assessment content on reruns. M168 remains pending merge and deployment until its CI and staging acceptance gates are complete.
 
 
 ## M140 — Institutional-partner reporting resilience (implementation in review)
@@ -525,3 +525,19 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Add migration, tenant/capacity/lifecycle regression tests and operations documentation.
 - [x] Full CI, merge and staging deployment.
 - [ ] Authenticated staging browser acceptance with realistic synthetic cohorts.
+
+## M168 — Non-destructive curriculum authoring drafts (local implementation; pending CI/merge/deploy)
+
+- [x] Preserve existing published course metadata, modules, lessons, resources, ordering and assessments during demo seed reruns.
+- [x] Create one private, staff-editable authoring draft for each of the four published pilot tracks when absent.
+- [x] Create four draft programme intake fixtures, one per programme, with capacity/date metadata and no implied live activation.
+- [x] Populate each authoring draft with the complete ordered module/lesson structure and formative quiz configuration.
+- [x] Preserve staff-authored changes in both published courses and authoring drafts on subsequent seed runs.
+- [x] Default the learning-admin workspace to a draft course and show published/draft pathway, intake, module and lesson counts.
+- [x] Keep public curriculum discovery limited to published courses.
+- [x] Update curriculum, operations, founder presentation and demo runbook documentation for 28 modules / 86 lessons and the draft/published boundary.
+- [x] Add regression coverage for non-destructive seed reruns, draft cohort fixtures and production settings tests that explicitly disable local DEBUG.
+- [ ] Focused backend tests, Ruff, mypy and web typecheck/lint/unit/build checks pass on the final M168 head.
+- [ ] GitHub PR checks pass and the reviewed commit is merged into staging.
+- [ ] Both Render services deploy the merge SHA and the startup seed creates four staff-only drafts without modifying published curriculum.
+- [ ] Authenticated learning-admin browser acceptance verifies draft editing, published read-only state and public learner catalogue isolation.

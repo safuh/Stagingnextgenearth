@@ -846,6 +846,8 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> 
         climate_demo_seed_enabled=True,
         database_url=database_url,
         jwt_secret_key=secret,
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     filters = climate_public._public_release_filters("demo-organisation", production)
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
@@ -859,6 +861,8 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> 
         climate_demo_seed_enabled=True,
         database_url=database_url,
         jwt_secret_key=secret,
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     test_filters = climate_public._public_release_filters("demo-organisation", staging)
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
@@ -872,6 +876,8 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> 
         climate_demo_seed_enabled=False,
         database_url=database_url,
         jwt_secret_key=secret,
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     disabled_filters = climate_public._public_release_filters(
         "demo-organisation", disabled

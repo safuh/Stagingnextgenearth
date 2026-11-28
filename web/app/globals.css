@@ -50,7 +50,7 @@ h1 em, h2 em { color: #76984d; font-weight: 500; }
 .art-caption { position: absolute; bottom: 22px; left: 25px; right: 25px; display: flex; justify-content: space-between; color: rgba(255,255,255,.82); font-size: 9px; letter-spacing: 1.3px; text-transform: uppercase; z-index: 2; }
 .section-wrap { padding: 104px 7.2%; }
 .portals { background: #fff; }
-.section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 45px; }
+.section-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 45px; }
 h2 { font-size: clamp(42px, 4.5vw, 60px); line-height: 1.08; margin: 17px 0 0; }
 .section-heading > p { max-width: 350px; color: var(--muted); font-size: 13px; line-height: 1.9; margin: 0 0 5px; }
 .portal-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
@@ -674,7 +674,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 }
 .research-metrics article strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; }
 .research-section { margin-top: 2.5rem; }
-.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .section-heading h2 { margin: .25rem 0 0; }
 .research-record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .research-record h3 { margin: .8rem 0 .5rem; }
@@ -736,7 +736,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .admin-member-meta { display: grid; gap: .35rem; min-width: 0; }
 .admin-member-meta strong { overflow-wrap: anywhere; font-size: .9rem; }
 .admin-member-meta span, .admin-audit-row small { color: var(--muted); font-size: .78rem; text-transform: capitalize; }
-.admin-member-actions { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; }
+.admin-member-actions { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
 .admin-member-actions label { display: grid; gap: .35rem; color: var(--muted); font-size: .75rem; }
 .admin-member-actions .secondary-action { margin: 0; }
 .admin-audit-row { padding: 1rem 0; border-top: 1px solid var(--line); }
@@ -796,7 +796,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 
 
 .climate-analysis-panel { margin-top: 2rem; }
-.climate-analysis-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: end; margin: 1.25rem 0; }
+.climate-analysis-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: flex-end; margin: 1.25rem 0; }
 .climate-analysis-form label { display: grid; gap: .45rem; color: var(--ink, #18251f); font-size: .9rem; font-weight: 600; }
 .climate-analysis-form input, .climate-analysis-form select { width: 100%; min-height: 2.8rem; border: 1px solid var(--line, #d8dfda); border-radius: .55rem; padding: .65rem .75rem; background: white; color: inherit; font: inherit; }
 .climate-analysis-form button { justify-self: start; }
@@ -808,7 +808,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 
 
 .climate-submission-panel { margin-top: 2rem; }
-.climate-submission-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: end; margin: 1.25rem 0 2rem; }
+.climate-submission-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: flex-end; margin: 1.25rem 0 2rem; }
 .climate-submission-form label, .climate-review-controls label { display: grid; gap: .45rem; color: var(--ink, #18251f); font-size: .9rem; font-weight: 600; }
 .climate-submission-form input, .climate-submission-form select, .climate-review-controls textarea { width: 100%; min-height: 2.8rem; border: 1px solid var(--line, #d8dfda); border-radius: .55rem; padding: .65rem .75rem; background: white; color: inherit; font: inherit; }
 .climate-submission-form button { justify-self: start; }
@@ -859,7 +859,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 }
 .admin-page-heading {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
   margin-bottom: 2.6rem;
@@ -890,7 +890,7 @@ footer .brand-mark { width: 26px; height: 26px; font-size: 15px; }
 .admin-back-link:hover { border-color: #9bb59e; background: #fff; }
 .admin-navigation-heading {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
@@ -1035,7 +1035,7 @@ body { background: var(--nfe-paper); color: #26372d; }
 .hero-art .sun, .hero-art .orbit, .hero-art .hill { display: none; }
 .art-caption { position: absolute; inset: auto 0 0; padding: 22px 25px; color: #fff; background: linear-gradient(transparent, rgba(12,35,25,.72)); font-size: .72rem; letter-spacing: .08em; }
 .section-wrap { width: min(100% - 48px, 1280px); margin: 0 auto; padding-top: clamp(72px, 8vw, 112px); padding-bottom: clamp(72px, 8vw, 112px); }
-.section-heading { align-items: end; gap: 40px; margin-bottom: 36px; }
+.section-heading { align-items: flex-end; gap: 40px; margin-bottom: 36px; }
 .section-heading h2 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(2.4rem, 4vw, 4rem); line-height: 1.05; letter-spacing: -.05em; color: var(--nfe-forest); }
 .section-heading > p { max-width: 430px; line-height: 1.75; color: #6b796f; }
 .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
@@ -1866,7 +1866,7 @@ footer > span { line-height: 1.7; }
 .climate-rail-foot { display: flex; align-items: center; gap: 9px; margin-top: auto; color: #7f9589; font-size: 8px; letter-spacing: .1em; }
 .climate-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cl-acid); box-shadow: 0 0 0 5px rgba(200,241,105,.1); }
 .climate-studio-main { min-width: 0; padding: 56px clamp(22px,5vw,76px) 90px; }
-.climate-studio-head { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 32px; }
+.climate-studio-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; margin-bottom: 32px; }
 .climate-studio-head h1 { margin: 16px 0 12px; color: var(--cl-text); font: 500 clamp(42px,5vw,67px)/.99 "Playfair Display",Georgia,serif; letter-spacing: -2.7px; }
 .climate-studio-head h1::first-letter { color: var(--cl-acid); }
 .climate-studio-head > div > p:last-child { max-width: 600px; color: var(--cl-muted); font-size: 12px; line-height: 1.8; }
@@ -2051,7 +2051,7 @@ footer > span { line-height: 1.7; }
 .climate-public-metrics span { color: #9db3a2; font-size: 7px; font-weight: 800; letter-spacing: .16em; }
 .climate-public-metrics strong { color: var(--cp-acid); font: 500 26px "Playfair Display",Georgia,serif; font-variant-numeric: tabular-nums; }
 .climate-public-content { padding: 100px 7.2% 96px; }
-.climate-public-section-head { display: flex; justify-content: space-between; align-items: end; gap: 40px; margin-bottom: 42px; }
+.climate-public-section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; margin-bottom: 42px; }
 .climate-public-section-head h2,.climate-public-principles h2 { margin: 15px 0 0; color: var(--cp-ink); font: 500 clamp(40px,4.5vw,61px)/1.02 "Playfair Display",Georgia,serif; letter-spacing: -2px; }
 .climate-public-section-head h2 em,.climate-public-principles h2 em { color: #6d944e; }
 .climate-public-section-head > p { max-width: 370px; margin: 0 0 6px; color: var(--cp-muted); font-size: 11px; line-height: 1.9; }
@@ -2220,7 +2220,7 @@ footer > span { line-height: 1.7; }
 .research-publication-toolbar {
   display: grid;
   grid-template-columns: minmax(240px, 1.5fr) minmax(125px, .55fr) minmax(180px, .8fr) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: .85rem;
   margin: 1.25rem 0 1rem;
 }

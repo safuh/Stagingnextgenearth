@@ -18,6 +18,7 @@ from stagingnextgenearth.platform.climate_public import (
 from stagingnextgenearth.platform.models import (
     InstitutionalPartner,
     LearningAssessment,
+    LearningCohort,
     LearningCourse,
     LearningLesson,
     LearningModule,
@@ -70,6 +71,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             climate_insights = [item for item in content if item.content_type == "climate_insight"]
             gallery = next((item for item in content if item.slug == "website-gallery"), None)
             programmes = list((await session.scalars(select(Programme))).all())
+            cohorts = list((await session.scalars(select(LearningCohort))).all())
             courses = list((await session.scalars(select(LearningCourse))).all())
             modules = list((await session.scalars(select(LearningModule))).all())
             lessons = list((await session.scalars(select(LearningLesson))).all())
@@ -136,11 +138,78 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                     gallery is not None and gallery.publication_state == "published"
                 ),
                 "programmes": len(programmes),
+                "cohorts": len(cohorts),
+                "cohort_codes": sorted(item.code for item in cohorts),
+                "cohorts_draft": all(item.status == "draft" for item in cohorts),
                 "courses": len(courses),
                 "course_slugs": sorted(item.slug for item in courses),
+                "published_courses": sum(item.status == "published" for item in courses),
+                "draft_courses": sum(item.status == "draft" for item in courses),
                 "modules": len(modules),
                 "lessons": len(lessons),
                 "assessments": len(assessments),
+                "staff_course_title": next(
+                    item.title for item in courses if item.slug == "early-career-researchers"
+                ),
+                "staff_module_title": next(
+                    item.title for item in modules
+                    if item.course_id == next(
+                        course.id for course in courses
+                        if course.slug == "early-career-researchers"
+                    ) and item.position == 1
+                ),
+                "staff_lesson_content": next(
+                    item.content for item in lessons
+                    if item.module_id == next(
+                        module.id for module in modules
+                        if module.course_id == next(
+                            course.id for course in courses
+                            if course.slug == "early-career-researchers"
+                        ) and module.position == 1
+                    ) and item.position == 1
+                ),
+                "staff_draft_course_title": next(
+                    item.title for item in courses
+                    if item.slug == "early-career-researchers-authoring-draft"
+                ),
+                "staff_draft_module_title": next(
+                    item.title for item in modules
+                    if item.course_id == next(
+                        course.id for course in courses
+                        if course.slug == "early-career-researchers-authoring-draft"
+                    ) and item.position == 1
+                ),
+                "staff_draft_lesson_content": next(
+                    item.content for item in lessons
+                    if item.module_id == next(
+                        module.id for module in modules
+                        if module.course_id == next(
+                            course.id for course in courses
+                            if course.slug == "early-career-researchers-authoring-draft"
+                        ) and module.position == 1
+                    ) and item.position == 1
+                ),
+                "draft_course_title": next(
+                    item.title for item in courses
+                    if item.slug == "early-career-researchers-authoring-draft"
+                ),
+                "draft_module_title": next(
+                    item.title for item in modules
+                    if item.course_id == next(
+                        course.id for course in courses
+                        if course.slug == "early-career-researchers-authoring-draft"
+                    ) and item.position == 1
+                ),
+                "draft_lesson_content": next(
+                    item.content for item in lessons
+                    if item.module_id == next(
+                        module.id for module in modules
+                        if module.course_id == next(
+                            course.id for course in courses
+                            if course.slug == "early-career-researchers-authoring-draft"
+                        ) and module.position == 1
+                    ) and item.position == 1
+                ),
                 "assessments_automated": all(
                     item.assessment_type == "quiz"
                     and len((item.configuration or {}).get("questions", [])) == 4
@@ -155,7 +224,14 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                     bool(item.resource_url) and item.resource_url.startswith("https://")
                     for item in lessons
                 ),
-                "courses_published": all(item.status == "published" for item in courses),
+                "courses_published": all(
+                    item.status == "published"
+                    for item in courses if not item.slug.endswith("-authoring-draft")
+                ),
+                "draft_courses_editable": all(
+                    item.status == "draft"
+                    for item in courses if item.slug.endswith("-authoring-draft")
+                ),
                 "users": user_count,
                 "people_public_verified": all(
                     item.visibility == "public" and item.review_state == "verified"
@@ -174,6 +250,53 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     try:
         asyncio.run(prepare())
         asyncio.run(seed_nextgen_demo.seed("nextgen-for-earth-demo"))
+
+        async def apply_staff_edits() -> None:
+            async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+                course = await session.scalar(select(LearningCourse).where(
+                    LearningCourse.slug == "early-career-researchers"
+                ))
+                assert course is not None
+                course.title = "Staff-authored research pathway"
+                module = await session.scalar(select(LearningModule).where(
+                    LearningModule.course_id == course.id,
+                    LearningModule.position == 1,
+                ))
+                assert module is not None
+                module.title = "Staff-authored module"
+                lesson = await session.scalar(select(LearningLesson).where(
+                    LearningLesson.module_id == module.id,
+                    LearningLesson.position == 1,
+                ))
+                assert lesson is not None
+                lesson.content = (
+                    "Staff-authored lesson content; preserve this revision. "
+                    + ("Updated field note. " * 35)
+                )
+
+                draft_course = await session.scalar(select(LearningCourse).where(
+                    LearningCourse.slug == "early-career-researchers-authoring-draft"
+                ))
+                assert draft_course is not None
+                draft_course.title = "Staff-authored draft pathway"
+                draft_module = await session.scalar(select(LearningModule).where(
+                    LearningModule.course_id == draft_course.id,
+                    LearningModule.position == 1,
+                ))
+                assert draft_module is not None
+                draft_module.title = "Staff-authored draft module"
+                draft_lesson = await session.scalar(select(LearningLesson).where(
+                    LearningLesson.module_id == draft_module.id,
+                    LearningLesson.position == 1,
+                ))
+                assert draft_lesson is not None
+                draft_lesson.content = (
+                    "Staff-authored draft lesson; preserve this revision. "
+                    + ("Draft field note. " * 35)
+                )
+                await session.commit()
+
+        asyncio.run(apply_staff_edits())
         first = asyncio.run(inspect_seed())
         asyncio.run(seed_nextgen_demo.seed("nextgen-for-earth-demo"))
         second = asyncio.run(inspect_seed())
@@ -204,20 +327,45 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["climate_insight_linked"] is True
     assert first["gallery_published"] is True
     assert first["programmes"] == 4
-    assert first["courses"] == 4
+    assert first["cohorts"] == 4
+    assert first["cohorts_draft"] is True
+    assert first["cohort_codes"] == [
+        "DEMO-EARLY-CAREER-RESEARCHERS",
+        "DEMO-HEALTHCARE-WORKERS",
+        "DEMO-INDIGENOUS-COMMUNITY-KNOWLEDGE",
+        "DEMO-YOUTH-CLIMATE-STEWARDS",
+    ]
+    assert first["courses"] == 8
     assert first["course_slugs"] == [
         "early-career-researchers",
+        "early-career-researchers-authoring-draft",
         "healthcare-workers",
+        "healthcare-workers-authoring-draft",
         "indigenous-community-knowledge",
+        "indigenous-community-knowledge-authoring-draft",
         "youth-climate-stewards",
+        "youth-climate-stewards-authoring-draft",
     ]
-    assert first["modules"] == 28
-    assert first["lessons"] == 86
+    assert first["published_courses"] == 4
+    assert first["draft_courses"] == 4
+    assert first["draft_courses_editable"] is True
+    assert first["modules"] == 56
+    assert first["lessons"] == 172
     assert first["lessons_substantive"] is True
     assert first["lessons_have_sources"] is True
-    assert first["assessments"] == 4
+    assert first["assessments"] == 8
     assert first["assessments_automated"] is True
     assert first["courses_published"] is True
+    assert first["staff_course_title"] == "Staff-authored research pathway"
+    assert first["staff_module_title"] == "Staff-authored module"
+    assert str(first["staff_lesson_content"]).startswith(
+        "Staff-authored lesson content; preserve this revision."
+    )
+    assert first["draft_course_title"] == "Staff-authored draft pathway"
+    assert first["draft_module_title"] == "Staff-authored draft module"
+    assert str(first["draft_lesson_content"]).startswith(
+        "Staff-authored draft lesson; preserve this revision."
+    )
     assert first["users"] == 1
     assert first["people_public_verified"] is True
     assert first["partners_public_unverified"] is True
@@ -292,6 +440,8 @@ def test_climate_demo_publication_requires_explicit_staging_or_local_opt_in() ->
         climate_demo_seed_enabled=True,
         database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
         jwt_secret_key=SecretStr("x" * 48),
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     production = Settings(
         environment=Environment.PRODUCTION,
@@ -299,6 +449,8 @@ def test_climate_demo_publication_requires_explicit_staging_or_local_opt_in() ->
         climate_demo_seed_enabled=True,
         database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
         jwt_secret_key=SecretStr("x" * 48),
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
     disabled = Settings(
         environment=Environment.PRODUCTION,
@@ -306,6 +458,8 @@ def test_climate_demo_publication_requires_explicit_staging_or_local_opt_in() ->
         climate_demo_seed_enabled=False,
         database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
         jwt_secret_key=SecretStr("x" * 48),
+        public_base_url="https://nextgenforearth.org",
+        debug=False,
     )
 
     assert local.climate_demo_publication_allowed is True
