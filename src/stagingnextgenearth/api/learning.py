@@ -1993,7 +1993,7 @@ async def export_programme_outcomes(
             "course_id",
             "course_title",
             "status",
-            "learners",
+            "enrolments",
             "approved",
             "completed",
             "average_progress",
