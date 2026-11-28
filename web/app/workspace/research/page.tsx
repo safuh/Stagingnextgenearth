@@ -8,6 +8,24 @@ interface Organization {
   id: string;
   name: string;
   country_code: string;
+  slug: string;
+}
+interface PublicResearchPublication {
+  id: string;
+  content_type: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  source_url: string | null;
+  metadata_json: {
+    authors?: string | string[];
+    publication_date?: string;
+    year?: number | string;
+    publisher?: string;
+    doi?: string;
+    topic?: string;
+  } | null;
+  published_at: string | null;
 }
 interface Membership {
   user_id: string;
@@ -141,6 +159,10 @@ const STUDY_NEXT_STATUS: Record<string, { status: string; label: string }> = {
 export default function ResearchWorkspacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState("");
+  const [publicPublications, setPublicPublications] = useState<PublicResearchPublication[]>([]);
+  const [publicPublicationsLoading, setPublicPublicationsLoading] = useState(false);
+  const [publicPublicationsError, setPublicPublicationsError] = useState("");
+  const [publicationSearch, setPublicationSearch] = useState("");
   const workspaceGeneration = useRef(0);
   const governanceRequest = useRef(0);
   const evidenceContextGeneration = useRef(0);
@@ -256,6 +278,35 @@ export default function ResearchWorkspacePage() {
     setCoverageLoading(false);
     setCoverageError("");
   }, [organizationId]);
+
+  useEffect(() => {
+    const activeOrganization = organizations.find((item) => item.id === organizationId);
+    if (!activeOrganization?.slug) {
+      setPublicPublications([]);
+      setPublicPublicationsError("");
+      setPublicPublicationsLoading(false);
+      return;
+    }
+    let active = true;
+    setPublicPublications([]);
+    setPublicPublicationsLoading(true);
+    setPublicPublicationsError("");
+    apiGet<PublicResearchPublication[]>(
+      `/public/organizations/${encodeURIComponent(activeOrganization.slug)}/content`,
+    ).then((items) => {
+      if (!active) return;
+      setPublicPublications(items.filter((item) => item.content_type === "publication"));
+    }).catch((cause: unknown) => {
+      if (active) {
+        setPublicPublicationsError(
+          cause instanceof Error ? cause.message : "The public publication catalogue could not be loaded.",
+        );
+      }
+    }).finally(() => {
+      if (active) setPublicPublicationsLoading(false);
+    });
+    return () => { active = false; };
+  }, [organizationId, organizations]);
 
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [reviewHistory, setReviewHistory] = useState<Record<string, { id: string; decision: string; note: string | null; reviewed_at: string }[]>>({});
@@ -1105,6 +1156,14 @@ export default function ResearchWorkspacePage() {
   if (loading) return <main className="workspace-shell"><p>Loading research workspace…</p></main>;
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
+  const normalizedPublicationSearch = publicationSearch.trim().toLowerCase();
+  const visiblePublications = publicPublications.filter((item) =>
+    [item.title, item.summary, item.slug, item.metadata_json?.topic]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedPublicationSearch),
+  );
   return (
     <main className="workspace-shell">
       <header className="workspace-topbar">
@@ -1117,7 +1176,7 @@ export default function ResearchWorkspacePage() {
       <section className="workspace-content">
         <p className="eyebrow">RESEARCH & CLIMATE INTELLIGENCE</p>
         <h1 className="workspace-title">Research workspace.<br /><em>Evidence, with provenance.</em></h1>
-        <p className="workspace-intro">Manage study discovery and inspect the governance state of organisation datasets. File contents remain behind separate, authorised access workflows.</p>
+        <p className="workspace-intro">Explore public research evidence, register organisation-owned studies and inspect dataset governance. File contents remain behind separate, authorised access workflows.</p>
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {organizations.length === 0 && !error ? (
@@ -1133,6 +1192,75 @@ export default function ResearchWorkspacePage() {
                 <section className="role-workspace">
                   <div><span className="eyebrow">YOUR ACCESS</span><h2>{membershipRoleLabels.join(" · ")}</h2><p>All study and dataset access is re-authorised by the API for this organisation.</p></div>
                   <div className="role-workspace-links"><Link href="/workspace">Back to organisation workspace →</Link><Link href="/workspace/research/odk">Configure ODK Central →</Link></div>
+                </section>
+                <section className="research-section research-publication-library" aria-labelledby="public-publications-heading">
+                  <div className="section-heading">
+                    <div><p className="eyebrow">PUBLIC WEBSITE / SOURCE CATALOGUE</p><h2 id="public-publications-heading">Published research library</h2></div>
+                    <span>{publicPublications.length} listed records</span>
+                  </div>
+                  <p className="workspace-muted">
+                    Research and publications listed on the NextGen For Earth public website. These are source-catalogue records,
+                    not automatically organisation-authored studies or study-linked publication records.
+                  </p>
+                  <div className="research-publication-toolbar">
+                    <label htmlFor="research-publication-search">Search the public catalogue</label>
+                    <input
+                      id="research-publication-search"
+                      type="search"
+                      value={publicationSearch}
+                      onChange={(event) => setPublicationSearch(event.target.value)}
+                      placeholder="Search title, authors, journal or topic"
+                    />
+                    <Link className="secondary-action" href="/research">Open public research page ↗</Link>
+                  </div>
+                  {publicPublicationsLoading ? (
+                    <p className="workspace-muted" role="status">Loading published website records…</p>
+                  ) : publicPublicationsError ? (
+                    <p className="workspace-error" role="alert">{publicPublicationsError}</p>
+                  ) : visiblePublications.length === 0 ? (
+                    <div className="workspace-empty">
+                      <h3>{publicPublications.length === 0 ? "No published website records" : "No matching publications"}</h3>
+                      <p>{publicPublications.length === 0
+                        ? "The public catalogue currently has no published publication records."
+                        : "Try a different title, author, journal or topic."}</p>
+                    </div>
+                  ) : (
+                    <div className="research-publication-grid">
+                      {visiblePublications.map((publication, index) => {
+                        const authors = publication.metadata_json?.authors;
+                        const authorText = typeof authors === "string"
+                          ? authors
+                          : Array.isArray(authors) ? authors.join(", ") : null;
+                        const topic = publication.metadata_json?.topic;
+                        const year = publication.metadata_json?.year ?? publication.metadata_json?.publication_date;
+                        return (
+                          <article className="research-publication-card" key={publication.id}>
+                            <div className="research-publication-card-top">
+                              <span className="research-source-tag">WEBSITE LISTING</span>
+                              <span className="research-publication-index">{String(index + 1).padStart(2, "0")}</span>
+                            </div>
+                            <h3>{publication.title}</h3>
+                            {authorText && <p className="research-publication-authors">{authorText}</p>}
+                            {publication.summary && <p className="research-publication-summary">{publication.summary}</p>}
+                            <div className="research-publication-meta">
+                              {typeof topic === "string" && <span>{topic}</span>}
+                              {(typeof year === "string" || typeof year === "number") && <span>{year}</span>}
+                              <span>NextGen For Earth public website</span>
+                            </div>
+                            {publication.source_url && (
+                              <a href={publication.source_url} target="_blank" rel="noreferrer">
+                                Open source / DOI <span aria-hidden="true">↗</span>
+                              </a>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="research-publication-footer">
+                    <span>Source records are preserved as published website listings; metadata is not silently enriched or re-attributed.</span>
+                    <a href="#research-study-registration">Create a new research study ↓</a>
+                  </div>
                 </section>
                 <section className="research-section" aria-label="Research portfolio snapshot">
                   <div className="section-heading"><div><p className="eyebrow">PORTFOLIO SNAPSHOT</p><h2>Research at a glance</h2></div><span>Current organisation</span></div>
@@ -1335,8 +1463,8 @@ export default function ResearchWorkspacePage() {
                   <article><span>Approved</span><strong>{count(datasets, "approved")}</strong></article>
                 </div>
                 <div className="staff-grid research-authoring-grid">
-                  <section className="staff-card">
-                    <p className="eyebrow">RESEARCH DESIGN</p>
+                  <section className="staff-card" id="research-study-registration">
+                    <p className="eyebrow">RESEARCH DESIGN / NEW RECORD</p>
                     <h2>Register a study</h2>
                     <p>New studies begin in concept status and are owned by the creating researcher.</p>
                     <form onSubmit={createStudy}>

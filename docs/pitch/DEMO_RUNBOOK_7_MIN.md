@@ -80,3 +80,15 @@ Before presenting, complete the human browser checks below. A successful deploym
 - [ ] Open one learner course and verify module progress, lesson content, official source links and quiz behaviour.
 - [ ] Check keyboard navigation, focus states, contrast, narrow mobile width and error/loading states.
 - [ ] Do not present pilot learning content as accredited training.
+
+
+## Research portfolio source-library check (M122)
+
+- [ ] Open `/workspace/research` with an authorised research account.
+- [ ] Confirm the **Published research library** loads records from the selected organisation's public CMS catalogue.
+- [ ] Confirm the number and titles match the public `/research` page; only published publication entries appear.
+- [ ] Search for a known title and an author/journal phrase from the listing.
+- [ ] Open a DOI/source link and verify it points to the listed source.
+- [ ] Confirm the UI labels each item as a website listing and does not claim organisational authorship or link it to a study.
+- [ ] Use **Create a new research study** to create a concept study; verify it appears in the study registry and remains subject to proposal/protocol/ethics governance.
+- [ ] Verify loading, empty and API-error states do not show fabricated publication records.

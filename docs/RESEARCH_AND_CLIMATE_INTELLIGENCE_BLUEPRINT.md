@@ -235,3 +235,12 @@ Mark each screen with a visible data badge: Website import, External provider, O
 - [ ] Research-to-climate-to-analysis-to-publication lineage is visible.
 - [ ] Tenant isolation, role enforcement and audit events are covered by tests.
 - [ ] Founder demo runbook and pitch are aligned with the actual staging build.
+
+
+## M122 — public research catalogue in the authenticated workspace
+
+The researcher workspace now reads the selected organisation's published public CMS content and presents publication entries in a separate, provenance-labelled library. The source catalogue remains distinct from organisation-owned study records and from study-linked `ResearchPublication` rows. It does not imply that a website-listed paper was authored by the organisation or belongs to a particular study.
+
+The workspace also links directly to the existing concept-study registration form. A new study is an organisation-owned record, created through the authenticated API and subject to the existing lifecycle, protocol and ethics governance.
+
+Acceptance checks: compare the panel with the current public `/research` page; verify that only published `publication` entries appear; verify DOI/source links; search by title and author string; create a concept study using an authorised staging account; and confirm the study appears in the organisation portfolio. Empty/error states must not fabricate publications.

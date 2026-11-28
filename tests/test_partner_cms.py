@@ -304,6 +304,54 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert "source_url" not in public_content.json()[0]
         assert "metadata_json" not in public_content.json()[0]
 
+        publication = client.post(
+            f"/api/organizations/{org_id}/content",
+            headers=headers,
+            json={
+                "content_type": "publication",
+                "slug": "heat-health-publication",
+                "title": "Heat, health and community resilience",
+                "summary": "A. Researcher et al. · Example Journal",
+                "metadata_json": {
+                    "authors": ["A. Researcher"],
+                    "year": 2025,
+                    "source_capture": "https://internal.example/capture",
+                },
+                "source_url": "https://doi.org/10.0000/example",
+            },
+        )
+        assert publication.status_code == 201
+        for state in ("review",):
+            moved = client.patch(
+                f"/api/organizations/{org_id}/content/{publication.json()['id']}",
+                headers=headers,
+                json={"publication_state": state},
+            )
+            assert moved.status_code == 200
+        publication_approved = client.patch(
+            f"/api/organizations/{org_id}/content/{publication.json()['id']}",
+            headers=reviewer_headers,
+            json={"publication_state": "approved"},
+        )
+        assert publication_approved.status_code == 200
+        publication_published = client.patch(
+            f"/api/organizations/{org_id}/content/{publication.json()['id']}",
+            headers=reviewer_headers,
+            json={"publication_state": "published"},
+        )
+        assert publication_published.status_code == 200
+        public_rows = client.get(
+            "/api/public/organizations/nextgen-for-earth/content"
+        ).json()
+        public_publication = next(
+            row for row in public_rows if row["content_type"] == "publication"
+        )
+        assert public_publication["source_url"] == "https://doi.org/10.0000/example"
+        assert public_publication["metadata_json"] == {
+            "authors": ["A. Researcher"],
+            "year": 2025,
+        }
+
         # Editing already-published material immediately withdraws it and
         # invalidates the prior approval so stale text cannot remain public.
         edited = client.patch(
@@ -315,4 +363,7 @@ def test_partner_and_cms_publication_workflows(tmp_path: Path) -> None:
         assert edited.json()["publication_state"] == "draft"
         assert edited.json()["approved_by"] is None
         assert edited.json()["approved_at"] is None
-        assert client.get("/api/public/organizations/nextgen-for-earth/content").json() == []
+        remaining_public = client.get(
+            "/api/public/organizations/nextgen-for-earth/content"
+        ).json()
+        assert [row["slug"] for row in remaining_public] == ["heat-health-publication"]

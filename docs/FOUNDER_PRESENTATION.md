@@ -130,3 +130,10 @@ The four-track learning curriculum pilot is merged and deployed to the staging w
 - API health: https://nextgen-api-au53.onrender.com/api/health
 
 The release includes 26 source-linked pilot lessons and four formative quizzes. It is a pilot curriculum pending organisational review, not accreditation. Infrastructure and API health are verified; a human browser-based visual and learner-flow acceptance pass remains part of the live demo checklist.
+
+
+## Research workspace — public evidence library and study creation
+
+The research workspace now brings the organisation's public website publication catalogue into the authenticated research environment as a clearly separated source library. Researchers can search the listed works and open their source/DOI links without treating a public listing as proof of organisational authorship or study linkage. The existing study registration flow remains the path for creating a new organisation-owned research record, with protocol and ethics controls preserved.
+
+This increment is pending CI and staging verification. Demonstrate it only after the staging release is live and the researcher journey has been visually checked.
