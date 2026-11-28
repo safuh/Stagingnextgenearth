@@ -1,6 +1,6 @@
 """Tests for the CHIRPS v3 daily raster adapter."""
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -14,6 +14,7 @@ from stagingnextgenearth.providers import chirps
 from stagingnextgenearth.providers.chirps import (
     CHIRPS_V3_DAILY_BASE_URL,
     CHIRPSProvider,
+    _measurements_for_day,
 )
 
 
@@ -288,6 +289,24 @@ async def test_chirps_rejects_raster_larger_than_download_limit() -> None:
                     _request(point=ClimatePoint(latitude=-1.26, longitude=36.76))
                 )
             )
+
+
+def test_chirps_omits_non_finite_and_missing_raster_values() -> None:
+    values = _measurements_for_day(
+        [
+            (-1.25, 36.75, 12.5),
+            (-1.25, 36.80, float("nan")),
+            (-1.30, 36.75, float("inf")),
+            (-1.30, 36.80, -9999.0),
+        ],
+        date(2026, 1, 1),
+        "sat",
+        False,
+    )
+
+    assert len(values) == 1
+    assert values[0].value == 12.5
+    assert values[0].provider_record_id == "sat:2026-01-01:-1.25000:36.75000"
 
 
 def test_chirps_rejects_non_positive_raster_download_limit() -> None:

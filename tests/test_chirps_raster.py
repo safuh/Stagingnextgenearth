@@ -70,6 +70,38 @@ def test_geotiff_area_extraction_returns_cell_centres_and_skips_nodata(
     ]
 
 
+def test_geotiff_area_extraction_skips_non_finite_pixels() -> None:
+    values = np.array(
+        [[1.0, float("nan")], [float("inf"), 4.0]],
+        dtype="float32",
+    )
+    with MemoryFile() as memory_file:
+        with memory_file.open(
+            driver="GTiff",
+            height=2,
+            width=2,
+            count=1,
+            dtype="float32",
+            crs="EPSG:4326",
+            transform=from_origin(36.7, -1.2, 0.05, 0.05),
+            nodata=-9999.0,
+        ) as dataset:
+            dataset.write(values, 1)
+        content = memory_file.read()
+
+    cells = _decode_geotiff(
+        content,
+        None,
+        ClimateBoundingBox(west=36.7, south=-1.3, east=36.8, north=-1.2),
+        10,
+    )
+
+    assert cells == [
+        (-1.225, 36.725, 1.0),
+        (-1.275, 36.775, 4.0),
+    ]
+
+
 def test_geotiff_area_extraction_enforces_cell_limit(
     synthetic_chirps_geotiff: bytes,
 ) -> None:

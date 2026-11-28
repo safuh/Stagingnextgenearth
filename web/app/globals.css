@@ -1912,6 +1912,7 @@ footer > span { line-height: 1.7; }
 .climate-run-row > span { display: grid; gap: 5px; }
 .climate-run-row strong { font-size: 10px; }
 .climate-run-row small { color: #82988c; font-size: 8px; }
+.climate-run-row small.climate-run-error { color: #ffb5a9; overflow-wrap: anywhere; line-height: 1.5; }
 .climate-run-row i { color: var(--cl-acid); font-size: 8px; font-style: normal; text-transform: uppercase; }
 .climate-run-row i.is-warn { color: #f0bd78; }
 .climate-side-note { margin-top: 22px; }

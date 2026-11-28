@@ -177,6 +177,9 @@ export default function ClimateResearchStudioPage() {
       setStage("verify");
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Provider ingestion failed.");
+      // A failed provider run is still an auditable ledger entry. Refresh it
+      // immediately so the operator can see the recorded failure summary.
+      try { await refresh(); } catch { /* preserve the primary ingestion error */ }
     } finally { setBusy(false); }
   }
 
@@ -332,7 +335,11 @@ export default function ClimateResearchStudioPage() {
                     <p className="climate-kicker">RECENT ACTIVITY</p><h3>Ingestion ledger</h3>
                     {runs.length === 0 ? <p className="climate-muted">No provider runs yet. Start with a bounded CHIRPS request.</p> : runs.slice(0, 7).map((run) => (
                       <button className="climate-run-row" key={run.id} onClick={() => { setSelectedRunId(run.id); setStage("verify"); }}>
-                        <span><strong>{run.source_name}</strong><small>{formatDate(run.started_at)} · {run.records_inserted.toLocaleString()} records</small></span>
+                        <span>
+                          <strong>{run.source_name}</strong>
+                          <small>{formatDate(run.started_at)} · {run.records_inserted.toLocaleString()} records</small>
+                          {run.error_summary && <small className="climate-run-error" role="note">{run.error_summary}</small>}
+                        </span>
                         <i className={run.status === "completed" ? "is-good" : "is-warn"}>{run.status}</i>
                       </button>
                     ))}
