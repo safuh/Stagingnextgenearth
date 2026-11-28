@@ -251,6 +251,8 @@ class ClimateReleaseLicenceReview(BaseModel):
             self.citation_confirmed,
         )):
             raise ValueError("Every licence, terms, attribution and citation check must be confirmed")
+        if len(self.note.strip()) < 10:
+            raise ValueError("A substantive licence review note is required")
         return self
 
 
