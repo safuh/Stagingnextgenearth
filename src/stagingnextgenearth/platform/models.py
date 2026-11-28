@@ -884,6 +884,111 @@ class ResearchPublicationMetadataSource(Base):
 
 
 
+class LearningCohort(Base):
+    """Tenant-scoped learner intake or delivery cohort."""
+
+    __tablename__ = "learning_cohorts"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_learning_cohort_org_slug"),
+        CheckConstraint(
+            "status IN ('draft', 'open', 'active', 'closed', 'archived')",
+            name="ck_learning_cohort_status",
+        ),
+        CheckConstraint(
+            "capacity IS NULL OR capacity > 0",
+            name="ck_learning_cohort_capacity",
+        ),
+        CheckConstraint(
+            "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",
+            name="ck_learning_cohort_date_order",
+        ),
+        Index("ix_learning_cohorts_org_status", "organization_id", "status"),
+        Index("ix_learning_cohorts_programme", "programme_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    capacity: Mapped[int | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LearningCohortCourse(Base):
+    """Course included in a cohort's learning plan."""
+
+    __tablename__ = "learning_cohort_courses"
+    __table_args__ = (
+        UniqueConstraint("cohort_id", "course_id", name="uq_learning_cohort_course"),
+        Index("ix_learning_cohort_courses_org", "organization_id", "cohort_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    cohort_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LearningCohortMembership(Base):
+    """Learner participation in a cohort, independent of individual course enrolments."""
+
+    __tablename__ = "learning_cohort_memberships"
+    __table_args__ = (
+        UniqueConstraint("cohort_id", "learner_id", name="uq_learning_cohort_learner"),
+        CheckConstraint(
+            "status IN ('active', 'completed', 'withdrawn', 'suspended')",
+            name="ck_learning_cohort_membership_status",
+        ),
+        Index("ix_learning_cohort_memberships_org_status", "organization_id", "status"),
+        Index("ix_learning_cohort_memberships_cohort", "cohort_id"),
+        Index("ix_learning_cohort_memberships_learner", "learner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    cohort_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="CASCADE"), nullable=False
+    )
+    learner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
 class LearningCourse(Base):
     """Organisation-owned course published to learner portals."""
 
@@ -1228,7 +1333,9 @@ class OrganizationAuditEvent(Base):
             "'membership.role_changed', 'membership.roles_changed', 'membership.status_changed', "
             "'organization.ownership_transferred', "
             "'volunteer_application.decided', 'employment_application.decided', "
-            "'learning.mentorship.status_changed', 'climate.observation.reviewed', "
+            "'learning.mentorship.status_changed', 'learning.cohort.created', "
+            "'learning.cohort.course_linked', 'learning.cohort.member_added', "
+            "'learning.cohort.member_status_changed', 'learning.cohort.status_changed', 'climate.observation.reviewed', "
             "'research.study.status_changed', 'research.protocol.version_created', "
             "'research.protocol.submitted', 'research.protocol.reviewed', "
             "'research.ethics.review_recorded')",
