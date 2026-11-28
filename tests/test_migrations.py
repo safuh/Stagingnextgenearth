@@ -17,7 +17,14 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = url
     command = [sys.executable, "-m", "alembic"]
-    subprocess.run([*command, "upgrade", "head"], check=True, env=env)
+    upgrade = subprocess.run(
+        [*command, "upgrade", "head"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert upgrade.returncode == 0, upgrade.stdout + upgrade.stderr
 
     expected_columns = {
         "users": {"id", "identifier", "password_hash", "password_changed_at", "created_at"},
