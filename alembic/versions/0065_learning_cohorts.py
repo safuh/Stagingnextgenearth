@@ -38,8 +38,12 @@ def upgrade() -> None:
         sa.Column("capacity", sa.Integer(), nullable=True),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("created_by", sa.String(length=36), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint(
             "status IN ('draft', 'open', 'active', 'closed', 'archived')",
             name="ck_learning_cohort_status",
@@ -66,7 +70,9 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.String(length=36), nullable=False),
         sa.Column("cohort_id", sa.String(length=36), nullable=False),
         sa.Column("course_id", sa.String(length=36), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["cohort_id"], ["learning_cohorts.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["course_id"], ["learning_courses.id"], ondelete="CASCADE"),
@@ -74,7 +80,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("cohort_id", "course_id", name="uq_learning_cohort_course"),
     )
     op.create_index(
-        "ix_learning_cohort_courses_org", "learning_cohort_courses", ["organization_id", "cohort_id"]
+        "ix_learning_cohort_courses_org",
+        "learning_cohort_courses",
+        ["organization_id", "cohort_id"],
     )
 
     op.create_table(
@@ -84,7 +92,9 @@ def upgrade() -> None:
         sa.Column("cohort_id", sa.String(length=36), nullable=False),
         sa.Column("learner_id", sa.String(length=36), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
-        sa.Column("joined_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "joined_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("created_by", sa.String(length=36), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'completed', 'withdrawn', 'suspended')",
@@ -129,12 +139,24 @@ def downgrade() -> None:
             "'research.protocol.version_created', 'research.protocol.submitted', "
             "'research.protocol.reviewed', 'research.ethics.review_recorded')",
         )
-    op.drop_index("ix_learning_cohort_memberships_learner", table_name="learning_cohort_memberships")
-    op.drop_index("ix_learning_cohort_memberships_cohort", table_name="learning_cohort_memberships")
-    op.drop_index("ix_learning_cohort_memberships_org_status", table_name="learning_cohort_memberships")
+    op.drop_index(
+        "ix_learning_cohort_memberships_learner", table_name="learning_cohort_memberships"
+    )
+    op.drop_index(
+        "ix_learning_cohort_memberships_cohort", table_name="learning_cohort_memberships"
+    )
+    op.drop_index(
+        "ix_learning_cohort_memberships_org_status", table_name="learning_cohort_memberships"
+    )
     op.drop_table("learning_cohort_memberships")
-    op.drop_index("ix_learning_cohort_courses_org", table_name="learning_cohort_courses")
+    op.drop_index(
+        "ix_learning_cohort_courses_org", table_name="learning_cohort_courses"
+    )
     op.drop_table("learning_cohort_courses")
-    op.drop_index("ix_learning_cohorts_programme", table_name="learning_cohorts")
-    op.drop_index("ix_learning_cohorts_org_status", table_name="learning_cohorts")
+    op.drop_index(
+        "ix_learning_cohorts_programme", table_name="learning_cohorts"
+    )
+    op.drop_index(
+        "ix_learning_cohorts_org_status", table_name="learning_cohorts"
+    )
     op.drop_table("learning_cohorts")
