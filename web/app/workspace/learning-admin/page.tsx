@@ -253,24 +253,26 @@ export default function LearningAdminPage() {
     setReport(courseReport);
   }, [courseId, organizationId]);
 
+  const refreshCurriculum = useCallback(async (id = courseId) => {
+    if (!organizationId || !id) return;
+    const outline = await apiGet<{
+      title: string;
+      description: string;
+      modules: ModuleChoice[];
+    }>(`/organizations/${organizationId}/learning/courses/${id}/curriculum`);
+    setCurriculum(outline);
+    setModules(outline.modules);
+  }, [courseId, organizationId]);
+
   useEffect(() => {
     if (!courseId || !organizationId) return;
     setError("");
     refreshReports().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Staff permissions are required to view learning operations."));
-    apiGet<{
-      title: string;
-      description: string;
-      modules: ModuleChoice[];
-    }>(
-      `/organizations/${organizationId}/learning/courses/${courseId}/curriculum`,
-    ).then((outline) => {
-      setCurriculum(outline);
-      setModules(outline.modules);
-    }).catch(() => {
+    refreshCurriculum().catch(() => {
       setCurriculum(null);
       setModules([]);
     });
-  }, [courseId, organizationId, refreshReports]);
+  }, [courseId, organizationId, refreshReports, refreshCurriculum]);
 
   async function exportProgrammeOutcomes() {
     if (!organizationId || !selectedProgrammeId) return;
@@ -469,6 +471,7 @@ export default function LearningAdminPage() {
         },
       );
       setModules((current) => [...current, created].sort((a, b) => a.position - b.position));
+      await refreshCurriculum();
     });
     event.currentTarget.reset();
   }
@@ -485,6 +488,7 @@ export default function LearningAdminPage() {
         duration_minutes: data.get("duration_minutes") ? Number(data.get("duration_minutes")) : null,
         position: Number(data.get("position")),
       });
+      await refreshCurriculum();
     });
     event.currentTarget.reset();
   }
@@ -731,7 +735,7 @@ export default function LearningAdminPage() {
             {courses.find((course) => course.id === courseId)?.status !== "draft" ? (
               <p className="workspace-muted">Select a draft course to edit. Published courses are read-only.</p>
             ) : (
-              <form onSubmit={updateCourse}>
+              <form key={courseId} onSubmit={updateCourse}>
                 <label>Title<input name="title" minLength={3} maxLength={240} defaultValue={courses.find((course) => course.id === courseId)?.title ?? ""} required /></label>
                 <label>Slug<input name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={courses.find((course) => course.id === courseId)?.slug ?? ""} required /></label>
                 <label>Description<textarea name="description" maxLength={12000} defaultValue={courses.find((course) => course.id === courseId)?.description ?? ""} required /></label>
@@ -811,12 +815,12 @@ export default function LearningAdminPage() {
           <section className="staff-card">
             <h2>Learner roster <span>{enrollments.length} enrolments · {enrollments.filter((item) => item.status === "applied").length} pending</span></h2>
             <div className="staff-actions">
-              <label>Search learner reference
+              <label>Search learner ID
                 <input
                   type="search"
                   value={enrollmentSearch}
                   onChange={(event) => setEnrollmentSearch(event.target.value)}
-                  placeholder="Filter by learner reference"
+                  placeholder="Filter by learner ID"
                 />
               </label>
               <label>Cohort
@@ -846,7 +850,6 @@ export default function LearningAdminPage() {
             {enrollments.length === 0 ? <p className="workspace-muted">No learner enrolments yet.</p> : enrollments
               .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
               .filter((item) => item.learner_ref.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
-              .filter((item) => cohortFilter === "all" || (cohortFilter === "unassigned" ? !item.cohort_id : item.cohort_id === cohortFilter))
               .map((item) => (
                 <article className="staff-record" key={item.id}>
                   <strong>{item.learner_ref}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()} · {item.cohort_title ?? "No cohort"}</small>
