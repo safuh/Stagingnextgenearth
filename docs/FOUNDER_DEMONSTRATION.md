@@ -34,12 +34,12 @@ Demonstrate one coherent organisational platform: a public website backed by gov
    - Explain the volunteer safeguarding gate and approval process.
 
 5. **Research, climate intelligence and ODK (4 min)**
-   - Show research studies, proposal/protocol governance, dataset review and provenance.
-   - Open Research → Configure ODK Central; show the encrypted connection summary, project form catalogue, explicit form mappings and recent sync history.
-   - If no Central test project/account is available, demonstrate the loopback synthetic protocol simulator (`uv run python scripts/run_odk_mock_central.py --host 127.0.0.1 --port 8765 --page-size 1`) and explicitly label its two records as synthetic.
-   - Demonstrate a real ODK Central connection and worker sync only when a non-production Central project and dedicated read-only account are configured; the simulator is not evidence of live Central acceptance.
-   - Demonstrate NASA POWER, OpenAlex and climate ingestion only when the providers are configured and live data is available.
-   - Distinguish imported observations from independently reviewed, safeguarded research evidence.
+   - Show the populated research catalogue: research themes, website-listed publications, DOI links and the research workspace's study/protocol/dataset governance.
+   - Open the public `/climate-intelligence` hub. Inspect the published synthetic rainfall and temperature releases, 72 monthly points per series, regional comparison tables, source register, methodology and research-linked field note.
+   - State the synthetic-data disclosure before interpreting any chart: these values are deterministic product fixtures, not measured climate conditions, provider retrievals, forecasts or scientific findings.
+   - Open each release detail to inspect the time series, regional summaries, data classification, method and limitations. The linked SENIORS publication is separate research context and does not validate or analyse the synthetic values.
+   - In the authenticated Climate Studio, show bounded CHIRPS ingestion, provider-run history, sample inspection, independent quality review and the real release workflow. Only call a run live when a provider request actually succeeds.
+   - Open Research → Configure ODK Central; show the encrypted connection summary, project form catalogue, explicit form mappings and recent sync history. Use the loopback simulator only when no non-production Central account is available, and label its records synthetic.
 
 6. **Founder / executive overview and CMS (3 min)**
    - Open Administration → Executive overview.
@@ -55,7 +55,9 @@ Demonstrate one coherent organisational platform: a public website backed by gov
 - Partner candidates remain unverified until the organisation records evidence and changes their verification state.
 - CMS entries remain unpublished until an authorised reviewer verifies the source and approves publication. Authors cannot approve their own submissions.
 - Research concepts remain concepts until protocol, ethics/safeguarding, investigators, timeline and approvals are established.
-- If a provider integration is unavailable, state that it is configured but not currently returning live data; do not fabricate a result.
+- Synthetic climate releases are intentionally published only in non-production staging to make the public experience demonstrable. Every card, detail page and source record must identify them as synthetic fixtures; never describe them as observed, forecast, provider-backed or independently reviewed climate evidence.
+- Production public climate APIs exclude the synthetic demo provider, and production seeding must not create these fixtures.
+- If a real provider integration is unavailable, state that it is not currently returning live data; do not fabricate a provider result.
 - Do not use production learner records for a demonstration.
 
 ## Go-live acceptance checklist
@@ -150,10 +152,15 @@ uv run python scripts/seed_nextgen_demo.py \
 ```
 
 The second command inserts website-sourced people, partner prospects, CMS
-records and draft programmes directly into the selected organisation. It uses
-the owner as the audit actor and must only be run against the dedicated demo
-DB. It does not create user accounts, verify partners, approve content or
-publish impact claims. Re-running it does not duplicate matching records.
+records, programmes and four published pilot courses. In non-production
+environments it also publishes two explicitly synthetic climate releases
+(rainfall and temperature, 72 monthly points each) plus a research-linked demo
+field note. Those climate fixtures exist to demonstrate the public catalogue,
+series charts, regional comparisons and provenance UI; they are not observations
+or scientific evidence. The script skips synthetic climate publication when
+`ENVIRONMENT=production`. Run it only against the dedicated demo DB.
+Re-running it is idempotent. It does not create user accounts, verify partners,
+or publish independently verified impact claims.
 
 To add demo employees, volunteers or learners, use a private copy of the
 manifest and the `staff` / `learners` arrays documented in
