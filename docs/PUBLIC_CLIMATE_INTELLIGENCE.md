@@ -288,6 +288,8 @@ Still outstanding:
 - Explicit public regional aggregation and a dedicated regions endpoint.
 - Curated climate insight/editorial records and the insights endpoint.
 - Spatial maps and geographic comparison visualisations.
-- Stale-data indicators, ETags/cache invalidation and operational monitoring for public release freshness.
+- Stale-data labels based on an agreed, indicator-specific freshness policy; do not infer staleness from an arbitrary age threshold.
+- ETags and conditional GET support on anonymous public climate reads, with freshness provenance in the overview. External staging verification of `304 Not Modified` remains outstanding.
+- Automated cache invalidation on publish/retract and operational monitoring/alerting for provider retrieval and public release freshness.
 - Durable asynchronous jobs for larger provider backfills; the current endpoint is synchronous and should remain bounded.
 Do not claim the public climate hub is populated or live until a real provider-backed run has been quality-reviewed, published and verified through the staging public API.
