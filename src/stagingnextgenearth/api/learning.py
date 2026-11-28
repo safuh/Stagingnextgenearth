@@ -489,7 +489,7 @@ async def list_learning_cohorts(
     counts: dict[str, int] = {}
     if cohorts:
         count_rows = await session.execute(
-            select(LearningEnrollment.cohort_id, func.count(LearningEnrollment.id))
+            select(LearningEnrollment.cohort_id, func.count(func.distinct(LearningEnrollment.learner_id)))
             .where(
                 LearningEnrollment.cohort_id.in_([item.id for item in cohorts]),
                 LearningEnrollment.status.in_({"applied", "approved", "completed"}),
@@ -626,7 +626,7 @@ async def update_learning_cohort(
         raise HTTPException(409, "Invalid cohort lifecycle transition")
     if "capacity" in changes and changes["capacity"] is not None:
         assigned_count = await session.scalar(
-            select(func.count(LearningEnrollment.id)).where(
+            select(func.count(func.distinct(LearningEnrollment.learner_id))).where(
                 LearningEnrollment.cohort_id == cohort.id,
                 LearningEnrollment.status.in_({"applied", "approved", "completed"}),
             )
@@ -652,7 +652,7 @@ async def update_learning_cohort(
     await session.commit()
     await session.refresh(cohort)
     assigned_count = await session.scalar(
-        select(func.count(LearningEnrollment.id)).where(
+        select(func.count(func.distinct(LearningEnrollment.learner_id))).where(
             LearningEnrollment.cohort_id == cohort.id,
             LearningEnrollment.status.in_({"applied", "approved", "completed"}),
         )
@@ -720,7 +720,7 @@ async def assign_enrollment_cohort(
             raise HTTPException(409, "Cohort is not accepting learner assignments")
         if enrollment.cohort_id != cohort.id and cohort.capacity is not None:
             assigned_count = await session.scalar(
-                select(func.count(LearningEnrollment.id)).where(
+                select(func.count(func.distinct(LearningEnrollment.learner_id))).where(
                     LearningEnrollment.cohort_id == cohort.id,
                     LearningEnrollment.status.in_({"applied", "approved", "completed"}),
                 )
