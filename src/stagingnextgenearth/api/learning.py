@@ -184,6 +184,35 @@ class CourseRead(BaseModel):
     status: str
 
 
+class CourseUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=240)
+    slug: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=140,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+    description: str | None = Field(default=None, min_length=1, max_length=12000)
+    category: str | None = Field(default=None, max_length=100)
+    programme_id: str | None = None
+    delivery_mode: Literal["online", "in_person", "blended"] | None = None
+
+
+class ModuleUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=240)
+    description: str | None = Field(default=None, max_length=5000)
+    position: int | None = Field(default=None, ge=1, le=500)
+
+
+class LessonUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=240)
+    content_type: Literal["text", "video", "document", "link", "workshop"] | None = None
+    content: str | None = Field(default=None, max_length=30000)
+    resource_url: str | None = Field(default=None, max_length=2000)
+    duration_minutes: int | None = Field(default=None, ge=1, le=1440)
+    position: int | None = Field(default=None, ge=1, le=500)
+
+
 class ModuleCreate(BaseModel):
     title: str = Field(min_length=2, max_length=240)
     description: str | None = Field(default=None, max_length=5000)
@@ -406,6 +435,150 @@ async def list_courses(
         statement = statement.where(LearningCourse.status == "published")
     result = await session.scalars(statement.order_by(LearningCourse.title).limit(200))
     return [CourseRead.model_validate(row) for row in result.all()]
+
+
+@router.patch("/courses/{course_id}", response_model=CourseRead)
+async def update_course(
+    organization_id: str,
+    course_id: str,
+    body: CourseUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CourseRead:
+    """Edit course metadata while the curriculum remains a draft."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Course management permission required")
+    course = await _course(session, organization_id, course_id)
+    if course.status != "draft":
+        raise HTTPException(409, "Only draft courses can be edited")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one course field must be supplied")
+    required_fields = ("title", "slug", "description", "delivery_mode")
+    if any(
+        changes.get(field) is None for field in required_fields if field in changes
+    ):
+        raise HTTPException(422, "Required course fields cannot be null")
+    if "programme_id" in changes and changes["programme_id"] is not None:
+        programme_exists = await session.scalar(
+            select(Programme.id).where(
+                Programme.id == changes["programme_id"],
+                Programme.organization_id == organization_id,
+            )
+        )
+        if programme_exists is None:
+            raise HTTPException(404, "Programme not found in this organisation")
+    if "title" in changes and changes["title"] is not None:
+        changes["title"] = changes["title"].strip()
+    for field, value in changes.items():
+        setattr(course, field, value)
+    try:
+        await session.commit()
+        await session.refresh(course)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Course slug already exists") from exc
+    return CourseRead.model_validate(course)
+
+
+@router.patch("/courses/{course_id}/modules/{module_id}")
+async def update_module(
+    organization_id: str,
+    course_id: str,
+    module_id: str,
+    body: ModuleUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Course management permission required")
+    course = await _course(session, organization_id, course_id)
+    if course.status != "draft":
+        raise HTTPException(409, "Modules can only be edited while the course is a draft")
+    module = await session.scalar(
+        select(LearningModule).where(
+            LearningModule.id == module_id,
+            LearningModule.course_id == course_id,
+        )
+    )
+    if module is None:
+        raise HTTPException(404, "Module not found")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one module field must be supplied")
+    if any(changes.get(field) is None for field in ("title", "position") if field in changes):
+        raise HTTPException(422, "Module title and position cannot be null")
+    if "title" in changes and changes["title"] is not None:
+        changes["title"] = changes["title"].strip()
+    for field, value in changes.items():
+        setattr(module, field, value)
+    try:
+        await session.commit()
+        await session.refresh(module)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Module position already exists") from exc
+    return {
+        "id": module.id,
+        "course_id": module.course_id,
+        "title": module.title,
+        "description": module.description,
+        "position": module.position,
+    }
+
+
+@router.patch("/courses/{course_id}/lessons/{lesson_id}")
+async def update_lesson(
+    organization_id: str,
+    course_id: str,
+    lesson_id: str,
+    body: LessonUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Course management permission required")
+    course = await _course(session, organization_id, course_id)
+    if course.status != "draft":
+        raise HTTPException(409, "Lessons can only be edited while the course is a draft")
+    lesson = await session.scalar(
+        select(LearningLesson)
+        .join(LearningModule)
+        .where(
+            LearningLesson.id == lesson_id,
+            LearningModule.course_id == course_id,
+        )
+    )
+    if lesson is None:
+        raise HTTPException(404, "Lesson not found")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one lesson field must be supplied")
+    required_fields = ("title", "content_type", "position")
+    if any(
+        changes.get(field) is None for field in required_fields if field in changes
+    ):
+        raise HTTPException(422, "Lesson title, content type and position cannot be null")
+    if "title" in changes and changes["title"] is not None:
+        changes["title"] = changes["title"].strip()
+    for field, value in changes.items():
+        setattr(lesson, field, value)
+    try:
+        await session.commit()
+        await session.refresh(lesson)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Lesson position already exists") from exc
+    return {
+        "id": lesson.id,
+        "module_id": lesson.module_id,
+        "title": lesson.title,
+        "content_type": lesson.content_type,
+        "content": lesson.content,
+        "resource_url": lesson.resource_url,
+        "duration_minutes": lesson.duration_minutes,
+        "position": lesson.position,
+    }
 
 
 @router.post("/courses/{course_id}/publish", response_model=CourseRead)
