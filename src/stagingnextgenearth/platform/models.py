@@ -1335,7 +1335,7 @@ class OrganizationAuditEvent(Base):
             "'volunteer_application.decided', 'employment_application.decided', "
             "'learning.mentorship.status_changed', 'learning.cohort.created', "
             "'learning.cohort.course_linked', 'learning.cohort.member_added', "
-            "'learning.cohort.member_status_changed', 'climate.observation.reviewed', "
+            "'learning.cohort.member_status_changed', 'learning.cohort.status_changed', 'climate.observation.reviewed', "
             "'research.study.status_changed', 'research.protocol.version_created', "
             "'research.protocol.submitted', 'research.protocol.reviewed', "
             "'research.ethics.review_recorded')",
