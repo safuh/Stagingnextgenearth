@@ -782,6 +782,39 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert summary.json()["assessment_submissions"] >= 1
         assert summary.json()["pending_evaluations"] == 0
 
+        # The same learner may enrol in multiple courses. Portfolio metrics must
+        # count one unique learner and two course-enrolment records.
+        second_course = client.post(
+            f"{base}/courses",
+            headers=admin_headers,
+            json={
+                "title": "Youth Climate Practice",
+                "slug": "youth-climate-practice",
+                "description": "Practical exercises for community climate action.",
+                "category": "climate",
+                "programme_id": programme_id,
+                "delivery_mode": "online",
+            },
+        )
+        assert second_course.status_code == 201
+        second_course_id = second_course.json()["id"]
+        second_course_publish = client.post(
+            f"{base}/courses/{second_course_id}/publish",
+            headers=admin_headers,
+        )
+        assert second_course_publish.status_code == 200
+        second_application = client.post(
+            f"{base}/courses/{second_course_id}/enrollments",
+            headers=learner_headers,
+        )
+        assert second_application.status_code == 201
+        second_approval = client.post(
+            f"{base}/courses/{second_course_id}/enrollments/{learner_id}/decision",
+            headers=admin_headers,
+            json={"decision": "approved"},
+        )
+        assert second_approval.status_code == 200
+
         programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
             headers=admin_headers,
@@ -789,13 +822,16 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert programme_outcomes.status_code == 200
         outcomes = programme_outcomes.json()
         assert outcomes["programme_id"] == programme_id
-        assert outcomes["course_count"] == 1
+        assert outcomes["course_count"] == 2
         assert outcomes["totals"]["learners"] == 3
-        assert outcomes["totals"]["enrolments"] == 3
+        assert outcomes["totals"]["enrolments"] == 4
         assert outcomes["totals"]["completed"] == 1
         assert outcomes["totals"]["attendance_records"] == 2
         assert outcomes["totals"]["pending_evaluations"] == 0
-        assert outcomes["courses"][0]["course_id"] == course_id
+        assert {item["course_id"] for item in outcomes["courses"]} == {
+            course_id,
+            second_course_id,
+        }
         denied_programme_outcomes = client.get(
             f"{base}/programmes/{programme_id}/outcomes",
             headers=learner_headers,
@@ -813,7 +849,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert exported_outcomes.status_code == 200
         assert exported_outcomes.headers["content-type"].startswith("text/csv")
         assert "programme_total,learners,3" in exported_outcomes.text
-        assert "programme_total,enrolments,3" in exported_outcomes.text
+        assert "programme_total,enrolments,4" in exported_outcomes.text
         denied_outcomes_export = client.get(
             f"{base}/programmes/{programme_id}/outcomes/export",
             headers=learner_headers,
@@ -827,9 +863,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learning_portfolio.status_code == 200
         learning_portfolio_body = learning_portfolio.json()
         assert learning_portfolio_body["programmes_total"] == 1
-        assert learning_portfolio_body["courses_total"] == 1
+        assert learning_portfolio_body["courses_total"] == 2
         assert learning_portfolio_body["totals"]["learners"] == 3
-        assert learning_portfolio_body["totals"]["enrolments"] == 3
+        assert learning_portfolio_body["totals"]["enrolments"] == 4
         assert learning_portfolio_body["totals"]["completed"] == 1
         assert learning_portfolio_body["totals"]["attendance_records"] == 2
         assert learning_portfolio_body["totals"]["pending_evaluations"] == 0
@@ -848,7 +884,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learning_portfolio_export.headers["content-type"].startswith("text/csv")
         assert learning_portfolio_export.content.startswith(b"\xef\xbb\xbf")
         assert "organisation_total,learners,3" in learning_portfolio_export.text
-        assert "organisation_total,enrolments,3" in learning_portfolio_export.text
+        assert "organisation_total,enrolments,4" in learning_portfolio_export.text
         assert "Climate Learning Programme" in learning_portfolio_export.text
         denied_learning_portfolio_export = client.get(
             f"{base}/portfolio-outcomes/export",
