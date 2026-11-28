@@ -333,6 +333,8 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert own_applications.status_code == 200
         assert own_applications.json()[0]["course_id"] == course_id
         assert own_applications.json()[0]["status"] == "applied"
+        assert own_applications.json()[0]["cohort_id"] == cohort_id
+        assert own_applications.json()[0]["cohort_title"] == "Climate Action Intake A"
         pending_context = client.get("/api/auth/context", headers=public_learner_headers)
         assert pending_context.status_code == 200
         assert pending_context.json()["memberships"] == []
@@ -790,6 +792,44 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"decision": "approved"},
         )
         assert late_approval.status_code == 200
+        cohort_roster = client.get(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=admin_headers,
+            params={"cohort_id": cohort_id},
+        )
+        assert cohort_roster.status_code == 200
+        late_enrollment = next(
+            item for item in cohort_roster.json() if item["learner_id"] == late_learner_id
+        )
+        transfer = client.post(
+            f"{base}/enrollments/{late_enrollment['id']}/transfer",
+            headers=admin_headers,
+            json={
+                "cohort_id": second_cohort_id,
+                "reason": "Learner requested a schedule change.",
+            },
+        )
+        assert transfer.status_code == 200
+        assert transfer.json()["cohort_id"] == second_cohort_id
+        transfer_events = client.get(
+            f"{base}/enrollments/{late_enrollment['id']}/events",
+            headers=admin_headers,
+        )
+        assert transfer_events.status_code == 200
+        assert [item["event_type"] for item in transfer_events.json()] == [
+            "applied",
+            "approved",
+            "transferred",
+        ]
+        capacity_conflict = client.post(
+            f"{base}/enrollments/{public_application.json()['id']}/transfer",
+            headers=admin_headers,
+            json={
+                "cohort_id": second_cohort_id,
+                "reason": "Capacity limit regression check.",
+            },
+        )
+        assert capacity_conflict.status_code == 409
 
         rejected_late = client.post(
             f"{base}/assessments/{overdue.json()['id']}/submissions",
