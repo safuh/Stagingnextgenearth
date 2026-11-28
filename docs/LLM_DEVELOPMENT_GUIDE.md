@@ -124,7 +124,7 @@ A batch review is an explicit reviewer decision over every pending observation i
 
 ## 8. Curriculum and learning rules
 
-The current demo seed contains three published course shells with generic placeholder lesson bodies. Do not present those as complete curricula.
+The default staging demo seed contains four published pilot tracks, eight modules and 26 substantive lessons, with four formative quizzes and official further-reading links. The material is a subject-matter review pilot, not accredited training, clinical guidance or ethics approval.
 
 Use `docs/learning/NEXTGEN_CURRICULUM_BLUEPRINT.md` as the proposed initial content design:
 - Research Methods and Evidence Practice.
@@ -132,7 +132,7 @@ Use `docs/learning/NEXTGEN_CURRICULUM_BLUEPRINT.md` as the proposed initial cont
 - Youth Climate Stewardship and Community Action.
 - Indigenous and Community Knowledge for Climate Resilience.
 
-Before publication, obtain subject-matter review, replace placeholders with substantive content, cite resources, align lessons to measurable outcomes, configure assessment rubrics and verify safeguarding/accessibility. Course completion requires explicit criteria; certificates must not imply accreditation or professional licensure unless formally approved.
+Before cohort delivery, obtain research, clinical, safeguarding, accessibility and community-lead review as appropriate. Improve the pilot using reviewer feedback, confirm local applicability and verify all source links and reuse permissions. Course completion requires explicit criteria; certificates must not imply accreditation or professional licensure unless formally approved.
 
 ## 9. Demo and presentation integrity
 
@@ -188,4 +188,4 @@ Use “implemented” only for code present, “tested” only for checks actual
 - Youth learning activities require age-appropriate consent, adult supervision and organisation-approved safeguarding procedures.
 - Indigenous/community knowledge content must prioritise community authority, prior informed consent, knowledge sovereignty, minimisation and benefit-sharing. Never seed or publish restricted community knowledge as example data.
 - Keep the pilot label visible until subject-matter, clinical, research, safeguarding and community leads approve the relevant material.
-- The demo seed script is an explicit operator action; do not run it automatically during application startup or deployment.
+- The Render API container currently runs `scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo` on startup after migrations. This is a staging demo bootstrap, not a production content workflow: it overwrites managed demo lesson and quiz content from the versioned JSON catalogue. Do not add startup seeding for staff-authored production content or other tenants without an explicit, reviewed migration/seed design.
