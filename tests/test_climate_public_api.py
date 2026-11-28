@@ -526,16 +526,28 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             json={"note": "Revised evidence release submitted."},
         )
         assert submitted_two.status_code == 200
+        licence_review_two = client.post(
+            f"{org_base}/climate-public-releases/{version_two_id}/licence-review",
+            headers=licence_reviewer,
+            json={
+                "licence_terms_confirmed": True,
+                "provider_terms_confirmed": True,
+                "attribution_confirmed": True,
+                "citation_confirmed": True,
+                "note": "Revised licence, provider terms, attribution and citation checked.",
+            },
+        )
+        assert licence_review_two.status_code == 200
         approved_two = client.post(
             f"{org_base}/climate-public-releases/{version_two_id}/approve",
-            headers=reviewer,
+            headers=release_reviewer,
             json={"note": "Revised provider evidence independently reviewed."},
         )
         assert approved_two.status_code == 200
         published_two = client.post(
             f"{org_base}/climate-public-releases/{version_two_id}/publish",
-            headers=reviewer,
-            json={"note": "Publish revised version."},
+            headers=publisher,
+            json={"note": "Independent publication of revised version."},
         )
         assert published_two.status_code == 200
         assert published_two.json()["version"] == 2
