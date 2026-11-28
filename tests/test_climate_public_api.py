@@ -244,6 +244,15 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert published_list.status_code == 200
         assert published_list.headers["ETag"] != empty_etag
+        # A validator captured before publication must no longer match the
+        # public catalogue representation after the release becomes visible.
+        stale_before_publish = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases",
+            headers={"If-None-Match": empty_etag},
+        )
+        assert stale_before_publish.status_code == 200
+        assert stale_before_publish.headers["ETag"] == published_list.headers["ETag"]
+        assert len(stale_before_publish.json()) == 1
         overview = client.get(
             "/api/public/organizations/nextgen-climate/climate/overview"
         )
@@ -358,11 +367,15 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert published_two.status_code == 200
         assert published_two.json()["version"] == 2
-        public_versions = client.get(
+        version_two_public_list = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases"
-        ).json()
+        )
+        assert version_two_public_list.status_code == 200
+        version_two_list_etag = version_two_public_list.headers["ETag"]
+        public_versions = version_two_public_list.json()
         assert len(public_versions) == 1
         assert public_versions[0]["version"] == 2
+        assert version_two_list_etag != published_list.headers["ETag"]
         workflow_versions = client.get(
             f"{org_base}/climate-public-releases", headers=author
         ).json()
@@ -443,6 +456,7 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "/api/public/organizations/nextgen-climate/climate/insights"
         )
         assert public_insights.status_code == 200
+        published_insights_etag = public_insights.headers["ETag"]
         assert len(public_insights.json()) == 1
         assert public_insights.json()[0]["publication_title"] == "Heat and maternal health in Kilifi"
         assert public_insights.json()[0]["release_slug"] == "kilifi-monthly-rainfall"
@@ -483,12 +497,29 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         )
         assert retracted.status_code == 200
         assert retracted.json()["state"] == "retracted"
-        assert client.get(
-            "/api/public/organizations/nextgen-climate/climate/releases"
-        ).json() == []
-        assert client.get(
-            "/api/public/organizations/nextgen-climate/climate/insights"
-        ).json() == []
+        # Retraction changes both the catalogue and linked-insight
+        # representations. Previously issued validators must receive a fresh
+        # 200 response, not a stale 304.
+        retracted_list = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases",
+            headers={"If-None-Match": version_two_list_etag},
+        )
+        assert retracted_list.status_code == 200
+        assert retracted_list.json() == []
+        assert retracted_list.headers["ETag"] != version_two_list_etag
+        retracted_insights = client.get(
+            "/api/public/organizations/nextgen-climate/climate/insights",
+            headers={"If-None-Match": published_insights_etag},
+        )
+        assert retracted_insights.status_code == 200
+        assert retracted_insights.json() == []
+        assert retracted_insights.headers["ETag"] != published_insights_etag
+        retracted_list_not_modified = client.get(
+            "/api/public/organizations/nextgen-climate/climate/releases",
+            headers={"If-None-Match": retracted_list.headers["ETag"]},
+        )
+        assert retracted_list_not_modified.status_code == 304
+        assert retracted_list_not_modified.content == b""
         assert client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"
             "kilifi-monthly-rainfall"
