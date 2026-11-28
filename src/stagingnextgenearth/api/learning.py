@@ -1896,12 +1896,10 @@ async def programme_outcomes(
         )
         for course in courses
     ]
+    programme_course_ids = [course.id for course in courses]
     enrollment_rows = await session.scalars(
-        select(LearningEnrollment)
-        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
-        .where(
-            LearningCourse.organization_id == organization_id,
-            LearningCourse.programme_id == programme_id,
+        select(LearningEnrollment).where(
+            LearningEnrollment.course_id.in_(programme_course_ids)
         )
     )
     enrolments = enrollment_rows.all()
@@ -2129,10 +2127,11 @@ async def organisation_learning_outcomes(
         "pending_evaluations",
     )
     totals = {key: sum(int(report["totals"][key]) for report in reports) for key in metric_keys}
-    course_rows = await session.scalars(
-        select(LearningCourse.id).where(LearningCourse.organization_id == organization_id)
-    )
-    organisation_course_ids = list(course_rows.all())
+    organisation_course_ids = [
+        str(course["course_id"])
+        for programme in reports
+        for course in cast(list[dict[str, object]], programme["courses"])
+    ]
     enrolment_rows = await session.scalars(
         select(LearningEnrollment).where(
             LearningEnrollment.course_id.in_(organisation_course_ids)
