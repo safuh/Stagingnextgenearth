@@ -1,6 +1,6 @@
 """Tests for the CHIRPS v3 daily raster adapter."""
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import httpx
 import pytest
