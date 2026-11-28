@@ -6,9 +6,12 @@ def test_public_metadata_only_exposes_approved_presentation_fields() -> None:
         "display_value": "12",
         "authors": ["A. Researcher"],
         "year": 2025,
+        "year_provenance": "Seed catalogue year; verify against the DOI landing page before treating as canonical.",
         "publisher": "Example Journal",
         "doi": "https://doi.org/10.0000/example",
-        "topic": "Climate and health",
+        "topic": "Legacy topic should not be public",
+        "editorial_topic": "Climate and health",
+        "editorial_topic_provenance": "Editorial discovery tag assigned by the demo seed; not a source-reported keyword.",
         "release_slug": "kilifi-monthly-rainfall",
         "publication_slug": "heat-maternal-health-kilifi",
         "region": "Kilifi County, Kenya",
@@ -31,6 +34,10 @@ def test_public_metadata_only_exposes_approved_presentation_fields() -> None:
     assert result["display_value"] == "12"
     assert result["authors"] == ["A. Researcher"]
     assert result["year"] == 2025
+    assert result["year_provenance"].startswith("Seed catalogue year;")
+    assert result["editorial_topic"] == "Climate and health"
+    assert result["editorial_topic_provenance"].startswith("Editorial discovery tag")
+    assert "topic" not in result
     assert result["release_slug"] == "kilifi-monthly-rainfall"
     assert result["publication_slug"] == "heat-maternal-health-kilifi"
     assert result["region"] == "Kilifi County, Kenya"
