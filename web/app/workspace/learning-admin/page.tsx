@@ -310,24 +310,34 @@ export default function LearningAdminPage() {
     if (!window.confirm(`Are you sure you want to ${actionLabel} all ${pending.length} pending applications in this course?`)) {
       return;
     }
-    await action(`Bulk decision submitted for ${pending.length} applications.`, async () => {
-      const result = await apiPost<{
-        processed: number;
-        succeeded: number;
-        failed: number;
-        results: Array<{ learner_id: string; ok: boolean; detail?: string }>;
-      }>(base + `/courses/${courseId}/enrollments/bulk-decision`, {
-        learner_ids: pending.map((item) => item.learner_id),
-        decision,
-      });
-      if (result.failed > 0) {
-        const failures = result.results
-          .filter((item) => !item.ok)
-          .map((item) => `${item.learner_id}: ${item.detail || "not processed"}`)
-          .join("; ");
-        setNotice(`Processed ${result.succeeded} of ${result.processed}. ${failures}`);
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const results: Array<{ learner_id: string; ok: boolean; detail?: string }> = [];
+      for (let index = 0; index < pending.length; index += 100) {
+        const batch = pending.slice(index, index + 100);
+        const response = await apiPost<{
+          results: Array<{ learner_id: string; ok: boolean; detail?: string }>;
+        }>(base + `/courses/${courseId}/enrollments/bulk-decision`, {
+          learner_ids: batch.map((item) => item.learner_id),
+          decision,
+        });
+        results.push(...response.results);
       }
-    });
+      await refreshReports();
+      const succeeded = results.filter((item) => item.ok).length;
+      const failed = results.length - succeeded;
+      const failures = results
+        .filter((item) => !item.ok)
+        .map((item) => `${item.learner_id}: ${item.detail || "not processed"}`)
+        .join("; ");
+      setNotice(`Processed ${succeeded} of ${results.length} applications.${failures ? ` ${failures}` : ""}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Bulk enrolment decisions could not be completed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function evaluate(event: FormEvent<HTMLFormElement>, attemptId: string) {
