@@ -265,7 +265,7 @@ def _event(
     from_state: str | None,
     to_state: str,
     note: str | None = None,
-) -> None:
+) -> ClimatePublicReleaseEvent:
     event = ClimatePublicReleaseEvent(
         organization_id=row.organization_id,
         release_id=row.id,
@@ -790,7 +790,8 @@ async def retract_release(
     _event(session, row, principal.user_id, "retracted", "published", "retracted", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseWorkspaceRead.model_validate(row)
+    licence_event = await _latest_licence_review(session, row.id)
+    return _workspace_read(row, licence_event)
 
 
 @router.get(
