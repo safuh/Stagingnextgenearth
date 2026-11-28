@@ -996,8 +996,9 @@ async def apply_for_course(
     course_id: str,
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    body: EnrollmentApplication | None = None,
 ) -> dict[str, object]:
-    """Let any authenticated public learner apply; membership is granted only after review."""
+    """Let an authenticated public learner apply to a published course or open cohort."""
     course = await _course(session, organization_id, course_id)
     if course.status != "published":
         raise HTTPException(409, "Applications are open only for published courses")
@@ -1012,20 +1013,73 @@ async def apply_for_course(
         or not await membership_has_any_role(session, existing_membership, _LEARN)
     ):
         raise HTTPException(403, "This account is not eligible for learner applications")
+    cohort_id = body.cohort_id if body is not None else None
+    open_cohorts = await session.scalar(
+        select(func.count()).select_from(LearningCohort).where(
+            LearningCohort.organization_id == organization_id,
+            LearningCohort.course_id == course_id,
+            LearningCohort.status == "open",
+        )
+    )
+    cohort: LearningCohort | None = None
+    if cohort_id is not None:
+        cohort = await session.scalar(
+            select(LearningCohort).where(
+                LearningCohort.id == cohort_id,
+                LearningCohort.organization_id == organization_id,
+                LearningCohort.course_id == course_id,
+                LearningCohort.status == "open",
+            )
+        )
+        if cohort is None:
+            raise HTTPException(404, "Open cohort not found for this course")
+        now = datetime.now(UTC)
+        if cohort.enrollment_opens_at is not None and now < cohort.enrollment_opens_at:
+            raise HTTPException(409, "Cohort applications have not opened")
+        if cohort.enrollment_closes_at is not None and now > cohort.enrollment_closes_at:
+            raise HTTPException(409, "Cohort application window has closed")
+        if cohort.capacity is not None:
+            occupied = await session.scalar(
+                select(func.count()).select_from(LearningEnrollment).where(
+                    LearningEnrollment.cohort_id == cohort.id,
+                    LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+                )
+            )
+            if int(occupied or 0) >= cohort.capacity:
+                raise HTTPException(409, "Cohort is at capacity")
+    elif int(open_cohorts or 0) > 0:
+        raise HTTPException(422, "Select an open cohort when applying for this course")
     enrollment = LearningEnrollment(
         course_id=course_id,
+        cohort_id=cohort_id,
         learner_id=principal.user_id,
         status="applied",
         progress_percent=0,
     )
     session.add(enrollment)
+    await session.flush()
+    session.add(
+        LearningEnrollmentEvent(
+            organization_id=organization_id,
+            enrollment_id=enrollment.id,
+            actor_user_id=principal.user_id,
+            event_type="applied",
+            to_status="applied",
+            to_cohort_id=cohort_id,
+        )
+    )
     try:
         await session.commit()
         await session.refresh(enrollment)
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(409, "An application already exists for this course") from exc
-    return {"id": enrollment.id, "status": enrollment.status, "applied_at": enrollment.applied_at}
+    return {
+        "id": enrollment.id,
+        "status": enrollment.status,
+        "cohort_id": enrollment.cohort_id,
+        "applied_at": enrollment.applied_at,
+    }
 
 
 @router.get("/my-enrollments")
@@ -1065,27 +1119,34 @@ async def list_course_enrollments(
     course_id: str,
     membership: Annotated[Membership, Depends(require_membership)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    cohort_id: str | None = Query(default=None),
 ) -> list[dict[str, object]]:
     """List learner applications for authorised course administrators."""
     if not await membership_has_any_role(session, membership, _MANAGE):
         raise HTTPException(403, "Enrollment reporting permission required")
     await _course(session, organization_id, course_id)
-    rows = await session.scalars(
-        select(LearningEnrollment)
+    statement = (
+        select(LearningEnrollment, LearningCohort.title)
+        .outerjoin(LearningCohort, LearningCohort.id == LearningEnrollment.cohort_id)
         .where(LearningEnrollment.course_id == course_id)
         .order_by(LearningEnrollment.applied_at.desc())
         .limit(500)
     )
+    if cohort_id is not None:
+        statement = statement.where(LearningEnrollment.cohort_id == cohort_id)
+    rows = await session.execute(statement)
     return [
         {
             "id": row.id,
             "learner_id": row.learner_id,
+            "cohort_id": row.cohort_id,
+            "cohort_title": cohort_title,
             "status": row.status,
             "progress_percent": row.progress_percent,
             "applied_at": row.applied_at,
             "reviewed_at": row.reviewed_at,
         }
-        for row in rows.all()
+        for row, cohort_title in rows.all()
     ]
 
 
@@ -1170,9 +1231,22 @@ async def decide_enrollment(
                         },
                     )
                 )
+    previous_status = enrollment.status
     enrollment.status = body.decision
     enrollment.reviewed_by = principal.user_id
     enrollment.reviewed_at = datetime.now(UTC)
+    session.add(
+        LearningEnrollmentEvent(
+            organization_id=organization_id,
+            enrollment_id=enrollment.id,
+            actor_user_id=principal.user_id,
+            event_type=body.decision,
+            from_status=previous_status,
+            to_status=body.decision,
+            from_cohort_id=enrollment.cohort_id,
+            to_cohort_id=enrollment.cohort_id,
+        )
+    )
     await session.commit()
     return {"id": enrollment.id, "status": enrollment.status}
 
