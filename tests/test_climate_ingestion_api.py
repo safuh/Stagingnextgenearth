@@ -245,3 +245,100 @@ async def test_chirps_provider_block_response_includes_retry_after(
     assert exc.value.headers is not None
     assert exc.value.headers["Retry-After"] == "10800"
     assert session.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_cooldown_status_reports_persisted_chirps_block_without_provider_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def allow_status(*_args: object) -> bool:
+        return True
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def scalar(self, _statement: object) -> object:
+            self.calls += 1
+            return SimpleNamespace(
+                finished_at=datetime.now(UTC) - timedelta(hours=1),
+                error_summary="ClimateProviderUnavailable: CHIRPS returned HTTP 429",
+            )
+
+    monkeypatch.setattr(climate_ingestion_api, "membership_has_any_role", allow_status)
+    session = FakeSession()
+    result = await climate_ingestion_api.get_climate_provider_cooldown(
+        organization_id="org-1",
+        membership=SimpleNamespace(),
+        session=session,
+        provider_id="chirps-v3",
+    )
+
+    assert result.active is True
+    assert 7_100 <= result.retry_after_seconds <= 7_201
+    assert result.retry_at is not None
+    assert result.reason == "provider_block"
+    assert session.calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "finished_at,error_summary",
+    [
+        (datetime.now(UTC) - timedelta(hours=4), "ClimateProviderUnavailable: HTTP 429"),
+        (datetime.now(UTC) - timedelta(minutes=1), "RuntimeError: provider unavailable"),
+        (None, None),
+    ],
+)
+async def test_cooldown_status_is_inactive_without_an_active_provider_block(
+    monkeypatch: pytest.MonkeyPatch,
+    finished_at: datetime | None,
+    error_summary: str | None,
+) -> None:
+    async def allow_status(*_args: object) -> bool:
+        return True
+
+    class FakeSession:
+        async def scalar(self, _statement: object) -> object:
+            if finished_at is None:
+                return None
+            return SimpleNamespace(
+                finished_at=finished_at,
+                error_summary=error_summary,
+            )
+
+    monkeypatch.setattr(climate_ingestion_api, "membership_has_any_role", allow_status)
+    result = await climate_ingestion_api.get_climate_provider_cooldown(
+        organization_id="org-1",
+        membership=SimpleNamespace(),
+        session=FakeSession(),
+        provider_id="chirps-v3",
+    )
+
+    assert result.active is False
+    assert result.retry_after_seconds == 0
+    assert result.retry_at is None
+    assert result.reason is None
+
+
+@pytest.mark.asyncio
+async def test_cooldown_status_requires_climate_ingestion_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def deny_status(*_args: object) -> bool:
+        return False
+
+    class FakeSession:
+        async def scalar(self, _statement: object) -> object:
+            pytest.fail("unauthorised cooldown reads must not query provider history")
+
+    monkeypatch.setattr(climate_ingestion_api, "membership_has_any_role", deny_status)
+    with pytest.raises(HTTPException) as exc:
+        await climate_ingestion_api.get_climate_provider_cooldown(
+            organization_id="org-1",
+            membership=SimpleNamespace(),
+            session=FakeSession(),
+            provider_id="chirps-v3",
+        )
+
+    assert exc.value.status_code == 403
