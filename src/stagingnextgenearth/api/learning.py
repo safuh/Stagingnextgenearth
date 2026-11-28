@@ -532,6 +532,8 @@ async def create_learning_cohort(
     )
     if programme is None:
         raise HTTPException(404, "Programme not found in this organisation")
+    if not body.title.strip():
+        raise HTTPException(422, "Cohort title cannot be blank")
     cohort = LearningCohort(
         organization_id=organization_id,
         programme_id=programme.id,
@@ -603,6 +605,10 @@ async def update_learning_cohort(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one cohort field must be supplied")
+    if "title" in changes and (changes["title"] is None or not changes["title"].strip()):
+        raise HTTPException(422, "Cohort title cannot be blank")
+    if "status" in changes and changes["status"] is None:
+        raise HTTPException(422, "Cohort status cannot be null")
     start_date = changes.get("start_date", cohort.start_date)
     end_date = changes.get("end_date", cohort.end_date)
     if start_date and end_date and start_date > end_date:
@@ -680,6 +686,8 @@ async def assign_enrollment_cohort(
     course = await _course(session, organization_id, course_id)
     enrollment = await _enrollment(session, course_id, learner_id)
     previous_cohort_id = enrollment.cohort_id
+    if enrollment.status not in {"applied", "approved"}:
+        raise HTTPException(409, "Only pending or approved enrolments can change cohort")
     if body.cohort_id is None:
         enrollment.cohort_id = None
         session.add(
