@@ -22,6 +22,20 @@ type Application = {
   status: string;
   progress_percent: number;
 };
+type CurriculumPreview = {
+  modules: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    lessons: Array<{
+      id: string;
+      title: string;
+      content: string | null;
+      resource_url: string | null;
+      duration_minutes: number | null;
+    }>;
+  }>;
+};
 
 export default function LearnerPortalPage() {
   const [identifier, setIdentifier] = useState("");
@@ -29,6 +43,7 @@ export default function LearnerPortalPage() {
   const [creating, setCreating] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [curriculumPreviews, setCurriculumPreviews] = useState<Record<string, CurriculumPreview>>({});
   const [applications, setApplications] = useState<Application[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +62,23 @@ export default function LearnerPortalPage() {
   useEffect(() => {
     let active = true;
     apiGet<Course[]>(`/public/organizations/${ORGANIZATION_SLUG}/courses`)
-      .then((items) => { if (active) setCourses(items); })
+      .then(async (items) => {
+        if (!active) return;
+        setCourses(items);
+        const previews = await Promise.all(items.map(async (course) => {
+          try {
+            const outline = await apiGet<CurriculumPreview>(
+              `/public/organizations/${ORGANIZATION_SLUG}/courses/${course.slug}/curriculum`,
+            );
+            return [course.slug, outline] as const;
+          } catch {
+            return [course.slug, null] as const;
+          }
+        }));
+        if (active) setCurriculumPreviews(Object.fromEntries(
+          previews.filter((entry): entry is readonly [string, CurriculumPreview] => entry[1] !== null),
+        ));
+      })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : "Unable to load published courses.");
       });
@@ -139,6 +170,27 @@ export default function LearnerPortalPage() {
                     <p className="portal-tag">{course.category || "Learning"} · {course.delivery_mode.replaceAll("_", " ")}</p>
                     <h3>{course.title}</h3>
                     <p className="portal-description">{course.description}</p>
+                    {curriculumPreviews[course.slug] && (
+                      <details className="public-curriculum-preview">
+                        <summary>
+                          Explore curriculum · {curriculumPreviews[course.slug].modules.length} modules · {curriculumPreviews[course.slug].modules.reduce((count, module) => count + module.lessons.length, 0)} lessons
+                        </summary>
+                        {curriculumPreviews[course.slug].modules.map((module, moduleIndex) => (
+                          <details key={module.id} className="public-curriculum-module">
+                            <summary>Module {String(moduleIndex + 1).padStart(2, "0")} · {module.title} ({module.lessons.length} lessons)</summary>
+                            {module.description && <p className="workspace-muted">{module.description}</p>}
+                            {module.lessons.map((lesson, lessonIndex) => (
+                              <article key={lesson.id} className="public-curriculum-lesson">
+                                <p className="portal-tag">LESSON {String(lessonIndex + 1).padStart(2, "0")}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</p>
+                                <h4>{lesson.title}</h4>
+                                {lesson.content && <p className="learner-lesson-content">{lesson.content}</p>}
+                                {lesson.resource_url && <a href={lesson.resource_url} target="_blank" rel="noreferrer">Further reading / source</a>}
+                              </article>
+                            ))}
+                          </details>
+                        ))}
+                      </details>
+                    )}
                     <Link className="primary-action" href="#learner-access">Sign in or register to apply</Link>
                   </article>
                 ))}
@@ -179,6 +231,27 @@ export default function LearnerPortalPage() {
                         <p className="portal-tag">{course.category || "Learning"} · {course.delivery_mode.replaceAll("_", " ")}</p>
                         <h3>{course.title}</h3>
                         <p className="portal-description">{course.description}</p>
+                        {curriculumPreviews[course.slug] && (
+                          <details className="public-curriculum-preview">
+                            <summary>
+                              Explore curriculum · {curriculumPreviews[course.slug].modules.length} modules · {curriculumPreviews[course.slug].modules.reduce((count, module) => count + module.lessons.length, 0)} lessons
+                            </summary>
+                            {curriculumPreviews[course.slug].modules.map((module, moduleIndex) => (
+                              <details key={module.id} className="public-curriculum-module">
+                                <summary>Module {String(moduleIndex + 1).padStart(2, "0")} · {module.title} ({module.lessons.length} lessons)</summary>
+                                {module.description && <p className="workspace-muted">{module.description}</p>}
+                                {module.lessons.map((lesson, lessonIndex) => (
+                                  <article key={lesson.id} className="public-curriculum-lesson">
+                                    <p className="portal-tag">LESSON {String(lessonIndex + 1).padStart(2, "0")}{lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}</p>
+                                    <h4>{lesson.title}</h4>
+                                    {lesson.content && <p className="learner-lesson-content">{lesson.content}</p>}
+                                    {lesson.resource_url && <a href={lesson.resource_url} target="_blank" rel="noreferrer">Further reading / source</a>}
+                                  </article>
+                                ))}
+                              </details>
+                            ))}
+                          </details>
+                        )}
                         {application ? (
                           <>
                             <p className="workspace-muted">Application: {application.status.replaceAll("_", " ")} · Progress {application.progress_percent}%</p>
