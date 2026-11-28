@@ -1,6 +1,7 @@
 """Trusted, tenant-scoped climate provider ingestion endpoint."""
 
 from datetime import UTC, datetime
+import logging
 from importlib.util import find_spec
 from typing import Annotated, Literal
 
@@ -35,6 +36,7 @@ router = APIRouter(
     tags=["climate-ingestion"],
 )
 _INGEST_ROLES = {"admin", "founder", "executive", "researcher"}
+logger = logging.getLogger(__name__)
 
 
 class ClimateIngestionCreate(BaseModel):
@@ -275,14 +277,23 @@ async def run_climate_ingestion(
     except Exception as exc:
         # Persistence records a failed run and rolls back partial observations.
         # Commit that audit row when the database transaction remains usable.
+        # Keep the traceback in server logs for diagnosis, but never expose
+        # provider URLs, response bodies, SQL values or credentials to clients.
+        logger.exception(
+            "Climate provider ingestion failed",
+            extra={
+                "organization_id": organization_id,
+                "provider_id": provider.provider_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         try:
             await session.commit()
         except Exception:
             await session.rollback()
-        # Do not return upstream exception text, URLs or credentials to clients.
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
-            "Climate provider ingestion failed; consult the ingestion run audit record",
+            "Climate provider ingestion failed. Refresh the ingestion ledger for the recorded failure details.",
         ) from exc
     await session.commit()
     await session.refresh(run)
