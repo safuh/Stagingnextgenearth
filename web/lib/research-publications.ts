@@ -6,6 +6,7 @@ export interface ResearchPublicationRecord {
     authors?: string | string[];
     publication_date?: string;
     year?: number | string;
+    year_provenance?: string;
     publisher?: string;
     doi?: string;
     editorial_topic?: string;
