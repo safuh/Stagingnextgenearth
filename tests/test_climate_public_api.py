@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
-from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.config import DeploymentStage, Environment, Settings
 from stagingnextgenearth.core.database import Base
 
 
@@ -521,7 +521,12 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider(monke
     monkeypatch.setattr(
         climate_public,
         "get_settings",
-        lambda: SimpleNamespace(environment=Environment.PRODUCTION),
+        lambda: SimpleNamespace(
+            environment=Environment.PRODUCTION,
+            deployment_stage=DeploymentStage.PRODUCTION,
+            climate_demo_seed_enabled=True,
+            climate_demo_publication_allowed=False,
+        ),
     )
     filters = climate_public._public_release_filters("demo-organisation")
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
@@ -532,7 +537,12 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider(monke
     monkeypatch.setattr(
         climate_public,
         "get_settings",
-        lambda: SimpleNamespace(environment=Environment.TEST),
+        lambda: SimpleNamespace(
+            environment=Environment.PRODUCTION,
+            deployment_stage=DeploymentStage.STAGING,
+            climate_demo_seed_enabled=True,
+            climate_demo_publication_allowed=True,
+        ),
     )
     test_filters = climate_public._public_release_filters("demo-organisation")
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
