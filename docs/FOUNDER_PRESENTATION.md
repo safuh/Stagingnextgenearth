@@ -118,3 +118,15 @@ This creates a traceable path from provider evidence to research context without
 The learning workspace now has four substantive pilot tracks covering research methods, climate and health, youth climate stewardship, and Indigenous/community knowledge. The demo seed catalogue contains 26 lessons with learning outcomes, applied exercises, self-checks and official further reading, plus four formative quizzes. The learner classroom shows course scope, guided learning time and module completion.
 
 Position this as a pilot curriculum prepared for review—not as an accredited qualification. Before cohort delivery, obtain research, clinical, safeguarding and community-lead review as appropriate. The default staging demo organisation is refreshed by the API container's idempotent seed command; other organisation slugs require an explicit seed operation.
+
+
+## Latest staging release — learning curriculum pilot
+
+**Release:** 26 November 2026 · commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`
+
+The four-track learning curriculum pilot is merged and deployed to the staging web and API services. The merged commit passed all six CI jobs: web, operations scripts, geospatial, and Python 3.11, 3.12 and 3.13. Render reports both services live. The API health check returned HTTP 200 in current service logs, and public course and climate-intelligence endpoints returned HTTP 200.
+
+- Staging website: https://nextgen-web-upag.onrender.com
+- API health: https://nextgen-api-au53.onrender.com/api/health
+
+The release includes 26 source-linked pilot lessons and four formative quizzes. It is a pilot curriculum pending organisational review, not accreditation. Infrastructure and API health are verified; a human browser-based visual and learner-flow acceptance pass remains part of the live demo checklist.
