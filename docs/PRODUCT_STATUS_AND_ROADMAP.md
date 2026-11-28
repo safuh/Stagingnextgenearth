@@ -31,7 +31,7 @@ Repository documentation and tests establish implementation intent and local/CI 
 
 ## Important distinction: seeded versus production-quality content
 
-The idempotent demo seed creates four published pilot courses: Early Career Researchers, Healthcare Workers, Youth Climate Stewards, and Indigenous Community Knowledge. The current pilot contains eight ordered modules and 26 substantive lessons with further-reading links, four formative quizzes and learner progress support. It is a subject-matter review pilot, not accredited training or a final approved curriculum.
+The idempotent staging demo seed creates four published pilot courses: Research Methods and Evidence Practice, Climate and Health Resilience, Youth Climate Stewardship and Community Action, and Indigenous and Community Knowledge for Climate Resilience. The pilot contains eight ordered modules and 26 substantive lessons with further-reading links, four formative quizzes and learner progress support. It is a subject-matter review pilot, not accredited training or a final approved curriculum.
 
 The seed also imports website-listed people, partners, programmes, publications and impact claims. These are source-attributed records, not proof of current employment, signed partner agreements, audited impact or scientific validation. Review and correct these records with organisational owners before using them as authoritative evidence.
 
