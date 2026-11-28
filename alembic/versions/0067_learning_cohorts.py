@@ -71,6 +71,22 @@ def upgrade() -> None:
         "learning_cohorts",
         ["programme_id", "status"],
     )
+    with op.batch_alter_table("organization_audit_events") as batch_op:
+        batch_op.drop_constraint(
+            "ck_organization_audit_event_action", type_="check"
+        )
+        batch_op.create_check_constraint(
+            "ck_organization_audit_event_action",
+            "action IN ('membership.invited', 'membership.invitation_accepted', "
+            "'membership.role_changed', 'membership.roles_changed', 'membership.status_changed', "
+            "'organization.ownership_transferred', 'volunteer_application.decided', "
+            "'employment_application.decided', 'learning.mentorship.status_changed', "
+            "'climate.observation.reviewed', 'research.study.status_changed', "
+            "'research.protocol.version_created', 'research.protocol.submitted', "
+            "'research.protocol.reviewed', 'research.ethics.review_recorded', "
+            "'learning.cohort.created', 'learning.cohort.updated', "
+            "'learning.enrollment.cohort_assigned', 'learning.enrollment.cohort_unassigned')",
+        )
     with op.batch_alter_table("learning_enrollments") as batch_op:
         batch_op.add_column(sa.Column("cohort_id", sa.String(length=36), nullable=True))
         batch_op.create_foreign_key(
@@ -86,6 +102,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Keep the expanded audit action constraint: immutable cohort audit rows may
+    # already exist, and removing their allowed action values would invalidate history.
     with op.batch_alter_table("learning_enrollments") as batch_op:
         batch_op.drop_index("ix_learning_enrollments_cohort_id")
         batch_op.drop_constraint(
