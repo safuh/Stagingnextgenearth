@@ -543,7 +543,7 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Authenticated learning-admin browser acceptance verifies draft editing, published read-only state and the four staff-only authoring copies.
 
 
-## M170 — Learner risk review and facilitator interventions (implementation in progress)
+## M170 — Learner risk review and facilitator interventions (merged; staging deployed)
 
 - [x] Cohort-scoped inactivity, absence-window and overdue-assessment thresholds with validation.
 - [x] Advisory risk signals distinguish `at_risk`, `clear` and `insufficient_data`; missing activity is not treated as disengagement.
@@ -551,6 +551,21 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Staff-owned intervention lifecycle, owner validation, due dates, resolution notes and organisation audit events.
 - [x] Dedicated staff workspace route for cohort evidence review and follow-up management.
 - [x] Integration test covers insufficient-data states, current activity, repeated absences, overdue assessments, owner validation, follow-up lifecycle, terminal-state enforcement and tenant isolation.
-- [x] Local Ruff, targeted mypy, TypeScript typecheck, ESLint and all 17 frontend unit tests pass.
-- [ ] Verify Alembic migration against the CI PostgreSQL/PostGIS service and run the full backend/web production CI matrix.
-- [ ] Submit and merge the milestone PR after CI passes; deploy to staging and verify authenticated workflows.
+- [x] Local focused lifecycle test, Ruff and mypy (91 files) pass.
+- [x] Frontend typecheck, lint (0 errors), 17 frontend unit tests and production build pass.
+- [x] All six GitHub CI jobs pass; PR #170 merged as `407c3a6`.
+- [x] Both Render services are live on the merge SHA; API logs confirm migration `0068_learning_interventions`.
+- [x] Public API and homepage/research/climate/learners/interventions routes return HTTP 200; curriculum verified at 4 courses / 28 modules / 86 lessons.
+- [ ] Authenticated facilitator browser acceptance, learner denial and cross-tenant denial.
+
+## M171 — Self-service organisation creation and first-run onboarding (in development)
+
+- [x] Existing tenant-creation API contract verified: organisation, initial active admin membership and duplicate-slug conflict handling.
+- [x] Add organisation creation workspace with slug suggestion, country and description fields, recoverable conflicts and first-run checklist.
+- [x] Add no-organisation empty-state CTA and create-another-organisation navigation.
+- [x] Preserve selected organisation context across workspace, administration and research routes.
+- [x] Add append-only `organization.created` audit action in the same transaction as tenant and initial admin membership.
+- [x] Add migration `0069_organization_creation_audit` and API regression assertions.
+- [x] Add operator runbook at `docs/operations/organisation-onboarding.md`.
+- [ ] Complete frontend production build, full backend suite and GitHub CI for PR #171.
+- [ ] Deploy both services and complete authenticated tenant-creation, invitation and cross-tenant acceptance.

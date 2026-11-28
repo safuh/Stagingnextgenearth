@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
+import { resolveInitialOrganisationId } from "@/lib/organisation-onboarding";
 import {
   filterResearchPublications,
   researchPublicationFilterOptions,
@@ -212,7 +213,8 @@ export default function ResearchWorkspacePage() {
     apiGet<Organization[]>("/organizations")
       .then((items) => {
         setOrganizations(items);
-        if (items[0]) setOrganizationId(items[0].id);
+        const requestedId = new URLSearchParams(window.location.search).get("organization_id");
+        setOrganizationId(resolveInitialOrganisationId(items, requestedId));
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load organisations."))
       .finally(() => setLoading(false));

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
+import { resolveInitialOrganisationId } from "@/lib/organisation-onboarding";
 
 interface Organization { id: string; name: string; slug: string; country_code: string }
 interface Membership {
@@ -64,7 +65,9 @@ export default function AdministrationPage() {
     apiGet<Organization[]>("/organizations")
       .then((items) => {
         setOrganizations(items);
-        if (items[0]) setOrganizationId(items[0].id);
+        const requestedId = new URLSearchParams(window.location.search).get("organization_id");
+        const selectedId = resolveInitialOrganisationId(items, requestedId);
+        if (selectedId) setOrganizationId(selectedId);
         else { setError("No active organisation membership was found."); setAccessLoading(false); }
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load organisations."))
@@ -165,6 +168,7 @@ export default function AdministrationPage() {
           <span>Choose an area to manage</span>
         </div>
         <nav className="admin-section-nav" aria-label="Administration sections">
+          <Link className="admin-section-link organisation-create-nav" href="/workspace/organisations/new"><span className="admin-section-number">＋</span><span className="admin-section-copy"><strong>Create organisation</strong><small>Set up a new organisation workspace</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
           <Link className="admin-section-link" href="/workspace/administration/overview"><span className="admin-section-number">01</span><span className="admin-section-copy"><strong>Executive overview</strong><small>Governance snapshot and reporting</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
           <Link className="admin-section-link" href="/workspace/administration/people"><span className="admin-section-number">02</span><span className="admin-section-copy"><strong>People directory</strong><small>Profiles, roles and team records</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>
           <Link className="admin-section-link" href="/workspace/administration/partners"><span className="admin-section-number">03</span><span className="admin-section-copy"><strong>Institutional partners</strong><small>Partner records and verification</small></span><span className="admin-section-arrow" aria-hidden="true">↗</span></Link>

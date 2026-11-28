@@ -64,6 +64,7 @@ The local `.env.example` uses PostgreSQL/PostGIS because the production schema r
 ## First organisation bootstrap
 
 The idempotent API-based bootstrap utility creates/reuses the initial owner account and canonical organisation, then loads curated public people, staff memberships, partners, programmes, research studies and CMS records from the seed manifest. It does not write directly to database tables, reset existing passwords, or publish content automatically.
+Authenticated users can also create a separate organisation tenant from `/workspace/organisations/new`. The creator receives an active administrator membership and an `organization.created` audit event atomically. See [organisation onboarding operations](docs/operations/organisation-onboarding.md). Creation does not verify legal mandate, ethics approval, community consent or safeguarding readiness.
 
 Follow [the environment setup and operations guide](docs/operations/environment-setup.md) for secure bootstrap prompts, local/staging/production separation and demo data rules. A typical owner bootstrap is:
 
