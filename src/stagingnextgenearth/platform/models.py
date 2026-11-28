@@ -919,6 +919,53 @@ class LearningCourse(Base):
     )
 
 
+class LearningCohort(Base):
+    """Tenant-scoped programme intake grouping for course enrolments."""
+
+    __tablename__ = "learning_cohorts"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "code", name="uq_learning_cohort_org_code"),
+        CheckConstraint(
+            "status IN ('draft', 'open', 'active', 'completed', 'archived')",
+            name="ck_learning_cohort_status",
+        ),
+        CheckConstraint(
+            "capacity IS NULL OR capacity > 0",
+            name="ck_learning_cohort_capacity",
+        ),
+        CheckConstraint(
+            "start_date IS NULL OR end_date IS NULL OR start_date <= end_date",
+            name="ck_learning_cohort_dates",
+        ),
+        Index("ix_learning_cohorts_org_status", "organization_id", "status"),
+        Index("ix_learning_cohorts_programme", "programme_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(180), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    capacity: Mapped[int | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class LearningModule(Base):
     """Ordered course module."""
 
@@ -997,10 +1044,14 @@ class LearningEnrollment(Base):
                         name="ck_learning_enrollment_progress"),
         Index("ix_learning_enrollments_course_status", "course_id", "status"),
         Index("ix_learning_enrollments_learner_status", "learner_id", "status"),
+        Index("ix_learning_enrollments_cohort_id", "cohort_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     course_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("learning_courses.id", ondelete="CASCADE"), nullable=False
+    )
+    cohort_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("learning_cohorts.id", ondelete="SET NULL"), nullable=True
     )
     learner_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
