@@ -405,6 +405,8 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert public_detail.json()["license_name"] == "CC-BY-4.0"
         assert "created_by" not in public_detail.json()
         assert "source_ingestion_run_id" not in public_detail.json()
+        assert "licence_reviewed_by" not in public_detail.json()
+        assert "licence_reviewed_at" not in public_detail.json()
 
         overview = client.get(
             "/api/public/organizations/nextgen-climate/climate/overview"
