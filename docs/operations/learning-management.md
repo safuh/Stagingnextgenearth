@@ -118,3 +118,8 @@ python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
 
 The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
+
+
+## Learning outcomes metric definitions
+
+Programme and organisation reports distinguish **unique learners** from **course enrolments**. `totals.learners` counts distinct user IDs across the reporting scope; `totals.enrolments` counts course-enrolment records, so a person enrolled in multiple courses contributes once to unique learners and once per course to enrolments. `approved` and `completed` remain enrolment-state counts. Average progress is calculated by first averaging each learner's progress across their enrolments in the reporting scope, then averaging those learner-level values; each person therefore contributes once to the reported mean. Attendance, mentorship and assessment figures are activity/record counts, not unique learner counts. CSV exports include both unique-learner and enrolment denominators.
