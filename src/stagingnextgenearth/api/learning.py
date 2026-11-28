@@ -550,7 +550,10 @@ async def list_learning_cohorts(
     counts: dict[str, int] = {}
     if cohorts:
         count_rows = await session.execute(
-            select(LearningEnrollment.cohort_id, func.count(func.distinct(LearningEnrollment.learner_id)))
+            select(
+                LearningEnrollment.cohort_id,
+                func.count(func.distinct(LearningEnrollment.learner_id)),
+            )
             .where(
                 LearningEnrollment.cohort_id.in_([item.id for item in cohorts]),
                 LearningEnrollment.status.in_({"applied", "approved", "completed"}),
@@ -1163,7 +1166,9 @@ async def list_course_enrollments(
         {
             "id": row.id,
             "learner_id": row.learner_id,
-            "learner_ref": f"Learner-{hashlib.sha256(row.learner_id.encode()).hexdigest()[:8].upper()}",
+            "learner_ref": (
+                f"Learner-{hashlib.sha256(row.learner_id.encode()).hexdigest()[:8].upper()}"
+            ),
             "cohort_id": row.cohort_id,
             "cohort_title": cohort_title,
             "status": row.status,
