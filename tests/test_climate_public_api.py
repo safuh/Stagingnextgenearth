@@ -308,6 +308,11 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert licence_review.status_code == 200
         assert licence_review.json()["licence_reviewed_by"] == licence_reviewer_id
         assert licence_review.json()["licence_reviewed_at"] is not None
+        listed_review = client.get(
+            f"{org_base}/climate-public-releases", headers=licence_reviewer
+        )
+        assert listed_review.status_code == 200
+        assert listed_review.json()[0]["licence_reviewed_by"] == licence_reviewer_id
 
         licence_reviewer_cannot_approve = client.post(
             f"{org_base}/climate-public-releases/{release_id}/approve",
