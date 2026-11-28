@@ -462,3 +462,15 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Frontend typecheck, lint, unit/build checks and CI pass.
 - [ ] Deploy the merged commit to Render staging.
 - [ ] Complete authenticated partner browser acceptance with both successful and unavailable programme reports.
+
+
+## M143 — Learner roster and batch application review (implementation in review)
+
+- [x] Add bounded, tenant-scoped bulk application decisions with per-learner results.
+- [x] Add a searchable course roster and lifecycle-status filters to the staff workspace.
+- [x] Add explicit confirmation before batch decisions and display partial failures.
+- [x] Batch large rosters into requests of at most 100 learners.
+- [ ] Add cohort/intake data model, assignment and transfers.
+- [ ] Add learner detail/history and reviewed privacy-safe display identity.
+- [x] Add regression tests for partial success, duplicate IDs and role boundaries.
+- [ ] Full CI, merge, staging deployment and authenticated browser acceptance.

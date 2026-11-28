@@ -118,6 +118,8 @@ export default function LearningAdminPage() {
   const [modules, setModules] = useState<ModuleChoice[]>([]);
   const [members, setMembers] = useState<MemberChoice[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [enrollmentSearch, setEnrollmentSearch] = useState("");
+  const [enrollmentStatus, setEnrollmentStatus] = useState("all");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [mentorships, setMentorships] = useState<Mentorship[]>([]);
@@ -299,6 +301,43 @@ export default function LearningAdminPage() {
     await action(`Application ${decision}.`, () => apiPost(
       base + `/courses/${courseId}/enrollments/${learnerId}/decision`, { decision },
     ));
+  }
+
+  async function bulkDecide(decision: "approved" | "rejected") {
+    const pending = enrollments.filter((item) => item.status === "applied");
+    if (pending.length === 0) return;
+    const actionLabel = decision === "approved" ? "approve" : "reject";
+    if (!window.confirm(`Are you sure you want to ${actionLabel} all ${pending.length} pending applications in this course?`)) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const results: Array<{ learner_id: string; ok: boolean; detail?: string }> = [];
+      for (let index = 0; index < pending.length; index += 100) {
+        const batch = pending.slice(index, index + 100);
+        const response = await apiPost<{
+          results: Array<{ learner_id: string; ok: boolean; detail?: string }>;
+        }>(base + `/courses/${courseId}/enrollments/bulk-decision`, {
+          learner_ids: batch.map((item) => item.learner_id),
+          decision,
+        });
+        results.push(...response.results);
+      }
+      await refreshReports();
+      const succeeded = results.filter((item) => item.ok).length;
+      const failed = results.length - succeeded;
+      const failures = results
+        .filter((item) => !item.ok)
+        .map((item) => `${item.learner_id}: ${item.detail || "not processed"}`)
+        .join("; ");
+      setNotice(`Processed ${succeeded} of ${results.length} applications.${failures ? ` ${failures}` : ""}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Bulk enrolment decisions could not be completed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function evaluate(event: FormEvent<HTMLFormElement>, attemptId: string) {
@@ -496,13 +535,44 @@ export default function LearningAdminPage() {
             <button className="secondary-action" disabled={busy || !courseId || courses.find((course) => course.id === courseId)?.status === "published"} onClick={() => action("Course published.", () => apiPost(base + `/courses/${courseId}/publish`, {}))}>Publish selected course</button>
           </section>
           <section className="staff-card">
-            <h2>Enrollment applications <span>{enrollments.filter((item) => item.status === "applied").length} pending</span></h2>
-            {enrollments.length === 0 ? <p className="workspace-muted">No learner applications yet.</p> : enrollments.map((item) => (
-              <article className="staff-record" key={item.id}>
-                <strong>{item.learner_id}</strong><small>{item.status} · {item.progress_percent}% progress</small>
-                {item.status === "applied" && <div className="staff-actions"><button onClick={() => decide(item.learner_id, "approved")} disabled={busy}>Approve</button><button onClick={() => decide(item.learner_id, "rejected")} disabled={busy}>Reject</button></div>}
-              </article>
-            ))}
+            <h2>Learner roster <span>{enrollments.length} enrolments · {enrollments.filter((item) => item.status === "applied").length} pending</span></h2>
+            <div className="staff-actions">
+              <label>Search learner ID
+                <input
+                  type="search"
+                  value={enrollmentSearch}
+                  onChange={(event) => setEnrollmentSearch(event.target.value)}
+                  placeholder="Filter by learner ID"
+                />
+              </label>
+              <label>Enrolment status
+                <select value={enrollmentStatus} onChange={(event) => setEnrollmentStatus(event.target.value)}>
+                  <option value="all">All statuses</option>
+                  <option value="applied">Applied</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="completed">Completed</option>
+                  <option value="withdrawn">Withdrawn</option>
+                </select>
+              </label>
+            </div>
+            <div className="staff-actions">
+              <button onClick={() => void bulkDecide("approved")} disabled={busy || !enrollments.some((item) => item.status === "applied")}>Approve all pending</button>
+              <button onClick={() => void bulkDecide("rejected")} disabled={busy || !enrollments.some((item) => item.status === "applied")}>Reject all pending</button>
+            </div>
+            {enrollments.length === 0 ? <p className="workspace-muted">No learner enrolments yet.</p> : enrollments
+              .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
+              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase()))
+              .map((item) => (
+                <article className="staff-record" key={item.id}>
+                  <strong>{item.learner_id}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()}</small>
+                  {item.status === "applied" && <div className="staff-actions"><button onClick={() => decide(item.learner_id, "approved")} disabled={busy}>Approve</button><button onClick={() => decide(item.learner_id, "rejected")} disabled={busy}>Reject</button></div>}
+                </article>
+              ))}
+            {enrollments.length > 0 && enrollments
+              .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
+              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase())).length === 0
+              && <p className="workspace-muted">No enrolments match these filters.</p>}
           </section>
           <section className="staff-card">
             <h2>Assessments</h2>

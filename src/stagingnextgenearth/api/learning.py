@@ -203,6 +203,17 @@ class EnrollmentDecision(BaseModel):
     decision: Literal["approved", "rejected"]
 
 
+class EnrollmentBulkDecision(BaseModel):
+    learner_ids: list[str] = Field(min_length=1, max_length=100)
+    decision: Literal["approved", "rejected"]
+
+    @model_validator(mode="after")
+    def validate_learner_ids(self) -> "EnrollmentBulkDecision":
+        if len(self.learner_ids) != len(set(self.learner_ids)):
+            raise ValueError("Learner IDs must be unique within a bulk decision")
+        return self
+
+
 class AssessmentCreate(BaseModel):
     title: str = Field(min_length=2, max_length=240)
     assessment_type: Literal["quiz", "assignment", "evaluation"]
@@ -669,6 +680,53 @@ async def decide_enrollment(
     enrollment.reviewed_at = datetime.now(UTC)
     await session.commit()
     return {"id": enrollment.id, "status": enrollment.status}
+
+
+@router.post("/courses/{course_id}/enrollments/bulk-decision")
+async def bulk_decide_enrollments(
+    organization_id: str,
+    course_id: str,
+    body: EnrollmentBulkDecision,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    """Apply independent decisions and return an explicit result for every learner."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Enrollment approval permission required")
+    await _course(session, organization_id, course_id)
+    results: list[dict[str, object]] = []
+    for learner_id in body.learner_ids:
+        try:
+            result = await decide_enrollment(
+                organization_id,
+                course_id,
+                learner_id,
+                EnrollmentDecision(decision=body.decision),
+                principal,
+                membership,
+                session,
+            )
+            results.append(
+                {"learner_id": learner_id, "status": result["status"], "ok": True}
+            )
+        except HTTPException as exc:
+            results.append(
+                {
+                    "learner_id": learner_id,
+                    "ok": False,
+                    "status_code": exc.status_code,
+                    "detail": exc.detail,
+                }
+            )
+    return {
+        "course_id": course_id,
+        "decision": body.decision,
+        "processed": len(results),
+        "succeeded": sum(bool(item["ok"]) for item in results),
+        "failed": sum(not bool(item["ok"]) for item in results),
+        "results": results,
+    }
 
 
 @router.get("/courses/{course_id}/assessments")
