@@ -11,6 +11,10 @@ from scripts import seed_nextgen_demo
 from stagingnextgenearth.core.config import Environment, Settings
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity.models import User
+from stagingnextgenearth.platform.climate_public import (
+    ClimatePublicRelease,
+    ClimatePublicReleaseEvent,
+)
 from stagingnextgenearth.platform.models import (
     InstitutionalPartner,
     LearningAssessment,
@@ -59,6 +63,9 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             people = list((await session.scalars(select(OrganizationPerson))).all())
             partners = list((await session.scalars(select(InstitutionalPartner))).all())
             content = list((await session.scalars(select(PublicContentEntry))).all())
+            climate_releases = list((await session.scalars(select(ClimatePublicRelease))).all())
+            climate_events = list((await session.scalars(select(ClimatePublicReleaseEvent))).all())
+            climate_insights = [item for item in content if item.content_type == "climate_insight"]
             gallery = next((item for item in content if item.slug == "website-gallery"), None)
             programmes = list((await session.scalars(select(Programme))).all())
             courses = list((await session.scalars(select(LearningCourse))).all())
@@ -71,6 +78,21 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 "people_with_images": sum(bool(item.profile_image_url) for item in people),
                 "partners": len(partners),
                 "content": len(content),
+                "climate_releases": len(climate_releases),
+                "climate_releases_published": all(
+                    item.state == "published" and item.provider_id == "demo-synthetic"
+                    and item.data_class == "synthetic_demo"
+                    and item.source_ingestion_run_id is None
+                    and len(item.series_json) == 72
+                    for item in climate_releases
+                ),
+                "climate_events": len(climate_events),
+                "climate_insights": len(climate_insights),
+                "climate_insight_linked": all(
+                    (item.metadata_json or {}).get("release_slug") == "demo-kenya-monthly-rainfall"
+                    and (item.metadata_json or {}).get("publication_slug") == "seniors-climate-seasonality-busia-kilifi"
+                    for item in climate_insights
+                ),
                 "gallery_images": (
                     len((gallery.metadata_json or {}).get("gallery", [])) if gallery else 0
                 ),
@@ -130,9 +152,14 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
         len(seed_nextgen_demo.CONTENT)
         + len(seed_nextgen_demo.PUBLICATIONS)
         + len(seed_nextgen_demo.STORY)
-        + 1
+        + 2
     )
     assert first["gallery_images"] >= 5
+    assert first["climate_releases"] == 2
+    assert first["climate_releases_published"] is True
+    assert first["climate_events"] == 2
+    assert first["climate_insights"] == 1
+    assert first["climate_insight_linked"] is True
     assert first["gallery_published"] is True
     assert first["programmes"] == 4
     assert first["courses"] == 4
