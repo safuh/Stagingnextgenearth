@@ -97,7 +97,8 @@ Before presenting, complete the human browser checks below. A successful deploym
 ## Publication catalogue metadata and filter acceptance (M137)
 
 - [ ] Confirm the selected organisation's public CMS catalogue contains the 12 published website publication records (or reconcile against the current public website count).
-- [ ] Confirm each card shows the website-sourced author string, journal/venue, year and DOI.
+- [ ] Confirm each card shows the website-sourced author string, journal/venue and DOI.
+- [ ] Confirm the seeded catalogue year is visibly labelled as provisional pending DOI verification.
 - [ ] Confirm editorial topic tags are explicitly labelled as editorial classifications, with provenance stating they are not source-reported keywords.
 - [ ] Search by title, author surname, journal name and DOI; each search must return the expected source listing.
 - [ ] Filter by publication year and editorial topic, including combinations with text search.
