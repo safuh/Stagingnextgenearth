@@ -597,16 +597,23 @@ export default function LearningAdminPage() {
   async function recordBulkAttendance(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const learnerIds = String(data.get("learner_ids") ?? "")
+    const learnerRefs = String(data.get("learner_ids") ?? "")
       .split(/[\\n,]+/)
       .map((value) => value.trim())
       .filter(Boolean);
-    if (learnerIds.length === 0) {
-      setError("Enter at least one learner ID.");
+    if (learnerRefs.length === 0) {
+      setError("Enter at least one learner reference.");
       return;
     }
-    if (new Set(learnerIds).size !== learnerIds.length) {
-      setError("Each learner ID must appear only once.");
+    if (new Set(learnerRefs.map((value) => value.toLowerCase())).size !== learnerRefs.length) {
+      setError("Each learner reference must appear only once.");
+      return;
+    }
+    const learnerIds = learnerRefs.map((reference) =>
+      enrollments.find((item) => item.learner_ref.toLowerCase() === reference.toLowerCase())?.learner_id
+    );
+    if (learnerIds.some((learnerId) => !learnerId)) {
+      setError("One or more learner references do not match this course roster.");
       return;
     }
     await action("Bulk attendance recorded for " + learnerIds.length + " learners.", () =>
@@ -895,7 +902,7 @@ export default function LearningAdminPage() {
               ))}
             {enrollments.length > 0 && enrollments
               .filter((item) => enrollmentStatus === "all" || item.status === enrollmentStatus)
-              .filter((item) => item.learner_id.toLowerCase().includes(enrollmentSearch.trim().toLowerCase())).length === 0
+              .filter((item) => item.learner_ref.toLowerCase().includes(enrollmentSearch.trim().toLowerCase())).length === 0
               && <p className="workspace-muted">No enrolments match these filters.</p>}
           </section>
           <section className="staff-card">
@@ -910,7 +917,7 @@ export default function LearningAdminPage() {
             <h3>Submitted work</h3>
             {submissions.length === 0 ? <p className="workspace-muted">No submissions to review.</p> : submissions.map((item) => (
               <article className="staff-record" key={item.id}>
-                <strong>{item.assessment_title}</strong><small>Learner {item.learner_id} · submitted {new Date(item.submitted_at).toLocaleString()}</small>
+                <strong>{item.assessment_title}</strong><small>{enrollments.find((enrollment) => enrollment.learner_id === item.learner_id)?.learner_ref ?? "Learner record"} · submitted {new Date(item.submitted_at).toLocaleString()}</small>
                 <pre>{JSON.stringify(item.submission, null, 2)}</pre>
                 {item.score === null ? <form onSubmit={(event) => evaluate(event, item.id)}>
                   <label>Score (%)<input name="score" type="number" min="0" max="100" required /></label>
@@ -936,7 +943,7 @@ export default function LearningAdminPage() {
                               <strong>{evaluation.score}%</strong>
                               <small>
                                 {new Date(evaluation.evaluated_at).toLocaleString()} ·
-                                reviewer {evaluation.evaluated_by}
+                                reviewer: authorised staff member
                               </small>
                               <p>{evaluation.feedback || "No feedback recorded."}</p>
                               {evaluation.previous_score !== null && (
@@ -958,19 +965,19 @@ export default function LearningAdminPage() {
               <label>Mentor<select name="mentor_id" required defaultValue="">
                 <option value="" disabled>Select an active mentor</option>
                 {members.filter((member) => (member.roles ?? [member.role]).some((role) => ["admin", "founder", "executive", "programme_manager", "researcher"].includes(role))).map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{(member.roles ?? [member.role]).join(", ")} · {member.user_id}</option>
+                  <option key={member.user_id} value={member.user_id}>Mentor {members.filter((candidate) => (candidate.roles ?? [candidate.role]).some((role) => ["admin", "founder", "executive", "programme_manager", "researcher"].includes(role))).findIndex((candidate) => candidate.user_id === member.user_id) + 1}</option>
                 ))}
               </select></label>
               <label>Mentee<select name="mentee_id" required defaultValue="">
                 <option value="" disabled>Select an active mentee</option>
                 {members.map((member) => (
-                  <option key={member.user_id} value={member.user_id}>{member.role} · {member.user_id}</option>
+                  <option key={member.user_id} value={member.user_id}>{enrollments.find((enrollment) => enrollment.learner_id === member.user_id)?.learner_ref ?? "Enrolled learner"}</option>
                 ))}
               </select></label>
               <label>Notes<textarea name="notes" /></label>
               <button className="primary-action" disabled={busy || !courseId}>Assign mentor</button>
             </form>
-            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>{item.mentor_id} → {item.mentee_id}</strong><small>{item.status} · {item.notes || "No notes"}</small>{item.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => closeMentorship(item.id, "completed")}>Complete</button><button disabled={busy} onClick={() => closeMentorship(item.id, "ended")}>End assignment</button></div>}</article>)}
+            {mentorships.map((item) => <article className="staff-record" key={item.id}><strong>Mentor assigned → {enrollments.find((enrollment) => enrollment.learner_id === item.mentee_id)?.learner_ref ?? "Learner record"}</strong><small>{item.status} · {item.notes || "No notes"}</small>{item.status === "active" && <div className="staff-actions"><button disabled={busy} onClick={() => closeMentorship(item.id, "completed")}>Complete</button><button disabled={busy} onClick={() => closeMentorship(item.id, "ended")}>End assignment</button></div>}</article>)}
           </section>
           <section className="staff-card">
             <h2>Attendance</h2>
@@ -982,19 +989,19 @@ export default function LearningAdminPage() {
               <label>Enrolled learner<select name="learner_id" required defaultValue="">
                 <option value="" disabled>Select a learner</option>
                 {enrollments.filter((item) => ["approved", "completed"].includes(item.status)).map((item) => (
-                  <option key={item.learner_id} value={item.learner_id}>{item.learner_id} · {item.status}</option>
+                  <option key={item.learner_id} value={item.learner_id}>{item.learner_ref} · {item.status}</option>
                 ))}
               </select></label>
               <label>Status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record attendance</button>
             </form>
-            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {item.learner_id} · {item.attendance_status}</small></article>)}            <h3>Workshop roll call</h3>
-            <p className="workspace-muted">Record one session for multiple approved learners. Enter one learner ID per line or separate IDs with commas.</p>
+            {attendance.map((item) => <article className="staff-record" key={item.id}><strong>{item.session_title}</strong><small>{item.session_date} · {enrollments.find((enrollment) => enrollment.learner_id === item.learner_id)?.learner_ref ?? "Learner record"} · {item.attendance_status}</small></article>)}            <h3>Workshop roll call</h3>
+            <p className="workspace-muted">Record one session for multiple approved learners. Enter learner references from the roster, one per line or separated by commas.</p>
             <form onSubmit={recordBulkAttendance}>
               <label>Session key<input name="session_key" required /></label>
               <label>Session title<input name="session_title" required /></label>
               <label>Date<input name="session_date" type="date" required /></label>
-              <label>Learner IDs<textarea name="learner_ids" rows={6} placeholder="Paste learner IDs, one per line" required /></label>
+              <label>Learner references<textarea name="learner_ids" rows={6} placeholder="Paste learner references, one per line" required /></label>
               <label>Attendance status<select name="attendance_status"><option value="present">Present</option><option value="late">Late</option><option value="excused">Excused</option><option value="absent">Absent</option></select></label>
               <button className="primary-action" disabled={busy || !courseId}>Record workshop roll call</button>
             </form>
