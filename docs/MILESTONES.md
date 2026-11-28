@@ -498,6 +498,7 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI passes, merge and deploy.
 - [ ] Authenticated staging acceptance of roster search and learner detail.
 
+
 ## M144 — Curriculum draft authoring controls (implementation in review)
 
 - [x] Add tenant-scoped course metadata editing for draft courses.
@@ -510,3 +511,18 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI matrix passes.
 - [ ] Merge and deploy to Render staging.
 - [ ] Complete authenticated browser acceptance.
+
+
+## M160 — Tenant-scoped cohorts and intake foundation (implementation in review)
+
+- [x] Add tenant-scoped programme cohorts with unique organisation code, dates, capacity and lifecycle status.
+- [x] Add nullable cohort assignment to course enrolments without changing existing enrolments.
+- [x] Add create/list/update APIs with tenant and programme ownership validation.
+- [x] Add course-enrolment cohort assignment and transfer/unassignment with audit events.
+- [x] Count cohort capacity by distinct learner, not enrolment rows.
+- [x] Expose the learner's own cohort in the personal enrolment response.
+- [x] Add staff cohort creation, opening, roster assignment and cohort filtering controls.
+- [x] Keep live cohort activation blocked pending safeguarding and consent readiness.
+- [x] Add migration, tenant/capacity/lifecycle regression tests and operations documentation.
+- [ ] Full CI, merge and staging deployment.
+- [ ] Authenticated staging browser acceptance with realistic synthetic cohorts.
