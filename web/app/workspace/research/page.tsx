@@ -283,9 +283,12 @@ export default function ResearchWorkspacePage() {
     const activeOrganization = organizations.find((item) => item.id === organizationId);
     if (!activeOrganization?.slug) {
       setPublicPublications([]);
+      setPublicPublicationsError("");
+      setPublicPublicationsLoading(false);
       return;
     }
     let active = true;
+    setPublicPublications([]);
     setPublicPublicationsLoading(true);
     setPublicPublicationsError("");
     apiGet<PublicResearchPublication[]>(
@@ -1173,7 +1176,7 @@ export default function ResearchWorkspacePage() {
       <section className="workspace-content">
         <p className="eyebrow">RESEARCH & CLIMATE INTELLIGENCE</p>
         <h1 className="workspace-title">Research workspace.<br /><em>Evidence, with provenance.</em></h1>
-        <p className="workspace-intro">Manage study discovery and inspect the governance state of organisation datasets. File contents remain behind separate, authorised access workflows.</p>
+        <p className="workspace-intro">Explore public research evidence, register organisation-owned studies and inspect dataset governance. File contents remain behind separate, authorised access workflows.</p>
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {organizations.length === 0 && !error ? (
