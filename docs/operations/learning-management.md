@@ -188,3 +188,37 @@ The initial lifecycle supports draft, open, completed and archived operations. L
 ### Staging cohort walkthrough fixtures
 
 The demo bootstrap also creates four draft 2027 intake records, one for each programme, with a capacity of 24 and a proposed 12 January–31 March 2027 window. They are deliberately left in `draft` status: they support staff onboarding and cohort configuration demonstrations but do not imply safeguarding readiness, admissions, learner consent or live delivery. Existing cohorts are never overwritten by the seed. Staff can review the programme association and explicitly open a cohort for assignments when the required operational checks are complete.
+
+## Cohort risk review and facilitator interventions
+
+The staff-only learner support workspace is available at `/workspace/learning-admin/interventions`. It provides cohort-level evidence review, programme roll-ups and a staff-owned intervention register.
+
+### Advisory signals
+
+- **Inactivity:** last recorded learner activity from completed lessons, submitted assessments or attended/late sessions, compared with the cohort's `inactivity_threshold_days`.
+- **Repeated absences:** recorded `absent` sessions within the cohort's `absence_window_days`, compared with `absence_threshold`. Excused absences are not counted as absences.
+- **Overdue assessments:** assessments with an actual `due_at` timestamp, no submitted attempt and a passed cohort `overdue_grace_days` period. Assessments without due dates never create overdue flags.
+- **Insufficient data:** missing activity or attendance history is explicitly returned as `insufficient_data`; it is not converted into an inactivity or absence flag.
+
+Cohort thresholds default to 14 inactivity days, 2 absences in a 30-day window and a 2-day assessment grace period. `absence_window_days` is constrained to 7–90 days. Thresholds are editable by programme managers and administrators through cohort configuration.
+
+Risk signals are advisory only. They do not automatically reject, suspend, complete, grade, certify or otherwise change learner enrolments. Staff must review the evidence and decide whether a follow-up is appropriate.
+
+### Intervention lifecycle
+
+- Create a follow-up against an approved cohort enrolment, with an active programme-manager/administrator owner, optional due date and operational note.
+- Move an intervention from `open` to `in_progress`, then to `resolved` or `cancelled`. Terminal interventions cannot be reopened; create a new follow-up when another action is required.
+- Resolution records `resolved_at` and requires a concise resolution note. Creation, updates, cancellation and resolution produce organisation audit events.
+- Intervention notes are staff-only. Record operational next steps only; do not put health, disability, safeguarding case details or other sensitive personal information in these notes.
+
+### Staff API
+
+- `GET /organizations/{organization_id}/learning/cohorts/{cohort_id}/risk-review`
+- `GET /organizations/{organization_id}/learning/programmes/{programme_id}/risk-review`
+- `GET /organizations/{organization_id}/learning/cohorts/{cohort_id}/interventions`
+- `POST /organizations/{organization_id}/learning/cohorts/{cohort_id}/interventions`
+- `PATCH /organizations/{organization_id}/learning/interventions/{intervention_id}`
+
+All endpoints require an active organisation membership and the existing learning-management role policy. Every cohort, programme, enrolment and intervention lookup is tenant-scoped. Learner-facing routes do not return staff intervention notes.
+
+Schema migration: `0068_learning_interventions` (cohort thresholds and intervention register). Verify the migration and a backup restore before production rollout.

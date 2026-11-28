@@ -50,6 +50,10 @@ interface Cohort {
   capacity: number | null;
   status: string;
   assigned_count: number;
+  inactivity_threshold_days: number;
+  absence_threshold: number;
+  absence_window_days: number;
+  overdue_grace_days: number;
 }
 interface Enrollment {
   id: string;
@@ -341,8 +345,26 @@ export default function LearningAdminPage() {
         start_date: data.get("start_date") || null,
         end_date: data.get("end_date") || null,
         capacity: data.get("capacity") ? Number(data.get("capacity")) : null,
+        inactivity_threshold_days: Number(data.get("inactivity_threshold_days")),
+        absence_threshold: Number(data.get("absence_threshold")),
+        absence_window_days: Number(data.get("absence_window_days")),
+        overdue_grace_days: Number(data.get("overdue_grace_days")),
       });
       setCohorts((current) => [...current, created]);
+    });
+  }
+
+  async function updateCohortThresholds(cohortId: string, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    await action("Cohort risk thresholds updated.", async () => {
+      const updated = await apiPatch<Cohort>(base + `/cohorts/${cohortId}`, {
+        inactivity_threshold_days: Number(data.get("inactivity_threshold_days")),
+        absence_threshold: Number(data.get("absence_threshold")),
+        absence_window_days: Number(data.get("absence_window_days")),
+        overdue_grace_days: Number(data.get("overdue_grace_days")),
+      });
+      setCohorts((current) => current.map((item) => item.id === cohortId ? updated : item));
     });
   }
 
@@ -661,6 +683,7 @@ export default function LearningAdminPage() {
         <p className="eyebrow">PROGRAMME OPERATIONS</p>
         <h1 className="workspace-title">Learning <em>management.</em></h1>
         <p className="workspace-muted">Curriculum authoring, learner applications, cohort delivery, assessment review, mentorship and attendance.</p>
+        <p><Link className="secondary-action" href="/workspace/learning-admin/interventions">Open learner support and intervention review</Link></p>
         <div className="staff-grid" aria-label="Curriculum catalogue summary">
           <article><strong>{courses.filter((course) => course.status === "published").length}</strong><span>Published learner pathways</span></article>
           <article><strong>{courses.filter((course) => course.status === "draft").length}</strong><span>Editable curriculum drafts</span></article>
@@ -820,6 +843,13 @@ export default function LearningAdminPage() {
               <label>Start date<input name="start_date" type="date" /></label>
               <label>End date<input name="end_date" type="date" /></label>
               <label>Capacity<input name="capacity" type="number" min="1" max="10000" /></label>
+              <details>
+                <summary>Configure learner-support thresholds</summary>
+                <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="180" defaultValue="14" required /></label>
+                <label>Absences before review<input name="absence_threshold" type="number" min="1" max="20" defaultValue="2" required /></label>
+                <label>Absence review window (days)<input name="absence_window_days" type="number" min="7" max="90" defaultValue="30" required /></label>
+                <label>Assessment overdue grace (days)<input name="overdue_grace_days" type="number" min="0" max="30" defaultValue="2" required /></label>
+              </details>
               <button className="primary-action" disabled={busy || programmes.length === 0}>Create cohort</button>
             </form>
             {cohorts.length === 0 ? <p className="workspace-muted">No cohorts created yet.</p> : cohorts.map((cohort) => (
@@ -827,6 +857,16 @@ export default function LearningAdminPage() {
                 <strong>{cohort.title} · {cohort.code}</strong>
                 <small>{cohort.status} · {cohort.assigned_count} assigned{cohort.capacity ? ` / ${cohort.capacity} capacity` : ""}</small>
                 <small>{cohort.start_date ?? "Start date not set"} – {cohort.end_date ?? "End date not set"}</small>
+                <details>
+                  <summary>Risk-review thresholds</summary>
+                  <form onSubmit={(event) => updateCohortThresholds(cohort.id, event)}>
+                    <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="180" defaultValue={cohort.inactivity_threshold_days} required /></label>
+                    <label>Absences before review<input name="absence_threshold" type="number" min="1" max="20" defaultValue={cohort.absence_threshold} required /></label>
+                    <label>Absence review window (days)<input name="absence_window_days" type="number" min="7" max="90" defaultValue={cohort.absence_window_days} required /></label>
+                    <label>Assessment overdue grace (days)<input name="overdue_grace_days" type="number" min="0" max="30" defaultValue={cohort.overdue_grace_days} required /></label>
+                    <button className="secondary-action" disabled={busy}>Save thresholds</button>
+                  </form>
+                </details>
                 {cohort.status === "draft" && <button className="secondary-action" onClick={() => void openCohort(cohort.id)} disabled={busy}>Open for assignments</button>}
               </article>
             ))}

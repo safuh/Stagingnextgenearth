@@ -946,6 +946,10 @@ class LearningCohort(Base):
             name="ck_learning_cohort_absence_threshold",
         ),
         CheckConstraint(
+            "absence_window_days BETWEEN 7 AND 90",
+            name="ck_learning_cohort_absence_window",
+        ),
+        CheckConstraint(
             "overdue_grace_days BETWEEN 0 AND 30",
             name="ck_learning_cohort_overdue_grace_days",
         ),
@@ -966,9 +970,18 @@ class LearningCohort(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     capacity: Mapped[int | None] = mapped_column(nullable=True)
-    inactivity_threshold_days: Mapped[int] = mapped_column(nullable=False, default=14)
-    absence_threshold: Mapped[int] = mapped_column(nullable=False, default=2)
-    overdue_grace_days: Mapped[int] = mapped_column(nullable=False, default=2)
+    inactivity_threshold_days: Mapped[int] = mapped_column(
+        nullable=False, default=14, server_default="14"
+    )
+    absence_threshold: Mapped[int] = mapped_column(
+        nullable=False, default=2, server_default="2"
+    )
+    absence_window_days: Mapped[int] = mapped_column(
+        nullable=False, default=30, server_default="30"
+    )
+    overdue_grace_days: Mapped[int] = mapped_column(
+        nullable=False, default=2, server_default="2"
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False

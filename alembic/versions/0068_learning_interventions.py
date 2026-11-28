@@ -25,6 +25,9 @@ def upgrade() -> None:
             sa.Column("absence_threshold", sa.Integer(), nullable=False, server_default="2")
         )
         batch_op.add_column(
+            sa.Column("absence_window_days", sa.Integer(), nullable=False, server_default="30")
+        )
+        batch_op.add_column(
             sa.Column("overdue_grace_days", sa.Integer(), nullable=False, server_default="2")
         )
         batch_op.create_check_constraint(
@@ -34,6 +37,10 @@ def upgrade() -> None:
         batch_op.create_check_constraint(
             "ck_learning_cohort_absence_threshold",
             "absence_threshold BETWEEN 1 AND 20",
+        )
+        batch_op.create_check_constraint(
+            "ck_learning_cohort_absence_window",
+            "absence_window_days BETWEEN 7 AND 90",
         )
         batch_op.create_check_constraint(
             "ck_learning_cohort_overdue_grace_days",
@@ -70,15 +77,9 @@ def upgrade() -> None:
             name="ck_learning_intervention_status",
         ),
         sa.CheckConstraint("length(note) > 0", name="ck_learning_intervention_note"),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["cohort_id"], ["learning_cohorts.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["enrollment_id"], ["learning_enrollments.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["cohort_id"], ["learning_cohorts.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["enrollment_id"], ["learning_enrollments.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["assigned_to"], ["users.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
@@ -100,9 +101,7 @@ def upgrade() -> None:
     )
 
     with op.batch_alter_table("organization_audit_events") as batch_op:
-        batch_op.drop_constraint(
-            "ck_organization_audit_event_action", type_="check"
-        )
+        batch_op.drop_constraint("ck_organization_audit_event_action", type_="check")
         batch_op.create_check_constraint(
             "ck_organization_audit_event_action",
             "action IN ('membership.invited', 'membership.invitation_accepted', "
@@ -121,26 +120,16 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Keep the expanded audit vocabulary so immutable intervention history remains valid.
-    op.drop_index(
-        "ix_learning_interventions_enrollment", table_name="learning_interventions"
-    )
-    op.drop_index(
-        "ix_learning_interventions_cohort_status", table_name="learning_interventions"
-    )
-    op.drop_index(
-        "ix_learning_interventions_org_status_due", table_name="learning_interventions"
-    )
+    op.drop_index("ix_learning_interventions_enrollment", table_name="learning_interventions")
+    op.drop_index("ix_learning_interventions_cohort_status", table_name="learning_interventions")
+    op.drop_index("ix_learning_interventions_org_status_due", table_name="learning_interventions")
     op.drop_table("learning_interventions")
     with op.batch_alter_table("learning_cohorts") as batch_op:
-        batch_op.drop_constraint(
-            "ck_learning_cohort_overdue_grace_days", type_="check"
-        )
-        batch_op.drop_constraint(
-            "ck_learning_cohort_absence_threshold", type_="check"
-        )
-        batch_op.drop_constraint(
-            "ck_learning_cohort_inactivity_threshold", type_="check"
-        )
+        batch_op.drop_constraint("ck_learning_cohort_overdue_grace_days", type_="check")
+        batch_op.drop_constraint("ck_learning_cohort_absence_window", type_="check")
+        batch_op.drop_constraint("ck_learning_cohort_absence_threshold", type_="check")
+        batch_op.drop_constraint("ck_learning_cohort_inactivity_threshold", type_="check")
         batch_op.drop_column("overdue_grace_days")
+        batch_op.drop_column("absence_window_days")
         batch_op.drop_column("absence_threshold")
         batch_op.drop_column("inactivity_threshold_days")

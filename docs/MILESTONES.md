@@ -541,3 +541,14 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] GitHub PR checks pass and the reviewed commit is merged into staging.
 - [ ] Both Render services deploy the merge SHA and the startup seed creates four staff-only drafts without modifying published curriculum.
 - [ ] Authenticated learning-admin browser acceptance verifies draft editing, published read-only state and public learner catalogue isolation.
+
+
+## Learner risk review and facilitator interventions — in progress
+
+- [x] Cohort-scoped inactivity, absence-window and overdue-assessment thresholds with validation.
+- [x] Advisory risk signals distinguish `at_risk`, `clear` and `insufficient_data`; missing activity is not treated as disengagement.
+- [x] Tenant-scoped cohort and programme risk-review API responses.
+- [x] Staff-owned intervention lifecycle, owner validation, due dates, resolution notes and organisation audit events.
+- [x] Dedicated staff workspace route for cohort evidence review and follow-up management.
+- [ ] Complete integration tests, migration verification and web checks.
+- [ ] Submit and merge the milestone PR after CI passes; deploy to staging and verify authenticated workflows.
