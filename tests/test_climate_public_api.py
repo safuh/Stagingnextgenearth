@@ -101,10 +101,6 @@ def test_public_climate_release_requires_independent_approval_and_publication(
             "SELECT id FROM users WHERE identifier = ?",
             ("climate-licence-reviewer@example.org",),
         ).fetchone()[0]
-        release_reviewer_id = connection.execute(
-            "SELECT id FROM users WHERE identifier = ?",
-            ("climate-release-reviewer@example.org",),
-        ).fetchone()[0]
         publisher_id = connection.execute(
             "SELECT id FROM users WHERE identifier = ?",
             ("climate-publisher@example.org",),
@@ -322,6 +318,24 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert licence_review.status_code == 200
         assert licence_review.json()["licence_reviewed_by"] == licence_reviewer_id
         assert licence_review.json()["licence_reviewed_at"] is not None
+        connection = sqlite3.connect(tmp_path / "public-climate.db")
+        audit_event = connection.execute(
+            """SELECT actor_user_id, note FROM climate_public_release_events
+            WHERE release_id = ? AND action = 'licence_reviewed'""",
+            (release_id,),
+        ).fetchone()
+        connection.close()
+        assert audit_event is not None
+        assert audit_event[0] == licence_reviewer_id
+        audit_payload = json.loads(audit_event[1])
+        assert audit_payload["licence_name"] == "CC-BY-4.0"
+        assert audit_payload["terms_url"] == "https://www.chc.ucsb.edu/data/chirps"
+        assert audit_payload["checks"] == {
+            "licence_terms": True,
+            "provider_terms": True,
+            "attribution": True,
+            "citation": True,
+        }
         listed_review = client.get(
             f"{org_base}/climate-public-releases", headers=licence_reviewer
         )
