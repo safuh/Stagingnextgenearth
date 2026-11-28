@@ -493,6 +493,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert curriculum.json()["description"] == (
             "Updated draft description."
         )
+        assert curriculum.json()["modules"][0]["title"] == (
+            "Climate foundations and local risk"
+        )
         assert curriculum.json()["modules"][0]["lessons"][0]["title"] == (
             "Assessing local climate risks"
         )
