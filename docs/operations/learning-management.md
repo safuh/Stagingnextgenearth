@@ -157,3 +157,13 @@ Course metadata, module outlines and lesson content can be updated while a cours
 All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
 
 The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
+
+## Cohorts and learner intakes
+
+Cohorts are tenant-scoped programme intakes. A cohort has a unique organisation-level slug, optional programme link, date range, optional capacity and an explicit lifecycle: `draft → open → active → closed → archived`. Invalid transitions return HTTP 409. Only published courses from the same organisation can be linked to an open/active cohort.
+
+Learners are added only when they already have an active membership in the organisation and an explicit learner role. Cohort membership is separate from course enrolment: it records intake participation and does not silently create course enrolments. Capacity is enforced while the cohort row is locked during membership admission. Duplicate membership is rejected; membership status transitions are audited and terminal completed/withdrawn states cannot be silently reactivated.
+
+The staff API exposes a cohort roster with organisation-visible researcher display names only. When a learner has not chosen organisation visibility, the roster shows `Name not shared`; account identifiers and private profile fields are not returned. Cohort creation, status changes, course links, member admission and member lifecycle changes are recorded in the organisation audit ledger.
+
+Before activating a live intake, the programme owner must verify safeguarding, learner consent, parent/guardian consent where applicable, retention policy and the relevant programme's approved delivery plan. This cohort increment does not yet implement bulk invitations, cohort transfers, learner exports, or automated propagation of cohort membership into course enrolments.
