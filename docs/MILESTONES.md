@@ -474,3 +474,14 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Add learner detail/history and reviewed privacy-safe display identity.
 - [x] Add regression tests for partial success, duplicate IDs and role boundaries.
 - [ ] Full CI, merge, staging deployment and authenticated browser acceptance.
+
+
+## M149 — Learner-level progress detail (implementation in review)
+
+- [x] Add tenant-scoped, course-scoped staff detail API for an individual enrolment.
+- [x] Include ordered lesson completion timestamps, assessment attempts/evaluations, attendance and mentee-side mentorship records.
+- [x] Enforce learning-management role and 404 isolation for missing enrolments.
+- [x] Add on-demand expandable learner activity panel to the admin roster.
+- [x] Add API regression coverage for activity and role boundaries.
+- [ ] Full CI passes, merge and deploy.
+- [ ] Authenticated staging acceptance of roster search and learner detail.

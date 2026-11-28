@@ -127,3 +127,8 @@ The staff learning workspace exposes a course-scoped roster with enrolment statu
 For bounded batch review, managers can call `POST /courses/{course_id}/enrollments/bulk-decision` with 1–100 unique learner IDs and an `approved` or `rejected` decision. The response contains a result for every learner, including successful transitions and individual conflict/not-found details. Each decision is committed independently, so one invalid or already-decided application does not roll back successful decisions in the same batch. The endpoint requires a course-management role and validates the course within the organisation. The workspace splits larger selections into batches of at most 100 and displays partial failures.
 
 This increment does not replace the cohort/intake model, learner profile and history, bulk invitations, or audited transfer/withdrawal lifecycle; those remain in [issue #143](https://github.com/safuh/Stagingnextgenearth/issues/143).
+
+
+## Staff learner progress detail
+
+Course managers can inspect an individual learner's activity at `GET /courses/{course_id}/learners/{learner_id}/progress`. The route verifies the organisation/course relationship, requires a learning-management role and returns only the matching course enrolment, lesson completion timestamps, assessment attempts/evaluation outcomes, attendance records and mentee-side mentorship assignments. It does not expose mentor notes or unrelated course history. The learning admin roster provides an on-demand expandable activity view; it fetches details only when a staff member opens a learner row.

@@ -34,6 +34,35 @@ interface Enrollment {
   progress_percent: number;
   applied_at: string;
 }
+interface LearnerProgressDetail {
+  enrollment: {
+    status: string;
+    progress_percent: number;
+  };
+  lessons: Array<{
+    module_title: string;
+    lesson_title: string;
+    completed: boolean;
+    completed_at: string | null;
+  }>;
+  assessments: Array<{
+    assessment_title: string;
+    score: number | null;
+    feedback: string | null;
+    submitted_at: string | null;
+    evaluated_at: string | null;
+  }>;
+  attendance: Array<{
+    session_title: string;
+    session_date: string;
+    attendance_status: string;
+  }>;
+  mentorships: Array<{
+    mentor_id: string;
+    status: string;
+    created_at: string;
+  }>;
+}
 interface EvaluationHistory {
   id: string;
   score: number;
@@ -120,6 +149,11 @@ export default function LearningAdminPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [enrollmentSearch, setEnrollmentSearch] = useState("");
   const [enrollmentStatus, setEnrollmentStatus] = useState("all");
+  const [learnerProgressById, setLearnerProgressById] = useState<
+    Record<string, LearnerProgressDetail>
+  >({});
+  const [progressLoadingId, setProgressLoadingId] = useState("");
+  const [expandedLearnerId, setExpandedLearnerId] = useState("");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [mentorships, setMentorships] = useState<Mentorship[]>([]);
@@ -295,6 +329,27 @@ export default function LearningAdminPage() {
       });
     });
     event.currentTarget.reset();
+  }
+
+  async function toggleLearnerProgress(learnerId: string) {
+    if (expandedLearnerId === learnerId) {
+      setExpandedLearnerId("");
+      return;
+    }
+    setExpandedLearnerId(learnerId);
+    if (learnerProgressById[learnerId]) return;
+    setProgressLoadingId(learnerId);
+    setError("");
+    try {
+      const detail = await apiGet<LearnerProgressDetail>(
+        base + `/courses/${courseId}/learners/${learnerId}/progress`,
+      );
+      setLearnerProgressById((current) => ({ ...current, [learnerId]: detail }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load learner progress.");
+    } finally {
+      setProgressLoadingId("");
+    }
   }
 
   async function decide(learnerId: string, decision: "approved" | "rejected") {
@@ -566,7 +621,36 @@ export default function LearningAdminPage() {
               .map((item) => (
                 <article className="staff-record" key={item.id}>
                   <strong>{item.learner_id}</strong><small>{item.status} · {item.progress_percent}% progress · Applied {new Date(item.applied_at).toLocaleDateString()}</small>
-                  {item.status === "applied" && <div className="staff-actions"><button onClick={() => decide(item.learner_id, "approved")} disabled={busy}>Approve</button><button onClick={() => decide(item.learner_id, "rejected")} disabled={busy}>Reject</button></div>}
+                  <div className="staff-actions">
+                    {item.status === "applied" && <><button onClick={() => decide(item.learner_id, "approved")} disabled={busy}>Approve</button><button onClick={() => decide(item.learner_id, "rejected")} disabled={busy}>Reject</button></>}
+                    <button className="secondary-action" onClick={() => void toggleLearnerProgress(item.learner_id)} disabled={progressLoadingId === item.learner_id}>
+                      {progressLoadingId === item.learner_id ? "Loading progress…" : expandedLearnerId === item.learner_id ? "Hide progress" : "View progress"}
+                    </button>
+                  </div>
+                  {expandedLearnerId === item.learner_id && learnerProgressById[item.learner_id] && (
+                    <div className="staff-record">
+                      <strong>Learning activity</strong>
+                      <small>{learnerProgressById[item.learner_id].lessons.filter((lesson) => lesson.completed).length}/{learnerProgressById[item.learner_id].lessons.length} lessons completed</small>
+                      {learnerProgressById[item.learner_id].lessons.map((lesson, index) => (
+                        <small key={`${lesson.lesson_title}-${index}`}>
+                          {lesson.completed ? "Complete" : "Not complete"} · {lesson.module_title} / {lesson.lesson_title}
+                        </small>
+                      ))}
+                      <small>{learnerProgressById[item.learner_id].assessments.length} assessment attempts</small>
+                      {learnerProgressById[item.learner_id].assessments.map((assessment, index) => (
+                        <small key={`${assessment.assessment_title}-${index}`}>
+                          {assessment.assessment_title} · {assessment.score === null ? "Awaiting evaluation" : `${assessment.score}%`}
+                        </small>
+                      ))}
+                      <small>{learnerProgressById[item.learner_id].attendance.length} attendance records</small>
+                      {learnerProgressById[item.learner_id].attendance.map((record, index) => (
+                        <small key={`${record.session_title}-${index}`}>
+                          {record.session_date} · {record.session_title} · {record.attendance_status}
+                        </small>
+                      ))}
+                      <small>{learnerProgressById[item.learner_id].mentorships.length} mentorship assignments</small>
+                    </div>
+                  )}
                 </article>
               ))}
             {enrollments.length > 0 && enrollments

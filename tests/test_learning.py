@@ -552,6 +552,31 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert learner_progress.json()["certificate_id"] == certificate_id
         assert learner_progress.json()["certificate_status"] == "valid"
         assert lesson.json()["id"] in learner_progress.json()["completed_lesson_ids"]
+        learner_detail = client.get(
+            f"{base}/courses/{course_id}/learners/{learner_id}/progress",
+            headers=admin_headers,
+        )
+        assert learner_detail.status_code == 200
+        learner_detail_body = learner_detail.json()
+        assert learner_detail_body["learner_id"] == learner_id
+        assert learner_detail_body["enrollment"]["progress_percent"] == 100
+        assert any(
+            item["lesson_id"] == lesson.json()["id"] and item["completed"]
+            for item in learner_detail_body["lessons"]
+        )
+        assert isinstance(learner_detail_body["assessments"], list)
+        assert isinstance(learner_detail_body["attendance"], list)
+        assert isinstance(learner_detail_body["mentorships"], list)
+        denied_learner_detail = client.get(
+            f"{base}/courses/{course_id}/learners/{learner_id}/progress",
+            headers=learner_headers,
+        )
+        assert denied_learner_detail.status_code == 403
+        missing_learner_detail = client.get(
+            f"{base}/courses/{course_id}/learners/00000000-0000-0000-0000-000000000000/progress",
+            headers=admin_headers,
+        )
+        assert missing_learner_detail.status_code == 404
         verified = client.get(
             f"{base}/certificates/verify/{premature.json()['verification_code']}",
         )
