@@ -309,21 +309,29 @@ async def _release_source_run(
     return source_run
 
 
-async def _quality_reviewers(
-    session: AsyncSession, row: ClimatePublicRelease
+async def _quality_reviewers_for_run(
+    session: AsyncSession, organization_id: str, ingestion_run_id: str
 ) -> set[str]:
-    if row.source_ingestion_run_id is None:
-        return set()
     reviewer_ids = await session.scalars(
         select(ClimateObservation.reviewed_by)
         .where(
-            ClimateObservation.organization_id == row.organization_id,
-            ClimateObservation.ingestion_run_id == row.source_ingestion_run_id,
+            ClimateObservation.organization_id == organization_id,
+            ClimateObservation.ingestion_run_id == ingestion_run_id,
             ClimateObservation.reviewed_by.is_not(None),
         )
         .distinct()
     )
     return {reviewer_id for reviewer_id in reviewer_ids.all() if reviewer_id is not None}
+
+
+async def _quality_reviewers(
+    session: AsyncSession, row: ClimatePublicRelease
+) -> set[str]:
+    if row.source_ingestion_run_id is None:
+        return set()
+    return await _quality_reviewers_for_run(
+        session, row.organization_id, row.source_ingestion_run_id
+    )
 
 
 def _workspace_read(
@@ -436,6 +444,14 @@ async def create_release(
         raise HTTPException(
             409,
             "Every inserted observation in the provider run must pass independent quality review",
+        )
+    quality_reviewers = await _quality_reviewers_for_run(
+        session, organization_id, source_run.id
+    )
+    if principal.user_id in quality_reviewers:
+        raise HTTPException(
+            403,
+            "An observation quality reviewer cannot author the same public release",
         )
     period_count = await session.scalar(
         select(func.count(ClimateObservation.id)).where(
