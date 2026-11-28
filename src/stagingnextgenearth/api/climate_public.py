@@ -601,10 +601,14 @@ async def list_organisation_releases(
 async def _get_release(
     session: AsyncSession, organization_id: str, release_id: str
 ) -> ClimatePublicRelease:
-    row = await session.scalar(select(ClimatePublicRelease).where(
-        ClimatePublicRelease.id == release_id,
-        ClimatePublicRelease.organization_id == organization_id,
-    ))
+    row = await session.scalar(
+        select(ClimatePublicRelease)
+        .where(
+            ClimatePublicRelease.id == release_id,
+            ClimatePublicRelease.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
     if row is None:
         raise HTTPException(404, "Climate release not found")
     return row
