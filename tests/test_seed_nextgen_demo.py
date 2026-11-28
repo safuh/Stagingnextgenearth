@@ -181,3 +181,53 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
     assert first["partners_public_unverified"] is True
     assert first["content_published"] is True
     assert first["programmes_planned"] is True
+
+def test_production_seed_does_not_publish_synthetic_climate_fixtures(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    url = f"sqlite+aiosqlite:///{tmp_path / 'production-seed.db'}"
+    settings = SimpleNamespace(database_url=url, environment=Environment.PRODUCTION)
+    monkeypatch.setattr(seed_nextgen_demo, "get_settings", lambda: settings)
+    engine = create_async_engine(url)
+
+    async def prepare() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            owner = User(identifier="production-demo@example.test", password_hash="test-hash")
+            session.add(owner)
+            await session.flush()
+            session.add(Organization(
+                id="production-demo-org",
+                name="Production Demo Boundary",
+                slug="production-demo-boundary",
+                country_code="KE",
+                owner_user_id=owner.id,
+            ))
+            await session.commit()
+
+    async def inspect() -> tuple[int, int]:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            releases = int(await session.scalar(
+                select(func.count(ClimatePublicRelease.id))
+            ) or 0)
+            insights = int(await session.scalar(
+                select(func.count(PublicContentEntry.id)).where(
+                    PublicContentEntry.content_type == "climate_insight"
+                )
+            ) or 0)
+            return releases, insights
+
+    try:
+        asyncio.run(prepare())
+        asyncio.run(seed_nextgen_demo.seed("production-demo-boundary"))
+        releases, insights = asyncio.run(inspect())
+    finally:
+        asyncio.run(engine.dispose())
+
+    assert releases == 0
+    assert insights == 0
+
+
