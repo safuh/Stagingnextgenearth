@@ -485,3 +485,16 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Add API regression coverage for activity and role boundaries.
 - [ ] Full CI passes, merge and deploy.
 - [ ] Authenticated staging acceptance of roster search and learner detail.
+
+## M144 — Curriculum draft authoring controls (implementation in review)
+
+- [x] Add tenant-scoped course metadata editing for draft courses.
+- [x] Add module title, description and ordering edits while the parent course is draft.
+- [x] Add lesson content, resource, duration and ordering edits while the parent course is draft.
+- [x] Reject edits to published or archived curriculum to protect currently delivered content.
+- [x] Reject empty patches, null required fields and duplicate ordering positions.
+- [x] Add lifecycle regression coverage and operational documentation.
+- [x] Add draft editing controls to the learning admin interface.
+- [ ] Full CI matrix passes.
+- [ ] Merge and deploy to Render staging.
+- [ ] Complete authenticated browser acceptance.
