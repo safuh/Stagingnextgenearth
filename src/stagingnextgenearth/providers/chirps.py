@@ -6,6 +6,7 @@ bounding box for area requests. The default decoder requires rasterio.
 """
 
 import asyncio
+import math
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
 from typing import TypeAlias
@@ -197,7 +198,7 @@ def _measurements_for_day(
 ) -> list[ClimateMeasurement]:
     measurements: list[ClimateMeasurement] = []
     for latitude, longitude, value in cells:
-        if value in _MISSING_VALUES:
+        if not math.isfinite(value) or value in _MISSING_VALUES:
             continue
         measurements.append(
             ClimateMeasurement(
@@ -259,7 +260,12 @@ def _decode_geotiff(
                 values = dataset.read(
                     1, window=((row, row + 1), (column, column + 1)), masked=True
                 )
-                if values.size == 0 or np.ma.is_masked(values[0, 0]):
+                if (
+                    values.size == 0
+                    or np.ma.is_masked(values[0, 0])
+                    or not np.isfinite(values[0, 0])
+                    or float(values[0, 0]) in _MISSING_VALUES
+                ):
                     return []
                 longitude, latitude = dataset.xy(row, column)
                 return [
@@ -296,7 +302,11 @@ def _decode_geotiff(
             for local_row in range(values.shape[0]):
                 for local_column in range(values.shape[1]):
                     raw_value = values[local_row, local_column]
-                    if np.ma.is_masked(raw_value):
+                    if (
+                        np.ma.is_masked(raw_value)
+                        or not np.isfinite(raw_value)
+                        or float(raw_value) in _MISSING_VALUES
+                    ):
                         continue
                     row = row_offset + local_row
                     column = column_offset + local_column
