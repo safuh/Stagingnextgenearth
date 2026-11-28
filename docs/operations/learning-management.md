@@ -132,3 +132,7 @@ This increment does not replace the cohort/intake model, learner profile and his
 ## Staff learner progress detail
 
 Course managers can inspect an individual learner's activity at `GET /courses/{course_id}/learners/{learner_id}/progress`. The route verifies the organisation/course relationship, requires a learning-management role and returns only the matching course enrolment, lesson completion timestamps, assessment attempts/evaluation outcomes, attendance records and mentee-side mentorship assignments. It does not expose mentor notes or unrelated course history. The learning admin roster provides an on-demand expandable activity view; it fetches details only when a staff member opens a learner row.
+
+bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
+
+The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
