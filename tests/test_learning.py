@@ -798,6 +798,23 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert second_course.status_code == 201
         second_course_id = second_course.json()["id"]
+        second_module = client.post(
+            f"{base}/courses/{second_course_id}/modules",
+            headers=admin_headers,
+            json={"title": "Community practice", "position": 1},
+        )
+        assert second_module.status_code == 201
+        second_lesson = client.post(
+            f"{base}/modules/{second_module.json()['id']}/lessons",
+            headers=admin_headers,
+            json={
+                "title": "Community climate exercises",
+                "content_type": "text",
+                "content": "Complete practical community exercises.",
+                "position": 1,
+            },
+        )
+        assert second_lesson.status_code == 201
         second_course_publish = client.post(
             f"{base}/courses/{second_course_id}/publish",
             headers=admin_headers,
