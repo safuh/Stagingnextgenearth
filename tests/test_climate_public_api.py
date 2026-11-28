@@ -7,11 +7,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from stagingnextgenearth.app import create_app
-from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.config import DeploymentStage, Environment, Settings
 from stagingnextgenearth.core.database import Base
 
 
@@ -513,32 +514,53 @@ def test_public_climate_release_requires_independent_approval_and_publication(
 
 
 
-def test_production_public_climate_filter_excludes_synthetic_demo_provider(monkeypatch) -> None:
-    from types import SimpleNamespace
-
+def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> None:
     from stagingnextgenearth.api import climate_public
 
-    monkeypatch.setattr(
-        climate_public,
-        "get_settings",
-        lambda: SimpleNamespace(environment=Environment.PRODUCTION),
+    database_url = "postgresql+asyncpg://demo:demo@localhost:5432/demo"
+    secret = SecretStr("x" * 48)
+    production = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
+        climate_demo_seed_enabled=True,
+        database_url=database_url,
+        jwt_secret_key=secret,
     )
-    filters = climate_public._public_release_filters("demo-organisation")
+    filters = climate_public._public_release_filters("demo-organisation", production)
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
     compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" in compiled
     assert "data_class != 'synthetic_demo'" in compiled
 
-    monkeypatch.setattr(
-        climate_public,
-        "get_settings",
-        lambda: SimpleNamespace(environment=Environment.TEST),
+    staging = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=True,
+        database_url=database_url,
+        jwt_secret_key=secret,
     )
-    test_filters = climate_public._public_release_filters("demo-organisation")
+    test_filters = climate_public._public_release_filters("demo-organisation", staging)
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
     test_compiled = str(test_statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" not in test_compiled
     assert "data_class != 'synthetic_demo'" not in test_compiled
+
+    disabled = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=False,
+        database_url=database_url,
+        jwt_secret_key=secret,
+    )
+    disabled_filters = climate_public._public_release_filters(
+        "demo-organisation", disabled
+    )
+    disabled_statement = select(climate_public.ClimatePublicRelease).where(*disabled_filters)
+    disabled_compiled = str(
+        disabled_statement.compile(compile_kwargs={"literal_binds": True})
+    )
+    assert "provider_id != 'demo-synthetic'" in disabled_compiled
+    assert "data_class != 'synthetic_demo'" in disabled_compiled
 
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:

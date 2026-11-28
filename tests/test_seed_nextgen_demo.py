@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from scripts import seed_nextgen_demo
-from stagingnextgenearth.core.config import Environment, Settings
+from stagingnextgenearth.core.config import DeploymentStage, Environment, Settings
 from stagingnextgenearth.core.database import Base
 from stagingnextgenearth.identity.models import User
 from stagingnextgenearth.platform.climate_public import (
@@ -199,7 +199,9 @@ def test_production_seed_does_not_publish_synthetic_climate_fixtures(
     settings = SimpleNamespace(
         database_url=url,
         environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
         climate_demo_seed_enabled=True,
+        climate_demo_publication_allowed=False,
     )
     monkeypatch.setattr(seed_nextgen_demo, "get_settings", lambda: settings)
     engine = create_async_engine(url)
@@ -241,5 +243,40 @@ def test_production_seed_does_not_publish_synthetic_climate_fixtures(
 
     assert releases == 0
     assert insights == 0
+
+
+
+def test_climate_demo_publication_requires_explicit_staging_or_local_opt_in() -> None:
+    local = Settings(
+        environment=Environment.DEVELOPMENT,
+        deployment_stage=DeploymentStage.DEVELOPMENT,
+        climate_demo_seed_enabled=True,
+    )
+    staging = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=True,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+    production = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.PRODUCTION,
+        climate_demo_seed_enabled=True,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+    disabled = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=False,
+        database_url="postgresql+asyncpg://demo:demo@localhost:5432/demo",
+        jwt_secret_key=SecretStr("x" * 48),
+    )
+
+    assert local.climate_demo_publication_allowed is True
+    assert staging.climate_demo_publication_allowed is True
+    assert production.climate_demo_publication_allowed is False
+    assert disabled.climate_demo_publication_allowed is False
 
 

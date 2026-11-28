@@ -33,7 +33,7 @@ Recommended sections:
 7. **Research and field evidence:** approved public research summaries and community projects with publication permissions.
 8. **Data and methodology:** provider catalogue, definitions, source citations, licence/attribution and known limitations.
 
-Public users should be able to select geography, indicator and period from a bounded set of supported options. The UI must show a meaningful empty state when no eligible public release exists. Synthetic or pending observations must never be substituted for real evidence. A dedicated staging-only synthetic showcase is permitted only when the explicit `CLIMATE_DEMO_SEED_ENABLED=true` flag is set, every release is prominently labelled as illustrative, and the production API excludes it.
+Public users should be able to select geography, indicator and period from a bounded set of supported options. The UI must show a meaningful empty state when no eligible public release exists. Synthetic or pending observations must never be substituted for real evidence. A dedicated staging-only synthetic showcase is permitted only when `DEPLOYMENT_STAGE=staging` and the explicit `CLIMATE_DEMO_SEED_ENABLED=true` flag are both set, every release is prominently labelled as illustrative, and the production deployment stage excludes it.
 
 ### Homepage integration
 
@@ -273,7 +273,7 @@ Implemented in the current feature branch:
 - Coverage and missingness are returned as unreported until a defensible denominator/coverage calculation is implemented; do not invent percentages.
 - Publishing a replacement version supersedes the prior published version. Retraction removes the current version from public reads.
 - Anonymous endpoints currently cover overview, release list, release detail, series and source catalogue. Public reads are bounded and cacheable.
-- The website has the catalogue, release detail and methodology routes, homepage navigation, source register and research-linked insight cards. With `CLIMATE_DEMO_SEED_ENABLED=true`, the staging demo seed publishes synthetic rainfall and temperature series with 72 monthly points each and a clearly disclosed linked field note; production responses exclude the synthetic provider.
+- The website has the catalogue, release detail and methodology routes, homepage navigation, source register and research-linked insight cards. With `DEPLOYMENT_STAGE=staging` and `CLIMATE_DEMO_SEED_ENABLED=true`, the staging demo seed publishes synthetic rainfall and temperature series with 72 monthly points each and a clearly disclosed linked field note; production responses exclude the synthetic provider.
 
 The authenticated browser workflow is now implemented at `/workspace/research/climate`:
 - Bounded CHIRPS v3 SAT ingestion with a 7-day UI limit, explicit WGS84 bounding box, researcher-supplied area label and pinned Rasterio runtime in the API image.

@@ -18,6 +18,12 @@ This repository includes `render.yaml` for a two-service deployment (Next.js web
 4. Add the custom domain under the web service's Settings → Custom Domains and follow Render's DNS instructions. Do not point the public domain at the API service.
 5. In the API service's Environment page, confirm `ENVIRONMENT=production`, a generated `JWT_SECRET_KEY`, the internal Postgres URL, and the correct `PUBLIC_BASE_URL`. Render's Postgres connection string uses the standard `postgresql://` form; the application normalizes it to `postgresql+asyncpg://`.
 
+### Staging demonstration data
+
+For the dedicated staging service, keep `ENVIRONMENT=production` so production-profile validation, security headers and disabled interactive API docs remain active. Set `DEPLOYMENT_STAGE=staging` and `CLIMATE_DEMO_SEED_ENABLED=true` on the API service. The idempotent startup seed then publishes the clearly labelled synthetic rainfall/temperature catalogue and research-linked demonstration field note. These values are fixtures, not climate observations or scientific findings.
+
+For production, set `DEPLOYMENT_STAGE=production` and `CLIMATE_DEMO_SEED_ENABLED=false`. Production-stage seeding is blocked and public APIs exclude both the synthetic provider and synthetic data class, even if demo rows are copied into the database.
+
 ## Bootstrap the founder and organisation
 
 Do not create a shared public demo password or disable authentication. After the API is live, run the bootstrap script from a trusted local checkout using a private terminal session and the API's HTTPS URL:

@@ -700,9 +700,7 @@ async def seed(slug: str) -> None:
                 assessment.instructions = assessment_spec["instructions"]
                 assessment.configuration = configuration
                 assessment.pass_mark = assessment_spec["pass_mark"]
-        climate_demo_seeded = (
-            settings.climate_demo_seed_enabled and settings.environment.value != "production"
-        )
+        climate_demo_seeded = settings.climate_demo_publication_allowed
         if climate_demo_seeded:
             await _seed_public_climate_demo(session, org, actor, now)
         await session.commit()
