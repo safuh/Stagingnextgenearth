@@ -302,8 +302,9 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert public_curriculum.status_code == 200
         assert public_curriculum.json()["title"] == "Community Climate Action"
-        assert public_curriculum.json()["modules"][0]["title"] == "Climate foundations and local risk"
-        assert public_curriculum.json()["modules"][0]["lessons"][0]["title"] == "Assessing local climate risks"
+        public_module = public_curriculum.json()["modules"][0]
+        assert public_module["title"] == "Climate foundations and local risk"
+        assert public_module["lessons"][0]["title"] == "Assessing local climate risks"
         assert client.get(
             "/api/public/organizations/learning-lab/courses/not-published/curriculum",
         ).status_code == 404
