@@ -150,3 +150,14 @@ The workspace includes two additional bounded reports:
 Coverage is a completeness indicator, not a claim that each day's measurement
 is valid or representative. Missing dates are listed explicitly and are never
 filled, interpolated or converted to zero.
+
+
+## Public website publication library
+
+The authenticated research workspace includes a separate **Published research library** panel. It reads the active organisation's public CMS catalogue through `GET /public/organizations/{organization_slug}/content` and displays only records whose `content_type` is `publication`. The endpoint itself returns published records only.
+
+The panel preserves the public listing's title, summary/author-and-venue string, allowed metadata and outbound DOI/source URL. Search covers title, summary, slug and topic where present. It labels records as website listings and links back to the public research page.
+
+**Important distinction:** a website listing is not automatically an organisation-authored study, a verified bibliographic record or a study-linked `ResearchPublication`. The catalogue is evidence of what the public website lists. It does not infer authorship, missing dates or study linkage. Researchers create a new organisation-owned study through the existing authenticated **Register a study** form; it begins in concept status and must follow the established proposal, protocol and ethics gates.
+
+The public library has independent loading, error and empty states. It uses the selected organisation's slug and does not fetch unpublished CMS entries or private research data.
