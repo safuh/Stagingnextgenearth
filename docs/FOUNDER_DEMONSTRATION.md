@@ -151,7 +151,7 @@ uv run python scripts/seed_nextgen_demo.py \
   --organization-slug next-gen-for-earth-demo
 ```
 
-The second command inserts website-sourced people, partner prospects, CMS
+Set `CLIMATE_DEMO_SEED_ENABLED=true` only in the dedicated non-production demo environment. The second command inserts website-sourced people, partner prospects, CMS
 records, programmes and four published pilot courses. In non-production
 environments it also publishes two explicitly synthetic climate releases
 (rainfall and temperature, 72 monthly points each) plus a research-linked demo
