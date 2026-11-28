@@ -97,7 +97,8 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 ),
                 "climate_insight_linked": all(
                     (item.metadata_json or {}).get("release_slug") == "demo-kenya-monthly-rainfall"
-                    and (item.metadata_json or {}).get("publication_slug") == "seniors-climate-seasonality-busia-kilifi"
+                    and (item.metadata_json or {}).get("publication_slug")
+                    == "seniors-climate-seasonality-busia-kilifi"
                     for item in climate_insights
                 ),
                 "gallery_images": (
@@ -195,7 +196,11 @@ def test_production_seed_does_not_publish_synthetic_climate_fixtures(
     from types import SimpleNamespace
 
     url = f"sqlite+aiosqlite:///{tmp_path / 'production-seed.db'}"
-    settings = SimpleNamespace(database_url=url, environment=Environment.PRODUCTION, climate_demo_seed_enabled=True)
+    settings = SimpleNamespace(
+        database_url=url,
+        environment=Environment.PRODUCTION,
+        climate_demo_seed_enabled=True,
+    )
     monkeypatch.setattr(seed_nextgen_demo, "get_settings", lambda: settings)
     engine = create_async_engine(url)
 
