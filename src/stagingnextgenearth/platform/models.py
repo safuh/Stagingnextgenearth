@@ -1282,7 +1282,9 @@ class OrganizationAuditEvent(Base):
             "'learning.mentorship.status_changed', 'climate.observation.reviewed', "
             "'research.study.status_changed', 'research.protocol.version_created', "
             "'research.protocol.submitted', 'research.protocol.reviewed', "
-            "'research.ethics.review_recorded')",
+            "'research.ethics.review_recorded', 'learning.cohort.created', "
+            "'learning.cohort.updated', 'learning.enrollment.cohort_assigned', "
+            "'learning.enrollment.cohort_unassigned')",
             name="ck_organization_audit_event_action",
         ),
         Index(
