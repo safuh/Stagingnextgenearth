@@ -696,10 +696,23 @@ async def seed(slug: str) -> None:
                 assessment.instructions = assessment_spec["instructions"]
                 assessment.configuration = configuration
                 assessment.pass_mark = assessment_spec["pass_mark"]
-        if settings.climate_demo_seed_enabled and settings.environment.value != "production":
+        climate_demo_seeded = (
+            settings.climate_demo_seed_enabled and settings.environment.value != "production"
+        )
+        if climate_demo_seeded:
             await _seed_public_climate_demo(session, org, actor, now)
         await session.commit()
-        print(f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, {len(CONTENT) + len(PUBLICATIONS) + len(STORY) + 2} CMS entries including {len(PUBLICATIONS)} publications and one climate insight, four programmes, {len(course_specs)} published learning courses, and two published synthetic climate demo releases.")
+        climate_demo_status = (
+            "two published synthetic climate demo releases"
+            if climate_demo_seeded
+            else "no synthetic climate fixtures (demo flag disabled or production)"
+        )
+        print(
+            f"Loaded {len(PEOPLE)} people, {len(PARTNERS)} partners, "
+            f"{len(CONTENT) + len(PUBLICATIONS) + len(STORY) + (1 if climate_demo_seeded else 0)} "
+            f"CMS entries including {len(PUBLICATIONS)} publications, four programmes, "
+            f"{len(course_specs)} published learning courses, and {climate_demo_status}."
+        )
     await engine.dispose()
 
 if __name__ == "__main__":
