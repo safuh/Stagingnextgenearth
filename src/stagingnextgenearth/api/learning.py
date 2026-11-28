@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,7 @@ from stagingnextgenearth.platform.models import (
     LearningAssessmentEvaluation,
     LearningAttendance,
     LearningCertificate,
+    LearningCohort,
     LearningCourse,
     LearningEnrollment,
     LearningLesson,
@@ -211,6 +212,35 @@ class LessonUpdate(BaseModel):
     resource_url: str | None = Field(default=None, max_length=2000)
     duration_minutes: int | None = Field(default=None, ge=1, le=1440)
     position: int | None = Field(default=None, ge=1, le=500)
+
+
+class CohortCreate(BaseModel):
+    programme_id: str
+    code: str = Field(min_length=2, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+    title: str = Field(min_length=2, max_length=180)
+    description: str | None = Field(default=None, max_length=5000)
+    start_date: date | None = None
+    end_date: date | None = None
+    capacity: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "CohortCreate":
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValueError("Cohort start date must not be after its end date")
+        return self
+
+
+class CohortUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=180)
+    description: str | None = Field(default=None, max_length=5000)
+    start_date: date | None = None
+    end_date: date | None = None
+    capacity: int | None = Field(default=None, ge=1)
+    status: Literal["open", "active", "completed", "archived"] | None = None
+
+
+class CohortAssignment(BaseModel):
+    cohort_id: str | None = None
 
 
 class ModuleCreate(BaseModel):
@@ -435,6 +465,280 @@ async def list_courses(
         statement = statement.where(LearningCourse.status == "published")
     result = await session.scalars(statement.order_by(LearningCourse.title).limit(200))
     return [CourseRead.model_validate(row) for row in result.all()]
+
+
+@router.get("/cohorts")
+async def list_learning_cohorts(
+    organization_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    programme_id: str | None = None,
+) -> list[dict[str, object]]:
+    """List cohorts in the current organisation with assigned-enrolment counts."""
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    statement = select(LearningCohort).where(
+        LearningCohort.organization_id == organization_id
+    )
+    if programme_id:
+        statement = statement.where(LearningCohort.programme_id == programme_id)
+    rows = await session.scalars(
+        statement.order_by(LearningCohort.start_date.desc(), LearningCohort.title).limit(250)
+    )
+    cohorts = rows.all()
+    counts: dict[str, int] = {}
+    if cohorts:
+        count_rows = await session.execute(
+            select(LearningEnrollment.cohort_id, func.count(LearningEnrollment.id))
+            .where(
+                LearningEnrollment.cohort_id.in_([item.id for item in cohorts]),
+                LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+            )
+            .group_by(LearningEnrollment.cohort_id)
+        )
+        counts = {str(cohort_id): int(count) for cohort_id, count in count_rows.all()}
+    return [
+        {
+            "id": item.id,
+            "programme_id": item.programme_id,
+            "code": item.code,
+            "title": item.title,
+            "description": item.description,
+            "start_date": item.start_date,
+            "end_date": item.end_date,
+            "capacity": item.capacity,
+            "status": item.status,
+            "assigned_count": counts.get(item.id, 0),
+        }
+        for item in cohorts
+    ]
+
+
+@router.post("/cohorts", status_code=201)
+async def create_learning_cohort(
+    organization_id: str,
+    body: CohortCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    programme = await session.scalar(
+        select(Programme).where(
+            Programme.id == body.programme_id,
+            Programme.organization_id == organization_id,
+        )
+    )
+    if programme is None:
+        raise HTTPException(404, "Programme not found in this organisation")
+    cohort = LearningCohort(
+        organization_id=organization_id,
+        programme_id=programme.id,
+        code=body.code.strip(),
+        title=body.title.strip(),
+        description=body.description,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        capacity=body.capacity,
+        status="draft",
+        created_by=principal.user_id,
+    )
+    session.add(cohort)
+    try:
+        await session.flush()
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                action="learning.cohort.created",
+                changes={
+                    "cohort_id": cohort.id,
+                    "programme_id": programme.id,
+                    "code": cohort.code,
+                    "status": cohort.status,
+                },
+            )
+        )
+        await session.commit()
+        await session.refresh(cohort)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Cohort code already exists in this organisation") from exc
+    return {
+        "id": cohort.id,
+        "programme_id": cohort.programme_id,
+        "code": cohort.code,
+        "title": cohort.title,
+        "description": cohort.description,
+        "start_date": cohort.start_date,
+        "end_date": cohort.end_date,
+        "capacity": cohort.capacity,
+        "status": cohort.status,
+        "assigned_count": 0,
+    }
+
+
+@router.patch("/cohorts/{cohort_id}")
+async def update_learning_cohort(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortUpdate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort)
+        .where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one cohort field must be supplied")
+    start_date = changes.get("start_date", cohort.start_date)
+    end_date = changes.get("end_date", cohort.end_date)
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(422, "Cohort start date must not be after its end date")
+    next_status = changes.get("status", cohort.status)
+    allowed = {
+        "draft": {"open", "archived"},
+        "open": {"active", "archived"},
+        "active": {"completed", "archived"},
+        "completed": {"archived"},
+        "archived": set(),
+    }
+    if next_status != cohort.status and next_status not in allowed[cohort.status]:
+        raise HTTPException(409, "Invalid cohort lifecycle transition")
+    if "capacity" in changes and changes["capacity"] is not None:
+        assigned_count = await session.scalar(
+            select(func.count(LearningEnrollment.id)).where(
+                LearningEnrollment.cohort_id == cohort.id,
+                LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+            )
+        )
+        if int(assigned_count or 0) > changes["capacity"]:
+            raise HTTPException(409, "Capacity cannot be lower than assigned learners")
+    for field, value in changes.items():
+        if field == "title" and value is not None:
+            value = value.strip()
+        setattr(cohort, field, value)
+    session.add(
+        OrganizationAuditEvent(
+            organization_id=organization_id,
+            actor_user_id=principal.user_id,
+            action="learning.cohort.updated",
+            changes={
+                "cohort_id": cohort.id,
+                "fields": sorted(changes),
+                "status": {"before": cohort.status, "after": next_status},
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(cohort)
+    assigned_count = await session.scalar(
+        select(func.count(LearningEnrollment.id)).where(
+            LearningEnrollment.cohort_id == cohort.id,
+            LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+        )
+    )
+    return {
+        "id": cohort.id,
+        "programme_id": cohort.programme_id,
+        "code": cohort.code,
+        "title": cohort.title,
+        "description": cohort.description,
+        "start_date": cohort.start_date,
+        "end_date": cohort.end_date,
+        "capacity": cohort.capacity,
+        "status": cohort.status,
+        "assigned_count": int(assigned_count or 0),
+    }
+
+
+@router.post("/courses/{course_id}/enrollments/{learner_id}/cohort")
+async def assign_enrollment_cohort(
+    organization_id: str,
+    course_id: str,
+    learner_id: str,
+    body: CohortAssignment,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort assignment permission required")
+    course = await _course(session, organization_id, course_id)
+    enrollment = await _enrollment(session, course_id, learner_id)
+    previous_cohort_id = enrollment.cohort_id
+    if body.cohort_id is None:
+        enrollment.cohort_id = None
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=learner_id,
+                action="learning.enrollment.cohort_unassigned",
+                changes={
+                    "course_id": course_id,
+                    "from_cohort_id": previous_cohort_id,
+                },
+            )
+        )
+    else:
+        if course.programme_id is None:
+            raise HTTPException(409, "Standalone courses cannot be assigned to programme cohorts")
+        cohort = await session.scalar(
+            select(LearningCohort)
+            .where(
+                LearningCohort.id == body.cohort_id,
+                LearningCohort.organization_id == organization_id,
+                LearningCohort.programme_id == course.programme_id,
+            )
+            .with_for_update()
+        )
+        if cohort is None:
+            raise HTTPException(404, "Cohort not found for this course programme")
+        if cohort.status not in {"open", "active"}:
+            raise HTTPException(409, "Cohort is not accepting learner assignments")
+        if enrollment.cohort_id != cohort.id and cohort.capacity is not None:
+            assigned_count = await session.scalar(
+                select(func.count(LearningEnrollment.id)).where(
+                    LearningEnrollment.cohort_id == cohort.id,
+                    LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+                )
+            )
+            if int(assigned_count or 0) >= cohort.capacity:
+                raise HTTPException(409, "Cohort capacity has been reached")
+        enrollment.cohort_id = cohort.id
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization_id,
+                actor_user_id=principal.user_id,
+                subject_user_id=learner_id,
+                action="learning.enrollment.cohort_assigned",
+                changes={
+                    "course_id": course_id,
+                    "from_cohort_id": previous_cohort_id,
+                    "to_cohort_id": cohort.id,
+                },
+            )
+        )
+    await session.commit()
+    return {
+        "enrollment_id": enrollment.id,
+        "learner_id": enrollment.learner_id,
+        "course_id": enrollment.course_id,
+        "cohort_id": enrollment.cohort_id,
+    }
 
 
 @router.patch("/courses/{course_id}", response_model=CourseRead)
