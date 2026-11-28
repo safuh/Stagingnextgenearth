@@ -62,3 +62,21 @@ For a 15–20 minute session, use [the full founder demonstration and handover g
 - [ ] Open one learner classroom and inspect course scope, module progress, lesson reading and source links.
 - [ ] Confirm the quizzes expose questions/options but never expose correct answers before submission.
 - [ ] Present the materials as pilot content pending subject-matter, safeguarding, clinical and community review—not as accredited training.
+
+
+## Latest release and live staging checks
+
+The four-track learning curriculum pilot was merged and deployed on 26 November 2026 (commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`). All six CI jobs passed. Both Render web and API services report live; API health checks return HTTP 200.
+
+- [Open staging website](https://nextgen-web-upag.onrender.com)
+- [Open API health check](https://nextgen-api-au53.onrender.com/api/health)
+
+Before presenting, complete the human browser checks below. A successful deployment and API health check do not replace visual, accessibility, responsive and authenticated user-flow acceptance.
+
+- [ ] Open the public homepage and check navigation, typography, responsive layout and no-data states.
+- [ ] Open Research & Publications and verify the 12 public-site publication entries.
+- [ ] Open Climate Intelligence and verify source/methodology labels and the honest no-release/no-insight states where applicable.
+- [ ] Sign in with an authorised staging account and open the research workspace and Climate Studio.
+- [ ] Open one learner course and verify module progress, lesson content, official source links and quiz behaviour.
+- [ ] Check keyboard navigation, focus states, contrast, narrow mobile width and error/loading states.
+- [ ] Do not present pilot learning content as accredited training.
