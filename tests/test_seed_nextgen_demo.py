@@ -86,16 +86,18 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                         isinstance((item.metadata_json or {}).get("authors"), str)
                         and isinstance((item.metadata_json or {}).get("publisher"), str)
                         and isinstance((item.metadata_json or {}).get("year"), int)
-                        and isinstance((item.metadata_json or {}).get("topic"), str)
+                        and isinstance((item.metadata_json or {}).get("editorial_topic"), str)
+                        and (item.metadata_json or {}).get("editorial_topic_provenance")
+                        == "Editorial discovery tag assigned by the demo seed; not a source-reported keyword."
                         and (item.metadata_json or {}).get("doi")
                         == (item.source_url or "").removeprefix("https://doi.org/")
                         for item in publications
                     )
                 ),
                 "publication_topics": sorted({
-                    (item.metadata_json or {}).get("topic")
+                    (item.metadata_json or {}).get("editorial_topic")
                     for item in publications
-                    if isinstance((item.metadata_json or {}).get("topic"), str)
+                    if isinstance((item.metadata_json or {}).get("editorial_topic"), str)
                 }),
                 "climate_releases": len(climate_releases),
                 "climate_releases_published": all(
