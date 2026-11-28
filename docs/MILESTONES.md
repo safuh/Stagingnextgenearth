@@ -464,41 +464,43 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Complete authenticated partner browser acceptance with both successful and unavailable programme reports.
 
 
-## M143 — Learner roster and batch application review (implementation in review)
+## M143 — Learner roster, cohort assignment and batch review (merged; staging deployed)
 
 - [x] Add bounded, tenant-scoped bulk application decisions with per-learner results.
 - [x] Add a searchable course roster and lifecycle-status filters to the staff workspace.
 - [x] Add explicit confirmation before batch decisions and display partial failures.
 - [x] Batch large rosters into requests of at most 100 learners.
-- [ ] Add cohort/intake data model, assignment and transfers.
-- [ ] Add learner detail/history and reviewed privacy-safe display identity.
+- [x] Add cohort/intake data model, assignment and transfers.
+- [x] Add learner detail/history and privacy-safe roster references.
 - [x] Add regression tests for partial success, duplicate IDs and role boundaries.
-- [ ] Full CI, merge, staging deployment and authenticated browser acceptance.
+- [x] Full CI, merge and staging deployment.
+- [ ] Authenticated browser acceptance and safeguarding/consent readiness.
 
 
-## M145 — Deduplicated learning progress and outcomes (implementation in review)
+## M145 — Deduplicated learning progress and outcomes (merged; staging deployed)
 
 - [x] Distinguish unique learners from course-enrolment counts in programme and organisation outcomes.
 - [x] Calculate average progress with one equal-weight contribution per learner across the reporting scope.
 - [x] Label programme dashboards with separate unique learner and enrolment metrics.
 - [x] Include both denominators in programme and portfolio CSV exports.
 - [x] Document metric definitions and add API/export regression assertions.
-- [ ] Full CI passes and merge.
-- [ ] Deploy to staging and verify authenticated dashboard and exports.
-- [ ] Add cohort-aware timelines, transparent at-risk rules and facilitator interventions (later increment).
+- [x] Full CI passes and merge.
+- [x] Deploy to staging.
+- [ ] Authenticated dashboard and export acceptance.
+- [ ] Add cohort-aware timelines, transparent at-risk rules and facilitator interventions (tracked in #167).
 
 
-## M149 — Learner-level progress detail (implementation in review)
+## M149 — Learner-level progress detail (merged; staging deployed)
 
 - [x] Add tenant-scoped, course-scoped staff detail API for an individual enrolment.
 - [x] Include ordered lesson completion timestamps, assessment attempts/evaluations, attendance and mentee-side mentorship records.
 - [x] Enforce learning-management role and 404 isolation for missing enrolments.
 - [x] Add on-demand expandable learner activity panel to the admin roster.
 - [x] Add API regression coverage for activity and role boundaries.
-- [ ] Full CI passes, merge and deploy.
+- [x] Full CI passes, merge and deploy.
 - [ ] Authenticated staging acceptance of roster search and learner detail.
 
-## M144 — Curriculum draft authoring controls (implementation in review)
+## M144 — Curriculum draft authoring controls (merged; staging deployed)
 
 - [x] Add tenant-scoped course metadata editing for draft courses.
 - [x] Add module title, description and ordering edits while the parent course is draft.
@@ -507,11 +509,10 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Reject empty patches, null required fields and duplicate ordering positions.
 - [x] Add lifecycle regression coverage and operational documentation.
 - [x] Add draft editing controls to the learning admin interface.
-- [ ] Full CI matrix passes.
-- [ ] Merge and deploy to Render staging.
+- [x] Full CI matrix passes, merge and deploy to Render staging.
 - [ ] Complete authenticated browser acceptance.
 
-## M160 — Tenant-scoped cohorts and intake foundation (implementation in review)
+## M160 — Tenant-scoped cohorts and intake foundation (merged; staging deployed)
 
 - [x] Add tenant-scoped programme cohorts with unique organisation code, dates, capacity and lifecycle status.
 - [x] Add nullable cohort assignment to course enrolments without changing existing enrolments.
@@ -522,5 +523,5 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Add staff cohort creation, opening, roster assignment and cohort filtering controls.
 - [x] Keep live cohort activation blocked pending safeguarding and consent readiness.
 - [x] Add migration, tenant/capacity/lifecycle regression tests and operations documentation.
-- [ ] Full CI, merge and staging deployment.
+- [x] Full CI, merge and staging deployment.
 - [ ] Authenticated staging browser acceptance with realistic synthetic cohorts.
