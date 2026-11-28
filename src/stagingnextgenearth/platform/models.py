@@ -1067,6 +1067,7 @@ class LearningEnrollment(Base):
                         name="ck_learning_enrollment_progress"),
         Index("ix_learning_enrollments_course_status", "course_id", "status"),
         Index("ix_learning_enrollments_learner_status", "learner_id", "status"),
+        Index("ix_learning_enrollments_cohort", "cohort_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     course_id: Mapped[str] = mapped_column(
