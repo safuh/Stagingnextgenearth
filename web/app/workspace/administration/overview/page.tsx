@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { apiGet, clearSession, hasSession } from "@/lib/api";
+import { resolveInitialOrganisationId } from "@/lib/organisation-onboarding";
 
 type Org = { id: string; name: string };
 type Membership = { id: string; user_id: string; role: string; roles?: string[]; status: string };
@@ -184,7 +185,9 @@ export default function ExecutiveOverviewPage() {
     if (!hasSession()) { setError("Your sign-in session is not available. Please sign in again."); setLoading(false); return; }
     apiGet<Org[]>("/organizations").then(items => {
       setOrgs(items);
-      if (items[0]) setOrgId(items[0].id);
+      const requestedId = new URLSearchParams(window.location.search).get("organization_id");
+      const selectedId = resolveInitialOrganisationId(items, requestedId);
+      if (selectedId) setOrgId(selectedId);
       else setError("No active organisation membership was found.");
     }).catch((e: unknown) => setError(e instanceof Error ? e.message : "Unable to load organisations."))
       .finally(() => setLoading(false));

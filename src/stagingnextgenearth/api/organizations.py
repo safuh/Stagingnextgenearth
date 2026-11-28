@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +35,16 @@ class OrganizationCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: str | None = Field(default=None, max_length=5000)
     country_code: str = Field(default="KE", min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+
+    @field_validator("name")
+    @classmethod
+    def require_non_whitespace_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError(
+                "Organisation name must contain at least two non-whitespace characters"
+            )
+        return normalized
 
 
 class OrganizationRead(BaseModel):
@@ -72,6 +82,20 @@ async def create_organization(
                 user_id=principal.user_id,
                 role="admin",
                 status="active",
+            )
+        )
+        session.add(
+            OrganizationAuditEvent(
+                organization_id=organization.id,
+                actor_user_id=principal.user_id,
+                subject_user_id=principal.user_id,
+                action="organization.created",
+                changes={
+                    "name": organization.name,
+                    "slug": organization.slug,
+                    "country_code": organization.country_code,
+                    "creator_role": "admin",
+                },
             )
         )
         await session.commit()

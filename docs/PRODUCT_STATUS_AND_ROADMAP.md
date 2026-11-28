@@ -1,7 +1,7 @@
 # NextGen For Earth — Product Status, Priorities and Acceptance Roadmap
 
-**Working baseline:** `feat/staging-climate-demo-publication-m123`  
-**Roadmap branch:** `feat/staging-climate-demo-publication-m123`  
+**Working baseline:** `feat/organisation-onboarding-m171`
+**Roadmap branch:** `feat/organisation-onboarding-m171`
 **Review date:** 28 November 2026
 
 This document is the product-facing source of truth for what the repository currently implements, what is only seeded or demonstrated, and what remains to be accepted. A checked item means the implementation and its acceptance evidence have been verified; code presence or a successful build alone is not sufficient.
@@ -264,3 +264,11 @@ The migration-free seed update refreshes existing demo rows as well as creating 
 The next learning-management increment adds configurable cohort thresholds for inactivity, repeated absences and assessment overdue grace; deterministic evidence-based flags; explicit insufficient-data states; cohort and programme roll-ups; and staff-only follow-up records with owners, due dates, notes, resolution and cancellation. All changes are tenant-scoped and audit-recorded. Intervention notes are not learner-visible and must not contain sensitive health, disability or safeguarding information. No risk signal automatically changes a learner's enrolment, grade, eligibility or certificate status.
 
 Local integration coverage now exercises the no-data state, current activity, repeated absences, overdue assessment, owner validation, follow-up lifecycle, terminal-state enforcement and tenant isolation. The dedicated workspace is implemented locally. Migration verification, full CI and authenticated staging acceptance are the remaining release gates; this capability is not yet live. See [the learner risk and intervention operating guide](learning/LEARNER_RISK_AND_INTERVENTIONS.md).
+
+
+## Latest delivery update — M170 and M171
+
+- M170 learner risk review and facilitator interventions are merged and deployed on staging commit `407c3a6795d06b3041ac6f153391aefb047193cb`. Both Render services are live on that SHA; migration `0068_learning_interventions` is applied. Public curriculum has four pathways, 28 modules and 86 lessons. Authenticated facilitator acceptance remains open.
+- M171 self-service organisation onboarding is under development on `feat/organisation-onboarding-m171`, based on the M170 deployed baseline. It adds `/workspace/organisations/new`, first-run setup, organisation-context selection and atomic `organization.created` audit history. Migration `0069_organization_creation_audit` has been validated to head on a disposable local PostgreSQL/PostGIS database.
+- M171 local checks: focused organisation creation/duplicate-slug/audit and whitespace-name tests are in progress; Ruff, mypy, frontend typecheck, ESLint and 22 frontend unit tests have passed. The production build is completing. No M171 code has been merged or deployed yet.
+- Remaining operational acceptance includes authenticated tenant creation, invitations, researcher study creation, cross-tenant isolation, curriculum draft governance, learner outcome tracking and provider-backed climate release review.

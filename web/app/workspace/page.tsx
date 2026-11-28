@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, clearSession, hasSession } from "@/lib/api";
+import { resolveInitialOrganisationId } from "@/lib/organisation-onboarding";
 
 interface Organization {
   id: string;
@@ -121,7 +122,8 @@ export default function WorkspacePage() {
     apiGet<Organization[]>("/organizations")
       .then((items) => {
         setOrganizations(items);
-        if (items[0]) setOrganizationId(items[0].id);
+        const requestedId = new URLSearchParams(window.location.search).get("organization_id");
+        setOrganizationId(resolveInitialOrganisationId(items, requestedId));
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load organisations."))
       .finally(() => setLoading(false));
@@ -271,6 +273,7 @@ export default function WorkspacePage() {
       <header className="workspace-topbar">
         <Link className="brand" href="/"><span className="brand-mark">N</span><span>nextgen<span className="brand-light">for</span>earth</span></Link>
         <div className="workspace-topbar-actions">
+          <Link className="secondary-action" href="/workspace/organisations/new">Create organisation</Link>
           <Link className="secondary-action" href="/workspace/security">Account security</Link>
           <button className="workspace-signout" onClick={() => { clearSession(); window.location.assign("/"); }}>Sign out</button>
         </div>
@@ -281,13 +284,16 @@ export default function WorkspacePage() {
         {error && <p className="workspace-error" role="alert">{error}</p>}
         {notice && <p className="workspace-notice" role="status">{notice}</p>}
         {organizations.length === 0 && !error ? (
-          <div className="workspace-empty"><h2>No organisation access yet</h2><p>Ask your organisation administrator to invite your account to a workspace.</p></div>
+          <div className="workspace-empty organisation-empty-state"><p className="eyebrow">YOUR NEXT STEP</p><h2>No organisation workspace yet.</h2><p>Create a new organisation workspace and become its first administrator, or ask an existing organisation administrator to invite your account.</p><div className="organisation-empty-actions"><Link className="primary-action" href="/workspace/organisations/new">Create your organisation →</Link><Link className="secondary-action" href="/workspace/accept-invitation">Accept an invitation</Link></div></div>
         ) : (
           <>
             <label className="org-label" htmlFor="organization">Active organisation</label>
-            <select id="organization" value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
-              {organizations.map((org) => <option value={org.id} key={org.id}>{org.name} · {org.country_code}</option>)}
-            </select>
+            <div className="workspace-organisation-selector">
+              <select id="organization" value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
+                {organizations.map((org) => <option value={org.id} key={org.id}>{org.name} · {org.country_code}</option>)}
+              </select>
+              <Link href="/workspace/organisations/new">+ Create another organisation</Link>
+            </div>
             {membership && (
               <section className="role-workspace" aria-label="Role-specific workspace">
                 <div>
@@ -303,7 +309,7 @@ export default function WorkspacePage() {
                     </>
                   )}
                   {membershipRoles.some((role) => ["admin", "founder", "executive", "programme_manager", "researcher", "institutional_partner"].includes(role)) && (
-                    <Link href="/workspace/research">Research workspace →</Link>
+                    <Link href={`/workspace/research?organization_id=${encodeURIComponent(organizationId)}`}>Research workspace →</Link>
                   )}
                   {membershipRoles.includes("youth_volunteer") && (
                     <Link href="/workspace/youth">Youth & volunteer portal →</Link>
@@ -315,7 +321,7 @@ export default function WorkspacePage() {
                     <Link href="/workspace/administration/applications">Review volunteer applications →</Link>
                   )}
                   {membershipRoles.some((role) => ["admin", "founder", "executive"].includes(role)) && (
-                    <Link href="/workspace/administration">Organisation administration →</Link>
+                    <Link href={`/workspace/administration?organization_id=${encodeURIComponent(organizationId)}`}>Organisation administration →</Link>
                   )}
                 </div>
               </section>

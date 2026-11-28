@@ -54,6 +54,16 @@ def test_organization_requires_authentication(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_organization_name_must_contain_non_whitespace_characters(client: TestClient) -> None:
+    token = register_and_login(client, "blank-org@example.org")
+    response = client.post(
+        "/api/organizations",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "   ", "slug": "blank-organisation"},
+    )
+    assert response.status_code == 422
+
+
 def test_creator_becomes_admin_and_can_manage_programmes(client: TestClient) -> None:
     token = register_and_login(client, "admin@example.org")
     headers = {"Authorization": f"Bearer {token}"}
@@ -67,9 +77,32 @@ def test_creator_becomes_admin_and_can_manage_programmes(client: TestClient) -> 
     organization = created.json()
     assert organization["country_code"] == "KE"
 
+    duplicate_slug = client.post(
+        "/api/organizations",
+        headers=headers,
+        json={"name": "Another Research Group", "slug": "nextgen-for-earth"},
+    )
+    assert duplicate_slug.status_code == 409
+
     listed = client.get("/api/organizations", headers=headers)
     assert listed.status_code == 200
     assert [item["id"] for item in listed.json()] == [organization["id"]]
+
+    audit = client.get(
+        f"/api/organizations/{organization['id']}/audit-events",
+        headers=headers,
+    )
+    assert audit.status_code == 200
+    creation_event = next(
+        event for event in audit.json() if event["action"] == "organization.created"
+    )
+    assert creation_event["actor_user_id"] == creation_event["subject_user_id"]
+    assert creation_event["changes"] == {
+        "name": "NextGen for Earth",
+        "slug": "nextgen-for-earth",
+        "country_code": "KE",
+        "creator_role": "admin",
+    }
 
     programme = client.post(
         f"/api/organizations/{organization['id']}/programmes",
