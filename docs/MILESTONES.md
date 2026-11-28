@@ -558,7 +558,7 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Public API and homepage/research/climate/learners/interventions routes return HTTP 200; curriculum verified at 4 courses / 28 modules / 86 lessons.
 - [ ] Authenticated facilitator browser acceptance, learner denial and cross-tenant denial.
 
-## M171 — Self-service organisation creation and first-run onboarding (in development)
+## M171 — Self-service organisation creation and first-run onboarding (merged; staging deployed)
 
 - [x] Existing tenant-creation API contract verified: organisation, initial active admin membership and duplicate-slug conflict handling.
 - [x] Add organisation creation workspace with slug suggestion, country and description fields, recoverable conflicts and first-run checklist.
@@ -567,5 +567,8 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Add append-only `organization.created` audit action in the same transaction as tenant and initial admin membership.
 - [x] Add migration `0069_organization_creation_audit` and API regression assertions.
 - [x] Add operator runbook at `docs/operations/organisation-onboarding.md`.
-- [ ] Complete frontend production build, full backend suite and GitHub CI for PR #171.
-- [ ] Deploy both services and complete authenticated tenant-creation, invitation and cross-tenant acceptance.
+- [x] Ruff, mypy, frontend typecheck/lint/tests/build, focused API tests and disposable PostgreSQL/PostGIS migration pass.
+- [x] All six GitHub CI jobs pass; PR #172 merged as `ef67959a`.
+- [x] Both Render services are live on the merge SHA; API logs confirm migration 0069 and successful startup.
+- [x] Live smoke checks pass for `/workspace/organisations/new`, workspace, administration, research and public routes.
+- [ ] Authenticated browser acceptance for first/second tenant creation, invitation acceptance, organisation context and cross-tenant denial.
