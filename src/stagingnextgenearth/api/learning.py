@@ -2016,7 +2016,7 @@ async def export_programme_outcomes(
                         *[
                             safe_cell(course.get(key))
                             for key in (
-                                "learners",
+                                "enrolments",
                                 "approved",
                                 "completed",
                                 "average_progress",
