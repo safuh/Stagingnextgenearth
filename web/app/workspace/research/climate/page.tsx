@@ -534,7 +534,7 @@ export default function ClimateResearchStudioPage() {
                         {release.state === "review" && canReleaseReview && !release.licence_reviewed_at && (
                           <div className="climate-review-box">
                             <strong>Independent licence and attribution review</strong>
-                            <p>Inspect the exact licence, provider terms, attribution and source citation before confirming public use.</p>
+                            <p>Inspect the exact licence, provider terms, attribution and source citation before confirming public use. The licence reviewer must be different from the ingestion operator and observation quality reviewer.</p>
                             <label><input type="checkbox" checked={licenceChecks[release.id]?.licence_terms_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "licence_terms_confirmed", event.target.checked)} /> The licence permits this intended public release.</label>
                             <label><input type="checkbox" checked={licenceChecks[release.id]?.provider_terms_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "provider_terms_confirmed", event.target.checked)} /> Provider terms and dataset-specific conditions have been checked.</label>
                             <label><input type="checkbox" checked={licenceChecks[release.id]?.attribution_confirmed ?? false} onChange={(event) => updateLicenceCheck(release.id, "attribution_confirmed", event.target.checked)} /> Attribution matches the provider's requirements.</label>
