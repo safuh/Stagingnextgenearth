@@ -93,7 +93,7 @@ export default function ClimateIntelligencePage() {
           <h1>Make the signal<br /> <em>make sense.</em></h1>
           <p className="climate-public-intro">
             Explore climate evidence with its source, method, geography and limits in view.
-            We turn trusted provider data into transparent, reviewable knowledge for research and action.
+            We turn sourced climate evidence into transparent, reviewable knowledge, while clearly separating synthetic demonstrations from provider-derived data.
           </p>
           <div className="climate-public-actions">
             <a className="climate-public-primary" href="#evidence">Explore evidence <span>↓</span></a>
