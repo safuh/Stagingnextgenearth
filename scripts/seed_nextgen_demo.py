@@ -605,7 +605,11 @@ async def seed(slug: str) -> None:
                 session.add(entry)
             else:
                 entry.title, entry.summary = title, summary
-                entry.metadata_json = {**(entry.metadata_json or {}), **publication_metadata}
+                existing_metadata = {
+                    key: value for key, value in (entry.metadata_json or {}).items()
+                    if key != "topic"
+                }
+                entry.metadata_json = {**existing_metadata, **publication_metadata}
                 entry.publication_state = "published"
                 entry.source_url, entry.source_label = doi, "NextGen For Earth publication listing"
                 entry.approved_by, entry.approved_at, entry.published_at = actor, now, now
