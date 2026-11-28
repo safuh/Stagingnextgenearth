@@ -53,6 +53,19 @@ provider timeout or 403/429 rate-limit response, the persisted failed-run
 record enforces a three-hour minimum cooldown and returns HTTP 503 with a
 Retry-After header. Do not start overlapping or repeated provider runs.
 
+Authorised workspace members can read the current state without contacting
+CHIRPS:
+
+`GET /api/organizations/{organization_id}/climate-ingestion/cooldown?provider_id=chirps-v3`
+
+The response reports `active`, `retry_after_seconds`, `retry_at` and a
+safe reason code. Climate Studio loads this status on page entry and refresh,
+so a page reload restores the countdown and disables ingestion before the
+operator can make another request. The ingestion endpoint remains the final
+authority and independently enforces the persisted cooldown. The cooldown is
+shared across organisations because the upstream provider sees the deployment's
+outbound IP.
+
 HTTP 403/429 responses and request timeouts are treated as provider
 unavailability, not transient errors to hammer with retries. The workspace
 returns HTTP 503 with an actionable message and a numeric `Retry-After`
