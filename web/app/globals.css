@@ -2338,3 +2338,28 @@ footer > span { line-height: 1.7; }
   .research-publication-card { transition: none; }
   .research-publication-card:hover { transform: none; }
 }
+
+/* Public climate staging fixtures are published for product demonstration only. */
+.climate-public-demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 1.25rem auto;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(218, 166, 70, .55);
+  border-left: 4px solid #d9a43f;
+  background: rgba(218, 166, 70, .09);
+  color: inherit;
+  font-size: .92rem;
+  line-height: 1.55;
+}
+.climate-public-demo-banner strong {
+  display: block;
+  margin-bottom: .25rem;
+  font-size: .72rem;
+  letter-spacing: .12em;
+}
+.climate-public-demo-banner p {
+  margin: 0;
+}
