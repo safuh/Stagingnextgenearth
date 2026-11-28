@@ -17,6 +17,16 @@ async def test_alembic_upgrade_and_downgrade() -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = url
     command = [sys.executable, "-m", "alembic"]
+    heads = subprocess.run(
+        [*command, "heads"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert heads.returncode == 0, heads.stdout + heads.stderr
+    head_lines = [line for line in heads.stdout.splitlines() if line.strip()]
+    assert len(head_lines) == 1, heads.stdout
     upgrade = subprocess.run(
         [*command, "upgrade", "head"],
         check=False,
