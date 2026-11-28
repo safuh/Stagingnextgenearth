@@ -185,6 +185,102 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             headers=admin_headers,
         )
         assert published.status_code == 200
+
+        cohort_response = client.post(
+            f"{base}/courses/{course_id}/cohorts",
+            headers=admin_headers,
+            json={
+                "title": "Climate Action Intake A",
+                "slug": "climate-action-intake-a",
+                "code": "CLIMATE-2026-A",
+                "description": "First guided delivery intake.",
+                "capacity": 10,
+            },
+        )
+        assert cohort_response.status_code == 201
+        cohort_id = cohort_response.json()["id"]
+        assert cohort_response.json()["status"] == "draft"
+        premature_open = client.post(
+            f"{base}/cohorts/{cohort_id}/open",
+            headers=admin_headers,
+        )
+        assert premature_open.status_code == 409
+        creator_review = client.post(
+            f"{base}/cohorts/{cohort_id}/readiness",
+            headers=admin_headers,
+            json={
+                "safeguarding_policy_version": "safeguarding-v1",
+                "consent_policy_version": "consent-v1",
+                "retention_policy_version": "retention-v1",
+                "minor_access_policy_version": "minors-v1",
+            },
+        )
+        assert creator_review.status_code == 409
+
+        reviewer_headers = _register(client, "learning-reviewer@example.org")
+        reviewer_invitation = client.post(
+            f"/api/organizations/{org_id}/memberships",
+            headers=admin_headers,
+            json={"identifier": "learning-reviewer@example.org", "role": "programme_manager"},
+        )
+        assert reviewer_invitation.status_code == 201
+        reviewer_acceptance = client.post(
+            f"/api/organizations/{org_id}/memberships/{reviewer_invitation.json()['id']}/accept",
+            headers=reviewer_headers,
+        )
+        assert reviewer_acceptance.status_code == 200
+        readiness = client.post(
+            f"{base}/cohorts/{cohort_id}/readiness",
+            headers=reviewer_headers,
+            json={
+                "safeguarding_policy_version": "safeguarding-v1",
+                "consent_policy_version": "consent-v1",
+                "retention_policy_version": "retention-v1",
+                "minor_access_policy_version": "minors-v1",
+            },
+        )
+        assert readiness.status_code == 200
+        opened_cohort = client.post(
+            f"{base}/cohorts/{cohort_id}/open",
+            headers=admin_headers,
+        )
+        assert opened_cohort.status_code == 200
+        assert opened_cohort.json()["status"] == "open"
+        second_cohort = client.post(
+            f"{base}/courses/{course_id}/cohorts",
+            headers=admin_headers,
+            json={
+                "title": "Climate Action Intake B",
+                "slug": "climate-action-intake-b",
+                "code": "CLIMATE-2026-B",
+                "capacity": 1,
+            },
+        )
+        assert second_cohort.status_code == 201
+        second_cohort_id = second_cohort.json()["id"]
+        second_readiness = client.post(
+            f"{base}/cohorts/{second_cohort_id}/readiness",
+            headers=reviewer_headers,
+            json={
+                "safeguarding_policy_version": "safeguarding-v1",
+                "consent_policy_version": "consent-v1",
+                "retention_policy_version": "retention-v1",
+                "minor_access_policy_version": "minors-v1",
+            },
+        )
+        assert second_readiness.status_code == 200
+        second_open = client.post(
+            f"{base}/cohorts/{second_cohort_id}/open",
+            headers=admin_headers,
+        )
+        assert second_open.status_code == 200
+        cohort_list = client.get(
+            f"{base}/courses/{course_id}/cohorts",
+            headers=admin_headers,
+        )
+        assert cohort_list.status_code == 200
+        assert {item["id"] for item in cohort_list.json()} == {cohort_id, second_cohort_id}
+
         immutable_course_update = client.patch(
             f"{base}/courses/{course_id}",
             headers=admin_headers,
@@ -219,9 +315,15 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
 
         # A public learner can self-register and apply without being pre-invited.
         public_learner_headers = _register(client, "public-learner@example.org")
+        unassigned_application = client.post(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=public_learner_headers,
+        )
+        assert unassigned_application.status_code == 422
         public_application = client.post(
             f"{base}/courses/{course_id}/enrollments",
             headers=public_learner_headers,
+            json={"cohort_id": cohort_id},
         )
         assert public_application.status_code == 201
         own_applications = client.get(
@@ -312,6 +414,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         application = client.post(
             f"{base}/courses/{course_id}/enrollments",
             headers=learner_headers,
+            json={"cohort_id": cohort_id},
         )
         assert application.status_code == 201
         pending_enrollments = client.get(
@@ -668,6 +771,7 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         late_application = client.post(
             f"{base}/courses/{course_id}/enrollments",
             headers=late_learner_headers,
+            json={"cohort_id": cohort_id},
         )
         assert late_application.status_code == 201
         late_login = client.post(
