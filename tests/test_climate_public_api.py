@@ -545,6 +545,23 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider() -> 
     assert "provider_id != 'demo-synthetic'" not in test_compiled
     assert "data_class != 'synthetic_demo'" not in test_compiled
 
+    disabled = Settings(
+        environment=Environment.PRODUCTION,
+        deployment_stage=DeploymentStage.STAGING,
+        climate_demo_seed_enabled=False,
+        database_url=database_url,
+        jwt_secret_key=secret,
+    )
+    disabled_filters = climate_public._public_release_filters(
+        "demo-organisation", disabled
+    )
+    disabled_statement = select(climate_public.ClimatePublicRelease).where(*disabled_filters)
+    disabled_compiled = str(
+        disabled_statement.compile(compile_kwargs={"literal_binds": True})
+    )
+    assert "provider_id != 'demo-synthetic'" in disabled_compiled
+    assert "data_class != 'synthetic_demo'" in disabled_compiled
+
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
     from pydantic import ValidationError
