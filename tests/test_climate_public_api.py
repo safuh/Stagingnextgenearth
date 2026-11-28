@@ -365,6 +365,20 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert approved.json()["state"] == "approved"
         assert approved.json()["licence_reviewed_by"] == licence_reviewer_id
 
+        author_cannot_publish = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/publish",
+            headers=author,
+            json={"note": "The release author cannot publish their own work."},
+        )
+        assert author_cannot_publish.status_code == 403
+
+        quality_reviewer_cannot_publish = client.post(
+            f"{org_base}/climate-public-releases/{release_id}/publish",
+            headers=reviewer,
+            json={"note": "The quality reviewer cannot publish this release."},
+        )
+        assert quality_reviewer_cannot_publish.status_code == 403
+
         release_reviewer_cannot_publish = client.post(
             f"{org_base}/climate-public-releases/{release_id}/publish",
             headers=release_reviewer,
