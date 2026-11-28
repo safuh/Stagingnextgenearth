@@ -1262,7 +1262,13 @@ export default function ResearchWorkspacePage() {
                             </div>
                             <h3>{publication.title}</h3>
                             {authorText && <p className="research-publication-authors">{authorText}</p>}
+                            {publication.metadata_json?.publisher && (
+                              <p className="research-publication-publisher">{publication.metadata_json.publisher}</p>
+                            )}
                             {publication.summary && <p className="research-publication-summary">{publication.summary}</p>}
+                            {publication.metadata_json?.doi && (
+                              <p className="research-publication-doi">DOI: {publication.metadata_json.doi}</p>
+                            )}
                             <div className="research-publication-meta">
                               {typeof topic === "string" && <span>{topic}</span>}
                               {(typeof year === "string" || typeof year === "number") && <span>{year}</span>}
