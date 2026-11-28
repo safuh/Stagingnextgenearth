@@ -1,6 +1,7 @@
 """Tenant-scoped learning management workflows."""
 
 import csv
+import hashlib
 import io
 import secrets
 from datetime import UTC, date, datetime
@@ -1090,6 +1091,7 @@ async def list_course_enrollments(
         {
             "id": row.id,
             "learner_id": row.learner_id,
+            "learner_ref": f"Learner-{hashlib.sha256(row.learner_id.encode()).hexdigest()[:8].upper()}",
             "cohort_id": row.cohort_id,
             "cohort_title": cohort_title,
             "status": row.status,
