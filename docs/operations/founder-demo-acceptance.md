@@ -47,6 +47,20 @@ safeguarding documents, or unreviewed impact claims in a pitch environment.
 - [ ] For staging/production acceptance, separately configure a real non-production ODK Central project and least-privilege account; do not mark live Central acceptance complete based on the simulator.
 - [ ] Confirm sync run history, last-run state and errors are visible to authorised research managers; confirm credentials are never returned to the browser.
 
+### Climate intelligence acceptance
+
+- [ ] Open `/climate-intelligence` and confirm the public catalogue, overview, source register and research-linked insights load.
+- [ ] Confirm the staging banner identifies the rainfall and temperature fixtures as synthetic demonstrations, and that each release carries the synthetic data-class label.
+- [ ] Open `/climate-intelligence/methodology`; verify that synthetic demonstrations are explicitly excluded from scientific evidence and decision use.
+- [ ] Check the public overview, release, source and insight API responses. Confirm only published releases are listed and source, product, period, geography, licence and attribution metadata are visible.
+- [ ] Confirm public responses do not expose ingestion-run identifiers, internal licence-review identities, timestamps or review notes.
+- [ ] In Climate Studio, reload the workspace while a provider cooldown is active. Confirm the persisted countdown is restored and ingestion remains disabled without contacting CHIRPS.
+- [ ] Do not trigger a provider request during an active cooldown. After it expires, perform at most one bounded request against the approved non-production provider account; record the provider response and run identifier.
+- [ ] Verify imported observations remain pending until an authorised quality reviewer approves them. The reviewer must not be the observation submitter or release author.
+- [ ] Submit a release and complete the licence checklist with a reviewer distinct from the release author, ingestion operator and quality reviewer.
+- [ ] Approve the release with a separate reviewer, then publish it with a further distinct publisher. Confirm all decisions and substantive notes appear in the private release audit ledger.
+- [ ] Confirm the newly published provider-derived release appears in the public catalogue with its actual source and licence metadata. Do not present synthetic fixtures as provider-derived evidence.
+
 ## 5. Funding management
 
 - [ ] Register a funding opportunity with donor, deadline, expected amount, currency and stage.
