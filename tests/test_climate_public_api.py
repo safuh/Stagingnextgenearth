@@ -236,6 +236,14 @@ def test_public_climate_release_requires_independent_approval_and_publication(
         assert "created_by" not in public_detail.json()
         assert "source_ingestion_run_id" not in public_detail.json()
 
+        overview = client.get(
+            "/api/public/organizations/nextgen-climate/climate/overview"
+        )
+        assert overview.status_code == 200
+        assert overview.json()["release_count"] == 1
+        assert overview.json()["latest_data_period_end"].startswith("2025-12-01")
+        assert overview.json()["latest_source_retrieved_at"].startswith("2026-01-01T00:01:00")
+
         public_series = client.get(
             "/api/public/organizations/nextgen-climate/climate/releases/"
             "kilifi-monthly-rainfall/series"
