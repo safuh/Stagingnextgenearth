@@ -719,14 +719,24 @@ async def assign_enrollment_cohort(
         if cohort.status not in {"open", "active"}:
             raise HTTPException(409, "Cohort is not accepting learner assignments")
         if enrollment.cohort_id != cohort.id and cohort.capacity is not None:
-            assigned_count = await session.scalar(
-                select(func.count(func.distinct(LearningEnrollment.learner_id))).where(
+            existing_learner_assignment = await session.scalar(
+                select(LearningEnrollment.id)
+                .where(
                     LearningEnrollment.cohort_id == cohort.id,
+                    LearningEnrollment.learner_id == learner_id,
                     LearningEnrollment.status.in_({"applied", "approved", "completed"}),
                 )
+                .limit(1)
             )
-            if int(assigned_count or 0) >= cohort.capacity:
-                raise HTTPException(409, "Cohort capacity has been reached")
+            if existing_learner_assignment is None:
+                assigned_count = await session.scalar(
+                    select(func.count(func.distinct(LearningEnrollment.learner_id))).where(
+                        LearningEnrollment.cohort_id == cohort.id,
+                        LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+                    )
+                )
+                if int(assigned_count or 0) >= cohort.capacity:
+                    raise HTTPException(409, "Cohort capacity has been reached")
         enrollment.cohort_id = cohort.id
         session.add(
             OrganizationAuditEvent(
