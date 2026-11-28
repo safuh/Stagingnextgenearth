@@ -200,7 +200,7 @@ spatial/temporal query APIs remain planned work.
 
 ## Climate intelligence
 
-The public evidence hub is available at `/climate-intelligence`. The authenticated researcher-facing Climate Studio is available at `/workspace/research/climate` and connects bounded CHIRPS v3 ingestion, provider-run inspection, independent batch quality review and versioned public release governance. The public hub displays published releases only; it remains empty until real provider data have passed review and explicit publication. Research-linked climate insights are authored through the moderated CMS and are exposed only when both their linked climate release and linked publication are public.
+The public evidence hub is available at `/climate-intelligence`. The authenticated researcher-facing Climate Studio is available at `/workspace/research/climate` and connects bounded CHIRPS v3 ingestion, provider-run inspection, independent batch quality review and versioned public release governance. In staging, the hub displays two explicitly synthetic showcase releases (rainfall and temperature) so the public experience is demonstrable; they are labelled as fixtures and must not be interpreted as measured climate evidence. Real provider-backed releases appear only after a successful ingestion, independent quality review, licence/attribution review and separate publication approval. Research-linked climate insights are authored through the moderated CMS and are exposed only when both their linked climate release and linked publication are public.
 
 ## Web application
 
