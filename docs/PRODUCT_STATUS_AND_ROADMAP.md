@@ -237,3 +237,15 @@ This is a code milestone, not evidence that any editorial insight has been autho
 - Seed script updates existing lesson records and quiz definitions idempotently.
 
 The content is a pilot for organisational review, not accreditation or a substitute for clinical, ethics, safeguarding or community approval. The Render API container startup runs the idempotent seed for the default demo organisation `next-gen-for-earth-demo`; other organisation slugs require an explicit seed command.
+
+
+## M121 — substantive learning curriculum pilot: deployed
+
+- Merged to staging on 26 November 2026: commit `f0b31989365fb5859fabfc28a1b10b3c95b5f517`.
+- Four pilot tracks, eight modules, 26 lessons and four formative quizzes are included in the versioned seed catalogue.
+- All six CI jobs passed on the merged commit.
+- Render reports the web and API deployments live. API health checks and public course/climate catalogue requests have returned HTTP 200.
+- Staging: https://nextgen-web-upag.onrender.com
+- API health: https://nextgen-api-au53.onrender.com/api/health
+
+**Acceptance boundary:** deployment and API availability are verified. Manual browser-based visual, accessibility, responsive and authenticated learner-flow acceptance remains outstanding. Curriculum remains a pilot pending relevant subject-matter review; it is not an accredited qualification.
