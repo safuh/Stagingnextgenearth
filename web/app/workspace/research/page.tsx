@@ -1254,6 +1254,9 @@ export default function ResearchWorkspacePage() {
                           : Array.isArray(authors) ? authors.join(", ") : null;
                         const topic = publication.metadata_json?.editorial_topic;
                         const year = publication.metadata_json?.year ?? publication.metadata_json?.publication_date;
+                        const yearLabel = publication.metadata_json?.year_provenance
+                          ? "Catalogue year · verify against DOI"
+                          : "Publication year";
                         return (
                           <article className="research-publication-card" key={publication.id}>
                             <div className="research-publication-card-top">
@@ -1275,7 +1278,11 @@ export default function ResearchWorkspacePage() {
                                   EDITORIAL · {topic}
                                 </span>
                               )}
-                              {(typeof year === "string" || typeof year === "number") && <span>{year}</span>}
+                              {(typeof year === "string" || typeof year === "number") && (
+                                <span title={publication.metadata_json?.year_provenance || undefined}>
+                                  {yearLabel} · {year}
+                                </span>
+                              )}
                               <span>NextGen For Earth public website</span>
                             </div>
                             {publication.source_url && (
