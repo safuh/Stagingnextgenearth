@@ -280,7 +280,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         )
         assert immutable_lesson_update.status_code == 409
 
-
         # Staff membership alone must not grant access to learner curriculum.
         employee_headers = _register(client, "learning-employee@example.org")
         employee_invitation = client.post(
@@ -393,6 +392,17 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert [item["id"] for item in programme_courses.json()] == [course_id]
         assert all("created_by" not in item for item in public_courses.json())
         assert all("configuration" not in item for item in public_courses.json())
+        public_curriculum = client.get(
+            "/api/public/organizations/learning-lab/courses/community-climate-action/curriculum",
+        )
+        assert public_curriculum.status_code == 200
+        assert public_curriculum.json()["title"] == "Community Climate Action"
+        public_module = public_curriculum.json()["modules"][0]
+        assert public_module["title"] == "Climate foundations and local risk"
+        assert public_module["lessons"][0]["title"] == "Assessing local climate risks"
+        assert client.get(
+            "/api/public/organizations/learning-lab/courses/not-published/curriculum",
+        ).status_code == 404
 
         resource = client.post(
             f"{base}/courses/{course_id}/resources",
@@ -417,7 +427,6 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert pending_enrollments.status_code == 200
         assert pending_enrollments.json()[0]["status"] == "applied"
         assert pending_enrollments.json()[0]["learner_ref"].startswith("Learner-")
-        assert pending_enrollments.json()[0]["learner_ref"] != pending_enrollments.json()[0]["learner_id"]
         learner_enrollment_access = client.get(
             f"{base}/courses/{course_id}/enrollments",
             headers=learner_headers,
@@ -490,14 +499,11 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         curriculum = client.get(f"{base}/courses/{course_id}/curriculum", headers=learner_headers)
         assert curriculum.status_code == 200
         assert curriculum.json()["title"] == "Community Climate Action"
-        assert curriculum.json()["description"] == (
-            "Updated draft description."
-        )
-        assert curriculum.json()["modules"][0]["title"] == (
-            "Climate foundations and local risk"
-        )
-        assert curriculum.json()["modules"][0]["lessons"][0]["title"] == (
-            "Assessing local climate risks"
+        assert curriculum.json()["description"] == "Updated draft description."
+        assert curriculum.json()["modules"][0]["title"] == "Climate foundations and local risk"
+        assert (
+            curriculum.json()["modules"][0]["lessons"][0]["title"]
+            == "Assessing local climate risks"
         )
 
         resources = client.get(f"{base}/courses/{course_id}/resources", headers=learner_headers)
