@@ -88,7 +88,13 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                     for item in climate_releases
                 ),
                 "climate_events": len(climate_events),
+                "climate_release_publication_times": sorted(
+                    item.published_at.isoformat() for item in climate_releases
+                ),
                 "climate_insights": len(climate_insights),
+                "climate_insight_publication_time": (
+                    climate_insights[0].published_at.isoformat() if climate_insights else None
+                ),
                 "climate_insight_linked": all(
                     (item.metadata_json or {}).get("release_slug") == "demo-kenya-monthly-rainfall"
                     and (item.metadata_json or {}).get("publication_slug") == "seniors-climate-seasonality-busia-kilifi"
