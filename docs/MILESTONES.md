@@ -498,7 +498,6 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI passes, merge and deploy.
 - [ ] Authenticated staging acceptance of roster search and learner detail.
 
-
 ## M144 — Curriculum draft authoring controls (implementation in review)
 
 - [x] Add tenant-scoped course metadata editing for draft courses.
@@ -511,7 +510,6 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [ ] Full CI matrix passes.
 - [ ] Merge and deploy to Render staging.
 - [ ] Complete authenticated browser acceptance.
-
 
 ## M160 — Tenant-scoped cohorts and intake foundation (implementation in review)
 
