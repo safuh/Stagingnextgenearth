@@ -845,7 +845,7 @@ export default function LearningAdminPage() {
               <label>Capacity<input name="capacity" type="number" min="1" max="10000" /></label>
               <details>
                 <summary>Configure learner-support thresholds</summary>
-                <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="180" defaultValue="14" required /></label>
+                <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="90" defaultValue="14" required /></label>
                 <label>Absences before review<input name="absence_threshold" type="number" min="1" max="20" defaultValue="2" required /></label>
                 <label>Absence review window (days)<input name="absence_window_days" type="number" min="7" max="90" defaultValue="30" required /></label>
                 <label>Assessment overdue grace (days)<input name="overdue_grace_days" type="number" min="0" max="30" defaultValue="2" required /></label>
@@ -860,7 +860,7 @@ export default function LearningAdminPage() {
                 <details>
                   <summary>Risk-review thresholds</summary>
                   <form onSubmit={(event) => updateCohortThresholds(cohort.id, event)}>
-                    <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="180" defaultValue={cohort.inactivity_threshold_days} required /></label>
+                    <label>Inactivity threshold (days)<input name="inactivity_threshold_days" type="number" min="1" max="90" defaultValue={cohort.inactivity_threshold_days} required /></label>
                     <label>Absences before review<input name="absence_threshold" type="number" min="1" max="20" defaultValue={cohort.absence_threshold} required /></label>
                     <label>Absence review window (days)<input name="absence_window_days" type="number" min="7" max="90" defaultValue={cohort.absence_window_days} required /></label>
                     <label>Assessment overdue grace (days)<input name="overdue_grace_days" type="number" min="0" max="30" defaultValue={cohort.overdue_grace_days} required /></label>

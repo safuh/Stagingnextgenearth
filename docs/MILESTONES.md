@@ -450,7 +450,7 @@ These foundation checks must continue passing as product code is added.
 - [ ] Complete subject-matter, clinical, research, safeguarding, accessibility and community-lead review before live cohort delivery.
 - [ ] Run an authenticated browser acceptance pass for enrolment, classroom content, quiz submission, progress and certificate wording.
 
-The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The original M121 seed refreshed managed demo lesson and quiz content. M168 replaces that behaviour with a non-destructive bootstrap: create missing published courses and private authoring drafts only, preserving existing staff-authored course, module, lesson and assessment content on reruns. M168 remains pending merge and deployment until its CI and staging acceptance gates are complete.
+The pilot is not an accredited qualification, clinical protocol, ethics approval or substitute for local safeguarding procedures. The original M121 seed refreshed managed demo lesson and quiz content. M168 replaces that behaviour with a non-destructive bootstrap: create missing published courses and private authoring drafts only, preserving existing staff-authored course, module, lesson and assessment content on reruns. M168 merged as `ceaa2293` and is live on both Render services; the API startup log confirms four staff authoring drafts were seeded. Authenticated browser acceptance of editing and public/private separation remains pending.
 
 
 ## M140 — Institutional-partner reporting resilience (implementation in review)
@@ -526,7 +526,7 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Full CI, merge and staging deployment.
 - [ ] Authenticated staging browser acceptance with realistic synthetic cohorts.
 
-## M168 — Non-destructive curriculum authoring drafts (local implementation; pending CI/merge/deploy)
+## M168 — Non-destructive curriculum authoring drafts (merged; staging deployed)
 
 - [x] Preserve existing published course metadata, modules, lessons, resources, ordering and assessments during demo seed reruns.
 - [x] Create one private, staff-editable authoring draft for each of the four published pilot tracks when absent.
@@ -537,18 +537,20 @@ The pilot is not an accredited qualification, clinical protocol, ethics approval
 - [x] Keep public curriculum discovery limited to published courses.
 - [x] Update curriculum, operations, founder presentation and demo runbook documentation for 28 modules / 86 lessons and the draft/published boundary.
 - [x] Add regression coverage for non-destructive seed reruns, draft cohort fixtures and production settings tests that explicitly disable local DEBUG.
-- [ ] Focused backend tests, Ruff, mypy and web typecheck/lint/unit/build checks pass on the final M168 head.
-- [ ] GitHub PR checks pass and the reviewed commit is merged into staging.
-- [ ] Both Render services deploy the merge SHA and the startup seed creates four staff-only drafts without modifying published curriculum.
-- [ ] Authenticated learning-admin browser acceptance verifies draft editing, published read-only state and public learner catalogue isolation.
+- [x] Focused backend tests, Ruff, mypy and web typecheck/lint/unit/build checks pass on the final M168 head.
+- [x] All six GitHub PR checks pass and the reviewed commit is merged into staging as `ceaa2293`.
+- [x] Both Render services deploy the merge SHA; the public catalogue is verified at 4 courses / 28 modules / 86 lessons and public discovery remains published-only.
+- [ ] Authenticated learning-admin browser acceptance verifies draft editing, published read-only state and the four staff-only authoring copies.
 
 
-## Learner risk review and facilitator interventions — in progress
+## M170 — Learner risk review and facilitator interventions (implementation in progress)
 
 - [x] Cohort-scoped inactivity, absence-window and overdue-assessment thresholds with validation.
 - [x] Advisory risk signals distinguish `at_risk`, `clear` and `insufficient_data`; missing activity is not treated as disengagement.
 - [x] Tenant-scoped cohort and programme risk-review API responses.
 - [x] Staff-owned intervention lifecycle, owner validation, due dates, resolution notes and organisation audit events.
 - [x] Dedicated staff workspace route for cohort evidence review and follow-up management.
-- [ ] Complete integration tests, migration verification and web checks.
+- [x] Integration test covers insufficient-data states, current activity, repeated absences, overdue assessments, owner validation, follow-up lifecycle, terminal-state enforcement and tenant isolation.
+- [x] Local Ruff, targeted mypy, TypeScript typecheck, ESLint and all 17 frontend unit tests pass.
+- [ ] Verify Alembic migration against the CI PostgreSQL/PostGIS service and run the full backend/web production CI matrix.
 - [ ] Submit and merge the milestone PR after CI passes; deploy to staging and verify authenticated workflows.

@@ -1176,6 +1176,7 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
         learner_context = client.get("/api/auth/context", headers=learner_headers)
         assert learner_context.status_code == 200
         learner_id = learner_context.json()["user_id"]
+        today_utc = datetime.now(UTC).date()
 
         organisation = client.post(
             "/api/organizations",
@@ -1331,8 +1332,11 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
             headers=admin_headers,
         )
         assert initial_review.status_code == 200
+        assert initial_review.json()["summary"]["unique_learners"] == 1
         initial_learner = initial_review.json()["learners"][0]
         assert initial_learner["risk_state"] == "insufficient_data"
+        assert initial_learner["learner_ref"].startswith("Learner-")
+        assert "learner_id" not in initial_learner
         assert initial_learner["flags"]["inactivity"]["state"] == "insufficient_data"
         assert initial_learner["flags"]["attendance"]["state"] == "insufficient_data"
         assert initial_learner["flags"]["assessments"]["state"] == "insufficient_data"
@@ -1356,7 +1360,7 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
             json={
                 "session_key": "risk-session-recent",
                 "session_title": "Recent learning check-in",
-                "session_date": date.today().isoformat(),
+                "session_date": today_utc.isoformat(),
                 "learner_id": learner_id,
                 "attendance_status": "present",
             },
@@ -1383,12 +1387,24 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
                 json={
                     "session_key": f"risk-session-{index}",
                     "session_title": f"Learning session {index}",
-                    "session_date": (date.today() - timedelta(days=index)).isoformat(),
+                    "session_date": (today_utc - timedelta(days=index)).isoformat(),
                     "learner_id": learner_id,
                     "attendance_status": "absent",
                 },
             )
             assert attendance.status_code == 201
+        outside_window_attendance = client.post(
+            f"{base}/courses/{course_id}/attendance",
+            headers=admin_headers,
+            json={
+                "session_key": "risk-session-outside-window",
+                "session_title": "Old learning session",
+                "session_date": (today_utc - timedelta(days=45)).isoformat(),
+                "learner_id": learner_id,
+                "attendance_status": "absent",
+            },
+        )
+        assert outside_window_attendance.status_code == 201
 
         at_risk_review = client.get(
             f"{base}/cohorts/{cohort_id}/risk-review",
@@ -1412,7 +1428,7 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
             json={
                 "enrollment_id": enrollment_id,
                 "assigned_to": admin_id,
-                "due_date": (date.today() - timedelta(days=1)).isoformat(),
+                "due_date": (today_utc - timedelta(days=1)).isoformat(),
                 "note": "Contact learner to discuss course schedule and study support.",
             },
         )
@@ -1420,6 +1436,7 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
         intervention_id = intervention.json()["id"]
         assert intervention.json()["status"] == "open"
         assert intervention.json()["assigned_to"] == admin_id
+        assert intervention.json()["learner_ref"] == reviewed["learner_ref"]
         assert intervention.json()["learner_ref"].startswith("Learner-")
         assert "learner_id" not in intervention.json()
         assert (
@@ -1490,16 +1507,41 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
         )
         assert invalid_reopen.status_code == 409
 
+        cancelled_intervention = client.post(
+            f"{base}/cohorts/{cohort_id}/interventions",
+            headers=admin_headers,
+            json={
+                "enrollment_id": enrollment_id,
+                "assigned_to": admin_id,
+                "note": "Confirm the next available study support session.",
+            },
+        )
+        assert cancelled_intervention.status_code == 201
+        cancelled_id = cancelled_intervention.json()["id"]
+        cancelled = client.patch(
+            f"{base}/interventions/{cancelled_id}",
+            headers=admin_headers,
+            json={"status": "cancelled"},
+        )
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "cancelled"
+        terminal_cancel_edit = client.patch(
+            f"{base}/interventions/{cancelled_id}",
+            headers=admin_headers,
+            json={"note": "A terminal action cannot be edited."},
+        )
+        assert terminal_cancel_edit.status_code == 409
+
         interventions = client.get(
             f"{base}/cohorts/{cohort_id}/interventions",
             headers=admin_headers,
         )
         assert interventions.status_code == 200
-        assert len(interventions.json()) == 1
-        assert (
-            interventions.json()[0]["resolution_note"]
-            == "Learner contacted and a study plan agreed."
-        )
+        assert len(interventions.json()) == 2
+        resolved_row = next(item for item in interventions.json() if item["id"] == intervention_id)
+        cancelled_row = next(item for item in interventions.json() if item["id"] == cancelled_id)
+        assert resolved_row["resolution_note"] == "Learner contacted and a study plan agreed."
+        assert cancelled_row["status"] == "cancelled"
         audit_events = client.get(
             f"/api/organizations/{organization_id}/audit-events",
             headers=admin_headers,
@@ -1514,7 +1556,34 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
             "learning.intervention.created",
             "learning.intervention.updated",
             "learning.intervention.resolved",
+            "learning.intervention.cancelled",
         }.issubset({event["action"] for event in intervention_events})
+        cancelled_intervention = client.post(
+            f"{base}/cohorts/{cohort_id}/interventions",
+            headers=admin_headers,
+            json={
+                "enrollment_id": enrollment_id,
+                "assigned_to": admin_id,
+                "note": "Arrange a second optional learning check-in if requested.",
+            },
+        )
+        assert cancelled_intervention.status_code == 201
+        cancelled = client.patch(
+            f"{base}/interventions/{cancelled_intervention.json()['id']}",
+            headers=admin_headers,
+            json={"status": "cancelled"},
+        )
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "cancelled"
+        audit_after_cancel = client.get(
+            f"/api/organizations/{organization_id}/audit-events",
+            headers=admin_headers,
+        )
+        assert audit_after_cancel.status_code == 200
+        assert "learning.intervention.cancelled" in {
+            event["action"]
+            for event in audit_after_cancel.json()
+        }
         audit_payload = " ".join(str(event["changes"]) for event in intervention_events)
         assert "Contact learner to discuss course schedule" not in audit_payload
         assert "Learner contacted and a study plan agreed." not in audit_payload
@@ -1534,6 +1603,7 @@ def test_cohort_risk_review_and_staff_intervention_lifecycle(tmp_path: Path) -> 
             headers=admin_headers,
         )
         assert programme_review.status_code == 200
+        assert programme_review.json()["summary"]["unique_learners"] == 1
         assert programme_review.json()["summary"]["at_risk_learners"] == 1
         assert programme_review.json()["summary"]["open_interventions"] == 0
 

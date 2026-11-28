@@ -1357,7 +1357,7 @@ class OrganizationAuditEvent(Base):
             "'research.ethics.review_recorded', 'learning.cohort.created', "
             "'learning.cohort.updated', 'learning.enrollment.cohort_assigned', "
             "'learning.enrollment.cohort_unassigned', 'learning.intervention.created', "
-            "'learning.intervention.updated', 'learning.intervention.resolved')",
+            "'learning.intervention.updated', 'learning.intervention.resolved', 'learning.intervention.cancelled')",
             name="ck_organization_audit_event_action",
         ),
         Index(

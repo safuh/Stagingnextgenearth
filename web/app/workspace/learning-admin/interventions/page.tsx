@@ -29,7 +29,16 @@ interface Member {
 interface RiskFlag {
   state: "at_risk" | "clear" | "insufficient_data";
   reason_code?: string | null;
-  [key: string]: unknown;
+  days_since_activity?: number;
+  last_activity_at?: string | null;
+  threshold_days?: number;
+  absence_count?: number;
+  attendance_records?: number;
+  threshold?: number;
+  window_days?: number;
+  overdue_count?: number;
+  grace_days?: number;
+  items?: Array<{ assessment_id: string; title: string; due_at: string }>;
 }
 interface RiskLearner {
   enrollment_id: string;
@@ -85,6 +94,17 @@ const formatDate = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString() : "Not recorded";
 const stateLabel = (state: string) =>
   state === "at_risk" ? "Review required" : state === "clear" ? "No current flag" : "Insufficient data";
+const reasonLabel = (code: string) => {
+  const labels: Record<string, string> = {
+    inactive_over_threshold: "No recorded learning activity beyond the cohort threshold",
+    no_recorded_learner_activity: "No learner activity has been recorded yet",
+    repeated_absences: "Repeated absences in the cohort review window",
+    no_attendance_records_in_window: "No attendance records in the review window",
+    overdue_assessments: "Assessment with a recorded due date is overdue",
+    no_assessments_with_due_dates: "No assessment due dates are configured",
+  };
+  return labels[code] ?? code.replaceAll("_", " ");
+};
 
 export default function LearningInterventionsPage() {
   const [organizationId, setOrganizationId] = useState("");
@@ -103,8 +123,6 @@ export default function LearningInterventionsPage() {
   const [notice, setNotice] = useState("");
 
   const base = `/organizations/${organizationId}/learning`;
-  const learnerDisplay = (learnerId: string) =>
-    review?.learners.find((item) => item.learner_id === learnerId)?.learner_identifier ?? `Learner ${shortId(learnerId)}`;
   const facilitators = members.filter((member) =>
     member.roles.some((role) => facilitatorRoles.has(role)) || facilitatorRoles.has(member.role),
   );
@@ -152,12 +170,17 @@ export default function LearningInterventionsPage() {
 
   const refreshCohort = useCallback(async (cohortId = selectedCohortId) => {
     if (!organizationId || !cohortId) return;
-    const [risk, actions] = await Promise.all([
-      apiGet<RiskReview>(`${base}/cohorts/${cohortId}/risk-review`),
-      apiGet<Intervention[]>(`${base}/cohorts/${cohortId}/interventions`),
-    ]);
-    setReview(risk);
-    setInterventions(actions);
+    setReviewLoading(true);
+    try {
+      const [risk, actions] = await Promise.all([
+        apiGet<RiskReview>(`${base}/cohorts/${cohortId}/risk-review`),
+        apiGet<Intervention[]>(`${base}/cohorts/${cohortId}/interventions`),
+      ]);
+      setReview(risk);
+      setInterventions(actions);
+    } finally {
+      setReviewLoading(false);
+    }
   }, [base, organizationId, selectedCohortId]);
 
   useEffect(() => {
@@ -386,11 +409,32 @@ export default function LearningInterventionsPage() {
                       <span key={key} className={`status-pill status-${flag.state}`}>{key}: {stateLabel(flag.state)}</span>
                     ))}
                   </div>
-                  {learner.reason_codes.length > 0 && <small>Reason codes: {learner.reason_codes.join(" · ")}</small>}
-                  <details>
-                    <summary>Evidence and thresholds</summary>
-                    <pre className="workspace-data">{JSON.stringify(learner.flags, null, 2)}</pre>
-                  </details>
+                  {learner.reason_codes.length > 0 && <small>Review reasons: {learner.reason_codes.map(reasonLabel).join(" · ")}</small>}
+                  <div className="staff-grid">
+                    {Object.entries(learner.flags).map(([key, flag]) => (
+                      <article key={key}>
+                        <strong>{key === "inactivity" ? "Learning activity" : key === "attendance" ? "Attendance" : "Assessments"}</strong>
+                        {key === "inactivity" && (
+                          <span>{flag.days_since_activity === undefined
+                            ? reasonLabel(flag.reason_code ?? "no_recorded_learner_activity")
+                            : `${flag.days_since_activity} days since activity; threshold ${flag.threshold_days ?? "—"} days. Last recorded: ${formatDate(flag.last_activity_at)}`}</span>
+                        )}
+                        {key === "attendance" && (
+                          <span>{flag.attendance_records === 0
+                            ? reasonLabel(flag.reason_code ?? "no_attendance_records_in_window")
+                            : `${flag.absence_count ?? 0} absences across ${flag.attendance_records ?? 0} records in ${flag.window_days ?? "—"} days; threshold ${flag.threshold ?? "—"}`}</span>
+                        )}
+                        {key === "assessments" && (
+                          <span>{flag.reason_code === "no_assessments_with_due_dates"
+                            ? reasonLabel(flag.reason_code)
+                            : `${flag.overdue_count ?? 0} overdue assessments after ${flag.grace_days ?? 0} grace days`}</span>
+                        )}
+                        {key === "assessments" && flag.items?.map((item) => (
+                          <small key={item.assessment_id}>{item.title} · due {formatDate(item.due_at)}</small>
+                        ))}
+                      </article>
+                    ))}
+                  </div>
                 </article>
               ))}
             </section>
@@ -446,13 +490,13 @@ export default function LearningInterventionsPage() {
                     </details>
                   )}
                   {item.status === "open" && <button className="secondary-action" disabled={busy} onClick={() => void startIntervention(item)}>Start follow-up</button>}
+                  {["open", "in_progress"].includes(item.status) && <button disabled={busy} onClick={() => void cancelIntervention(item)}>Cancel follow-up</button>}
                   {item.status === "in_progress" && (
                     <>
                       <form onSubmit={(event) => void resolveIntervention(event, item)}>
                         <label>Resolution note<input name="resolution_note" minLength={3} maxLength={3000} required placeholder="Record the outcome of the follow-up" /></label>
                         <button className="secondary-action" disabled={busy}>Resolve follow-up</button>
                       </form>
-                      <button className="secondary-action" disabled={busy} onClick={() => void cancelIntervention(item)}>Cancel follow-up</button>
                     </>
                   )}
                 </article>

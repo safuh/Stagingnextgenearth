@@ -3096,7 +3096,7 @@ def _learning_utc(value: datetime) -> datetime:
 
 def _learner_reference(learner_id: str) -> str:
     """Return a stable privacy-safe staff reference instead of an account identifier."""
-    return f"Learner-{hashlib.sha256(learner_id.encode()).hexdigest()[:8].upper()}"
+    return f"Learner-{hashlib.sha256(learner_id.encode()).hexdigest()[:16].upper()}"
 
 
 def _intervention_read(item: LearningIntervention, learner_id: str) -> dict[str, object]:
@@ -3124,10 +3124,9 @@ async def _cohort_risk_review(
 ) -> dict[str, object]:
     """Compute deterministic, explainable signals without treating missing data as risk."""
     now = datetime.now(UTC)
-    attendance_cutoff = now.date() - timedelta(days=cohort.absence_window_days)
-    enrollment_result = await session.execute(
-        select(LearningEnrollment, User.identifier)
-        .join(User, User.id == LearningEnrollment.learner_id)
+    attendance_cutoff = now.date() - timedelta(days=cohort.absence_window_days - 1)
+    enrollments_result = await session.scalars(
+        select(LearningEnrollment)
         .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
         .where(
             LearningEnrollment.cohort_id == cohort.id,
@@ -3137,9 +3136,7 @@ async def _cohort_risk_review(
         .order_by(LearningEnrollment.applied_at, LearningEnrollment.id)
         .limit(500)
     )
-    enrollment_rows = enrollment_result.all()
-    enrollments = [row[0] for row in enrollment_rows]
-    learner_identifiers = {row[0].id: str(row[1]) for row in enrollment_rows}
+    enrollments = enrollments_result.all()
     enrollment_ids = [item.id for item in enrollments]
     course_ids = sorted({item.course_id for item in enrollments})
     learner_ids = sorted({item.learner_id for item in enrollments})
@@ -3371,9 +3368,7 @@ async def _cohort_risk_review(
         learner_reviews.append(
             {
                 "enrollment_id": enrollment.id,
-                "learner_id": enrollment.learner_id,
                 "learner_ref": _learner_reference(enrollment.learner_id),
-                "learner_identifier": learner_identifiers.get(enrollment.id),
                 "course_id": enrollment.course_id,
                 "risk_state": risk_state,
                 "reason_codes": reasons,
@@ -3403,11 +3398,24 @@ async def _cohort_risk_review(
         )
         or 0
     )
+    risk_by_enrollment = {
+        str(item["enrollment_id"]): str(item["risk_state"]) for item in learner_reviews
+    }
     at_risk_enrolments = [item for item in learner_reviews if item["risk_state"] == "at_risk"]
     insufficient_enrolments = [
         item for item in learner_reviews if item["risk_state"] == "insufficient_data"
     ]
     clear_enrolments = [item for item in learner_reviews if item["risk_state"] == "clear"]
+    unique_learner_counts = {
+        state: len(
+            {
+                enrollment.learner_id
+                for enrollment in enrollments
+                if risk_by_enrollment.get(enrollment.id) == state
+            }
+        )
+        for state in ("at_risk", "insufficient_data", "clear")
+    }
     return {
         "cohort_id": cohort.id,
         "cohort_title": cohort.title,
@@ -3419,15 +3427,13 @@ async def _cohort_risk_review(
         },
         "summary": {
             "enrolments_reviewed": len(learner_reviews),
-            "unique_learners": len({str(item["learner_ref"]) for item in learner_reviews}),
+            "unique_learners": len({item.learner_id for item in enrollments}),
             "at_risk_enrolments": len(at_risk_enrolments),
             "insufficient_data_enrolments": len(insufficient_enrolments),
             "clear_enrolments": len(clear_enrolments),
-            "at_risk_learners": len({str(item["learner_ref"]) for item in at_risk_enrolments}),
-            "insufficient_data_learners": len(
-                {str(item["learner_ref"]) for item in insufficient_enrolments}
-            ),
-            "clear_learners": len({str(item["learner_ref"]) for item in clear_enrolments}),
+            "at_risk_learners": unique_learner_counts["at_risk"],
+            "insufficient_data_learners": unique_learner_counts["insufficient_data"],
+            "clear_learners": unique_learner_counts["clear"],
             "open_interventions": open_interventions,
             "overdue_interventions": overdue_interventions,
         },
@@ -3483,8 +3489,9 @@ async def programme_learning_risk_review(
         .order_by(LearningCohort.start_date, LearningCohort.title)
         .limit(100)
     )
+    cohorts = cohort_rows.all()
     cohort_reviews = [
-        await _cohort_risk_review(session, organization_id, cohort) for cohort in cohort_rows.all()
+        await _cohort_risk_review(session, organization_id, cohort) for cohort in cohorts
     ]
     all_enrolment_reviews = [
         learner
@@ -3496,6 +3503,26 @@ async def programme_learning_risk_review(
         item for item in all_enrolment_reviews if item["risk_state"] == "insufficient_data"
     ]
     clear_rows = [item for item in all_enrolment_reviews if item["risk_state"] == "clear"]
+    enrollment_rows: list[LearningEnrollment] = []
+    if cohorts:
+        enrollment_result = await session.scalars(
+            select(LearningEnrollment).where(
+                LearningEnrollment.cohort_id.in_([cohort.id for cohort in cohorts]),
+                LearningEnrollment.status == "approved",
+            )
+        )
+        enrollment_rows = list(enrollment_result.all())
+    learner_by_enrollment = {item.id: item.learner_id for item in enrollment_rows}
+
+    def unique_learners(rows: list[dict[str, object]]) -> int:
+        return len(
+            {
+                learner_by_enrollment[str(item["enrollment_id"])]
+                for item in rows
+                if str(item["enrollment_id"]) in learner_by_enrollment
+            }
+        )
+
     summary_keys = ("open_interventions", "overdue_interventions")
     totals: dict[str, int] = {}
     for key in summary_keys:
@@ -3505,15 +3532,13 @@ async def programme_learning_risk_review(
     totals.update(
         {
             "enrolments_reviewed": len(all_enrolment_reviews),
-            "unique_learners": len({str(item["learner_ref"]) for item in all_enrolment_reviews}),
+            "unique_learners": len(set(learner_by_enrollment.values())),
             "at_risk_enrolments": len(at_risk_rows),
             "insufficient_data_enrolments": len(insufficient_rows),
             "clear_enrolments": len(clear_rows),
-            "at_risk_learners": len({str(item["learner_ref"]) for item in at_risk_rows}),
-            "insufficient_data_learners": len(
-                {str(item["learner_ref"]) for item in insufficient_rows}
-            ),
-            "clear_learners": len({str(item["learner_ref"]) for item in clear_rows}),
+            "at_risk_learners": unique_learners(at_risk_rows),
+            "insufficient_data_learners": unique_learners(insufficient_rows),
+            "clear_learners": unique_learners(clear_rows),
         }
     )
     return {
@@ -3668,6 +3693,8 @@ async def update_learning_intervention(
     if "status" in changes and changes["status"] is None:
         raise HTTPException(422, "Intervention status cannot be null")
     previous_status = intervention.status
+    if previous_status in {"resolved", "cancelled"}:
+        raise HTTPException(409, "Terminal interventions cannot be edited")
     next_status = changes.get("status", previous_status)
     allowed_transitions = {
         "open": {"in_progress", "resolved", "cancelled"},
@@ -3722,7 +3749,9 @@ async def update_learning_intervention(
             subject_user_id=enrollment.learner_id,
             action=(
                 "learning.intervention.resolved"
-                if next_status == "resolved" and previous_status != "resolved"
+                if next_status == "resolved"
+                else "learning.intervention.cancelled"
+                if next_status == "cancelled"
                 else "learning.intervention.updated"
             ),
             changes={

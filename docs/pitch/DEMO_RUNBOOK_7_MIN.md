@@ -66,7 +66,7 @@ For a 15–20 minute session, use [the full founder demonstration and handover g
 
 ## Latest release and live staging checks
 
-The expanded curriculum catalogue is live on staging commit `c379b20` (28 November 2026). All six CI jobs passed. Both Render web and API services report live; API health checks return HTTP 200.
+The expanded curriculum catalogue is live on staging commit `ceaa2293` (28 November 2026). All six CI jobs passed. Both Render web and API services report live; API health checks return HTTP 200.
 
 - [Open staging website](https://nextgen-web-upag.onrender.com)
 - [Open API health check](https://nextgen-api-au53.onrender.com/api/health)
@@ -115,3 +115,8 @@ Before presenting, complete the human browser checks below. A successful deploym
 - [ ] Select a draft course and edit a module/lesson without changing its published learner counterpart.
 - [ ] Demonstrate cohort configuration while leaving all demo cohorts in draft until safeguarding, consent and facilitator readiness are verified.
 - [ ] Do not present synthetic learner records or demo intake dates as real admissions or programme commitments.
+
+
+## Learner support workflow — upcoming release, not yet demoable
+
+A cohort risk-review and facilitator intervention workspace is under development. It will show evidence-based inactivity, absence and overdue-assessment signals, preserve `insufficient_data` as a distinct state, and let authorised staff own, update, resolve or cancel follow-ups. It is advisory only and never changes learner eligibility or course outcomes automatically. Do not demo this workflow until its PR is merged, Render staging is deployed and authenticated staff/learner permission checks are completed.

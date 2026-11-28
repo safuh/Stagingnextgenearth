@@ -114,7 +114,7 @@ def upgrade() -> None:
             "'learning.cohort.created', 'learning.cohort.updated', "
             "'learning.enrollment.cohort_assigned', 'learning.enrollment.cohort_unassigned', "
             "'learning.intervention.created', 'learning.intervention.updated', "
-            "'learning.intervention.resolved')",
+            "'learning.intervention.resolved', 'learning.intervention.cancelled')",
         )
 
 
