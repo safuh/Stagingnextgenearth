@@ -519,6 +519,7 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider(monke
     statement = select(climate_public.ClimatePublicRelease).where(*filters)
     compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" in compiled
+    assert "data_class != 'synthetic_demo'" in compiled
 
     monkeypatch.setattr(
         climate_public,
@@ -529,6 +530,7 @@ def test_production_public_climate_filter_excludes_synthetic_demo_provider(monke
     test_statement = select(climate_public.ClimatePublicRelease).where(*test_filters)
     test_compiled = str(test_statement.compile(compile_kwargs={"literal_binds": True}))
     assert "provider_id != 'demo-synthetic'" not in test_compiled
+    assert "data_class != 'synthetic_demo'" not in test_compiled
 
 
 def test_climate_release_rejects_invalid_period_and_unsupported_data_class() -> None:
