@@ -224,10 +224,33 @@ class ClimateReleaseWorkspaceRead(ClimateReleaseDetail):
     reviewed_by: str | None
     published_by: str | None
     source_ingestion_run_id: str | None
+    licence_reviewed_by: str | None = None
+    licence_reviewed_at: datetime | None = None
 
 
 class ClimateReleaseAction(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
+
+
+class ClimateReleaseLicenceReview(BaseModel):
+    """Explicit evidence that a reviewer checked public-use and attribution terms."""
+
+    licence_terms_confirmed: bool
+    provider_terms_confirmed: bool
+    attribution_confirmed: bool
+    citation_confirmed: bool
+    note: str = Field(min_length=10, max_length=2000)
+
+    @model_validator(mode="after")
+    def require_all_checks(self) -> "ClimateReleaseLicenceReview":
+        if not all((
+            self.licence_terms_confirmed,
+            self.provider_terms_confirmed,
+            self.attribution_confirmed,
+            self.citation_confirmed,
+        )):
+            raise ValueError("Every licence, terms, attribution and citation check must be confirmed")
+        return self
 
 
 def _summary(row: ClimatePublicRelease) -> ClimateReleaseSummary:
@@ -243,7 +266,7 @@ def _event(
     to_state: str,
     note: str | None = None,
 ) -> None:
-    session.add(ClimatePublicReleaseEvent(
+    event = ClimatePublicReleaseEvent(
         organization_id=row.organization_id,
         release_id=row.id,
         actor_user_id=actor_id,
@@ -251,7 +274,83 @@ def _event(
         from_state=from_state,
         to_state=to_state,
         note=note,
-    ))
+    )
+    session.add(event)
+    return event
+
+
+async def _latest_licence_review(
+    session: AsyncSession, release_id: str
+) -> ClimatePublicReleaseEvent | None:
+    return await session.scalar(
+        select(ClimatePublicReleaseEvent)
+        .where(
+            ClimatePublicReleaseEvent.release_id == release_id,
+            ClimatePublicReleaseEvent.action == "licence_reviewed",
+        )
+        .order_by(ClimatePublicReleaseEvent.created_at.desc())
+        .limit(1)
+    )
+
+
+async def _release_source_run(
+    session: AsyncSession, row: ClimatePublicRelease
+) -> ClimateIngestionRun:
+    if row.source_ingestion_run_id is None:
+        raise HTTPException(409, "The source ingestion run is no longer available")
+    source_run = await session.scalar(
+        select(ClimateIngestionRun).where(
+            ClimateIngestionRun.id == row.source_ingestion_run_id,
+            ClimateIngestionRun.organization_id == row.organization_id,
+        )
+    )
+    if source_run is None:
+        raise HTTPException(409, "The source ingestion run is no longer available")
+    return source_run
+
+
+async def _quality_reviewers(
+    session: AsyncSession, row: ClimatePublicRelease
+) -> set[str]:
+    if row.source_ingestion_run_id is None:
+        return set()
+    reviewer_ids = await session.scalars(
+        select(ClimateObservation.reviewed_by)
+        .where(
+            ClimateObservation.organization_id == row.organization_id,
+            ClimateObservation.ingestion_run_id == row.source_ingestion_run_id,
+            ClimateObservation.reviewed_by.is_not(None),
+        )
+        .distinct()
+    )
+    return {reviewer_id for reviewer_id in reviewer_ids.all() if reviewer_id is not None}
+
+
+def _workspace_read(
+    row: ClimatePublicRelease,
+    licence_event: ClimatePublicReleaseEvent | None = None,
+) -> ClimateReleaseWorkspaceRead:
+    return ClimateReleaseWorkspaceRead.model_validate(row).model_copy(
+        update={
+            "licence_reviewed_by": licence_event.actor_user_id if licence_event else None,
+            "licence_reviewed_at": licence_event.created_at if licence_event else None,
+        }
+    )
+
+
+def _licence_review_is_complete(event: ClimatePublicReleaseEvent) -> bool:
+    try:
+        payload = json.loads(event.note or "")
+    except (TypeError, ValueError):
+        return False
+    checks = payload.get("checks") if isinstance(payload, dict) else None
+    expected = {
+        "licence_terms": True,
+        "provider_terms": True,
+        "attribution": True,
+        "citation": True,
+    }
+    return checks == expected
 
 
 @router.post(
@@ -433,7 +532,7 @@ async def create_release(
     _event(session, row, principal.user_id, "created", None, "draft")
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseWorkspaceRead.model_validate(row)
+    return _workspace_read(row)
 
 
 @router.get(
@@ -449,13 +548,26 @@ async def list_organisation_releases(
     """List release workflow records visible to authorised research workspace members."""
     if not await membership_has_any_role(session, membership, _RELEASE_ROLES | _REVIEW_ROLES):
         raise HTTPException(403, "Climate release workspace access is not permitted")
-    rows = await session.scalars(
+    rows = list((await session.scalars(
         select(ClimatePublicRelease)
         .where(ClimatePublicRelease.organization_id == organization_id)
         .order_by(ClimatePublicRelease.created_at.desc())
         .limit(limit)
+    )).all())
+    if not rows:
+        return []
+    events = await session.scalars(
+        select(ClimatePublicReleaseEvent)
+        .where(
+            ClimatePublicReleaseEvent.release_id.in_([row.id for row in rows]),
+            ClimatePublicReleaseEvent.action == "licence_reviewed",
+        )
+        .order_by(ClimatePublicReleaseEvent.created_at.desc())
     )
-    return [ClimateReleaseWorkspaceRead.model_validate(row) for row in rows.all()]
+    latest_reviews: dict[str, ClimatePublicReleaseEvent] = {}
+    for event in events.all():
+        latest_reviews.setdefault(event.release_id, event)
+    return [_workspace_read(row, latest_reviews.get(row.id)) for row in rows]
 
 
 async def _get_release(
@@ -493,7 +605,63 @@ async def submit_release(
     _event(session, row, principal.user_id, "submitted", "draft", "review", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseWorkspaceRead.model_validate(row)
+    return _workspace_read(row)
+
+
+@router.post(
+    "/organizations/{organization_id}/climate-public-releases/{release_id}/licence-review",
+    response_model=ClimateReleaseWorkspaceRead,
+)
+async def review_release_licence(
+    organization_id: str,
+    release_id: str,
+    body: ClimateReleaseLicenceReview,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ClimateReleaseWorkspaceRead:
+    if not await membership_has_any_role(session, membership, _REVIEW_ROLES):
+        raise HTTPException(403, "Climate licence reviewer role required")
+    row = await _get_release(session, organization_id, release_id)
+    if row.state != "review":
+        raise HTTPException(409, "Only submitted releases can receive a licence review")
+    if row.created_by == principal.user_id:
+        raise HTTPException(403, "A release author cannot review their own licence")
+    if not all((row.license_name, row.terms_url, row.attribution, row.citation_url)):
+        raise HTTPException(422, "Licence, provider terms, attribution and citation must be present")
+    source_run = await _release_source_run(session, row)
+    quality_reviewers = await _quality_reviewers(session, row)
+    if principal.user_id in quality_reviewers or principal.user_id == source_run.started_by:
+        raise HTTPException(
+            403,
+            "Licence review must be independent of the ingestion operator and quality reviewer",
+        )
+    if await _latest_licence_review(session, row.id) is not None:
+        raise HTTPException(409, "A licence review is already recorded for this release version")
+
+    review_note = json.dumps(
+        {
+            "checks": {
+                "licence_terms": body.licence_terms_confirmed,
+                "provider_terms": body.provider_terms_confirmed,
+                "attribution": body.attribution_confirmed,
+                "citation": body.citation_confirmed,
+            },
+            "licence_name": row.license_name,
+            "terms_url": row.terms_url,
+            "attribution_text": row.attribution,
+            "citation_url": row.citation_url,
+            "review_note": body.note.strip(),
+        },
+        sort_keys=True,
+    )
+    event = _event(
+        session, row, principal.user_id, "licence_reviewed", "review", "review", review_note
+    )
+    await session.commit()
+    await session.refresh(row)
+    await session.refresh(event)
+    return _workspace_read(row, event)
 
 
 @router.post(
@@ -515,13 +683,24 @@ async def approve_release(
         raise HTTPException(403, "A release author cannot approve their own release")
     if row.state != "review":
         raise HTTPException(409, "Only submitted releases can be approved")
+    if body.note is None or len(body.note.strip()) < 10:
+        raise HTTPException(422, "A substantive independent approval note is required")
+    licence_event = await _latest_licence_review(session, row.id)
+    if licence_event is None or not _licence_review_is_complete(licence_event):
+        raise HTTPException(409, "An independent licence and attribution review is required before approval")
+    if licence_event.actor_user_id == principal.user_id:
+        raise HTTPException(403, "The licence reviewer cannot approve the same release")
+    source_run = await _release_source_run(session, row)
+    quality_reviewers = await _quality_reviewers(session, row)
+    if principal.user_id in quality_reviewers or principal.user_id == source_run.started_by:
+        raise HTTPException(403, "A quality reviewer or ingestion operator cannot approve the release")
     row.state = "approved"
     row.reviewed_by = principal.user_id
     row.approved_at = datetime.now(UTC)
     _event(session, row, principal.user_id, "approved", "review", "approved", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseWorkspaceRead.model_validate(row)
+    return _workspace_read(row, licence_event)
 
 
 @router.post(
@@ -541,6 +720,25 @@ async def publish_release(
     row = await _get_release(session, organization_id, release_id)
     if row.state != "approved" or row.approved_at is None or row.reviewed_by is None:
         raise HTTPException(409, "Release must be independently approved before publication")
+    if body.note is None or len(body.note.strip()) < 10:
+        raise HTTPException(422, "A substantive publication decision note is required")
+    licence_event = await _latest_licence_review(session, row.id)
+    if licence_event is None or not _licence_review_is_complete(licence_event):
+        raise HTTPException(409, "The independent licence review is missing")
+    source_run = await _release_source_run(session, row)
+    quality_reviewers = await _quality_reviewers(session, row)
+    restricted_actors = {
+        row.created_by,
+        source_run.started_by,
+        row.reviewed_by,
+        licence_event.actor_user_id,
+        *quality_reviewers,
+    }
+    if principal.user_id in restricted_actors:
+        raise HTTPException(
+            403,
+            "Publication must be performed by someone independent of authorship, quality, licence and release review",
+        )
     previous_versions = await session.scalars(select(ClimatePublicRelease).where(
         ClimatePublicRelease.organization_id == organization_id,
         ClimatePublicRelease.slug == row.slug,
@@ -564,7 +762,7 @@ async def publish_release(
     _event(session, row, principal.user_id, "published", "approved", "published", body.note)
     await session.commit()
     await session.refresh(row)
-    return ClimateReleaseWorkspaceRead.model_validate(row)
+    return _workspace_read(row, licence_event)
 
 
 @router.post(
