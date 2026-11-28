@@ -448,6 +448,22 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"cohort_id": cohort_id},
         )
         assert learner_cohort_assignment.status_code == 200
+        repeated_cohort_assignment = client.post(
+            f"{base}/courses/{course_id}/enrollments/{learner_id}/cohort",
+            headers=admin_headers,
+            json={"cohort_id": cohort_id},
+        )
+        assert repeated_cohort_assignment.status_code == 200
+        course_roster_after_assignment = client.get(
+            f"{base}/courses/{course_id}/enrollments",
+            headers=admin_headers,
+        )
+        learner_row = next(
+            item for item in course_roster_after_assignment.json()
+            if item["learner_id"] == learner_id
+        )
+        assert learner_row["cohort_id"] == cohort_id
+        assert learner_row["cohort_title"] == "Climate Action Intake 01"
         cohort_roster = client.get(f"{base}/cohorts", headers=admin_headers)
         assert cohort_roster.status_code == 200
         assert cohort_roster.json()[0]["assigned_count"] == 2
