@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Stagingnextgenearth", min_length=1)
     app_version: str = "0.1.0"
     environment: Environment = Environment.DEVELOPMENT
+    climate_demo_seed_enabled: bool = False
     debug: bool = False
     api_prefix: str = "/api"
     public_base_url: AnyHttpUrl = AnyHttpUrl("https://nextgenforearth.org")
