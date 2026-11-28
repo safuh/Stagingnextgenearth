@@ -734,6 +734,262 @@ async def create_lesson(
     }
 
 
+@router.post("/courses/{course_id}/cohorts", response_model=CohortRead, status_code=201)
+async def create_course_cohort(
+    organization_id: str,
+    course_id: str,
+    body: CohortCreate,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    course = await _course(session, organization_id, course_id)
+    if course.status != "published":
+        raise HTTPException(409, "Cohorts can only be created for published courses")
+    if body.starts_at and body.ends_at and body.ends_at < body.starts_at:
+        raise HTTPException(422, "Cohort end must not precede its start")
+    if (
+        body.enrollment_opens_at
+        and body.enrollment_closes_at
+        and body.enrollment_closes_at < body.enrollment_opens_at
+    ):
+        raise HTTPException(422, "Enrollment close must not precede enrollment open")
+    cohort = LearningCohort(
+        organization_id=organization_id,
+        programme_id=course.programme_id,
+        course_id=course_id,
+        created_by=principal.user_id,
+        status="draft",
+        **body.model_dump(),
+    )
+    session.add(cohort)
+    try:
+        await session.commit()
+        await session.refresh(cohort)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Cohort code or slug already exists") from exc
+    return CohortRead.model_validate(cohort)
+
+
+@router.get("/courses/{course_id}/cohorts", response_model=list[CohortRead])
+async def list_course_cohorts(
+    organization_id: str,
+    course_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[CohortRead]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    await _course(session, organization_id, course_id)
+    rows = await session.scalars(
+        select(LearningCohort)
+        .where(
+            LearningCohort.organization_id == organization_id,
+            LearningCohort.course_id == course_id,
+        )
+        .order_by(LearningCohort.starts_at, LearningCohort.title)
+        .limit(250)
+    )
+    return [CohortRead.model_validate(row) for row in rows.all()]
+
+
+@router.patch("/cohorts/{cohort_id}", response_model=CohortRead)
+async def update_cohort(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortUpdate,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    if cohort.status != "draft":
+        raise HTTPException(409, "Only draft cohorts can be edited")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one cohort field must be supplied")
+    if any(changes.get(field) is None for field in ("title", "slug", "code") if field in changes):
+        raise HTTPException(422, "Cohort title, slug and code cannot be null")
+    starts_at = changes.get("starts_at", cohort.starts_at)
+    ends_at = changes.get("ends_at", cohort.ends_at)
+    opens_at = changes.get("enrollment_opens_at", cohort.enrollment_opens_at)
+    closes_at = changes.get("enrollment_closes_at", cohort.enrollment_closes_at)
+    if starts_at and ends_at and ends_at < starts_at:
+        raise HTTPException(422, "Cohort end must not precede its start")
+    if opens_at and closes_at and closes_at < opens_at:
+        raise HTTPException(422, "Enrollment close must not precede enrollment open")
+    for field, value in changes.items():
+        setattr(cohort, field, value)
+    # Any material edit invalidates the prior readiness review.
+    cohort.safeguarding_policy_version = None
+    cohort.consent_policy_version = None
+    cohort.retention_policy_version = None
+    cohort.minor_access_policy_version = None
+    cohort.readiness_reviewed_by = None
+    cohort.readiness_reviewed_at = None
+    try:
+        await session.commit()
+        await session.refresh(cohort)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(409, "Cohort code or slug already exists") from exc
+    return CohortRead.model_validate(cohort)
+
+
+@router.post("/cohorts/{cohort_id}/readiness", response_model=CohortRead)
+async def review_cohort_readiness(
+    organization_id: str,
+    cohort_id: str,
+    body: CohortReadiness,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort readiness review permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    if cohort.status != "draft":
+        raise HTTPException(409, "Readiness can only be reviewed before a cohort opens")
+    if principal.user_id == cohort.created_by:
+        raise HTTPException(409, "A different authorised person must review cohort readiness")
+    for field, value in body.model_dump().items():
+        setattr(cohort, field, value.strip())
+    cohort.readiness_reviewed_by = principal.user_id
+    cohort.readiness_reviewed_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(cohort)
+    return CohortRead.model_validate(cohort)
+
+
+@router.post("/cohorts/{cohort_id}/open", response_model=CohortRead)
+async def open_course_cohort(
+    organization_id: str,
+    cohort_id: str,
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRead:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Cohort management permission required")
+    cohort = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == cohort_id,
+            LearningCohort.organization_id == organization_id,
+        )
+    )
+    if cohort is None:
+        raise HTTPException(404, "Cohort not found")
+    if cohort.status != "draft":
+        raise HTTPException(409, "Only draft cohorts can be opened")
+    ready = all(
+        (
+            cohort.safeguarding_policy_version,
+            cohort.consent_policy_version,
+            cohort.retention_policy_version,
+            cohort.minor_access_policy_version,
+            cohort.readiness_reviewed_by,
+            cohort.readiness_reviewed_at,
+        )
+    )
+    if not ready or cohort.readiness_reviewed_by == cohort.created_by:
+        raise HTTPException(
+            409,
+            "Independent safeguarding, consent, retention and minors-access review is required",
+        )
+    course = await _course(session, organization_id, cohort.course_id)
+    if course.status != "published":
+        raise HTTPException(409, "The course must remain published to open its cohort")
+    cohort.status = "open"
+    await session.commit()
+    await session.refresh(cohort)
+    return CohortRead.model_validate(cohort)
+
+
+@router.post("/enrollments/{enrollment_id}/transfer")
+async def transfer_enrollment(
+    organization_id: str,
+    enrollment_id: str,
+    body: EnrollmentTransfer,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    membership: Annotated[Membership, Depends(require_membership)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    if not await membership_has_any_role(session, membership, _MANAGE):
+        raise HTTPException(403, "Enrollment transfer permission required")
+    enrollment = await session.scalar(
+        select(LearningEnrollment)
+        .join(LearningCourse, LearningCourse.id == LearningEnrollment.course_id)
+        .where(
+            LearningEnrollment.id == enrollment_id,
+            LearningCourse.organization_id == organization_id,
+        )
+    )
+    if enrollment is None:
+        raise HTTPException(404, "Enrollment not found")
+    if enrollment.status != "approved":
+        raise HTTPException(409, "Only approved enrollments can be transferred")
+    target = await session.scalar(
+        select(LearningCohort).where(
+            LearningCohort.id == body.cohort_id,
+            LearningCohort.organization_id == organization_id,
+            LearningCohort.course_id == enrollment.course_id,
+            LearningCohort.status == "open",
+        )
+    )
+    if target is None:
+        raise HTTPException(404, "Open destination cohort not found for this course")
+    if enrollment.cohort_id == target.id:
+        raise HTTPException(409, "Enrollment is already assigned to this cohort")
+    if target.capacity is not None:
+        occupied = await session.scalar(
+            select(func.count()).select_from(LearningEnrollment).where(
+                LearningEnrollment.cohort_id == target.id,
+                LearningEnrollment.status.in_({"applied", "approved", "completed"}),
+            )
+        )
+        if int(occupied or 0) >= target.capacity:
+            raise HTTPException(409, "Destination cohort is at capacity")
+    previous_cohort_id = enrollment.cohort_id
+    enrollment.cohort_id = target.id
+    session.add(
+        LearningEnrollmentEvent(
+            organization_id=organization_id,
+            enrollment_id=enrollment.id,
+            actor_user_id=principal.user_id,
+            event_type="transferred",
+            from_status=enrollment.status,
+            to_status=enrollment.status,
+            from_cohort_id=previous_cohort_id,
+            to_cohort_id=target.id,
+            reason=body.reason,
+        )
+    )
+    await session.commit()
+    return {
+        "id": enrollment.id,
+        "status": enrollment.status,
+        "cohort_id": enrollment.cohort_id,
+        "transferred_from_cohort_id": previous_cohort_id,
+    }
+
+
 @router.post("/courses/{course_id}/enrollments", status_code=201)
 async def apply_for_course(
     organization_id: str,
