@@ -163,6 +163,8 @@ export default function ResearchWorkspacePage() {
   const [publicPublicationsLoading, setPublicPublicationsLoading] = useState(false);
   const [publicPublicationsError, setPublicPublicationsError] = useState("");
   const [publicationSearch, setPublicationSearch] = useState("");
+  const [publicationYear, setPublicationYear] = useState("");
+  const [publicationTopic, setPublicationTopic] = useState("");
   const workspaceGeneration = useRef(0);
   const governanceRequest = useRef(0);
   const evidenceContextGeneration = useRef(0);
@@ -1157,13 +1159,26 @@ export default function ResearchWorkspacePage() {
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
   const normalizedPublicationSearch = publicationSearch.trim().toLowerCase();
-  const visiblePublications = publicPublications.filter((item) =>
-    [item.title, item.summary, item.slug, item.metadata_json?.topic]
-      .filter((value): value is string => typeof value === "string")
-      .join(" ")
-      .toLowerCase()
-      .includes(normalizedPublicationSearch),
-  );
+  const getPublicationYear = (item: PublicResearchPublication): string => {
+    const value = item.metadata_json?.year ?? item.metadata_json?.publication_date;
+    return typeof value === "number" ? String(value) : typeof value === "string" ? value.slice(0, 4) : "";
+  };
+  const publicationYears = Array.from(new Set(publicPublications.map(getPublicationYear).filter(Boolean))).sort().reverse();
+  const publicationTopics = Array.from(new Set(
+    publicPublications.map((item) => item.metadata_json?.topic).filter((value): value is string => typeof value === "string" && value.length > 0),
+  )).sort();
+  const visiblePublications = publicPublications.filter((item) => {
+    const authors = item.metadata_json?.authors;
+    const authorText = typeof authors === "string" ? authors : Array.isArray(authors) ? authors.join(" ") : "";
+    const searchText = [
+      item.title, item.summary, item.slug, item.metadata_json?.topic,
+      item.metadata_json?.publisher, item.metadata_json?.doi, authorText,
+      getPublicationYear(item),
+    ].filter((value): value is string => typeof value === "string").join(" ").toLowerCase();
+    return searchText.includes(normalizedPublicationSearch)
+      && (!publicationYear || getPublicationYear(item) === publicationYear)
+      && (!publicationTopic || item.metadata_json?.topic === publicationTopic);
+  });
   return (
     <main className="workspace-shell">
       <header className="workspace-topbar">
@@ -1203,14 +1218,30 @@ export default function ResearchWorkspacePage() {
                     not automatically organisation-authored studies or study-linked publication records.
                   </p>
                   <div className="research-publication-toolbar">
-                    <label htmlFor="research-publication-search">Search the public catalogue</label>
-                    <input
-                      id="research-publication-search"
-                      type="search"
-                      value={publicationSearch}
-                      onChange={(event) => setPublicationSearch(event.target.value)}
-                      placeholder="Search title, authors, journal or topic"
-                    />
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-search">Search the public catalogue</label>
+                      <input
+                        id="research-publication-search"
+                        type="search"
+                        value={publicationSearch}
+                        onChange={(event) => setPublicationSearch(event.target.value)}
+                        placeholder="Title, author, journal or DOI"
+                      />
+                    </div>
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-year">Publication year</label>
+                      <select id="research-publication-year" value={publicationYear} onChange={(event) => setPublicationYear(event.target.value)}>
+                        <option value="">All years</option>
+                        {publicationYears.map((year) => <option key={year} value={year}>{year}</option>)}
+                      </select>
+                    </div>
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-topic">Research topic</label>
+                      <select id="research-publication-topic" value={publicationTopic} onChange={(event) => setPublicationTopic(event.target.value)}>
+                        <option value="">All topics</option>
+                        {publicationTopics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
+                      </select>
+                    </div>
                     <Link className="secondary-action" href="/research">Open public research page ↗</Link>
                   </div>
                   {publicPublicationsLoading ? (
