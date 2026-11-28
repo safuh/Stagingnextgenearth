@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost, clearSession, hasSession } from "@/lib/api";
+import {
+  filterResearchPublications,
+  researchPublicationFilterOptions,
+} from "@/lib/research-publications";
 
 interface Organization {
   id: string;
@@ -23,7 +27,9 @@ interface PublicResearchPublication {
     year?: number | string;
     publisher?: string;
     doi?: string;
-    topic?: string;
+    year_provenance?: string;
+    editorial_topic?: string;
+    editorial_topic_provenance?: string;
   } | null;
   published_at: string | null;
 }
@@ -163,6 +169,8 @@ export default function ResearchWorkspacePage() {
   const [publicPublicationsLoading, setPublicPublicationsLoading] = useState(false);
   const [publicPublicationsError, setPublicPublicationsError] = useState("");
   const [publicationSearch, setPublicationSearch] = useState("");
+  const [publicationYear, setPublicationYear] = useState("");
+  const [publicationTopic, setPublicationTopic] = useState("");
   const workspaceGeneration = useRef(0);
   const governanceRequest = useRef(0);
   const evidenceContextGeneration = useRef(0);
@@ -1156,14 +1164,13 @@ export default function ResearchWorkspacePage() {
   if (loading) return <main className="workspace-shell"><p>Loading research workspace…</p></main>;
 
   const count = (items: Dataset[], status: string) => items.filter((item) => item.status === status).length;
-  const normalizedPublicationSearch = publicationSearch.trim().toLowerCase();
-  const visiblePublications = publicPublications.filter((item) =>
-    [item.title, item.summary, item.slug, item.metadata_json?.topic]
-      .filter((value): value is string => typeof value === "string")
-      .join(" ")
-      .toLowerCase()
-      .includes(normalizedPublicationSearch),
-  );
+  const { years: publicationYears, topics: publicationTopics } =
+    researchPublicationFilterOptions(publicPublications);
+  const visiblePublications = filterResearchPublications(publicPublications, {
+    search: publicationSearch,
+    year: publicationYear,
+    topic: publicationTopic,
+  });
   return (
     <main className="workspace-shell">
       <header className="workspace-topbar">
@@ -1203,14 +1210,30 @@ export default function ResearchWorkspacePage() {
                     not automatically organisation-authored studies or study-linked publication records.
                   </p>
                   <div className="research-publication-toolbar">
-                    <label htmlFor="research-publication-search">Search the public catalogue</label>
-                    <input
-                      id="research-publication-search"
-                      type="search"
-                      value={publicationSearch}
-                      onChange={(event) => setPublicationSearch(event.target.value)}
-                      placeholder="Search title, authors, journal or topic"
-                    />
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-search">Search the public catalogue</label>
+                      <input
+                        id="research-publication-search"
+                        type="search"
+                        value={publicationSearch}
+                        onChange={(event) => setPublicationSearch(event.target.value)}
+                        placeholder="Title, author, journal or DOI"
+                      />
+                    </div>
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-year">Publication year</label>
+                      <select id="research-publication-year" value={publicationYear} onChange={(event) => setPublicationYear(event.target.value)}>
+                        <option value="">All years</option>
+                        {publicationYears.map((year) => <option key={year} value={year}>{year}</option>)}
+                      </select>
+                    </div>
+                    <div className="research-filter-field">
+                      <label htmlFor="research-publication-topic">Editorial topic</label>
+                      <select id="research-publication-topic" value={publicationTopic} onChange={(event) => setPublicationTopic(event.target.value)}>
+                        <option value="">All topics</option>
+                        {publicationTopics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
+                      </select>
+                    </div>
                     <Link className="secondary-action" href="/research">Open public research page ↗</Link>
                   </div>
                   {publicPublicationsLoading ? (
@@ -1231,8 +1254,11 @@ export default function ResearchWorkspacePage() {
                         const authorText = typeof authors === "string"
                           ? authors
                           : Array.isArray(authors) ? authors.join(", ") : null;
-                        const topic = publication.metadata_json?.topic;
+                        const topic = publication.metadata_json?.editorial_topic;
                         const year = publication.metadata_json?.year ?? publication.metadata_json?.publication_date;
+                        const yearLabel = publication.metadata_json?.year_provenance
+                          ? "Catalogue year · verify against DOI"
+                          : "Publication year";
                         return (
                           <article className="research-publication-card" key={publication.id}>
                             <div className="research-publication-card-top">
@@ -1241,10 +1267,24 @@ export default function ResearchWorkspacePage() {
                             </div>
                             <h3>{publication.title}</h3>
                             {authorText && <p className="research-publication-authors">{authorText}</p>}
+                            {publication.metadata_json?.publisher && (
+                              <p className="research-publication-publisher">{publication.metadata_json.publisher}</p>
+                            )}
                             {publication.summary && <p className="research-publication-summary">{publication.summary}</p>}
+                            {publication.metadata_json?.doi && (
+                              <p className="research-publication-doi">DOI: {publication.metadata_json.doi}</p>
+                            )}
                             <div className="research-publication-meta">
-                              {typeof topic === "string" && <span>{topic}</span>}
-                              {(typeof year === "string" || typeof year === "number") && <span>{year}</span>}
+                              {typeof topic === "string" && (
+                                <span title={publication.metadata_json?.editorial_topic_provenance || "Editorial discovery classification"}>
+                                  EDITORIAL · {topic}
+                                </span>
+                              )}
+                              {(typeof year === "string" || typeof year === "number") && (
+                                <span title={publication.metadata_json?.year_provenance || undefined}>
+                                  {yearLabel} · {year}
+                                </span>
+                              )}
                               <span>NextGen For Earth public website</span>
                             </div>
                             {publication.source_url && (
@@ -1258,7 +1298,7 @@ export default function ResearchWorkspacePage() {
                     </div>
                   )}
                   <div className="research-publication-footer">
-                    <span>Source records are preserved as published website listings; metadata is not silently enriched or re-attributed.</span>
+                    <span>Author, venue and DOI details are source-attributed. Editorial topic tags are added for discovery and are not source-reported keywords.</span>
                     <a href="#research-study-registration">Create a new research study ↓</a>
                   </div>
                 </section>

@@ -64,6 +64,7 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
             people = list((await session.scalars(select(OrganizationPerson))).all())
             partners = list((await session.scalars(select(InstitutionalPartner))).all())
             content = list((await session.scalars(select(PublicContentEntry))).all())
+            publications = [item for item in content if item.content_type == "publication"]
             climate_releases = list((await session.scalars(select(ClimatePublicRelease))).all())
             climate_events = list((await session.scalars(select(ClimatePublicReleaseEvent))).all())
             climate_insights = [item for item in content if item.content_type == "climate_insight"]
@@ -79,6 +80,33 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
                 "people_with_images": sum(bool(item.profile_image_url) for item in people),
                 "partners": len(partners),
                 "content": len(content),
+                "publication_metadata_complete": (
+                    len(publications) == len(seed_nextgen_demo.PUBLICATIONS)
+                    and all(
+                        isinstance((item.metadata_json or {}).get("authors"), str)
+                        and isinstance((item.metadata_json or {}).get("publisher"), str)
+                        and isinstance((item.metadata_json or {}).get("year"), int)
+                        and (item.metadata_json or {}).get("year_provenance")
+                        == (
+                            "Seed catalogue year; verify against the DOI landing page "
+                            "before treating as canonical."
+                        )
+                        and isinstance((item.metadata_json or {}).get("editorial_topic"), str)
+                        and (item.metadata_json or {}).get("editorial_topic_provenance")
+                        == (
+                            "Editorial discovery tag assigned by the demo seed; "
+                            "not a source-reported keyword."
+                        )
+                        and (item.metadata_json or {}).get("doi")
+                        == (item.source_url or "").removeprefix("https://doi.org/")
+                        for item in publications
+                    )
+                ),
+                "publication_topics": sorted({
+                    (item.metadata_json or {}).get("editorial_topic")
+                    for item in publications
+                    if isinstance((item.metadata_json or {}).get("editorial_topic"), str)
+                }),
                 "climate_releases": len(climate_releases),
                 "climate_releases_published": all(
                     item.state == "published" and item.provider_id == "demo-synthetic"
@@ -162,6 +190,12 @@ def test_demo_seed_is_idempotent_and_publishes_source_catalogue_safely(
         + len(seed_nextgen_demo.STORY)
         + 2
     )
+    assert first["publication_metadata_complete"] is True
+    assert first["publication_topics"] == sorted({
+        "Climate & Health", "Youth & Climate", "Kenya Field Study",
+        "Climate Science", "Maternal Health", "Youth Health",
+        "Community Engagement",
+    })
     assert first["gallery_images"] >= 5
     assert first["climate_releases"] == 2
     assert first["climate_releases_published"] is True
