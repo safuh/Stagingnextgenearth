@@ -71,7 +71,7 @@ class ClimateReleaseCreate(BaseModel):
     limitations: str = Field(min_length=5, max_length=4000)
     terms_url: HttpUrl | None = None
     citation_url: HttpUrl | None = None
-    source_ingestion_run_id: str
+    source_ingestion_run_id: str | None
 
     @field_validator("geography_label")
     @classmethod
