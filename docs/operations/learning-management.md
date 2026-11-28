@@ -109,16 +109,13 @@ interface only; all permissions remain enforced by the API.
 
 ## Applying the curriculum pilot seed
 
-The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculum_content.json`: Research Methods (8 modules / 25 lessons), Climate and Health Resilience (6 / 19), Youth Climate Stewardship (8 / 24), and Indigenous and Community Knowledge (6 / 18). The complete staging seed contains 28 ordered modules and 86 lessons, with lesson text, applied exercises, review/safeguarding notes and source links. To apply or refresh the demo courses, lessons, official source links and formative quizzes, run:
+The four-track pilot curriculum is maintained in `scripts/data/nextgen_curriculum_content.json`. To apply or refresh the demo courses, lessons, official source links and formative quizzes, run:
 
 ```bash
 python scripts/seed_nextgen_demo.py --organization-slug next-gen-for-earth-demo
 ```
 
 The Render API container startup already invokes this idempotent seed command for the default demo organisation `next-gen-for-earth-demo`, so the staging deployment refreshes the demo catalogue. For a different organisation slug, run the command explicitly in the target environment after backup/approval. The seed updates managed demo lesson text and quiz configuration to match the versioned JSON source; do not use it as a general production content migration where staff-authored lesson edits must be preserved.
-
-
-Published course outlines and lesson content are also available without learner sign-in through `GET /api/public/organizations/{organization_slug}/courses/{course_slug}/curriculum`. This public read model returns only published course content; draft courses and internal learner, assessment-answer and staff records are excluded. The learner discovery page renders the module and lesson outline before application, while completion tracking and classroom actions still require approved enrolment.
 
 The tracks are labelled pilot content and require subject-matter review before cohort delivery. Research, clinical, safeguarding and community-knowledge material must be approved by the relevant organisational leads. Course completion certificates certify platform completion only; they do not imply professional accreditation.
 
@@ -146,6 +143,7 @@ Programme and organisation reports distinguish **unique learners** from **course
 
 Course managers can inspect an individual learner's activity at `GET /courses/{course_id}/learners/{learner_id}/progress`. The route verifies the organisation/course relationship, requires a learning-management role and returns only the matching course enrolment, lesson completion timestamps, assessment attempts/evaluation outcomes, attendance records and mentee-side mentorship assignments. It does not expose mentor notes or unrelated course history. The learning admin roster provides an on-demand expandable activity view; it fetches details only when a staff member opens a learner row.
 
+
 ## Draft curriculum editing
 
 Course metadata, module outlines and lesson content can be updated while a course is in the `draft` state:
@@ -157,3 +155,12 @@ Course metadata, module outlines and lesson content can be updated while a cours
 All three operations require a course-management role and verify that the target belongs to the route organisation and course. Empty patch bodies and explicit nulls for required fields are rejected. Position conflicts return HTTP 409. Published and archived courses are immutable through these endpoints; the API returns HTTP 409 rather than silently changing content that learners may already be using.
 
 The learning admin now exposes draft course, module and lesson editing forms. Published courses are presented as read-only. This is the first authoring-lifecycle increment, not complete version governance: immutable published snapshots, independent curriculum review, revision history and learner progress pinned to a curriculum version remain outstanding in [issue #144](https://github.com/safuh/Stagingnextgenearth/issues/144).
+
+
+## Cohorts and intakes
+
+A learning cohort is an organisation-owned intake linked to one programme. Cohort codes are unique within an organisation. Course enrolments may be assigned to a cohort only when the course belongs to the same programme and the cohort is open for assignments. Existing enrolments remain unassigned after migration; the new `cohort_id` is nullable and does not rewrite historical records.
+
+Cohort capacity is measured in distinct learners, not enrolment rows. A learner enrolled in multiple courses within the same cohort consumes one cohort place. Assignment and transfer operations lock the cohort row before checking capacity. Each create, update, assignment and unassignment is written to the organisation audit ledger. Cohort listing and management require a programme-management role; learners receive cohort details only through their own enrolment response.
+
+The initial lifecycle supports draft, open, completed and archived operations. Live activation is deliberately blocked until safeguarding, consent, retention and authorised-facilitator readiness controls are implemented and verified. Cohort capacity cannot be reduced below the current distinct assigned-learner count. Programme/organisation tenant checks are applied when creating cohorts and assigning course enrolments.
