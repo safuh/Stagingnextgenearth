@@ -297,6 +297,16 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
         assert [item["id"] for item in programme_courses.json()] == [course_id]
         assert all("created_by" not in item for item in public_courses.json())
         assert all("configuration" not in item for item in public_courses.json())
+        public_curriculum = client.get(
+            "/api/public/organizations/learning-lab/courses/community-climate-action/curriculum",
+        )
+        assert public_curriculum.status_code == 200
+        assert public_curriculum.json()["title"] == "Community Climate Action"
+        assert public_curriculum.json()["modules"][0]["title"] == "Climate foundations and local risk"
+        assert public_curriculum.json()["modules"][0]["lessons"][0]["title"] == "Assessing local climate risks"
+        assert client.get(
+            "/api/public/organizations/learning-lab/courses/not-published/curriculum",
+        ).status_code == 404
 
         resource = client.post(
             f"{base}/courses/{course_id}/resources",
