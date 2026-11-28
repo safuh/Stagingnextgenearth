@@ -302,7 +302,7 @@ Learners will be able to:
 Before publishing any course:
 - [ ] Appoint a subject-matter lead and independent reviewer.
 - [ ] Confirm audience, language, reading level and delivery constraints.
-- [ ] Replace every placeholder with approved lesson content and accessible resources.
+- [ ] Review and approve the 26 substantive pilot lessons and their accessible resources; revise content to reflect local practice and organisational standards.
 - [ ] Confirm source citations, image permissions and reuse rights.
 - [ ] Validate outcomes, lesson alignment, quiz answer keys and rubrics.
 - [ ] Complete safeguarding, privacy, accessibility and cultural review.
