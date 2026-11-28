@@ -659,6 +659,10 @@ async def public_climate_overview(
         "release_count": len(releases),
         "indicators": sorted({row.indicator for row in releases}),
         "latest_published_at": releases[0].published_at.isoformat() if releases and releases[0].published_at else None,
+        "latest_data_period_end": max(
+            (row.period_end for row in releases), default=None
+        ).isoformat() if releases else None,
+        "latest_source_retrieved_at": None,
     }
 
 
