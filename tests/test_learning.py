@@ -431,12 +431,27 @@ def test_learning_course_lifecycle_and_certificate_verification(tmp_path: Path) 
             json={"status": "active"},
         )
         assert invalid_member_reactivation.status_code == 409
-        cohort_audit = client.get(f"/api/organizations/{org_id}/audit-events", headers=admin_headers)
+        cohort_audit = client.get(
+            f"/api/organizations/{org_id}/audit-events",
+            headers=admin_headers,
+        )
         assert cohort_audit.status_code == 200
-        assert any(event["action"] == "learning.cohort.created" for event in cohort_audit.json())
-        assert any(event["action"] == "learning.cohort.member_added" for event in cohort_audit.json())
-        assert any(event["action"] == "learning.cohort.status_changed" for event in cohort_audit.json())
-        assert any(event["action"] == "learning.cohort.member_status_changed" for event in cohort_audit.json())
+        assert any(
+            event["action"] == "learning.cohort.created"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.member_added"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.status_changed"
+            for event in cohort_audit.json()
+        )
+        assert any(
+            event["action"] == "learning.cohort.member_status_changed"
+            for event in cohort_audit.json()
+        )
 
         promoted_membership = client.get(
             f"/api/organizations/{org_id}/memberships/me",
