@@ -699,29 +699,35 @@ async def public_climate_overview(
     org = await session.scalar(select(Organization).where(Organization.slug == organization_slug))
     if org is None:
         raise HTTPException(404, "Organisation not found")
-    rows = await session.scalars(select(ClimatePublicRelease).where(
-        *_public_release_filters(org.id, request.app.state.settings),
-    ).order_by(ClimatePublicRelease.published_at.desc()).limit(100))
-    releases = rows.all()
-    source_run_ids = [
-        row.source_ingestion_run_id for row in releases if row.source_ingestion_run_id
-    ]
-    latest_source_retrieved_at = None
-    if source_run_ids:
-        latest_source_retrieved_at = await session.scalar(
-            select(func.max(ClimateIngestionRun.finished_at)).where(
-                ClimateIngestionRun.organization_id == org.id,
-                ClimateIngestionRun.id.in_(source_run_ids),
-            )
+    public_filters = _public_release_filters(org.id, request.app.state.settings)
+    release_stats = await session.execute(
+        select(
+            func.count(ClimatePublicRelease.id),
+            func.max(ClimatePublicRelease.published_at),
+            func.max(ClimatePublicRelease.period_end),
+        ).where(*public_filters)
+    )
+    release_count, latest_published_at, latest_data_period_end = release_stats.one()
+    indicators = await session.scalars(
+        select(ClimatePublicRelease.indicator).where(*public_filters).distinct()
+    )
+    latest_source_retrieved_at = await session.scalar(
+        select(func.max(ClimateIngestionRun.finished_at))
+        .join(
+            ClimatePublicRelease,
+            ClimatePublicRelease.source_ingestion_run_id == ClimateIngestionRun.id,
         )
-    latest_data_period_end = max(
-        (row.period_end for row in releases), default=None
+        .where(
+            ClimateIngestionRun.organization_id == org.id,
+            ClimatePublicRelease.organization_id == org.id,
+            *public_filters,
+        )
     )
     result: dict[str, object] = {
         "organization": org.name,
-        "release_count": len(releases),
-        "indicators": sorted({row.indicator for row in releases}),
-        "latest_published_at": releases[0].published_at.isoformat() if releases and releases[0].published_at else None,
+        "release_count": release_count,
+        "indicators": sorted(indicators.all()),
+        "latest_published_at": latest_published_at.isoformat() if latest_published_at else None,
         "latest_data_period_end": latest_data_period_end.isoformat() if latest_data_period_end else None,
         "latest_source_retrieved_at": (
             latest_source_retrieved_at.isoformat() if latest_source_retrieved_at else None
